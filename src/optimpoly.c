@@ -43,6 +43,8 @@ void vec_plus(double *a1, const double *a2);
 double inner_prod(const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
 void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
+void optim_poly_nlopt_run();
+void guesstimate_soln(double * x);
 
 // global variables
 static double q0[DOF];
@@ -61,6 +63,7 @@ int main(void) {
 
 	double initTime = getTime();
 	nlopt_example_run();
+	//optim_poly_nlopt_run();
 	printf("NLOPT took %f ms\n", (getTime() - initTime)/1e3);
 
 	return TRUE;
@@ -72,8 +75,9 @@ int main(void) {
 void optim_poly_nlopt_run() {
 
 	double val = 3.0;
-	double lb[OPTIM_DIM]; /* lower bounds */
-	double ub[OPTIM_DIM]; /* upper bounds */
+	static double lb[OPTIM_DIM]; /* lower bounds */
+	static double ub[OPTIM_DIM]; /* upper bounds */
+	static double x[OPTIM_DIM]; /* initial guess */
 
 	const_vec(OPTIM_DIM,-val,lb);
 	const_vec(OPTIM_DIM,val,ub);
@@ -86,16 +90,13 @@ void optim_poly_nlopt_run() {
 	double tol = 1e-8;
 	nlopt_set_xtol_rel(opt, 1e-4);
 
-	double x[OPTIM_DIM] = {0};  /* some initial guess */
 	double minf; /* the minimum objective value, upon return */
 
-	double init_time = getTime();
 	if (nlopt_optimize(opt, x, &minf) < 0) {
 	    printf("NLOPT failed!\n");
 	}
 	else {
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    printf("Optim took %f ms\n", (getTime() - init_time)/1e3);
 	}
 	nlopt_destroy(opt);
 }
@@ -112,6 +113,23 @@ void const_vec(const int n, const double val, double * vec) {
 }
 
 /*
+ * Estimate an initial solution for NLOPT
+ * 2*dof + 1 dimensional problem
+ *
+ * TODO: for now initializing to x = [q0,zeros,0.5]
+ */
+void guesstimate_soln(double * x) {
+
+	// initialize first dof entries to q0
+	int i;
+	for (i = 0; i < DOF; i++) {
+		x[i] = q0[i];
+		x[i+DOF] = 0.0;
+	}
+	x[2*DOF] = 0.5;
+}
+
+/*
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
@@ -120,13 +138,12 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
 	int i;
 	double a1[DOF];
 	double a2[DOF];
-	double q0dot[DOF]; // all zeros
-	double qfdot[DOF]; // all zeros
-	double qf[DOF]; // opt value
+	static double q0dot[DOF]; // all zeros
+	static double qfdot[DOF]; // all zeros
+	static double qf[DOF]; // opt value
 	double T = x[2*DOF];
 
 	if (grad) {
-		//TODO:
 
 		for (i = 0; i < DOF; i++) {
 			qf[i] = x[i];
@@ -220,7 +237,7 @@ void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x) 
 }
 
 /*
- * NLOPT nonlinear optimization example
+ * NLOPT nonlinear optimization example modified
  * http://ab-initio.mit.edu/wiki/index.php/NLopt_Tutorial
  *
  */
