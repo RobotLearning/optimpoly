@@ -20,22 +20,34 @@
 #include "SL_user.h"
 #include "SL_kinematics.h"
 
+// defines
+#define DOF 7
+#define OPTIM_DIM 2*DOF+1
+
 typedef struct {
     double a, b;
 } my_constraint_data;
 
+// example functions
 double myfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 double myconstraint(unsigned n, const double *x, double *grad, void *data);
 void nlopt_example_run();
+
+// utility
 long getTime();
 
+// optimization methods
+double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
+void vec_minus(double *a1, const double *a2);
+void vec_plus(double *a1, const double *a2);
+double inner_prod(const double *a1, const double *a2);
+void const_vec(const int n, const double val, double * vec);
+void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
+
 // global variables
-int dof = 7;
-double q0[dof];
+static double q0[DOF];
 
 int main(void) {
-
-	SL_DJstate joint_des_state;
 
 	// initialize the variables
 	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
@@ -55,31 +67,80 @@ int main(void) {
 }
 
 /*
+ * NLOPT optimization routine for table tennis traj gen
+ */
+void optim_poly_nlopt_run() {
+
+	double val = 3.0;
+	double lb[OPTIM_DIM]; /* lower bounds */
+	double ub[OPTIM_DIM]; /* upper bounds */
+
+	const_vec(OPTIM_DIM,-val,lb);
+	const_vec(OPTIM_DIM,val,ub);
+
+	nlopt_opt opt;
+	opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM); /* algorithm and dimensionality */
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
+	nlopt_set_min_objective(opt, costfunc, NULL);
+	double tol = 1e-8;
+	nlopt_set_xtol_rel(opt, 1e-4);
+
+	double x[OPTIM_DIM] = {0};  /* some initial guess */
+	double minf; /* the minimum objective value, upon return */
+
+	double init_time = getTime();
+	if (nlopt_optimize(opt, x, &minf) < 0) {
+	    printf("NLOPT failed!\n");
+	}
+	else {
+	    printf("Found minimum at f = %0.10g\n", minf);
+	    printf("Optim took %f ms\n", (getTime() - init_time)/1e3);
+	}
+	nlopt_destroy(opt);
+}
+
+/*
+ * Returns constant vector of val value from 1 to n
+ */
+void const_vec(const int n, const double val, double * vec) {
+
+	int i;
+	for (i = 0; i < n; i++) {
+		vec[i] = val;
+	}
+}
+
+/*
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
 
 	int i;
-	const int dof = 7;
-	double a1[dof];
-	double a2[dof];
-	double q0dot[dof]; // all zeros
-	double qfdot[dof]; // all zeros
-	double qf[dof]; // opt value
-	double qfdot[dof];
-	double T = x[2*dof];
+	double a1[DOF];
+	double a2[DOF];
+	double q0dot[DOF]; // all zeros
+	double qfdot[DOF]; // all zeros
+	double qf[DOF]; // opt value
+	double T = x[2*DOF];
 
 	if (grad) {
 		//TODO:
 
-		for (i = 0; i < dof; i++) {
+		for (i = 0; i < DOF; i++) {
 			qf[i] = x[i];
-			qfdot[i] = x[i+dof];
+			qfdot[i] = x[i+DOF];
 			grad[i] = (6/pow(T,3))*(qf[i]-q0[i]) - (3/(T*T))*(q0dot[i]+qfdot[i]);
-			grad[i+dof] = (-3/(T*T))*(qf[i]-q0[i]) + (1/T)*(2*qfdot[i]+q0dot[i]);
+			grad[i+DOF] = (-3/(T*T))*(qf[i]-q0[i]) + (1/T)*(2*qfdot[i]+q0dot[i]);
 		}
-		grad[2*dof] = (-9/pow(T,4))*inner_prod()//time derivative of cost J
+		//time derivative of cost J
+		vec_minus(qf,q0);
+		//assuming q0dot = 0 here;
+		grad[2*DOF] = (-9/pow(T,4))*inner_prod(qf,qf) +
+					  (6/pow(T,3))*inner_prod(qf,qfdot) +
+					  (3/(T*T))*inner_prod(q0dot,qfdot) -
+					  (1/(T*T))*inner_prod(qfdot,qfdot);
 	}
 
 
@@ -87,7 +148,8 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_poly_coeff(a1,a2,q0,x);
 
-	return T * (3*T^2*inner_prod(a1,a1) + 3*T*inner_prod(a1,a2) + inner_prod(a2,a2));
+	return T * (3*T*T*inner_prod(a1,a1) +
+			3*T*inner_prod(a1,a2) + inner_prod(a2,a2));
 }
 
 //
@@ -101,6 +163,29 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
 //               -(1/T^2)*((qfdot+2*q0dot)'*(qfdot+2*q0dot));
 //end
 
+
+/*
+ * Returns a1 - a2 vector into a1, assuming both have dof = 7 length
+ */
+void vec_minus(double *a1, const double *a2) {
+
+	int i;
+	for (i = 0; i < DOF; i++) {
+		a1[i] = a1[i] - a2[i];
+	}
+}
+
+/*
+ * Returns a1 + a2 vector into a1, assuming both have dof = 7 length
+ */
+void vec_plus(double *a1, const double *a2) {
+
+	int i;
+	for (i = 0; i < DOF; i++) {
+		a1[i] = a1[i] + a2[i];
+	}
+}
+
 /*
  * Returns the inner product between two vectors of size N_DOFS
  */
@@ -108,7 +193,7 @@ double inner_prod(const double *a1, const double *a2) {
 
 	int i;
 	double val = 0.0;
-	for (i = 0; i < dof; i++) {
+	for (i = 0; i < DOF; i++) {
 		val += a1[i]*a2[i];
 	}
 
@@ -122,13 +207,13 @@ double inner_prod(const double *a1, const double *a2) {
 void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x) {
 
 	// variables to be optimized
-	static double q0dot[dof];
+	static double q0dot[DOF];
 	int i;
-	double T = x[2*dof];
+	double T = x[2*DOF];
 
-	for (i = 0; i < dof; i++) {
-		a1[i] = (2/pow(T,3))*(q0[i]-x[i]) + (1/(T*T))*(q0dot[i] + x[i+dof]);
-		a2[i] = (3/(T*T))*(x[i]-q0[i]) - (1/T)*(x[i+dof] + 2*q0dot[i]);
+	for (i = 0; i < DOF; i++) {
+		a1[i] = (2/pow(T,3))*(q0[i]-x[i]) + (1/(T*T))*(q0dot[i] + x[i+DOF]);
+		a2[i] = (3/(T*T))*(x[i]-q0[i]) - (1/T)*(x[i+DOF] + 2*q0dot[i]);
 	}
 
 	return;
