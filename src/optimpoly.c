@@ -18,11 +18,14 @@
 // SL variables and kinematics
 #include "SL.h"
 #include "SL_user.h"
+#include "SL_user_common.h"
+//#include "SL_common.h"
 #include "SL_kinematics.h"
 
 // defines
 #define DOF 7
 #define OPTIM_DIM 2*DOF+1
+#define MAX_VEL 200
 
 typedef struct {
     double a, b;
@@ -45,6 +48,7 @@ void const_vec(const int n, const double val, double * vec);
 void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
 void optim_poly_nlopt_run();
 void guesstimate_soln(double * x);
+void set_bounds(double *lb, double *ub);
 
 // global variables
 static double q0[DOF];
@@ -79,8 +83,7 @@ void optim_poly_nlopt_run() {
 	static double ub[OPTIM_DIM]; /* upper bounds */
 	static double x[OPTIM_DIM]; /* initial guess */
 
-	const_vec(OPTIM_DIM,-val,lb);
-	const_vec(OPTIM_DIM,val,ub);
+	set_bounds(lb,ub);
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM); /* algorithm and dimensionality */
@@ -99,6 +102,35 @@ void optim_poly_nlopt_run() {
 	    printf("Found minimum at f = %0.10g\n", minf);
 	}
 	nlopt_destroy(opt);
+}
+
+/*
+ * Set upper and lower bounds on the optimization
+ */
+void set_bounds(double *lb, double *ub) {
+
+	// lower bounds and upper bounds for qf are the joint limits
+	int i;
+	for (i = 1; i <= DOF; i++) {
+		ub[i-1] = joint_range[i][MAX_THETA];
+		lb[i-1] = joint_range[i][MIN_THETA];
+		ub[i-1+DOF] = MAX_VEL;
+		lb[i-1+DOF] = -MAX_VEL;
+	}
+	// constraints on final time
+	ub[2*DOF] = 1.0;
+	lb[2*DOF] = 0.0;
+}
+
+/*
+ * Load the joint limits from config/ file into joint_range array
+ *
+ */
+void load_joint_limits() {
+
+	char *fname = "robolab/barrett/config/SensorOffset.cf";
+	read_sensor_offsets(fname);
+
 }
 
 /*
