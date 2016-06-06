@@ -21,11 +21,15 @@
 #include "SL_user_common.h"
 #include "SL_common.h"
 #include "SL_kinematics_body.h"
+#include "table_tennis_common.h"
 
 // defines
+#define CART 3
 #define DOF 7
 #define OPTIM_DIM 2*DOF+1
 #define MAX_VEL 200
+#define MAX_ACC 200
+#define dt 0.01
 
 // global variables
 char joint_names[][20]= {
@@ -43,6 +47,7 @@ char joint_names[][20]= {
 int  link2endeffmap[] = {0,PALM};
 
 static double q0[DOF];
+static Matrix ballMat;
 
 // utility method
 long get_time();
@@ -50,6 +55,8 @@ void vec_minus(double *a1, const double *a2);
 void vec_plus(double *a1, const double *a2);
 double inner_prod(const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
+void first_order_hold(double *vec, double T);
+void print_optim_vec(double *x);
 
 // optimization related methods
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
@@ -59,7 +66,13 @@ void optim_poly_nlopt_run();
 void guesstimate_soln(double * x);
 void set_bounds(double *lb, double *ub);
 void load_joint_limits();
+
+// SL functions copied for convenience
+void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c);
+void setDefaultEndeffector(void);
 int read_sensor_offsets(char *fname);
+void integrateBallState(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction
+int checkForBallTableContact(SL_Cstate state);
 
 
 int main(void) {
@@ -73,6 +86,35 @@ int main(void) {
 	q0[4] = -1.57;
 	q0[5] = 0.1;
 	q0[6] = 0.3;
+
+	// predict for Tpred seconds
+	double Tpred = 1.0;
+	int N = Tpred/dt;
+	int i,j;
+
+	SL_Cstate ballPred;
+	bzero((char *)&(ballPred), sizeof(ballPred));
+	// initialize the ball
+
+	ballMat = my_matrix(1, N, 1, 2*CART);
+	ballPred.x[1] = 0.1972;
+	ballPred.x[2] = -2.4895;
+	ballPred.x[3] = -0.5040;
+	ballPred.xd[1] = -1.7689;
+	ballPred.xd[2] = 4.7246;
+	ballPred.xd[3] = -1.0867;
+
+	// predict Tpred seconds into the future
+	int bounce = FALSE;
+
+	for (i = 1; i <= N; i++) {
+		integrateBallState(ballPred,&ballPred,dt,&bounce);
+		for (j = 0; j < CART; j++) {
+			ballMat[i][j] = ballPred.x[j+1];
+			ballMat[i][j+CART] = ballPred.xd[j+1];
+		}
+	}
+
 
 	double initTime = get_time();
 	//nlopt_example_run();
@@ -98,7 +140,8 @@ void optim_poly_nlopt_run() {
 	const_vec(OPTIM_DIM,1e-2,tol);
 
 	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM); /* algorithm and dimensionality */
+	opt = nlopt_create(NLOPT_GN_ISRES, OPTIM_DIM); /* LN = does not require gradients */
+	//opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM); /* algorithm and dimensionality */
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_min_objective(opt, costfunc, NULL);
@@ -106,8 +149,8 @@ void optim_poly_nlopt_run() {
 
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	//double maxtime = 1e-3;
-	//nlopt_set_maxtime(opt, maxtime);
+	double maxtime = 10.0;
+	nlopt_set_maxtime(opt, maxtime);
 
 	guesstimate_soln(x);
 
@@ -118,8 +161,35 @@ void optim_poly_nlopt_run() {
 	}
 	else {
 	    printf("Found minimum at f = %0.10g\n", minf);
+	    // give info on solution vector
+	    print_optim_vec(x);
+	    // give info on constraint violation
+	    double grad = FALSE;
+	    double violation[CART] = {0.0};
+	    kinematics_constr(3, violation, 3, x, &grad, NULL);
+	    printf("Constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
+
 	}
 	nlopt_destroy(opt);
+}
+
+/*
+ * Prints the 2*DOF + 1 dimensional solution in user-friendly format
+ */
+void print_optim_vec(double *x) {
+
+	int i;
+	printf("qf = [");
+	for (i = 0; i < DOF; i++) {
+		printf("%.2f  ", x[i]);
+	}
+	printf("]\n");
+	printf("qfdot = [");
+	for (i = 0; i < DOF; i++) {
+		printf("%.2f  ", x[i+DOF]);
+	}
+	printf("]\n");
+	printf("T = %.2f\n", x[2*DOF]);
 }
 
 /*
@@ -152,7 +222,90 @@ void load_joint_limits() {
 }
 
 /*
- * Copied from SL_common.h. Dont want to call the function from SL because
+ * Integrate the ball state dt seconds later. Used for prediction
+ * Using symplectic Euler.
+ *
+ */
+void integrateBallState(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce) {
+
+	int i;
+	double velBall;
+	static double slack = 0.0001;
+
+	// does it touch the floor?
+	if (ballState.x[_Z_] >= floor_level) {
+
+		/*****************************************/
+		// Symplectic Euler for No-Contact-Situation (Flight model)
+
+		velBall = sqrt(sqr(ballState.xd[_X_]) + sqr(ballState.xd[_Y_]) + sqr(ballState.xd[_Z_]));
+
+		if (fabs(velBall) > slack) {
+
+			ballPred->xdd[_X_] = -ballState.xd[_X_] * Cdrag * velBall;
+			ballPred->xdd[_Y_] = -ballState.xd[_Y_] * Cdrag * velBall;
+			ballPred->xdd[_Z_] = -intern_gravity - ballState.xd[_Z_] * Cdrag * velBall;
+		}
+		else {
+			ballPred->xdd[_X_] = 0.;
+			ballPred->xdd[_Y_] = 0.;
+			ballPred->xdd[_Z_] = -intern_gravity;
+		}
+
+		ballPred->xd[_X_] = ballState.xd[_X_] + ballPred->xdd[_X_] * deltat;
+		ballPred->xd[_Y_] = ballState.xd[_Y_] + ballPred->xdd[_Y_] * deltat;
+		ballPred->xd[_Z_] = ballState.xd[_Z_] + ballPred->xdd[_Z_] * deltat;
+		ballPred->x[_X_] =  ballState.x[_X_] + ballPred->xd[_X_] * deltat;
+		ballPred->x[_Y_] =  ballState.x[_Y_] + ballPred->xd[_Y_] * deltat;
+		ballPred->x[_Z_] =  ballState.x[_Z_] + ballPred->xd[_Z_] * deltat;
+
+		if (checkForBallTableContact(*ballPred)) {
+
+			//printf("Expecting a bounce!\n");
+			ballPred->x[_Z_]  = floor_level - table_height  + ball_radius;
+			ballPred->xd[_Z_] = -CRT * ballPred->xd[_Z_];
+			ballPred->xd[_Y_] = CFTY * ballPred->xd[_Y_];
+			ballPred->xd[_X_] = CFTX * ballPred->xd[_X_];
+			*bounce = TRUE;
+		}
+	}
+	else { // it touches the floor
+		for (i = 1; i <= N_CART; i++) {
+			ballPred->xd[i] = 0.;
+			ballPred->x[i]  = ballState.x[i];
+		}
+	}
+
+}
+
+/*
+ * Condition to determine if ball hits the table
+ * Useful for prediction including a rebound model
+ * Useful also in KF/EKF filtering.
+ */
+int checkForBallTableContact(SL_Cstate state) {
+
+	int sign;
+	if (dist_to_table > 0)
+		sign = 1;
+	else
+		sign = -1;
+
+	double center_table = dist_to_table + sign * 0.5 * table_length;
+	double dist_to_center_y = fabs(center_table - state.x[_Y_]);
+	double dist_to_center_x = fabs(table_center - state.x[_X_]);
+	double dist_to_table_plane = state.x[_Z_] - (floor_level - table_height + ball_radius);
+
+	if (dist_to_center_y < table_length/2.
+		&& dist_to_center_x <= table_width/2.
+		&& dist_to_table_plane <= 0 && state.xd[_Z_] <= 0)
+		return TRUE;
+	else
+		return FALSE;
+}
+
+/*
+ * Copied from SL_common. Dont want to call the function from SL because
  * we have to include a lot of extra SL files
  *
  */
@@ -192,6 +345,36 @@ int read_sensor_offsets(char *fname) {
   fclose(in);
 
   return TRUE;
+
+}
+
+/*
+ *
+ * Copied from SL_common. Dont want to call the function from SL because
+ * we have to include a lot of extra SL files
+ *
+
+ computes one column for the geometric jacobian of a revolute joint
+ from the given input vectors
+
+ *******************************************************************************
+ Function Parameters: [in]=input,[out]=output
+
+ \param[in]     p    : position of endeffector
+ \param[in]     pi   : position of joint origin
+ \param[in]     zi   : unit vector of joint axis
+ \param[out]    c    : column vector of Jacobian
+
+ ******************************************************************************/
+void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c) {
+  int i,j;
+
+  c[1] = zi[2] * (p[3]-pi[3]) - zi[3] * (p[2]-pi[2]);
+  c[2] = zi[3] * (p[1]-pi[1]) - zi[1] * (p[3]-pi[3]);
+  c[3] = zi[1] * (p[2]-pi[2]) - zi[2] * (p[1]-pi[1]);
+  c[4] = zi[1];
+  c[5] = zi[2];
+  c[6] = zi[3];
 
 }
 
@@ -270,10 +453,40 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 
 	int i;
 
-	double dt = 0.02;
-	double **ballPred = (double **) data;
+	//double **ballPred = (double **) data;
 	double T = x[2*DOF];
+	static double ballPred[CART];
 	int N = T/dt;
+
+	first_order_hold(ballPred,T);
+
+	static Matrix  link_pos_des;
+	static Matrix  joint_cog_mpos_des;
+	static Matrix  joint_origin_pos_des;
+	static Matrix  joint_axis_pos_des;
+	static Matrix  Alink_des[N_LINKS+1];
+	static int     firsttime = TRUE;
+
+	/* initialization of static variables */
+	if (firsttime) {
+		firsttime = FALSE;
+
+		link_pos_des         = my_matrix(0,N_LINKS,1,3);
+		joint_cog_mpos_des   = my_matrix(0,N_DOFS,1,3);
+		joint_origin_pos_des = my_matrix(0,N_DOFS,1,3);
+		joint_axis_pos_des   = my_matrix(0,N_DOFS,1,3);
+
+		for (i = 0; i <= N_LINKS; ++i)
+			Alink_des[i] = my_matrix(1,4,1,4);
+
+		// initialize the base variables
+		bzero((void *) &base_state, sizeof(base_state));
+		bzero((void *) &base_orient, sizeof(base_orient));
+		base_orient.q[_Q0_] = 1.0;
+
+		// the the default endeffector parameters
+		setDefaultEndeffector();
+	}
 
 	if (grad) {
 		// compute gradient of kinematics = jacobian
@@ -283,17 +496,71 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 		grad[2] = 0.0;
 	}
 
+	// extract state information from array to joint_des_state structure
+	for (i = 1; i <= DOF; i++) {
+		joint_des_state[i].th = x[i-1];
+		joint_des_state[i].thd = x[i-1+DOF];
+	}
 
 
 	/* compute the desired link positions */
-	linkInformationDes(joint_des_state, &base_state, &base_orient,endeff,
+	linkInformationDes(joint_des_state, &base_state, &base_orient, endeff,
 			           joint_cog_mpos_des, joint_axis_pos_des, joint_origin_pos_des,
 			           link_pos_des, Alink_des);
 
 	/* the desired endeffector information */
-	for (i = 1; i <= 3; ++i) {
-		result[i-1] = link_pos_des[6][i] - ballPred[i-1][N];
+	for (i = 1; i <= 3; i++) {
+		result[i-1] = link_pos_des[6][i] - ballPred[i-1];
 	}
+
+}
+
+/*
+ * First order hold to interpolate linearly at time T between ball prediction matrix ballMat entries
+ *
+ * TODO: NO Checking for extrapolation!
+ */
+void first_order_hold(double *ballPred, double T) {
+
+	int N = (int) (T/dt);
+	double Tdiff = T - N*dt;
+	static int iter;
+
+	printf("T = %f\t", T);
+	printf("Iter no = %d\n", iter++);
+
+
+	int i;
+	for (i = 1; i <= CART; i++) {
+		if (N < 100)
+			ballPred[i-1] = ballMat[N][i] + (Tdiff/dt) * (ballMat[N+1][i] - ballMat[N][i]);
+		else
+			ballPred[i-1] = ballMat[N][i];
+	}
+
+}
+
+/*
+ * Copied from SL_user_common.c for convenience
+ * TODO: is this correct?
+ *
+ */
+void setDefaultEndeffector(void) {
+
+
+	endeff[RIGHT_HAND].m       = 0.0;
+	endeff[RIGHT_HAND].mcm[_X_]= 0.0;
+	endeff[RIGHT_HAND].mcm[_Y_]= 0.0;
+	endeff[RIGHT_HAND].mcm[_Z_]= 0.0;
+	endeff[RIGHT_HAND].x[_X_]  = 0.0;
+	endeff[RIGHT_HAND].x[_Y_]  = 0.0;
+	endeff[RIGHT_HAND].x[_Z_]  = 0.08531+0.06;
+	endeff[RIGHT_HAND].a[_A_]  = 0.0;
+	endeff[RIGHT_HAND].a[_B_]  = 0.0;
+	endeff[RIGHT_HAND].a[_G_]  = 0.0;
+
+	// attach the racket
+	endeff[RIGHT_HAND].x[_Z_] = .3;
 
 }
 
