@@ -22,22 +22,85 @@ int main(void) {
 	q0[5] = 0.1;
 	q0[6] = 0.3;
 
+	// initialize ball
 	// predict for Tpred seconds
 	double Tpred = 1.0;
-	int N = Tpred/dt;
-	int i,j;
+	init_ball_state();
+	predict_ball_state(Tpred);
 
-	SL_Cstate ballPred;
+	double initTime = get_time();
+	//nlopt_example_run();
+	optim_poly_nlopt_run();
+	printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
+
+	// test the lookup value to see if constraint is not violated
+	printf("Lookup values:\n");
+	double x[OPTIM_DIM];
+	lookup(x);
+	test_constraint(x);
+
+	return TRUE;
+}
+
+/*
+ *
+ * Set the ball values to a reasonable value
+ * SO FAR setting it into values for which optimization solution is known from MATLAB
+ *
+ * Using the ballPred structure from table_tennis_common.h
+ */
+void init_ball_state() {
+
 	bzero((char *)&(ballPred), sizeof(ballPred));
 	// initialize the ball
 
-	ballMat = my_matrix(1, N, 1, 2*CART);
 	ballPred.x[1] = 0.1972;
 	ballPred.x[2] = -2.4895;
 	ballPred.x[3] = -0.5040;
 	ballPred.xd[1] = -1.7689;
 	ballPred.xd[2] = 4.7246;
 	ballPred.xd[3] = -1.0867;
+
+}
+
+/*
+ *
+ * Test the solution found by using a lookup table
+ */
+void lookup(double *x) {
+
+	// load an x value
+
+	// qf values
+	x[0] = 0.5580;
+	x[1] = 0.2266;
+	x[2] = 0.0179;
+	x[3] = 1.6754;
+	x[4] = -1.3887;
+	x[5] = -0.8331;
+	x[6] = 0.3118;
+	// qfdot values
+	x[7] = -1.8601;
+	x[8] = 2.1229;
+	x[9] = -0.4704;
+	x[10] = 0.2180;
+	x[11] = 0.2867;
+	x[12] = -1.7585;
+	x[13] = 0.0281;
+	// T values
+	x[14] = 0.6300;
+
+}
+
+/*
+ * Predict the ball for Tpred seconds
+ * Using ballflight + bounce model
+ */
+void predict_ball_state(double Tpred) {
+
+	int N = Tpred/dt;
+	ballMat = my_matrix(1, N, 1, 2*CART);
+	int i,j;
 
 	for (j = 0; j < CART; j++) {
 		ballMat[0][j] = ballPred.x[j+1];
@@ -55,13 +118,6 @@ int main(void) {
 		}
 	}
 
-
-	double initTime = get_time();
-	//nlopt_example_run();
-	optim_poly_nlopt_run();
-	printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
-
-	return TRUE;
 }
 
 /*
@@ -104,16 +160,24 @@ void optim_poly_nlopt_run() {
 	}
 	else {
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    // give info on solution vector
-	    print_optim_vec(x);
-	    // give info on constraint violation
-	    double grad = FALSE;
-	    double violation[CART] = {0.0};
-	    kinematics_constr(3, violation, 3, x, &grad, NULL);
-	    printf("Constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
+	    test_constraint(x);
 
 	}
 	nlopt_destroy(opt);
+}
+
+/*
+ * Debug by testing the constraint violation of the solution vector
+ *
+ */
+void test_constraint(double *x) {
+	// give info on solution vector
+	print_optim_vec(x);
+	// give info on constraint violation
+	double grad = FALSE;
+	double violation[CART] = {0.0};
+	kinematics_constr(3, violation, 3, x, &grad, NULL);
+	printf("Constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
 }
 
 /*
@@ -479,8 +543,8 @@ void first_order_hold(double *ballPred, double T) {
 	double Tdiff = T - N*dt;
 	static int iter;
 
-	printf("T = %f\t", T);
-	printf("Iter no = %d\n", iter++);
+	//printf("T = %f\t", T);
+	//printf("Iter no = %d\n", iter++);
 
 	for (i = 1; i <= CART; i++) {
 		if (N < 100)

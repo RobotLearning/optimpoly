@@ -65,12 +65,23 @@ void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
 void optim_poly_nlopt_run();
 void guesstimate_soln(double * x);
 void set_bounds(double *lb, double *ub);
-void load_joint_limits();
 
-// SL functions copied for convenience
+// loading joint limits from SL files
+void load_joint_limits();
+int read_sensor_offsets(char *fname);
+
+// SL kinematics functions copied for convenience
 void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c);
 void setDefaultEndeffector(void);
-int read_sensor_offsets(char *fname);
+
+// debugging methods
+void test_constraint(double *x);
+void lookup(double *x);
+
+// ball related methods
+void init_ball_state();
+void predict_ball_state(double Tpred);
+// ball related functions taken from table_tennis_common
 void integrateBallState(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction
 int checkForBallTableContact(SL_Cstate state);
 
