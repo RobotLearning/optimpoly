@@ -8,72 +8,7 @@
  ============================================================================
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
-// optimization and math libraries
-#include <math.h>
-#include <nlopt.h>
-
-// SL variables and kinematics
-#include "SL.h"
-#include "SL_user.h"
-#include "SL_user_common.h"
-#include "SL_common.h"
-#include "SL_kinematics_body.h"
-#include "table_tennis_common.h"
-
-// defines
-#define CART 3
-#define DOF 7
-#define OPTIM_DIM 2*DOF+1
-#define MAX_VEL 200
-#define MAX_ACC 200
-#define dt 0.01
-
-// global variables
-char joint_names[][20]= {
-  {"dummy"},
-  {"R_SFE"},
-  {"R_SAA"},
-  {"R_HR"},
-  {"R_EB"},
-  {"R_WR"},
-  {"R_WFE"},
-  {"R_WAA"}
-};
-
-// initialization needs to be done for this mapping
-int  link2endeffmap[] = {0,PALM};
-
-static double q0[DOF];
-static Matrix ballMat;
-
-// utility method
-long get_time();
-void vec_minus(double *a1, const double *a2);
-void vec_plus(double *a1, const double *a2);
-double inner_prod(const double *a1, const double *a2);
-void const_vec(const int n, const double val, double * vec);
-void first_order_hold(double *vec, double T);
-void print_optim_vec(double *x);
-
-// optimization related methods
-double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
-void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *f_data);
-void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
-void optim_poly_nlopt_run();
-void guesstimate_soln(double * x);
-void set_bounds(double *lb, double *ub);
-void load_joint_limits();
-
-// SL functions copied for convenience
-void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c);
-void setDefaultEndeffector(void);
-int read_sensor_offsets(char *fname);
-void integrateBallState(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction
-int checkForBallTableContact(SL_Cstate state);
-
+#include "optimpoly.h"
 
 int main(void) {
 
@@ -103,6 +38,11 @@ int main(void) {
 	ballPred.xd[1] = -1.7689;
 	ballPred.xd[2] = 4.7246;
 	ballPred.xd[3] = -1.0867;
+
+	for (j = 0; j < CART; j++) {
+		ballMat[0][j] = ballPred.x[j+1];
+		ballMat[0][j+CART] = ballPred.xd[j+1];
+	}
 
 	// predict Tpred seconds into the future
 	int bounce = FALSE;
@@ -140,17 +80,20 @@ void optim_poly_nlopt_run() {
 	const_vec(OPTIM_DIM,1e-2,tol);
 
 	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_GN_ISRES, OPTIM_DIM); /* LN = does not require gradients */
-	//opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM); /* algorithm and dimensionality */
+	//opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
+	opt = nlopt_create(NLOPT_LN_AUGLAG_EQ, OPTIM_DIM); /* algorithm and dimensionality */
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_min_objective(opt, costfunc, NULL);
 	nlopt_add_equality_mconstraint(opt, 3, kinematics_constr, NULL, tol);
 
-	nlopt_set_xtol_rel(opt, 1e-2);
+	//nlopt_set_xtol_rel(opt, 1e-2);
 
-	double maxtime = 10.0;
-	nlopt_set_maxtime(opt, maxtime);
+	int maxeval = 20000;
+	nlopt_set_maxeval(opt, maxeval);
+
+	//double maxtime = 1.0;
+	//nlopt_set_maxtime(opt, maxtime);
 
 	guesstimate_soln(x);
 
@@ -518,9 +461,19 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 /*
  * First order hold to interpolate linearly at time T between ball prediction matrix ballMat entries
  *
- * TODO: NO Checking for extrapolation!
+ * TODO: NO Checking for extrapolation! Only checking for NaN value
  */
 void first_order_hold(double *ballPred, double T) {
+
+	int i;
+
+	if (isnan(T)) {
+		printf("Warning: T value is nan! Setting ballPred to initial value\n");
+		for (i = 1; i <= CART; i++) {
+			ballPred[i-1] = ballMat[0][i];
+		}
+		return;
+	}
 
 	int N = (int) (T/dt);
 	double Tdiff = T - N*dt;
@@ -529,8 +482,6 @@ void first_order_hold(double *ballPred, double T) {
 	printf("T = %f\t", T);
 	printf("Iter no = %d\n", iter++);
 
-
-	int i;
 	for (i = 1; i <= CART; i++) {
 		if (N < 100)
 			ballPred[i-1] = ballMat[N][i] + (Tdiff/dt) * (ballMat[N+1][i] - ballMat[N][i]);
