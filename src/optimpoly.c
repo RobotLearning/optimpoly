@@ -34,10 +34,10 @@ int main(void) {
 	printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 
 	// test the lookup value to see if constraint is not violated
-	printf("Lookup values:\n");
+	/*printf("Lookup values:\n");
 	double x[OPTIM_DIM];
 	lookup(x);
-	test_constraint(x);
+	test_constraint(x);*/
 
 	return TRUE;
 }
@@ -54,12 +54,20 @@ void init_ball_state() {
 	bzero((char *)&(ballPred), sizeof(ballPred));
 	// initialize the ball
 
-	ballPred.x[1] = 0.1972;
-	ballPred.x[2] = -2.4895;
-	ballPred.x[3] = -0.5040;
-	ballPred.xd[1] = -1.7689;
-	ballPred.xd[2] = 4.7246;
-	ballPred.xd[3] = -1.0867;
+//	ballPred.x[1] = 0.1972;
+//	ballPred.x[2] = -2.4895;
+//	ballPred.x[3] = -0.5040;
+//	ballPred.xd[1] = -1.7689;
+//	ballPred.xd[2] = 4.7246;
+//	ballPred.xd[3] = -1.0867;
+
+
+    ballPred.x[1] = 0.1812;
+    ballPred.x[2] = -2.4894;
+    ballPred.x[3] = -0.5086;
+    ballPred.xd[1] = -1.9457;
+    ballPred.xd[2] = 5.0505;
+    ballPred.xd[3] = -0.9807;
 
 }
 
@@ -72,23 +80,39 @@ void lookup(double *x) {
 	// load an x value
 
 	// qf values
-	x[0] = 0.5580;
-	x[1] = 0.2266;
-	x[2] = 0.0179;
-	x[3] = 1.6754;
-	x[4] = -1.3887;
-	x[5] = -0.8331;
-	x[6] = 0.3118;
-	// qfdot values
-	x[7] = -1.8601;
-	x[8] = 2.1229;
-	x[9] = -0.4704;
-	x[10] = 0.2180;
-	x[11] = 0.2867;
-	x[12] = -1.7585;
-	x[13] = 0.0281;
-	// T values
-	x[14] = 0.6300;
+//	x[0] = 0.5580;
+//	x[1] = 0.2266;
+//	x[2] = 0.0179;
+//	x[3] = 1.6754;
+//	x[4] = -1.3887;
+//	x[5] = -0.8331;
+//	x[6] = 0.3118;
+//	// qfdot values
+//	x[7] = -1.8601;
+//	x[8] = 2.1229;
+//	x[9] = -0.4704;
+//	x[10] = 0.2180;
+//	x[11] = 0.2867;
+//	x[12] = -1.7585;
+//	x[13] = 0.0281;
+//	// T values
+//	x[14] = 0.6300;
+
+    x[0] = 1.1148;
+    x[1] = 0.1199;
+    x[2] = 0.0056;
+    x[3] = 1.6590;
+    x[4] = -1.5741;
+    x[5] = 0.0454;
+    x[6] = 0.3000;
+    x[7] = 0.2733;
+    x[8] = 0.7613;
+    x[9] = 0.2513;
+    x[10] = -0.3356;
+    x[11] = -0.0097;
+    x[12] = -0.1300;
+    x[13] = 0;
+    x[14] = 0.6302;
 
 }
 
@@ -102,9 +126,9 @@ void predict_ball_state(double Tpred) {
 	ballMat = my_matrix(1, N, 1, 2*CART);
 	int i,j;
 
-	for (j = 0; j < CART; j++) {
-		ballMat[0][j] = ballPred.x[j+1];
-		ballMat[0][j+CART] = ballPred.xd[j+1];
+	for (j = 1; j <= CART; j++) {
+		ballMat[0][j] = ballPred.x[j];
+		ballMat[0][j+CART] = ballPred.xd[j];
 	}
 
 	// predict Tpred seconds into the future
@@ -112,11 +136,18 @@ void predict_ball_state(double Tpred) {
 
 	for (i = 1; i <= N; i++) {
 		integrateBallState(ballPred,&ballPred,dt,&bounce);
-		for (j = 0; j < CART; j++) {
-			ballMat[i][j] = ballPred.x[j+1];
-			ballMat[i][j+CART] = ballPred.xd[j+1];
+		for (j = 1; j <= CART; j++) {
+			ballMat[i][j] = ballPred.x[j];
+			ballMat[i][j+CART] = ballPred.xd[j];
 		}
 	}
+
+	//print_mat("Ball pred matrix: ", ballMat);
+	/*for (i = 1; i <= N; i++) {
+		for (j = 1; j <= 2*CART; j++)
+			printf("%.4f  ", ballMat[i][j]);
+		printf("\n");
+	}*/
 
 }
 
@@ -136,19 +167,19 @@ void optim_poly_nlopt_run() {
 	const_vec(OPTIM_DIM,1e-2,tol);
 
 	nlopt_opt opt;
-	//opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
-	opt = nlopt_create(NLOPT_LN_AUGLAG_EQ, OPTIM_DIM); /* algorithm and dimensionality */
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
+	//opt = nlopt_create(NLOPT_LN_AUGLAG, OPTIM_DIM); /* algorithm and dimensionality */
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_min_objective(opt, costfunc, NULL);
 	nlopt_add_equality_mconstraint(opt, 3, kinematics_constr, NULL, tol);
 
-	//nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_xtol_rel(opt, 1e-3);
 
-	int maxeval = 20000;
-	nlopt_set_maxeval(opt, maxeval);
+	//int maxeval = 20000;
+	//nlopt_set_maxeval(opt, maxeval);
 
-	//double maxtime = 1.0;
+	//double maxtime = 5.0;
 	//nlopt_set_maxtime(opt, maxtime);
 
 	guesstimate_soln(x);
@@ -174,9 +205,9 @@ void test_constraint(double *x) {
 	// give info on solution vector
 	print_optim_vec(x);
 	// give info on constraint violation
-	double grad = FALSE;
+	double *grad = FALSE;
 	double violation[CART] = {0.0};
-	kinematics_constr(3, violation, 3, x, &grad, NULL);
+	kinematics_constr(3, violation, 3, x, grad, NULL);
 	printf("Constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
 }
 
@@ -487,9 +518,10 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 			Alink_des[i] = my_matrix(1,4,1,4);
 
 		// initialize the base variables
+		//taken from ParameterPool.cf
 		bzero((void *) &base_state, sizeof(base_state));
 		bzero((void *) &base_orient, sizeof(base_orient));
-		base_orient.q[_Q0_] = 1.0;
+		base_orient.q[_Q1_] = 1.0;
 
 		// the the default endeffector parameters
 		setDefaultEndeffector();
@@ -515,8 +547,10 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 			           joint_cog_mpos_des, joint_axis_pos_des, joint_origin_pos_des,
 			           link_pos_des, Alink_des);
 
+
 	/* the desired endeffector information */
 	for (i = 1; i <= 3; i++) {
+		//printf("x[%d] = %.4f\n",i,link_pos_des[6][i]);
 		result[i-1] = link_pos_des[6][i] - ballPred[i-1];
 	}
 
@@ -525,7 +559,8 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 /*
  * First order hold to interpolate linearly at time T between ball prediction matrix ballMat entries
  *
- * TODO: NO Checking for extrapolation! Only checking for NaN value
+ * TODO: NO Checking for extrapolation! Only checking for NaN value.
+ *       Also Nmax is set to 100
  */
 void first_order_hold(double *ballPred, double T) {
 
