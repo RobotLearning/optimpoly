@@ -90,6 +90,7 @@ void lookup(double *x);
 
 // ball related methods
 void init_ball_state();
+void set_land_parameters(double *ballLand, double *landTime);
 void predict_ball_state();
 // ball related functions taken from table_tennis_common
 void integrateBallState(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction

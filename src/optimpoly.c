@@ -17,7 +17,7 @@ int main(void) {
 
 	// initialize ball
 	// predict for T_pred seconds
-	set_land_parameters(ballLand,landTime);
+	set_land_parameters(ballLand,&landTime);
 	init_ball_state();
 	init_joint_state();
 	predict_ball_state();
@@ -29,10 +29,10 @@ int main(void) {
 	//printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 
 	// test the lookup value to see if constraint is not violated
-	/*printf("Lookup values:\n");
-	double x[OPTIM_DIM];
+	printf("Lookup values:\n");
+	static double x[OPTIM_DIM];
 	lookup(x);
-	test_constraint(x);*/
+	test_constraint(x);
 
 	return TRUE;
 }
@@ -41,9 +41,9 @@ int main(void) {
  * Set desired landing position to the centre of the table and time to a
  * reasonable value
  */
-void set_land_parameters(double *ballLand, double landTime) {
+void set_land_parameters(double *ballLand, double *landTime) {
 
-	landTime = 1.2;
+	*landTime = 1.2;
 
 	ballLand[0] = 0.0;
 	ballLand[1] = dist_to_table - 3*table_length/2; // centre of opponents court
@@ -53,7 +53,7 @@ void set_land_parameters(double *ballLand, double landTime) {
 /*
  *
  * Set the ball values to a reasonable value
- * SO FAR setting it into values for which optimization solution is known from MATLAB
+ * SO FAR setting it into the first lookup table entry from March 2016
  *
  * Using the ballPred structure from table_tennis_common.h
  */
@@ -62,21 +62,12 @@ void init_ball_state() {
 	bzero((char *)&(ballPred), sizeof(ballPred));
 	// initialize the ball
 
-//	ballPred.x[1] = 0.1972;
-//	ballPred.x[2] = -2.4895;
-//	ballPred.x[3] = -0.5040;
-//	ballPred.xd[1] = -1.7689;
-//	ballPred.xd[2] = 4.7246;
-//	ballPred.xd[3] = -1.0867;
-
-
-    ballPred.x[1] = 0.1812;
-    ballPred.x[2] = -2.4894;
-    ballPred.x[3] = -0.5086;
-    ballPred.xd[1] = -1.9457;
-    ballPred.xd[2] = 5.0505;
-    ballPred.xd[3] = -0.9807;
-
+	ballPred.x[1] = 0.1972;
+	ballPred.x[2] = -2.4895;
+	ballPred.x[3] = -0.5040;
+	ballPred.xd[1] = -1.7689;
+	ballPred.xd[2] = 4.7246;
+	ballPred.xd[3] = -1.0867;
 }
 
 /*
@@ -105,39 +96,23 @@ void lookup(double *x) {
 	// load an x value
 
 	// qf values
-//	x[0] = 0.5580;
-//	x[1] = 0.2266;
-//	x[2] = 0.0179;
-//	x[3] = 1.6754;
-//	x[4] = -1.3887;
-//	x[5] = -0.8331;
-//	x[6] = 0.3118;
-//	// qfdot values
-//	x[7] = -1.8601;
-//	x[8] = 2.1229;
-//	x[9] = -0.4704;
-//	x[10] = 0.2180;
-//	x[11] = 0.2867;
-//	x[12] = -1.7585;
-//	x[13] = 0.0281;
-//	// T values
-//	x[14] = 0.6300;
-
-    x[0] = 1.1148;
-    x[1] = 0.1199;
-    x[2] = 0.0056;
-    x[3] = 1.6590;
-    x[4] = -1.5741;
-    x[5] = 0.0454;
-    x[6] = 0.3000;
-    x[7] = 0.2733;
-    x[8] = 0.7613;
-    x[9] = 0.2513;
-    x[10] = -0.3356;
-    x[11] = -0.0097;
-    x[12] = -0.1300;
-    x[13] = 0;
-    x[14] = 0.6302;
+	x[0] = 0.5580;
+	x[1] = 0.2266;
+	x[2] = 0.0179;
+	x[3] = 1.6754;
+	x[4] = -1.3887;
+	x[5] = -0.8331;
+	x[6] = 0.3118;
+	// qfdot values
+	x[7] = -1.8601;
+	x[8] = 2.1229;
+	x[9] = -0.4704;
+	x[10] = 0.2180;
+	x[11] = 0.2867;
+	x[12] = -1.7585;
+	x[13] = 0.0281;
+	// T values
+	x[14] = 0.6300;
 
 }
 
@@ -233,7 +208,9 @@ void test_constraint(double *x) {
 	double *grad = FALSE;
 	double violation[CONSTR_DIM] = {0.0};
 	kinematics_constr(CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
-	printf("Kinematics constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
+	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
+	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",violation[3],violation[4],violation[5]);
+	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",violation[6],violation[7],violation[8]);
 }
 
 /*
@@ -620,7 +597,8 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 
 	/* deviations from the desired racket frame */
 	for (i = 1; i <= CART; i++) {
-		//printf("x[%d] = %.4f\n",i,link_pos_des[6][i]);
+		//printf("xfdot[%d] = %.4f, racketDesVel[%d] = %.4f\n",i,xfdot[i],i,racketDesVel[i-1]);
+		//printf("normal[%d] = %.4f, racketDesNormal[%d] = %.4f\n",i,normal[i],i,racketDesNormal[i-1]);
 		result[i-1] = link_pos_des[6][i] - ballPred[i-1];
 		result[i-1 + CART] = xfdot[i] - racketDesVel[i-1];
 		result[i-1 + 2*CART] = normal[i] - racketDesNormal[i-1];
@@ -652,8 +630,13 @@ void calc_racket_strategy(double *ballLand, double landTime) {
 
 		// determine the desired outgoing velocity of the ball at contact
 		calc_ball_vel_out(ballIncomingPos, ballLand, landTime, ballOutVel);
+
+		//print_vec("ball out vel: ", ballOutVel);
 		calc_racket_normal(ballInVel, ballOutVel, racketNormal);
 		calc_racket_vel(ballInVel, ballOutVel, racketNormal, racketVel);
+
+		//print_vec("racket vel = ",racketVel);
+		//print_vec("racket normal = ",racketNormal);
 
 		for (j = 1; j <= CART; j++) {
 			racketMat[i][j] = ballIncomingPos.x[j];
@@ -661,6 +644,8 @@ void calc_racket_strategy(double *ballLand, double landTime) {
 			racketMat[i][j+2*CART] = racketNormal[j];
 		}
 	}
+
+	//print_mat("Racket matrix:", racketMat);
 }
 
 /*
