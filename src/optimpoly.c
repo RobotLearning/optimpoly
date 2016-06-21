@@ -9,10 +9,15 @@
  */
 
 #include "optimpoly.h"
+#include "table_tennis.h"
+#include "SL_kinematics_body.h"
+
+// initialization needs to be done for this mapping - used in SL_kinematics_body.h
+int  link2endeffmap[] = {0,PALM};
 
 int main(void) {
 
-	static double ballLand[CART];
+	Vector ballLand = my_vector(1,CART);
 	static double landTime;
 
 	// initialize ball
@@ -29,6 +34,7 @@ int main(void) {
 	//printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 
 	// test the lookup value to see if constraint is not violated
+	printf("================== TEST ==================\n");
 	printf("Lookup values:\n");
 	static double x[OPTIM_DIM];
 	lookup(x);
@@ -41,14 +47,15 @@ int main(void) {
  * Set desired landing position to the centre of the table and time to a
  * reasonable value
  */
-void set_land_parameters(double *ballLand, double *landTime) {
+void set_land_parameters(Vector ballLand, double *landTime) {
 
-	*landTime = 1.2;
+	*landTime = 0.8;
 
-	ballLand[0] = 0.0;
-	ballLand[1] = dist_to_table - 3*table_length/2; // centre of opponents court
-	ballLand[2] = table_height + ball_radius;
+	ballLand[_X_] = 0.0;
+	ballLand[_Y_] = dist_to_table - 3*table_length/4; // centre of opponents court
+	ballLand[_Z_] = floor_level - table_height;// + ball_radius;
 }
+
 
 /*
  *
@@ -96,23 +103,41 @@ void lookup(double *x) {
 	// load an x value
 
 	// qf values
-	x[0] = 0.5580;
-	x[1] = 0.2266;
-	x[2] = 0.0179;
-	x[3] = 1.6754;
-	x[4] = -1.3887;
-	x[5] = -0.8331;
-	x[6] = 0.3118;
+//	x[0] = 0.5580;
+//	x[1] = 0.2266;
+//	x[2] = 0.0179;
+//	x[3] = 1.6754;
+//	x[4] = -1.3887;
+//	x[5] = -0.8331;
+//	x[6] = 0.3118;
+//	// qfdot values
+//	x[7] = -1.8601;
+//	x[8] = 2.1229;
+//	x[9] = -0.4704;
+//	x[10] = 0.2180;
+//	x[11] = 0.2867;
+//	x[12] = -1.7585;
+//	x[13] = 0.0281;
+//	// T values
+//	x[14] = 0.6300;
+
+	x[0] = 0.4477;
+	x[1] = 0.4065;
+    x[2] = -0.0825;
+    x[3] = 1.6478;
+	x[4] = -1.2868;
+	x[5] = -1.0515;
+    x[6] = 0.1807;
 	// qfdot values
-	x[7] = -1.8601;
-	x[8] = 2.1229;
-	x[9] = -0.4704;
-	x[10] = 0.2180;
-	x[11] = 0.2867;
-	x[12] = -1.7585;
-	x[13] = 0.0281;
+	x[7] = -1.6092;
+	x[8] = 2.9100;
+	x[9] = -0.2404;
+	x[10] = -0.5597;
+	x[11] = 0.9379;
+	x[12] = -2.4477;
+	x[13] = -0.3082;
 	// T values
-	x[14] = 0.6300;
+	x[14] = 0.5800;
 
 }
 
@@ -122,7 +147,7 @@ void lookup(double *x) {
  */
 void predict_ball_state() {
 
-	int N = T_pred/dt;
+	int N = TPRED/TSTEP;
 	ballMat = my_matrix(1, N, 1, 2*CART);
 	int i,j;
 
@@ -135,7 +160,7 @@ void predict_ball_state() {
 	int bounce = FALSE;
 
 	for (i = 1; i <= N; i++) {
-		integrateBallState(ballPred,&ballPred,dt,&bounce);
+		integrateBallState(ballPred,&ballPred,TSTEP,&bounce);
 		for (j = 1; j <= CART; j++) {
 			ballMat[i][j] = ballPred.x[j];
 			ballMat[i][j+CART] = ballPred.xd[j];
@@ -167,7 +192,9 @@ void optim_poly_nlopt_run() {
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
-	//opt = nlopt_create(NLOPT_LN_AUGLAG, OPTIM_DIM); /* algorithm and dimensionality */
+	//nlopt_set_xtol_rel(opt, 1e-2);
+	//opt = nlopt_create(NLOPT_AUGLAG, OPTIM_DIM); /* algorithm and dimensionality */
+	//nlopt_set_local_optimizer(opt, opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_min_objective(opt, costfunc, NULL);
@@ -192,7 +219,6 @@ void optim_poly_nlopt_run() {
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
 	    test_constraint(x);
-
 	}
 	nlopt_destroy(opt);
 }
@@ -206,8 +232,10 @@ void test_constraint(double *x) {
 	print_optim_vec(x);
 	// give info on constraint violation
 	double *grad = FALSE;
-	double violation[CONSTR_DIM] = {0.0};
+	static double violation[CONSTR_DIM];
 	kinematics_constr(CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
+	double cost = costfunc(OPTIM_DIM, x, grad, NULL);
+	printf("f = %.2f\n",cost);
 	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
 	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",violation[3],violation[4],violation[5]);
 	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",violation[6],violation[7],violation[8]);
@@ -438,31 +466,29 @@ void const_vec(const int n, const double val, double * vec) {
  */
 void guesstimate_soln(double * x) {
 
-	//qf = [1.29  0.11  -0.08  1.52  -1.21  -0.23  -0.26  ]
-	x[0] = 1.29;
-	x[1] = 0.11;
+	x[0] = 0.45;
+	x[1] = 0.41;
 	x[2] = -0.08;
-	x[3] = 1.52;
-	x[4] = -1.21;
-	x[5] = -0.23;
-	x[6] = -0.26;
+	x[3] = 1.65;
+	x[4] = -1.29;
+	x[5] = -1.05;
+	x[6] = 0.18;
 
-	//qfdot = [0.65  0.66  0.11  -0.76  0.74  -0.80  1.25  ]
-	x[7] = 0.65;
-	x[8] = 0.66;
-	x[9] = 0.11;
-	x[10] = -0.76;
-	x[11] = 0.74;
-	x[12] = -0.80;
-	x[13] = 1.25;
+	x[7] = -1.61;
+	x[8] = 2.91;
+	x[9] = -0.24;
+	x[10] = -0.56;
+	x[11] = 0.94;
+	x[12] = -2.45;
+	x[13] = -0.31;
 
 	// initialize first dof entries to q0
-	/*int i;
-	for (i = 0; i < DOF; i++) {
-		//x[i] = q0[i];
-		x[i+DOF] = 0.0;
-	}*/
-	x[2*DOF] = 0.70;
+//	int i;
+//	for (i = 0; i < DOF; i++) {
+//		x[i] = q0[i];
+//		x[i+DOF] = 0.0;
+//	}
+	x[2*DOF] = 0.58;
 }
 
 /*
@@ -526,7 +552,7 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 	static int     firsttime = TRUE;
 
 	double T = x[2*DOF];
-	int N = T/dt;
+	int N = T/TSTEP;
 	int i;
 
 	/* initialization of static variables */
@@ -606,71 +632,9 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 
 }
 
-/*
- * Function that calculates a racket strategy : positions, velocities and orientations
- * for each point on the predicted ball trajectory (ballMat)
- * to return it a desired point (ballLand) at a desired time (landTime)
- */
-void calc_racket_strategy(double *ballLand, double landTime) {
 
-	int N = T_pred/dt;
-	racketMat = my_matrix(1, N, 1, 3*CART);
-	static SL_Cstate ballIncomingPos;
-	Vector ballOutVel = my_vector(1,CART);
-	Vector ballInVel = my_vector(1,CART);
-	Vector racketVel = my_vector(1,CART);
-	Vector racketNormal = my_vector(1,CART);
-	int i,j;
 
-	for (i = 1; i <= N; i++) {
-		for (j = 1; j <= CART; j++) {
-			ballIncomingPos.x[j] = ballMat[i][j];
-			ballInVel[j] = ballMat[i][j+CART];
-		}
 
-		// determine the desired outgoing velocity of the ball at contact
-		calc_ball_vel_out(ballIncomingPos, ballLand, landTime, ballOutVel);
-
-		//print_vec("ball out vel: ", ballOutVel);
-		calc_racket_normal(ballInVel, ballOutVel, racketNormal);
-		calc_racket_vel(ballInVel, ballOutVel, racketNormal, racketVel);
-
-		//print_vec("racket vel = ",racketVel);
-		//print_vec("racket normal = ",racketNormal);
-
-		for (j = 1; j <= CART; j++) {
-			racketMat[i][j] = ballIncomingPos.x[j];
-			racketMat[i][j+CART] = racketVel[j];
-			racketMat[i][j+2*CART] = racketNormal[j];
-		}
-	}
-
-	//print_mat("Racket matrix:", racketMat);
-}
-
-/*
- * Calculate desired racket velocity given ball incoming and
- * outgoing velocities
- * Assuming a mirror law
- * Assumes no desired spin, i.e. racket velocity along the racket will be set to zero
- *
- * Output is the last parameter: racketVel
- *
- */
-void calc_racket_vel(Vector velBallIn, Vector velBallOut, Vector normalRacket, Vector velRacket) {
-
-	double velBallInAlongNormal;
-	double velBallOutAlongNormal;
-	double eps = CRR;
-
-	velBallInAlongNormal = vec_mult_inner(velBallIn, normalRacket);
-	velBallOutAlongNormal = vec_mult_inner(velBallOut, normalRacket);
-	velBallInAlongNormal = eps * velBallInAlongNormal;
-
-	velBallOutAlongNormal = (velBallOutAlongNormal + velBallInAlongNormal) / (1+eps);
-
-	vec_mult_scalar(normalRacket, velBallOutAlongNormal, velRacket);
-}
 
 /*
  * Calculate desired racket normal using the mirror law
@@ -741,19 +705,19 @@ void first_order_hold(double *ballPred, double *racketVel, double *racketNormal,
 		return;
 	}
 
-	int N = (int) (T/dt);
-	double Tdiff = T - N*dt;
+	int N = (int) (T/TSTEP);
+	double Tdiff = T - N*TSTEP;
 	static int iter;
-	int Nmax = (int) T_pred/dt;
+	int Nmax = (int) TPRED/TSTEP;
 
 	//printf("T = %f\t", T);
 	//printf("Iter no = %d\n", iter++);
 
 	for (i = 1; i <= CART; i++) {
 		if (N < Nmax) {
-			ballPred[i-1] = ballMat[N][i] + (Tdiff/dt) * (ballMat[N+1][i] - ballMat[N][i]);
-			racketVel[i-1] = racketMat[N][i+CART] + (Tdiff/dt) * (racketMat[N+1][i+CART] - racketMat[N][i+CART]);
-			racketNormal[i-1] = racketMat[N][i+2*CART] + (Tdiff/dt) * (racketMat[N+1][i+2*CART] - racketMat[N][i+2*CART]);
+			ballPred[i-1] = ballMat[N][i] + (Tdiff/TSTEP) * (ballMat[N+1][i] - ballMat[N][i]);
+			racketVel[i-1] = racketMat[N][i+CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+CART] - racketMat[N][i+CART]);
+			racketNormal[i-1] = racketMat[N][i+2*CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+2*CART] - racketMat[N][i+2*CART]);
 		}
 		else {
 			ballPred[i-1] = ballMat[N][i];

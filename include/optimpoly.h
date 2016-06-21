@@ -19,9 +19,7 @@
 #include "SL.h"
 #include "SL_user.h"
 #include "SL_user_common.h"
-#include "SL_common.h"
-#include "SL_kinematics_body.h"
-#include "table_tennis_common.h"
+#include "table.h"
 
 // defines
 #define CART 3
@@ -30,8 +28,8 @@
 #define CONSTR_DIM 3*CART
 #define MAX_VEL 200
 #define MAX_ACC 200
-#define dt 0.01
-#define T_pred 1.0
+#define TSTEP 0.01
+#define TPRED 1.0
 
 // global variables
 char joint_names[][20]= {
@@ -45,12 +43,12 @@ char joint_names[][20]= {
   {"R_WAA"}
 };
 
-// initialization needs to be done for this mapping
-int  link2endeffmap[] = {0,PALM};
+// ball status variable used for prediction
+SL_Cstate ballPred;
 
 static double q0[DOF];
-static Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
-static Matrix racketMat; // racket strategy
+Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
+Matrix racketMat; // racket strategy
 
 // utility method
 long get_time();
@@ -69,12 +67,6 @@ void optim_poly_nlopt_run();
 void guesstimate_soln(double * x);
 void init_joint_state();
 void set_bounds(double *lb, double *ub);
-
-/* racket computations */
-void calc_racket_strategy(double *ballLand, double landTime);
-void calc_ball_vel_out(SL_Cstate hitPoint, Vector landPoint, double time2land, Vector velOut);
-void calc_racket_normal(Vector bin, Vector bout, Vector normal);
-void calc_racket_vel(Vector velBallIn, Vector velBallOut, Vector normalRacket, Vector velRacket);
 
 // loading joint limits from SL files
 void load_joint_limits();
