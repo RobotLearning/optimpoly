@@ -8,11 +8,11 @@ IDIR5=$(ROBOTDIR)/barrett/include
 CC=gcc
 LIBS=-lm -lnlopt
 CFLAGS= -g -DUNIX -I$(HEADER) -I$(IDIR1) -I$(IDIR2) -I$(IDIR3) -I$(IDIR4) -I$(IDIR5) #g is necessary for debugging
-#DEPS=$(IDIR)/SL.h
 
 all:
 	$(CC) $(CFLAGS) src/optimpoly.c \
 					src/table_tennis.c \
+					src/extra.c \
 	                $(ROBOTDIR)/shared/utilities/src/utility.c \
 	                $(ROBOTDIR)/shared/utilities/src/ludcmp.c \
 	                $(ROBOTDIR)/shared/utilities/src/lubksb.c \

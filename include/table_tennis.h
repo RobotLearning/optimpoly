@@ -43,11 +43,13 @@ void calc_ball_vel_out(SL_Cstate hitPoint, Vector landPoint, double time2land, V
 void calc_racket_normal(Vector bin, Vector bout, Vector normal);
 void calc_racket_vel(Vector velBallIn, Vector velBallOut, Vector normalRacket, Vector velRacket);
 
-// ball related methods
+/* ball related methods */
 void set_des_land_param(double *ballLand, double *landTime);
 void predict_ball_state();
-// ball related functions taken from table_tennis_common
 void integrate_ball_state(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction
 int check_ball_table_contact(SL_Cstate state);
+
+/* first order hold to get racket parameters at time T */
+void first_order_hold(double *ballPred, double *racketVel, double *racketNormal, double T);
 
 #endif /* TABLE_TENNIS_H_ */

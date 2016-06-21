@@ -8,9 +8,6 @@
 #ifndef OPTIMPOLY_H_
 #define OPTIMPOLY_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-
 // optimization and math libraries
 #include <math.h>
 #include <nlopt.h>
@@ -48,21 +45,12 @@ SL_Cstate ballPred; // ball status variable used for prediction
 Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
 Matrix racketMat; // racket strategy
 
-// utility method
-long get_time();
-void vec_minus(double *a1, const double *a2);
-void vec_plus(double *a1, const double *a2);
-double inner_prod(const double *a1, const double *a2);
-void const_vec(const int n, const double val, double * vec);
-void first_order_hold(double *ballPred, double *racketVel, double *racketNormal, double T);
-void print_optim_vec(double *x);
-
 // optimization related methods
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *f_data);
 void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
 void optim_poly_nlopt_run();
-void guesstimate_soln(double * x);
+void init_soln(double * x);
 void init_joint_state();
 void init_ball_state();
 void set_bounds(double *lb, double *ub);

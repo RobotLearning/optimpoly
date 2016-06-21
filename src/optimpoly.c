@@ -10,6 +10,7 @@
 
 #include "optimpoly.h"
 #include "table_tennis.h"
+#include "extra.h"
 #include "SL_kinematics_body.h"
 
 int main(void) {
@@ -156,7 +157,7 @@ void optim_poly_nlopt_run() {
 	//double maxtime = 5.0;
 	//nlopt_set_maxtime(opt, maxtime);
 
-	guesstimate_soln(x);
+	init_soln(x);
 	double initTime = get_time();
 	double minf; /* the minimum objective value, upon return */
 
@@ -188,25 +189,6 @@ void test_constraint(double *x) {
 	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
 	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",violation[3],violation[4],violation[5]);
 	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",violation[6],violation[7],violation[8]);
-}
-
-/*
- * Prints the 2*DOF + 1 dimensional solution in user-friendly format
- */
-void print_optim_vec(double *x) {
-
-	int i;
-	printf("qf = [");
-	for (i = 0; i < DOF; i++) {
-		printf("%.2f  ", x[i]);
-	}
-	printf("]\n");
-	printf("qfdot = [");
-	for (i = 0; i < DOF; i++) {
-		printf("%.2f  ", x[i+DOF]);
-	}
-	printf("]\n");
-	printf("T = %.2f\n", x[2*DOF]);
 }
 
 /*
@@ -313,47 +295,36 @@ void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c) {
 }
 
 /*
- * Returns constant vector of val value from 1 to n
- */
-void const_vec(const int n, const double val, double * vec) {
-
-	int i;
-	for (i = 0; i < n; i++) {
-		vec[i] = val;
-	}
-}
-
-/*
  * Estimate an initial solution for NLOPT
  * 2*dof + 1 dimensional problem
  *
  * The closer to the optimum it is the faster alg should converge
  * TODO: load values from a lookup table
  */
-void guesstimate_soln(double * x) {
+void init_soln(double * x) {
 
-	x[0] = 0.45;
-	x[1] = 0.41;
-	x[2] = -0.08;
-	x[3] = 1.65;
-	x[4] = -1.29;
-	x[5] = -1.05;
-	x[6] = 0.18;
-
-	x[7] = -1.61;
-	x[8] = 2.91;
-	x[9] = -0.24;
-	x[10] = -0.56;
-	x[11] = 0.94;
-	x[12] = -2.45;
-	x[13] = -0.31;
+//	x[0] = 0.45;
+//	x[1] = 0.41;
+//	x[2] = -0.08;
+//	x[3] = 1.65;
+//	x[4] = -1.29;
+//	x[5] = -1.05;
+//	x[6] = 0.18;
+//
+//	x[7] = -1.61;
+//	x[8] = 2.91;
+//	x[9] = -0.24;
+//	x[10] = -0.56;
+//	x[11] = 0.94;
+//	x[12] = -2.45;
+//	x[13] = -0.31;
 
 	// initialize first dof entries to q0
-//	int i;
-//	for (i = 0; i < DOF; i++) {
-//		x[i] = q0[i];
-//		x[i+DOF] = 0.0;
-//	}
+	int i;
+	for (i = 0; i < DOF; i++) {
+		x[i] = q0[i];
+		x[i+DOF] = 0.0;
+	}
 	x[2*DOF] = 0.58;
 }
 
@@ -499,47 +470,6 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 }
 
 /*
- * First order hold to interpolate linearly at time T between ball prediction matrix ballMat entries
- *
- * TODO: NO Checking for extrapolation! Only checking for NaN value.
- *
- */
-void first_order_hold(double *ballPred, double *racketVel, double *racketNormal, double T) {
-
-	int i;
-
-	if (isnan(T)) {
-		printf("Warning: T value is nan! Setting ballPred to initial value\n");
-		for (i = 1; i <= CART; i++) {
-			ballPred[i-1] = ballMat[0][i];
-		}
-		return;
-	}
-
-	int N = (int) (T/TSTEP);
-	double Tdiff = T - N*TSTEP;
-	static int iter;
-	int Nmax = (int) TPRED/TSTEP;
-
-	//printf("T = %f\t", T);
-	//printf("Iter no = %d\n", iter++);
-
-	for (i = 1; i <= CART; i++) {
-		if (N < Nmax) {
-			ballPred[i-1] = ballMat[N][i] + (Tdiff/TSTEP) * (ballMat[N+1][i] - ballMat[N][i]);
-			racketVel[i-1] = racketMat[N][i+CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+CART] - racketMat[N][i+CART]);
-			racketNormal[i-1] = racketMat[N][i+2*CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+2*CART] - racketMat[N][i+2*CART]);
-		}
-		else {
-			ballPred[i-1] = ballMat[N][i];
-			racketVel[i-1] = racketMat[N][i+CART];
-			racketNormal[i-1] = racketMat[N][i+2*CART];
-		}
-	}
-
-}
-
-/*
  * Copied from SL_user_common.c for convenience
  * TODO: is this correct?
  *
@@ -563,43 +493,6 @@ void setDefaultEndeffector(void) {
 
 }
 
-
-/*
- * Returns a1 - a2 vector into a1, assuming both have dof = 7 length
- */
-void vec_minus(double *a1, const double *a2) {
-
-	int i;
-	for (i = 0; i < DOF; i++) {
-		a1[i] = a1[i] - a2[i];
-	}
-}
-
-/*
- * Returns a1 + a2 vector into a1, assuming both have dof = 7 length
- */
-void vec_plus(double *a1, const double *a2) {
-
-	int i;
-	for (i = 0; i < DOF; i++) {
-		a1[i] = a1[i] + a2[i];
-	}
-}
-
-/*
- * Returns the inner product between two vectors of size N_DOFS
- */
-double inner_prod(const double *a1, const double *a2) {
-
-	int i;
-	double val = 0.0;
-	for (i = 0; i < DOF; i++) {
-		val += a1[i]*a2[i];
-	}
-
-	return val;
-}
-
 /*
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
@@ -617,15 +510,4 @@ void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x) 
 	}
 
 	return;
-}
-
-/*
- * Return time of day as micro seconds
- */
-long get_time() {
-	struct timeval tv;
-	if (gettimeofday(&tv, (struct timezone *)0) == 0)
-		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
-
-	return 0.;
 }

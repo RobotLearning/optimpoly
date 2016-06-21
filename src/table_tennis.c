@@ -269,3 +269,44 @@ void set_des_land_param(Vector ballLand, double *landTime) {
 	ballLand[_Y_] = dist_to_table - 3*table_length/4; // centre of opponents court
 	ballLand[_Z_] = floor_level - table_height;// + ball_radius;
 }
+
+/*
+ * First order hold to interpolate linearly at time T between ball prediction matrix ballMat entries
+ *
+ * TODO: NO Checking for extrapolation! Only checking for NaN value.
+ *
+ */
+void first_order_hold(double *ballPred, double *racketVel, double *racketNormal, double T) {
+
+	int i;
+
+	if (isnan(T)) {
+		printf("Warning: T value is nan! Setting ballPred to initial value\n");
+		for (i = 1; i <= CART; i++) {
+			ballPred[i-1] = ballMat[0][i];
+		}
+		return;
+	}
+
+	int N = (int) (T/TSTEP);
+	double Tdiff = T - N*TSTEP;
+	static int iter;
+	int Nmax = (int) TPRED/TSTEP;
+
+	//printf("T = %f\t", T);
+	//printf("Iter no = %d\n", iter++);
+
+	for (i = 1; i <= CART; i++) {
+		if (N < Nmax) {
+			ballPred[i-1] = ballMat[N][i] + (Tdiff/TSTEP) * (ballMat[N+1][i] - ballMat[N][i]);
+			racketVel[i-1] = racketMat[N][i+CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+CART] - racketMat[N][i+CART]);
+			racketNormal[i-1] = racketMat[N][i+2*CART] + (Tdiff/TSTEP) * (racketMat[N+1][i+2*CART] - racketMat[N][i+2*CART]);
+		}
+		else {
+			ballPred[i-1] = ballMat[N][i];
+			racketVel[i-1] = racketMat[N][i+CART];
+			racketNormal[i-1] = racketMat[N][i+2*CART];
+		}
+	}
+
+}
