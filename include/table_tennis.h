@@ -8,6 +8,8 @@
 #ifndef TABLE_TENNIS_H_
 #define TABLE_TENNIS_H_
 
+#include "math.h"
+#include "string.h"
 #include "SL.h"
 #include "SL_user.h"
 #include "table.h"
@@ -17,7 +19,6 @@
 #define TSTEP 0.01
 #define TPRED 1.0
 
-extern SL_Cstate ballPred;
 extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
 extern Matrix racketMat; // racket strategy: desired positions, velocities and normal saved in matrix
 
@@ -45,7 +46,7 @@ void calc_racket_vel(Vector velBallIn, Vector velBallOut, Vector normalRacket, V
 
 /* ball related methods */
 void set_des_land_param(double *ballLand, double *landTime);
-void predict_ball_state();
+void predict_ball_state(double *b0, double *v0);
 void integrate_ball_state(SL_Cstate ballState, SL_Cstate *ballPred, double deltat, int *bounce); //ball prediction
 int check_ball_table_contact(SL_Cstate state);
 

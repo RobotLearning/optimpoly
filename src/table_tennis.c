@@ -17,7 +17,7 @@
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
- * TODO: shall we switch to a structure for racketMat? Should it be global?
+ * TODO: shall we switch to a structure for racketMat?
  */
 void calc_racket_strategy(Vector ballLand, double landTime) {
 
@@ -222,17 +222,18 @@ int check_ball_table_contact(SL_Cstate state) {
  * Predict the ball for Tpred seconds
  * Using ballflight + bounce model
  *
- * TODO: do we need ballPred structure?
  */
-void predict_ball_state() {
+void predict_ball_state(double *b0, double *v0) {
 
 	int N = TPRED/TSTEP;
 	ballMat = my_matrix(1, N, 1, 2*CART);
+	SL_Cstate ballPred;
+	bzero((char *)&(ballPred), sizeof(ballPred));
 	int i,j;
 
 	for (j = 1; j <= CART; j++) {
-		ballMat[0][j] = ballPred.x[j];
-		ballMat[0][j+CART] = ballPred.xd[j];
+		ballMat[0][j] = ballPred.x[j] = b0[j-1];
+		ballMat[0][j+CART] = ballPred.xd[j] = v0[j-1];
 	}
 
 	// predict Tpred seconds into the future

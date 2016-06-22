@@ -12,6 +12,7 @@ CFLAGS= -g -DUNIX -I$(HEADER) -I$(IDIR1) -I$(IDIR2) -I$(IDIR3) -I$(IDIR4) -I$(ID
 all:
 	$(CC) $(CFLAGS) src/optimpoly.c \
 					src/table_tennis.c \
+					src/kinematics.c \
 					src/extra.c \
 	                $(ROBOTDIR)/shared/utilities/src/utility.c \
 	                $(ROBOTDIR)/shared/utilities/src/ludcmp.c \

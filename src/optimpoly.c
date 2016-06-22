@@ -11,24 +11,30 @@
 #include "optimpoly.h"
 #include "table_tennis.h"
 #include "extra.h"
-#include "SL_kinematics_body.h"
+#include "kinematics.h"
+//#include "SL_kinematics_body.h"
 
 int main(void) {
 
 	Vector ballLand = my_vector(1,CART);
 	static double landTime;
+	static double q0[DOF];
+	static double b0[CART];
+	static double v0[CART];
 
-	// initialize ball
+	/* initialize ball and racket */
 	// predict for T_pred seconds
+	init_ball_state(b0,v0);
+	init_joint_state(q0);
+	predict_ball_state(b0,v0);
+	load_joint_limits();
 	set_des_land_param(ballLand,&landTime);
-	init_ball_state();
-	init_joint_state();
-	predict_ball_state();
 	calc_racket_strategy(ballLand,landTime);
 
+	/* run NLOPT opt algorithm here */
 	//double initTime = get_time();
 	//nlopt_example_run();
-	optim_poly_nlopt_run();
+	optim_poly_nlopt_run(q0);
 	//printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 
 	// test the lookup value to see if constraint is not violated
@@ -36,7 +42,7 @@ int main(void) {
 	printf("Lookup values:\n");
 	static double x[OPTIM_DIM];
 	lookup(x);
-	test_constraint(x);
+	test_constraint(x,q0);
 
 	return TRUE;
 }
@@ -49,23 +55,21 @@ int main(void) {
  *
  * Using the ballPred structure from table_tennis_common.h
  */
-void init_ball_state() {
+void init_ball_state(double *b0, double *v0) {
 
-	bzero((char *)&(ballPred), sizeof(ballPred));
 	// initialize the ball
-
-	ballPred.x[1] = 0.1972;
-	ballPred.x[2] = -2.4895;
-	ballPred.x[3] = -0.5040;
-	ballPred.xd[1] = -1.7689;
-	ballPred.xd[2] = 4.7246;
-	ballPred.xd[3] = -1.0867;
+	b0[0] = 0.1972;
+	b0[1] = -2.4895;
+	b0[2] = -0.5040;
+	v0[0] = -1.7689;
+	v0[1] = 4.7246;
+	v0[2] = -1.0867;
 }
 
 /*
  * Set the initial posture of the robot
  */
-void init_joint_state() {
+void init_joint_state(double *q0) {
 
 	// initialize the variables
 	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
@@ -129,16 +133,15 @@ void lookup(double *x) {
 /*
  * NLOPT optimization routine for table tennis traj gen
  */
-void optim_poly_nlopt_run() {
+void optim_poly_nlopt_run(double *params) {
 
 	static double tol[CONSTR_DIM];
 	static double lb[OPTIM_DIM]; /* lower bounds */
 	static double ub[OPTIM_DIM]; /* upper bounds */
 	static double x[OPTIM_DIM]; /* initial guess */
 
-	load_joint_limits();
 	set_bounds(lb,ub);
-	const_vec(CONSTR_DIM,1e-2,tol);
+	const_vec(CONSTR_DIM,1e-2,tol); /* set tolerances equal to second argument */
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
@@ -147,8 +150,8 @@ void optim_poly_nlopt_run() {
 	//nlopt_set_local_optimizer(opt, opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, costfunc, NULL);
-	nlopt_add_equality_mconstraint(opt, CONSTR_DIM, kinematics_constr, NULL, tol);
+	nlopt_set_min_objective(opt, costfunc, params);
+	nlopt_add_equality_mconstraint(opt, CONSTR_DIM, kinematics_constr, params, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	//int maxeval = 20000;
@@ -157,7 +160,7 @@ void optim_poly_nlopt_run() {
 	//double maxtime = 5.0;
 	//nlopt_set_maxtime(opt, maxtime);
 
-	init_soln(x);
+	init_soln(x,params); //parameters are the initial joint positions q0
 	double initTime = get_time();
 	double minf; /* the minimum objective value, upon return */
 
@@ -168,7 +171,7 @@ void optim_poly_nlopt_run() {
 		//nlopt_example_run();
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    test_constraint(x);
+	    test_constraint(x,params);
 	}
 	nlopt_destroy(opt);
 }
@@ -177,14 +180,14 @@ void optim_poly_nlopt_run() {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-void test_constraint(double *x) {
+void test_constraint(double *x, double *params) {
 	// give info on solution vector
 	print_optim_vec(x);
 	// give info on constraint violation
 	double *grad = FALSE;
 	static double violation[CONSTR_DIM];
 	kinematics_constr(CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
-	double cost = costfunc(OPTIM_DIM, x, grad, NULL);
+	double cost = costfunc(OPTIM_DIM, x, grad, params);
 	printf("f = %.2f\n",cost);
 	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
 	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",violation[3],violation[4],violation[5]);
@@ -221,87 +224,13 @@ void load_joint_limits() {
 }
 
 /*
- * Copied from SL_common. Dont want to call the function from SL because
- * we have to include a lot of extra SL files
- *
- */
-int read_sensor_offsets(char *fname) {
-
-  int j,i,rc;
-  char   string[100];
-  FILE  *in;
-
-  /* get the max, min, and offsets of the position sensors */
-
-  sprintf(string,"%s/robolab/barrett/%s%s",getenv("HOME"),CONFIG,fname);
-  in = fopen(string,"r");
-  if (in == NULL) {
-    printf("ERROR: Cannot open file >%s<!\n",string);
-    return FALSE;
-  }
-
-  /* find all joint variables and read them into the appropriate array */
-
-  for (i=1; i<= n_dofs; ++i) {
-    if (!find_keyword(in, &(joint_names[i][0]))) {
-      printf("ERROR: Cannot find offset for >%s<!\n",joint_names[i]);
-      fclose(in);
-      return FALSE;
-    }
-    rc=fscanf(in,"%lf %lf %lf %lf %lf %lf",
-	&joint_range[i][MIN_THETA], &joint_range[i][MAX_THETA],
-	   &(joint_default_state[i].th),
-	   &(joint_opt_state[i].th),
-	   &(joint_opt_state[i].w),
-	   &joint_range[i][THETA_OFFSET]);
-    joint_default_state[i].thd = 0;
-    joint_default_state[i].uff = 0;
-  }
-
-  fclose(in);
-
-  return TRUE;
-
-}
-
-/*
- *
- * Copied from SL_common. Dont want to call the function from SL because
- * we have to include a lot of extra SL files
- *
-
- computes one column for the geometric jacobian of a revolute joint
- from the given input vectors
-
- *******************************************************************************
- Function Parameters: [in]=input,[out]=output
-
- \param[in]     p    : position of endeffector
- \param[in]     pi   : position of joint origin
- \param[in]     zi   : unit vector of joint axis
- \param[out]    c    : column vector of Jacobian
-
- ******************************************************************************/
-void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c) {
-  int i,j;
-
-  c[1] = zi[2] * (p[3]-pi[3]) - zi[3] * (p[2]-pi[2]);
-  c[2] = zi[3] * (p[1]-pi[1]) - zi[1] * (p[3]-pi[3]);
-  c[3] = zi[1] * (p[2]-pi[2]) - zi[2] * (p[1]-pi[1]);
-  c[4] = zi[1];
-  c[5] = zi[2];
-  c[6] = zi[3];
-
-}
-
-/*
  * Estimate an initial solution for NLOPT
  * 2*dof + 1 dimensional problem
  *
  * The closer to the optimum it is the faster alg should converge
  * TODO: load values from a lookup table
  */
-void init_soln(double * x) {
+void init_soln(double *x, double *q0) {
 
 //	x[0] = 0.45;
 //	x[1] = 0.41;
@@ -332,7 +261,7 @@ void init_soln(double * x) {
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
-double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
+double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	int i;
 	double a1[DOF];
@@ -341,6 +270,10 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_data) {
 	static double qfdot[DOF]; // all zeros
 	static double qf[DOF]; // opt value
 	double T = x[2*DOF];
+
+	double *q0 = (double *) my_func_params;
+	// instead of using global variables feeding parameters directly
+	// TODO: test with global variable for speed up in SL!
 
 	if (grad) {
 
@@ -443,7 +376,7 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 	}
 
 	/* compute the desired link positions */
-	linkInformationDes(joint_des_state, &base_state, &base_orient, endeff,
+	kinematics(joint_des_state, &base_state, &base_orient, endeff,
 			           joint_cog_mpos_des, joint_axis_pos_des, joint_origin_pos_des,
 			           link_pos_des, Alink_des);
 
@@ -466,30 +399,6 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
 		result[i-1 + CART] = xfdot[i] - racketDesVel[i-1];
 		result[i-1 + 2*CART] = normal[i] - racketDesNormal[i-1];
 	}
-
-}
-
-/*
- * Copied from SL_user_common.c for convenience
- * TODO: is this correct?
- *
- */
-void setDefaultEndeffector(void) {
-
-
-	endeff[RIGHT_HAND].m       = 0.0;
-	endeff[RIGHT_HAND].mcm[_X_]= 0.0;
-	endeff[RIGHT_HAND].mcm[_Y_]= 0.0;
-	endeff[RIGHT_HAND].mcm[_Z_]= 0.0;
-	endeff[RIGHT_HAND].x[_X_]  = 0.0;
-	endeff[RIGHT_HAND].x[_Y_]  = 0.0;
-	endeff[RIGHT_HAND].x[_Z_]  = 0.08531+0.06;
-	endeff[RIGHT_HAND].a[_A_]  = 0.0;
-	endeff[RIGHT_HAND].a[_B_]  = 0.0;
-	endeff[RIGHT_HAND].a[_G_]  = 0.0;
-
-	// attach the racket
-	endeff[RIGHT_HAND].x[_Z_] = .3;
 
 }
 
