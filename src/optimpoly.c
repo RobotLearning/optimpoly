@@ -157,8 +157,8 @@ void optim_poly_nlopt_run(double *params) {
 	//int maxeval = 20000;
 	//nlopt_set_maxeval(opt, maxeval);
 
-	//double maxtime = 5.0;
-	//nlopt_set_maxtime(opt, maxtime);
+	double maxtime = 0.001;
+	nlopt_set_maxtime(opt, maxtime);
 
 	init_soln(x,params); //parameters are the initial joint positions q0
 	double initTime = get_time();
@@ -232,28 +232,28 @@ void load_joint_limits() {
  */
 void init_soln(double *x, double *q0) {
 
-//	x[0] = 0.45;
-//	x[1] = 0.41;
-//	x[2] = -0.08;
-//	x[3] = 1.65;
-//	x[4] = -1.29;
-//	x[5] = -1.05;
-//	x[6] = 0.18;
-//
-//	x[7] = -1.61;
-//	x[8] = 2.91;
-//	x[9] = -0.24;
-//	x[10] = -0.56;
-//	x[11] = 0.94;
-//	x[12] = -2.45;
-//	x[13] = -0.31;
+	x[0] = 0.45;
+	x[1] = 0.41;
+	x[2] = -0.08;
+	x[3] = 1.65;
+	x[4] = -1.29;
+	x[5] = -1.05;
+	x[6] = 0.18;
+
+	x[7] = -1.61;
+	x[8] = 2.91;
+	x[9] = -0.24;
+	x[10] = -0.56;
+	x[11] = 0.94;
+	x[12] = -2.45;
+	x[13] = -0.31;
 
 	// initialize first dof entries to q0
-	int i;
-	for (i = 0; i < DOF; i++) {
-		x[i] = q0[i];
-		x[i+DOF] = 0.0;
-	}
+//	int i;
+//	for (i = 0; i < DOF; i++) {
+//		x[i] = q0[i];
+//		x[i+DOF] = 0.0;
+//	}
 	x[2*DOF] = 0.58;
 }
 
