@@ -34,7 +34,7 @@ int main(void) {
 	/* run NLOPT opt algorithm here */
 	//double initTime = get_time();
 	//nlopt_example_run();
-	optim_poly_nlopt_run(q0);
+	nlopt_optim_poly_run(q0);
 	//printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 
 	// test the lookup value to see if constraint is not violated
@@ -133,15 +133,15 @@ void lookup(double *x) {
 /*
  * NLOPT optimization routine for table tennis traj gen
  */
-void optim_poly_nlopt_run(double *params) {
+void nlopt_optim_poly_run(double *params) {
 
-	static double tol[CONSTR_DIM];
+	static double tol[EQ_CONSTR_DIM];
 	static double lb[OPTIM_DIM]; /* lower bounds */
 	static double ub[OPTIM_DIM]; /* upper bounds */
 	static double x[OPTIM_DIM]; /* initial guess */
 
 	set_bounds(lb,ub);
-	const_vec(CONSTR_DIM,1e-2,tol); /* set tolerances equal to second argument */
+	const_vec(EQ_CONSTR_DIM,1e-2,tol); /* set tolerances equal to second argument */
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
@@ -151,14 +151,15 @@ void optim_poly_nlopt_run(double *params) {
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_min_objective(opt, costfunc, params);
-	nlopt_add_equality_mconstraint(opt, CONSTR_DIM, kinematics_constr, params, tol);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, params, tol);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, params, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	//int maxeval = 20000;
 	//nlopt_set_maxeval(opt, maxeval);
 
-	double maxtime = 0.001;
-	nlopt_set_maxtime(opt, maxtime);
+	//double maxtime = 0.001;
+	//nlopt_set_maxtime(opt, maxtime);
 
 	init_soln(x,params); //parameters are the initial joint positions q0
 	double initTime = get_time();
@@ -185,8 +186,8 @@ void test_constraint(double *x, double *params) {
 	print_optim_vec(x);
 	// give info on constraint violation
 	double *grad = FALSE;
-	static double violation[CONSTR_DIM];
-	kinematics_constr(CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
+	static double violation[EQ_CONSTR_DIM];
+	kinematics_eq_constr(EQ_CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
 	double cost = costfunc(OPTIM_DIM, x, grad, params);
 	printf("f = %.2f\n",cost);
 	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
@@ -232,29 +233,29 @@ void load_joint_limits() {
  */
 void init_soln(double *x, double *q0) {
 
-	x[0] = 0.45;
-	x[1] = 0.41;
-	x[2] = -0.08;
-	x[3] = 1.65;
-	x[4] = -1.29;
-	x[5] = -1.05;
-	x[6] = 0.18;
-
-	x[7] = -1.61;
-	x[8] = 2.91;
-	x[9] = -0.24;
-	x[10] = -0.56;
-	x[11] = 0.94;
-	x[12] = -2.45;
-	x[13] = -0.31;
+//	x[0] = 0.45;
+//	x[1] = 0.41;
+//	x[2] = -0.08;
+//	x[3] = 1.65;
+//	x[4] = -1.29;
+//	x[5] = -1.05;
+//	x[6] = 0.18;
+//
+//	x[7] = -1.61;
+//	x[8] = 2.91;
+//	x[9] = -0.24;
+//	x[10] = -0.56;
+//	x[11] = 0.94;
+//	x[12] = -2.45;
+//	x[13] = -0.31;
 
 	// initialize first dof entries to q0
-//	int i;
-//	for (i = 0; i < DOF; i++) {
-//		x[i] = q0[i];
-//		x[i+DOF] = 0.0;
-//	}
-	x[2*DOF] = 0.58;
+	int i;
+	for (i = 0; i < DOF; i++) {
+		x[i] = q0[i];
+		x[i+DOF] = 0.0;
+	}
+	x[2*DOF] = 0.50;
 }
 
 /*
@@ -295,16 +296,53 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_params)
 
 
 	// calculate the polynomial coeffs which are used in the cost calculation
-	calc_poly_coeff(a1,a2,q0,x);
+	calc_strike_poly_coeff(a1,a2,q0,x);
 
 	return T * (3*T*T*inner_prod(a1,a1) +
 			3*T*inner_prod(a1,a2) + inner_prod(a2,a2));
 }
 
 /*
+ * This is the inequality constraint that makes sure we never exceed the
+ * joint limits during the striking and returning motion
+ *
+ */
+void joint_limits_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *my_func_params) {
+
+	int i;
+	static double a1[DOF];
+	static double a2[DOF];
+	static double a1ret[DOF]; // coefficients for the returning polynomials
+	static double a2ret[DOF];
+	static double joint_strike_max_cand[DOF];
+	static double joint_strike_min_cand[DOF];
+	static double joint_return_max_cand[DOF];
+	static double joint_return_min_cand[DOF];
+
+	double *q0 = (double *) my_func_params;
+
+	// calculate the polynomial coeffs which are used for checking joint limits
+	calc_strike_poly_coeff(a1,a2,q0,x);
+	calc_return_poly_coeff(a1ret,a2ret,q0,x);
+	// calculate the candidate extrema both for strike and return
+	calc_strike_extrema_cand(a1,a2,x[2*DOF],q0,joint_strike_max_cand,joint_strike_min_cand);
+	calc_return_extrema_cand(a1ret,a2ret,x,joint_return_max_cand,joint_return_min_cand);
+
+	/* deviations from joint min and max */
+	for (i = 1; i <= DOF; i++) {
+		result[i-1] = joint_strike_max_cand[i] - joint_range[i][MAX_THETA];
+		result[i-1+DOF] = joint_range[i][MIN_THETA] - joint_strike_min_cand[i];
+		result[i-1+2*DOF] = joint_return_max_cand[i] - joint_range[i][MAX_THETA];
+		result[i-1+3*DOF] = joint_range[i][MIN_THETA] - joint_return_min_cand[i];
+		//printf("%f %f %f %f\n", result[i-1],result[i-1+DOF],result[i-1+2*DOF],result[i-1+3*DOF]);
+	}
+
+}
+
+/*
  * This is the constraint that makes sure we hit the ball
  */
-void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *data) {
+void kinematics_eq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *data) {
 
 	static double ballPred[CART];
 	static double racketDesVel[CART];
@@ -406,7 +444,7 @@ void kinematics_constr(unsigned m, double *result, unsigned n, const double *x, 
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x) {
+void calc_strike_poly_coeff(double *a1, double *a2, const double *q0, const double *x) {
 
 	// variables to be optimized
 	static double q0dot[DOF];
@@ -419,4 +457,73 @@ void calc_poly_coeff(double *a1, double *a2, const double *q0, const double *x) 
 	}
 
 	return;
+}
+
+/*
+ * Calculate the returning polynomial coefficients from the optimized variables qf,qfdot
+ * and time2return variable defined in the header
+ * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
+ */
+void calc_return_poly_coeff(double *a1, double *a2, const double *q0, const double *x) {
+
+	// variables to be optimized
+	static double q0dot[DOF];
+	static double T = TIME2RETURN;
+	int i;
+
+	for (i = 0; i < DOF; i++) {
+		a1[i] = (2/pow(T,3))*(x[i]-q0[i]) + (1/(T*T))*(q0dot[i] + x[i+DOF]);
+		a2[i] = (3/(T*T))*(q0[i]-x[i]) - (1/T)*(2*x[i+DOF] + q0dot[i]);
+	}
+
+	return;
+}
+
+/*
+ * Calculate the extrema candidates for each joint (2*7 candidates in total)
+ * For the striking polynomial
+ * Clamp to [0,T]
+ * TODO: discard if complex
+ *
+ */
+void calc_strike_extrema_cand(double *a1, double *a2, double T, double *q0,
+		                      double *joint_max_cand, double *joint_min_cand) {
+
+	static double q0dot[DOF];
+	int i;
+	static double cand1, cand2;
+
+	for (i = 0; i < DOF; i++) {
+		cand1 = fmin(T,fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot[i]))/(3*a1[i])));
+		cand2 =  fmin(T,fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot[i]))/(3*a1[i])));
+		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + q0dot[i]*cand1 + q0[i];
+		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + q0dot[i]*cand2 + q0[i];
+		joint_max_cand[i] = fmax(cand1,cand2);
+		joint_min_cand[i] = fmin(cand1,cand2);
+	}
+}
+
+/*
+ * Calculate the extrema candidates for each joint (2*7 candidates in total)
+ * For the return polynomial
+ * Clamp to [T,T + TIME2RETURN]
+ * TODO: discard if complex
+ *
+ */
+void calc_return_extrema_cand(double *a1, double *a2, const double *x, double *joint_max_cand, double *joint_min_cand) {
+
+	static double Tret = TIME2RETURN;
+	int i;
+	static double cand1, cand2;
+
+	double T = x[2*DOF];
+
+	for (i = 0; i < DOF; i++) {
+		cand1 = fmin(T + Tret, fmax(T,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
+		cand2 =  fmin(T + Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
+		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + x[i+DOF]*cand1 + x[i];
+		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + x[i+DOF]*cand2 + x[i];
+		joint_max_cand[i] = fmax(cand1,cand2);
+		joint_min_cand[i] = fmin(cand1,cand2);
+	}
 }
