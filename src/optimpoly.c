@@ -186,13 +186,21 @@ void test_constraint(double *x, double *params) {
 	print_optim_vec(x);
 	// give info on constraint violation
 	double *grad = FALSE;
-	static double violation[EQ_CONSTR_DIM];
-	kinematics_eq_constr(EQ_CONSTR_DIM, violation, OPTIM_DIM, x, grad, NULL);
+	static double kin_violation[EQ_CONSTR_DIM];
+	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, NULL);
+	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, params);
 	double cost = costfunc(OPTIM_DIM, x, grad, params);
 	printf("f = %.2f\n",cost);
-	printf("Position constraint violation: [%.2f %.2f %.2f]\n",violation[0],violation[1],violation[2]);
-	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",violation[3],violation[4],violation[5]);
-	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",violation[6],violation[7],violation[8]);
+	printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
+	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
+	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+
+	int i;
+	for (i = 0; i < INEQ_CONSTR_DIM; i++) {
+		if (lim_violation[i] > 0.0)
+			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % DOF + 1);
+	}
 }
 
 /*
@@ -233,29 +241,29 @@ void load_joint_limits() {
  */
 void init_soln(double *x, double *q0) {
 
-//	x[0] = 0.45;
-//	x[1] = 0.41;
-//	x[2] = -0.08;
-//	x[3] = 1.65;
-//	x[4] = -1.29;
-//	x[5] = -1.05;
-//	x[6] = 0.18;
-//
-//	x[7] = -1.61;
-//	x[8] = 2.91;
-//	x[9] = -0.24;
-//	x[10] = -0.56;
-//	x[11] = 0.94;
-//	x[12] = -2.45;
-//	x[13] = -0.31;
+	x[0] = 0.45;
+	x[1] = 0.41;
+	x[2] = -0.08;
+	x[3] = 1.65;
+	x[4] = -1.29;
+	x[5] = -1.05;
+	x[6] = 0.18;
+
+	x[7] = -1.61;
+	x[8] = 2.91;
+	x[9] = -0.24;
+	x[10] = -0.56;
+	x[11] = 0.94;
+	x[12] = -2.45;
+	x[13] = -0.31;
 
 	// initialize first dof entries to q0
-	int i;
-	for (i = 0; i < DOF; i++) {
-		x[i] = q0[i];
-		x[i+DOF] = 0.0;
-	}
-	x[2*DOF] = 0.50;
+//	int i;
+//	for (i = 0; i < DOF; i++) {
+//		x[i] = q0[i];
+//		x[i+DOF] = 0.0;
+//	}
+	x[2*DOF] = 0.58;
 }
 
 /*
@@ -329,12 +337,12 @@ void joint_limits_ineq_constr(unsigned m, double *result, unsigned n, const doub
 	calc_return_extrema_cand(a1ret,a2ret,x,joint_return_max_cand,joint_return_min_cand);
 
 	/* deviations from joint min and max */
-	for (i = 1; i <= DOF; i++) {
-		result[i-1] = joint_strike_max_cand[i] - joint_range[i][MAX_THETA];
-		result[i-1+DOF] = joint_range[i][MIN_THETA] - joint_strike_min_cand[i];
-		result[i-1+2*DOF] = joint_return_max_cand[i] - joint_range[i][MAX_THETA];
-		result[i-1+3*DOF] = joint_range[i][MIN_THETA] - joint_return_min_cand[i];
-		//printf("%f %f %f %f\n", result[i-1],result[i-1+DOF],result[i-1+2*DOF],result[i-1+3*DOF]);
+	for (i = 0; i < DOF; i++) {
+		result[i] = joint_strike_max_cand[i] - joint_range[i+1][MAX_THETA];
+		result[i+DOF] = joint_range[i+1][MIN_THETA] - joint_strike_min_cand[i];
+		result[i+2*DOF] = joint_return_max_cand[i] - joint_range[i+1][MAX_THETA];
+		result[i+3*DOF] = joint_range[i+1][MIN_THETA] - joint_return_min_cand[i];
+		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
 	}
 
 }
