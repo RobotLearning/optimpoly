@@ -264,7 +264,7 @@ void predict_ball_state(double *b0, double *v0) {
  */
 void set_des_land_param(Vector ballLand, double *landTime) {
 
-	*landTime = 0.8;
+	*landTime = 0.7; //0.8;
 
 	ballLand[_X_] = 0.0;
 	ballLand[_Y_] = dist_to_table - 3*table_length/4; // centre of opponents court
@@ -310,4 +310,47 @@ void first_order_hold(double *ballPred, double *racketVel, double *racketNormal,
 		}
 	}
 
+}
+
+/*
+ * Find the closest ball state in the lookup table
+ * and lookup the corresponding qf,qfdot,T values
+ *
+ * INPUT:
+ * 	b0,v0: ball position and velocity estimates
+ * 	x:     optimization parameters to be loaded
+ *
+ * TODO: expand with more sophisticated interpolation methods (kNN with k = 1 at the moment)
+ */
+int lookup(const Matrix lookupTable, const double* b0, const double* v0, double *x) {
+
+	int i,j;
+	double minVal = 0.0;
+	double bestVal = 1e6;
+	int bestIdx = 1;
+	Vector ballVec = my_vector(1,2*CART);
+
+	for (i = 1; i <= CART; i++) {
+		ballVec[i] = b0[i-1];
+		ballVec[i+CART] = v0[i-1];
+	}
+
+	for (i = 1; i <= LOOKUP_TABLE_SIZE; i++) {
+		minVal = 0.0;
+		for (j = 1; j <= 2*CART; j++) {
+			minVal += pow(ballVec[j] - lookupTable[i][j],2);
+		}
+		if (minVal < bestVal) {
+			bestIdx = i;
+			bestVal = minVal;
+		}
+	}
+
+	for (i = 1; i <= N_DOFS; i++) {
+		x[i-1] = lookupTable[bestIdx][2*CART+i];
+		x[i-1+DOF] = lookupTable[bestIdx][2*CART+DOF+i];
+	}
+	x[2*DOF] = lookupTable[bestIdx][2*CART+2*DOF+1];
+
+	return TRUE;
 }

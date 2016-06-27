@@ -10,7 +10,7 @@
 
 #include "math.h"
 #include "string.h"
-#include "SL.h"
+#include "SL.h" // if eclipse warns for unresolved inclusion, simply cut and paste again to resolve
 #include "SL_user.h"
 #include "table.h"
 
@@ -18,6 +18,11 @@
 #define CART 3
 #define TSTEP 0.01
 #define TPRED 1.0
+#define DOF 7
+
+#define LOOKUP_TABLE_SIZE 4002 //769
+#define LOOKUP_COLUMN_SIZE 2*DOF + 1 + 2*CART // ball state and optimization parameters (6 + 15)
+#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016"
 
 extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
 extern Matrix racketMat; // racket strategy: desired positions, velocities and normal saved in matrix
@@ -52,5 +57,8 @@ int check_ball_table_contact(SL_Cstate state);
 
 /* first order hold to get racket parameters at time T */
 void first_order_hold(double *ballPred, double *racketVel, double *racketNormal, double T);
+
+/* lookup table, i.e. kNN with k = 1 */
+int lookup(const Matrix lookupTable, const double* b0, const double* v0, double *x);
 
 #endif /* TABLE_TENNIS_H_ */

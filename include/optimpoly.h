@@ -31,6 +31,7 @@ Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
 Matrix racketMat; // racket strategy
 
 // optimization related methods
+void nlopt_optim_poly_run(double *x, double *params);
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 void kinematics_eq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *f_data);
 void joint_limits_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *data);
@@ -38,8 +39,7 @@ void calc_strike_poly_coeff(double *a1, double *a2, const double *q0, const doub
 void calc_return_poly_coeff(double *a1, double *a2, const double *q0, const double *x);
 void calc_strike_extrema_cand(double *a1, double *a2, double T, double *q0, double *joint_max_cand, double *joint_min_cand);
 void calc_return_extrema_cand(double *a1, double *a2, const double *x, double *joint_max_cand, double *joint_min_cand);
-void nlopt_optim_poly_run(double *params);
-void init_soln(double *x, double *q0);
+void init_soln_to_rest_posture(double *x, double *q0);
 void init_joint_state(double *q0);
 void init_ball_state(double *b0, double *v0);
 void set_bounds(double *lb, double *ub);
@@ -48,7 +48,7 @@ void set_bounds(double *lb, double *ub);
 void load_joint_limits();
 
 // debugging methods
-void test_constraint(double *x, double *params);
-void lookup(double *x);
+void test_optim(double *x, double *params);
+void load_lookup_table();
 
 #endif /* OPTIMPOLY_H_ */

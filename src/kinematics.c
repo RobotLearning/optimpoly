@@ -35,7 +35,7 @@
  \param[out]    Xlink   : array of link position
  \param[out]    Ahmat   : homogeneous transformation matrices of each link
 
- TODO: replace the header files!
+ TODO: replace the header files! Does it become faster?
 
  ******************************************************************************/
 void

@@ -2,7 +2,6 @@
  * extra.c
  *
  * Matrix manipulation, and i/o functions are located here for convenience
- * Zero indexed
  *
  *  Created on: Jun 21, 2016
  *      Author: okoc
@@ -27,6 +26,31 @@ void print_optim_vec(double *x) {
 	}
 	printf("]\n");
 	printf("T = %.2f\n", x[2*DOF]);
+}
+
+/*
+ * Read a vector into a matrix (e.g. saved from MATLAB)
+ * Necessary for loading large matrices into memory
+ *
+ */
+void load_vec_into_mat(Matrix mat, int m, int n, char name[]) {
+
+	FILE * fid;
+	int i, j;
+	static char fileName[100];
+	static char dirName[] = "../robolab/barrett/saveData";
+
+	sprintf(fileName,"%s//%s.txt",dirName,name);
+    fid = fopen(fileName,"r");
+
+    for (i = 1; i <= n; i++) {
+    	for (j = 1; j <= m; j++) {
+    		fscanf(fid, "%lf", &(mat[j][i]));
+    		//printf("M[%d][%d] = %f \n", j, i, mat[j][i]);
+    	}
+    }
+
+	fclose(fid);
 }
 
 /*

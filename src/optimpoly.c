@@ -17,10 +17,14 @@
 int main(void) {
 
 	Vector ballLand = my_vector(1,CART);
-	static double landTime;
-	static double q0[DOF];
-	static double b0[CART];
-	static double v0[CART];
+	double landTime;
+	double q0[DOF];
+	double b0[CART];
+	double v0[CART];
+	double x[OPTIM_DIM]; /* initial guess for optim */
+
+	Matrix lookupTable = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
+	load_lookup_table(lookupTable);
 
 	/* initialize ball and racket */
 	// predict for T_pred seconds
@@ -32,28 +36,41 @@ int main(void) {
 	calc_racket_strategy(ballLand,landTime);
 
 	/* run NLOPT opt algorithm here */
-	//double initTime = get_time();
-	//nlopt_example_run();
-	nlopt_optim_poly_run(q0);
-	//printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
+	lookup(lookupTable,b0,v0,x); // initialize solution
+	nlopt_optim_poly_run(x,q0);
 
 	// test the lookup value to see if constraint is not violated
 	printf("================== TEST ==================\n");
 	printf("Lookup values:\n");
-	static double x[OPTIM_DIM];
-	lookup(x);
-	test_constraint(x,q0);
+	lookup(lookupTable,b0,v0,x);
+	test_optim(x,q0);
 
 	return TRUE;
+}
+
+/*
+ *
+ * Loading lookup table to initialize the optimization
+ * And to test constraints
+ */
+void load_lookup_table(Matrix lookupTable) {
+
+	printf("Loading lookup table...\n");
+
+	load_vec_into_mat(lookupTable, LOOKUP_TABLE_SIZE, LOOKUP_COLUMN_SIZE, LOOKUP_TABLE_NAME);
+	//print_mat("Lookup: ", lookupTable);
+	/*int i;
+	for(i = 1; i <= LOOKUP_COLUMN_SIZE; i++)
+		printf("%.2f\t",lookupTable[1][i]);
+	printf("\n");*/
 }
 
 
 /*
  *
  * Set the ball values to a reasonable value
- * SO FAR setting it into the first lookup table entry from March 2016
+ * SO FAR setting it into the first lookup table entry from May 2016
  *
- * Using the ballPred structure from table_tennis_common.h
  */
 void init_ball_state(double *b0, double *v0) {
 
@@ -83,62 +100,13 @@ void init_joint_state(double *q0) {
 }
 
 /*
- *
- * Test the solution found by using a lookup table
- * TODO: expand to actually use the saved lookup table
- */
-void lookup(double *x) {
-
-	// load an x value
-
-	// qf values
-//	x[0] = 0.5580;
-//	x[1] = 0.2266;
-//	x[2] = 0.0179;
-//	x[3] = 1.6754;
-//	x[4] = -1.3887;
-//	x[5] = -0.8331;
-//	x[6] = 0.3118;
-//	// qfdot values
-//	x[7] = -1.8601;
-//	x[8] = 2.1229;
-//	x[9] = -0.4704;
-//	x[10] = 0.2180;
-//	x[11] = 0.2867;
-//	x[12] = -1.7585;
-//	x[13] = 0.0281;
-//	// T values
-//	x[14] = 0.6300;
-
-	x[0] = 0.4477;
-	x[1] = 0.4065;
-    x[2] = -0.0825;
-    x[3] = 1.6478;
-	x[4] = -1.2868;
-	x[5] = -1.0515;
-    x[6] = 0.1807;
-	// qfdot values
-	x[7] = -1.6092;
-	x[8] = 2.9100;
-	x[9] = -0.2404;
-	x[10] = -0.5597;
-	x[11] = 0.9379;
-	x[12] = -2.4477;
-	x[13] = -0.3082;
-	// T values
-	x[14] = 0.5800;
-
-}
-
-/*
  * NLOPT optimization routine for table tennis traj gen
  */
-void nlopt_optim_poly_run(double *params) {
+void nlopt_optim_poly_run(double *x, double *params) {
 
 	static double tol[EQ_CONSTR_DIM];
 	static double lb[OPTIM_DIM]; /* lower bounds */
 	static double ub[OPTIM_DIM]; /* upper bounds */
-	static double x[OPTIM_DIM]; /* initial guess */
 
 	set_bounds(lb,ub);
 	const_vec(EQ_CONSTR_DIM,1e-2,tol); /* set tolerances equal to second argument */
@@ -161,7 +129,7 @@ void nlopt_optim_poly_run(double *params) {
 	//double maxtime = 0.001;
 	//nlopt_set_maxtime(opt, maxtime);
 
-	init_soln(x,params); //parameters are the initial joint positions q0
+	//init_soln_to_rest_posture(x,params); //parameters are the initial joint positions q0
 	double initTime = get_time();
 	double minf; /* the minimum objective value, upon return */
 
@@ -172,7 +140,7 @@ void nlopt_optim_poly_run(double *params) {
 		//nlopt_example_run();
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    test_constraint(x,params);
+	    test_optim(x,params);
 	}
 	nlopt_destroy(opt);
 }
@@ -181,7 +149,7 @@ void nlopt_optim_poly_run(double *params) {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-void test_constraint(double *x, double *params) {
+void test_optim(double *x, double *params) {
 	// give info on solution vector
 	print_optim_vec(x);
 	// give info on constraint violation
@@ -237,32 +205,15 @@ void load_joint_limits() {
  * 2*dof + 1 dimensional problem
  *
  * The closer to the optimum it is the faster alg should converge
- * TODO: load values from a lookup table
  */
-void init_soln(double *x, double *q0) {
-
-	x[0] = 0.45;
-	x[1] = 0.41;
-	x[2] = -0.08;
-	x[3] = 1.65;
-	x[4] = -1.29;
-	x[5] = -1.05;
-	x[6] = 0.18;
-
-	x[7] = -1.61;
-	x[8] = 2.91;
-	x[9] = -0.24;
-	x[10] = -0.56;
-	x[11] = 0.94;
-	x[12] = -2.45;
-	x[13] = -0.31;
+void init_soln_to_rest_posture(double *x, double *q0) {
 
 	// initialize first dof entries to q0
-//	int i;
-//	for (i = 0; i < DOF; i++) {
-//		x[i] = q0[i];
-//		x[i+DOF] = 0.0;
-//	}
+	int i;
+	for (i = 0; i < DOF; i++) {
+		x[i] = q0[i];
+		x[i+DOF] = 0.0;
+	}
 	x[2*DOF] = 0.58;
 }
 
@@ -282,7 +233,6 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_params)
 
 	double *q0 = (double *) my_func_params;
 	// instead of using global variables feeding parameters directly
-	// TODO: test with global variable for speed up in SL!
 
 	if (grad) {
 
