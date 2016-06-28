@@ -11,6 +11,7 @@
 // optimization and math libraries
 #include <math.h>
 #include <nlopt.h>
+#include <pthread.h>
 #include "string.h" //for bzero
 
 // SL variables and kinematics

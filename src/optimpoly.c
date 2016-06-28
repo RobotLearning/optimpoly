@@ -16,6 +16,10 @@
 
 int main(void) {
 
+	//nlopt_example_run();
+	//pthread_example_run();
+	//return TRUE;
+
 	Vector ballLand = my_vector(1,CART);
 	double landTime;
 	double q0[DOF];
@@ -25,14 +29,14 @@ int main(void) {
 
 	Matrix lookupTable = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
 	load_lookup_table(lookupTable);
+	load_joint_limits();
+	set_des_land_param(ballLand,&landTime);
 
 	/* initialize ball and racket */
 	// predict for T_pred seconds
 	init_ball_state(b0,v0);
 	init_joint_state(q0);
 	predict_ball_state(b0,v0);
-	load_joint_limits();
-	set_des_land_param(ballLand,&landTime);
 	calc_racket_strategy(ballLand,landTime);
 
 	/* run NLOPT opt algorithm here */
@@ -101,6 +105,8 @@ void init_joint_state(double *q0) {
 
 /*
  * NLOPT optimization routine for table tennis traj gen
+ *
+ * TODO: adding inequality constraints makes problem harder. Is it necessary always?
  */
 void nlopt_optim_poly_run(double *x, double *params) {
 
