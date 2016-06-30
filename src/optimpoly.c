@@ -106,7 +106,6 @@ void init_joint_state(double *q0) {
 /*
  * NLOPT optimization routine for table tennis traj gen
  *
- * TODO: adding inequality constraints makes problem harder. Is it necessary always?
  */
 void nlopt_optim_poly_run(double *x, double *params) {
 
@@ -447,7 +446,6 @@ void calc_return_poly_coeff(double *a1, double *a2, const double *q0, const doub
  * Calculate the extrema candidates for each joint (2*7 candidates in total)
  * For the striking polynomial
  * Clamp to [0,T]
- * TODO: discard if complex
  *
  */
 void calc_strike_extrema_cand(double *a1, double *a2, double T, double *q0,
@@ -470,8 +468,7 @@ void calc_strike_extrema_cand(double *a1, double *a2, double T, double *q0,
 /*
  * Calculate the extrema candidates for each joint (2*7 candidates in total)
  * For the return polynomial
- * Clamp to [T,T + TIME2RETURN]
- * TODO: discard if complex
+ * Clamp to [0,TIME2RETURN]
  *
  */
 void calc_return_extrema_cand(double *a1, double *a2, const double *x, double *joint_max_cand, double *joint_min_cand) {
@@ -483,8 +480,8 @@ void calc_return_extrema_cand(double *a1, double *a2, const double *x, double *j
 	double T = x[2*DOF];
 
 	for (i = 0; i < DOF; i++) {
-		cand1 = fmin(T + Tret, fmax(T,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
-		cand2 =  fmin(T + Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
+		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
+		cand2 =  fmin(Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));
 		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + x[i+DOF]*cand1 + x[i];
 		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + x[i+DOF]*cand2 + x[i];
 		joint_max_cand[i] = fmax(cand1,cand2);
