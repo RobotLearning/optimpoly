@@ -16,22 +16,22 @@
 #define DOF 7
 #define CART 3
 
-SL_Cstate     cart_state[N_ENDEFFS+1];        /* endeffector state */
-SL_quat       cart_orient[N_ENDEFFS+1];       /* endeffector orientation */
-SL_endeff     endeff[N_ENDEFFS+1];            /* endeffector structure */
-SL_Cstate     base_state;                     /* cartesian state of base coordinate system */
-SL_quat       base_orient;                    /* cartesian orientation of base coordinate system */
-Matrix        Alink_des[N_LINKS+1];           /* homogeneous transformation matrices for all links */
-Matrix        link_pos_des;                   /* desired cart. pos of links */
-Matrix        joint_cog_mpos_des;             /* vector of mass*COG of each joint based on desireds*/
-Matrix       joint_origin_pos_des;           /* vector of pos. of local joint coord.sys based on des.*/
-Matrix        joint_axis_pos_des;             /* unit vector of joint rotation axis based on des.*/
-SL_DJstate    joint_default_state[N_DOFS+1];
-SL_OJstate    joint_opt_state[N_DOFS+1];
-SL_Jstate     joint_state[N_DOFS+1];
-SL_DJstate    joint_des_state[N_DOFS+1];
-double        joint_range[N_DOFS+1][3+1];
-SL_link       links[N_DOFS+1];                /* specs of links: mass, inertia, cm */
+extern SL_Cstate     cart_state[N_ENDEFFS+1];        /* endeffector state */
+extern SL_quat       cart_orient[N_ENDEFFS+1];       /* endeffector orientation */
+extern SL_endeff     endeff[N_ENDEFFS+1];            /* endeffector structure */
+extern SL_Cstate     base_state;                     /* cartesian state of base coordinate system */
+extern SL_quat       base_orient;                    /* cartesian orientation of base coordinate system */
+extern Matrix        Alink_des[N_LINKS+1];           /* homogeneous transformation matrices for all links */
+extern Matrix        link_pos_des;                   /* desired cart. pos of links */
+extern Matrix        joint_cog_mpos_des;             /* vector of mass*COG of each joint based on desireds*/
+extern Matrix    joint_origin_pos_des;           /* vector of pos. of local joint coord.sys based on des.*/
+extern Matrix        joint_axis_pos_des;             /* unit vector of joint rotation axis based on des.*/
+extern SL_DJstate    joint_default_state[N_DOFS+1];
+extern SL_OJstate    joint_opt_state[N_DOFS+1];
+extern SL_Jstate     joint_state[N_DOFS+1];
+extern SL_DJstate    joint_des_state[N_DOFS+1];
+extern double        joint_range[N_DOFS+1][3+1];
+extern SL_link       links[N_DOFS+1];                /* specs of links: mass, inertia, cm */
 
 
 // FROM MDEFS.H FILE

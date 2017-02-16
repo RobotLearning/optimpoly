@@ -111,11 +111,6 @@ void calc_racket_normal(Vector bin, Vector bout, Vector normal) {
  */
 void calc_ball_vel_out(SL_Cstate hitPoint, Vector landPoint, double time2land, Vector velOut) {
 
-	double x, y, z, time2Land;
-	double ynet, znet, zoc;
-	double alpha;
-	int sign, check, i;
-
 	static int firsttime = TRUE;
 	static double zTable;
 
@@ -294,7 +289,6 @@ void first_order_hold(double *ballPred, double *racketVel, double *racketNormal,
 
 	int N = (int) (T/TSTEP);
 	double Tdiff = T - N*TSTEP;
-	static int iter;
 	int Nmax = (int) TPRED/TSTEP;
 
 	//printf("T = %f\t", T);

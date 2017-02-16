@@ -14,6 +14,9 @@
 #include "utils.h"
 #include "kinematics.h"
 
+Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
+Matrix racketMat; // racket strategy
+
 int main(void) {
 
 	//nlopt_example_run();
@@ -312,7 +315,6 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n, const double *
 	static int     firsttime = TRUE;
 
 	double T = x[2*DOF];
-	int N = T/TSTEP;
 	int i;
 
 	/* initialization of static variables */
@@ -465,8 +467,6 @@ void calc_return_extrema_cand(double *a1, double *a2, const double *x, double *j
 	static double Tret = TIME2RETURN;
 	int i;
 	static double cand1, cand2;
-
-	double T = x[2*DOF];
 
 	for (i = 0; i < DOF; i++) {
 		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+DOF]))/(3*a1[i])));

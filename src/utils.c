@@ -74,7 +74,7 @@ void load_vec_into_mat(Matrix mat, int m, int n, char name[]) {
  ******************************************************************************/
 int find_keyword(FILE *fp, char *name) {
 
-	int  i,j,c;
+	int  i;
 	int  rc = TRUE;
 	char string[strlen(name)*2];
 	int  l;
@@ -256,10 +256,8 @@ Parameters:  (i/o = input/output)
  ******************************************************************************/
 void vec_mult_scalar(Vector a, double scalar, Vector c) {
 
-	double aux = 0;
-	int i;
-
-	for (i=1; i<=a[NR]; ++i) c[i] = a[i] * scalar;
+	for (int i = 1; i <= a[NR]; ++i)
+		c[i] = a[i] * scalar;
 
 }
 
@@ -283,14 +281,12 @@ void vec_mult_scalar(Vector a, double scalar, Vector c) {
  ******************************************************************************/
 int vec_sub(Vector a, Vector b, Vector c) {
 
-	int     i;
-
 	if (a[NR] != b[NR] || a[NR] != c[NR]) {
 		printf("Incompatible vectors in vec_sub\n");
 		return FALSE;
 	}
 
-	for (i=1; i <= a[NR]; ++i) {
+	for (int i = 1; i <= a[NR]; ++i) {
 		c[i] = a[i] - b[i];
 	}
 
@@ -318,14 +314,12 @@ int vec_sub(Vector a, Vector b, Vector c) {
  ******************************************************************************/
 int vec_add(Vector a, Vector b, Vector c) {
 
-	int     i;
-
 	if (a[NR] != b[NR] || a[NR] != c[NR]) {
 		printf("Incompatible vectors in vec_add\n");
 		return FALSE;
 	}
 
-	for (i=1; i <= a[NR]; ++i) {
+	for (int i = 1; i <= a[NR]; ++i) {
 		c[i] = a[i] + b[i];
 	}
 
@@ -342,7 +336,6 @@ int vec_add(Vector a, Vector b, Vector c) {
  *****************************************************************************/
 Matrix my_matrix(int nrl, int nrh, int ncl, int nch) {
 
-	int      i;
 	double **m;
 	double  *chunk;
 	int      info = FALSE;
@@ -367,8 +360,8 @@ Matrix my_matrix(int nrl, int nrh, int ncl, int nch) {
 
 	chunk = (double *) calloc( (size_t) (nrh-nrl+1) * (nch-ncl+1),sizeof(double));
 
-	for(i=nrl;i<=nrh;i++) {
-		m[i]=(double *) &(chunk[(i-nrl)*(nch-ncl+1)]);
+	for(int i = nrl; i <= nrh;i ++) {
+		m[i] = (double *) &(chunk[(i-nrl)*(nch-ncl+1)]);
 		m[i] -= ncl;
 	}
 
@@ -399,7 +392,6 @@ Matrix my_matrix(int nrl, int nrh, int ncl, int nch) {
 int
 mat_vec_mult(Matrix a, Vector b, Vector c) {
 
-	int     i,j,m;
 	Vector  temp;
 	int     ac,ar,br,cr;
 
@@ -413,18 +405,10 @@ mat_vec_mult(Matrix a, Vector b, Vector c) {
 		return FALSE;
 	}
 
-	/* bugfix (adsouza July 10, 2002)
-  if (cr != br) {
-    printf("Input and output vector are incompatible.\n");
-    return FALSE;
-  }
-  end of old version */
-
 	if (cr != ar) {
 		printf("Input and output vector are incompatible.\n");
 		return FALSE;
 	}
-
 
 	if (b == c) {
 		temp = my_vector(1,ar);
@@ -432,14 +416,12 @@ mat_vec_mult(Matrix a, Vector b, Vector c) {
 		temp = c;
 	}
 
-	for (i=1; i <= ar; ++i) {
-		temp[i]=0;
-		for (j=1; j <= br; ++j){
+	for (int i = 1; i <= ar; ++i) {
+		temp[i] = 0;
+		for (int j = 1; j <= br; ++j){
 			temp[i] += a[i][j] * b[j];
 		}
 	}
-
-
 
 	if (b == c) {
 		vec_equal(temp,c);
@@ -450,8 +432,7 @@ mat_vec_mult(Matrix a, Vector b, Vector c) {
 
 }
 
-void
-my_free_vector(Vector vec, int nl, int nh) {
+void my_free_vector(Vector vec, int nl, int nh) {
 	if (nl == 1) {
 		free((char*) (vec));
 	} else {
@@ -507,14 +488,11 @@ int vec_equal(Vector a, Vector c) {
 
  ******************************************************************************/
 int mat_mult(Matrix a, Matrix b, Matrix c) {
-	int      i,j,m;
+
 	Matrix   temp;
-	int      ar,ac,br,bc;
-	int      type;
+	int      ar, br, bc;
 
 	ar = a[0][NR];
-	ac = a[0][NC];
-
 	br = b[0][NR];
 	bc = b[0][NC];
 
@@ -528,12 +506,10 @@ int mat_mult(Matrix a, Matrix b, Matrix c) {
 		temp = c;
 	}
 
-
-
-	for (i=1; i <= ar; ++i) {
-		for (j=1; j <= bc; ++j){
-			temp[i][j]=0;
-			for (m=1; m <= br; ++m){
+	for (int i = 1; i <= ar; ++i) {
+		for (int j = 1; j <= bc; ++j) {
+			temp[i][j] = 0;
+			for (int m = 1; m <= br; ++m) {
 				temp[i][j] += a[i][m] * b[m][j];
 			}
 		}
@@ -551,9 +527,7 @@ int mat_mult(Matrix a, Matrix b, Matrix c) {
 /*****************************************************************************
   utility program my_free_matrix; adjusted to my special matrix() program
  ***************************************************************************/
-void
-my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch) {
-	int i;
+void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch) {
 
 	free((char*) &(mat[nrl][ncl]));
 	if (nrl==1 && ncl==1) {

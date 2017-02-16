@@ -26,8 +26,9 @@
 #define MAX_ACC 200
 #define TIME2RETURN 1.0
 
-Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
-Matrix racketMat; // racket strategy
+extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
+extern Matrix racketMat; // racket strategy
+
 
 // optimization related methods
 void nlopt_optim_poly_run(double *x, double *params);
@@ -45,6 +46,6 @@ void set_bounds(double *lb, double *ub);
 
 // debugging methods
 void test_optim(double *x, double *params);
-void load_lookup_table();
+void load_lookup_table(Matrix lookupTable);
 
 #endif /* OPTIMPOLY_H_ */

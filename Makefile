@@ -1,9 +1,8 @@
 HEADER=$(HOME)/optimpoly/include
 ROBOTDIR=$(HOME)/robolab
-IDIR=$(ROBOTDIR)/shared/barrett/math #math folder for kinematics computations
-CC=gcc
+CC=g++
 LIBS=-lm -lnlopt -lpthread
-CFLAGS= -g -DUNIX -I$(HEADER) -I$(IDIR) #g is necessary for debugging
+CFLAGS= -g -Wall -DUNIX -O3 -I$(HEADER) #g is necessary for debugging
 
 all:
 	$(CC) $(CFLAGS) src/optimpoly.c \
