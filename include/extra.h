@@ -8,8 +8,6 @@
 #ifndef EXTRA_H_
 #define EXTRA_H_
 
-#define DOF 7 //TODO: put ifndef macro preprocessor command
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "SL.h"

@@ -1,4 +1,4 @@
-# optimpoly
+# polyoptim
 
 Optimal Trajectory Generation in Table Tennis
 
@@ -9,8 +9,12 @@ polynomials in joint space.
 We use the NLOPT toolbox to run the constrained nonlinear optimization:
 http://ab-initio.mit.edu/wiki/index.php/NLopt
 
-Notes and Questions:
+We investigate the following problems:
 
-1. Should we have the repository completely independent from SL files (code and header)?
-2. Stick to either 1 or 0-based indexing (but not both) ?
-3. Include Eigen and switch to C++? 
+1. Testing for faster optimization - can we speed up the optimization with more optimized structures and gradient-based optimizers?
+
+2. Can we use automatic differentiation to supply gradients ?
+
+3. Can we try altogether different optimal control strategies in table tennis? Can we use NLOPT to solve them sufficiently well?
+
+4. Should we try different optimization toolboxes?

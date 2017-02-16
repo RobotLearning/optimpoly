@@ -16,8 +16,6 @@
 
 // SL variables and kinematics
 #include "SL.h"
-#include "SL_user.h"
-#include "SL_user_common.h"
 
 // defines
 #define DOF 7
@@ -44,9 +42,6 @@ void init_soln_to_rest_posture(double *x, double *q0);
 void init_joint_state(double *q0);
 void init_ball_state(double *b0, double *v0);
 void set_bounds(double *lb, double *ub);
-
-// loading joint limits from SL files
-void load_joint_limits();
 
 // debugging methods
 void test_optim(double *x, double *params);

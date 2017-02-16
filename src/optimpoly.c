@@ -8,11 +8,11 @@
  ============================================================================
  */
 
+#include "SL.h"
 #include "optimpoly.h"
 #include "table_tennis.h"
-#include "extra.h"
+#include "utils.h"
 #include "kinematics.h"
-//#include "SL_kinematics_body.h"
 
 int main(void) {
 
@@ -192,17 +192,6 @@ void set_bounds(double *lb, double *ub) {
 	// constraints on final time
 	ub[2*DOF] = 1.0;
 	lb[2*DOF] = 0.0;
-}
-
-/*
- * Load the joint limits from config/ file into joint_range array
- *
- */
-void load_joint_limits() {
-
-	char *fname = "SensorOffset.cf";
-	read_sensor_offsets(fname);
-
 }
 
 /*

@@ -10,7 +10,10 @@
 
 // SL variables and kinematics
 
+#include "SL.h"
+#include "utils.h"
 #include "table_tennis.h"
+#include "constants.h"
 
 /*
  * Function that calculates a racket strategy : positions, velocities and orientations
@@ -123,7 +126,7 @@ void calc_ball_vel_out(SL_Cstate hitPoint, Vector landPoint, double time2land, V
 
 	velOut[_X_] = (landPoint[1] - hitPoint.x[_X_]) / time2land;
 	velOut[_Y_] = (landPoint[2] - hitPoint.x[_Y_]) / time2land;
-	velOut[_Z_] = (zTable - hitPoint.x[_Z_] + 0.5 * intern_gravity * sqr(time2land)) / time2land;
+	velOut[_Z_] = (zTable - hitPoint.x[_Z_] - 0.5 * gravity * sqr(time2land)) / time2land;
 
 	//TODO: consider the air drag case
 	// hack for now
@@ -156,12 +159,12 @@ void integrate_ball_state(SL_Cstate ballState, SL_Cstate *ballPred, double delta
 
 			ballPred->xdd[_X_] = -ballState.xd[_X_] * Cdrag * velBall;
 			ballPred->xdd[_Y_] = -ballState.xd[_Y_] * Cdrag * velBall;
-			ballPred->xdd[_Z_] = -intern_gravity - ballState.xd[_Z_] * Cdrag * velBall;
+			ballPred->xdd[_Z_] = gravity - ballState.xd[_Z_] * Cdrag * velBall;
 		}
 		else {
 			ballPred->xdd[_X_] = 0.;
 			ballPred->xdd[_Y_] = 0.;
-			ballPred->xdd[_Z_] = -intern_gravity;
+			ballPred->xdd[_Z_] = gravity;
 		}
 
 		ballPred->xd[_X_] = ballState.xd[_X_] + ballPred->xdd[_X_] * deltat;

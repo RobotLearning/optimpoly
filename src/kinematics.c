@@ -7,7 +7,12 @@
  *      Author: okoc
  */
 
+#include "stdio.h"
+#include "stdlib.h"
+#include "SL.h"
 #include "kinematics.h"
+#include "utils.h"
+#include "string.h"
 
 /*!*****************************************************************************
  *******************************************************************************
@@ -42,7 +47,6 @@ void
 kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 		   double **Xmcog, double **Xaxis, double **Xorigin, double **Xlink, double ***Ahmat) {
 
-	#include "mdefs.h"
 	#include "LInfo_declare.h"
 	#include "LInfo_math.h"
 
@@ -62,6 +66,7 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 void jacobian(Matrix lp, Matrix jop, Matrix jap, Matrix Jac) {
 
 	int i,j;
+	static const int PALM = 6;
 	double c[2*CART+1];
 	for (i = 1; i <= DOF; ++i) {
 		revoluteGJacColumn(lp[PALM], jop[i], jap[i], c);
@@ -108,19 +113,30 @@ void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c) {
 void setDefaultEndeffector(void) {
 
 
-	endeff[RIGHT_HAND].m       = 0.0;
-	endeff[RIGHT_HAND].mcm[_X_]= 0.0;
-	endeff[RIGHT_HAND].mcm[_Y_]= 0.0;
-	endeff[RIGHT_HAND].mcm[_Z_]= 0.0;
-	endeff[RIGHT_HAND].x[_X_]  = 0.0;
-	endeff[RIGHT_HAND].x[_Y_]  = 0.0;
-	endeff[RIGHT_HAND].x[_Z_]  = 0.08531+0.06;
-	endeff[RIGHT_HAND].a[_A_]  = 0.0;
-	endeff[RIGHT_HAND].a[_B_]  = 0.0;
-	endeff[RIGHT_HAND].a[_G_]  = 0.0;
+	endeff[1].m       = 0.0;
+	endeff[1].mcm[_X_]= 0.0;
+	endeff[1].mcm[_Y_]= 0.0;
+	endeff[1].mcm[_Z_]= 0.0;
+	endeff[1].x[_X_]  = 0.0;
+	endeff[1].x[_Y_]  = 0.0;
+	endeff[1].x[_Z_]  = 0.08531+0.06;
+	endeff[1].a[_X_]  = 0.0;
+	endeff[1].a[_Y_]  = 0.0;
+	endeff[1].a[_Z_]  = 0.0;
 
 	// attach the racket
-	endeff[RIGHT_HAND].x[_Z_] = .3;
+	endeff[1].x[_Z_] = .3;
+
+}
+
+/*
+ * Load the joint limits from config/ file into joint_range array
+ *
+ */
+void load_joint_limits() {
+
+	char *fname = "SensorOffset.cf";
+	read_sensor_offsets(fname);
 
 }
 
@@ -157,7 +173,7 @@ int read_sensor_offsets(char *fname) {
 
   /* find all joint variables and read them into the appropriate array */
 
-  for (i=1; i<= n_dofs; ++i) {
+  for (i=1; i<= N_DOFS; ++i) {
     if (!find_keyword(in, &(joint_names[i][0]))) {
       printf("ERROR: Cannot find offset for >%s<!\n",joint_names[i]);
       fclose(in);
@@ -178,5 +194,3 @@ int read_sensor_offsets(char *fname) {
   return TRUE;
 
 }
-
-
