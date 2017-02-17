@@ -116,7 +116,7 @@ void nlopt_optim_poly_run(double *x, pass *params) {
 	//nlopt_set_local_optimizer(opt, opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, const_costfunc, params->p_cost);
+	nlopt_set_min_objective(opt, costfunc, params->p_cost);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
 			                         params->p_ineq, tol);
 	//nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
@@ -188,11 +188,16 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_params)
 	double a2[DOF];
 	static double qfdot[DOF]; // all zeros
 	static double qf[DOF]; // opt value
+	static double q0dot[DOF]; // initial joint velocity
+	static double q0[DOF]; // initial joint pos
+	static int firsttime = TRUE;
 	double T = x[2*DOF];
 
-	static cost_pass* pass = (cost_pass *) my_func_params;
-	static double* q0 = pass->q0;
-	static double* q0dot = pass->q0dot;
+	if (firsttime) {
+		firsttime = FALSE;
+		init_joint_state(q0);
+	}
+
 	// instead of using global variables feeding parameters directly
 
 	if (grad) { // TODO: qf and qfdot need to be passed!
