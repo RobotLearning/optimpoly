@@ -116,11 +116,11 @@ void nlopt_optim_poly_run(double *x, pass *params) {
 	//nlopt_set_local_optimizer(opt, opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, costfunc, params->p_cost);
+	nlopt_set_min_objective(opt, const_costfunc, params->p_cost);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
 			                         params->p_ineq, tol);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         NULL, tol);
+	//nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
+	//		                         NULL, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	//init_soln_to_rest_posture(x,params); //parameters are the initial joint positions q0

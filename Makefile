@@ -10,7 +10,7 @@ all:
 					src/kinematics.c \
 					src/utils.c \
 					src/example.c \
-	      $(LIBS) -o test 
+	      $(LIBS) -o optim.o
 
 clean:
 	rm -rf *.o test
