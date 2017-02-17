@@ -43,62 +43,22 @@ int main(void) {
 
 	/* run NLOPT opt algorithm here */
 	lookup(lookupTable,b0,v0,x); // initialize solution
-
-	constr_pass* params_ineq = (constr_pass*)malloc(sizeof(constr_pass));
-	cost_pass* params_cost = (cost_pass*)malloc(sizeof(cost_pass));
-	pass* params = setup_pass_params(params_ineq,params_cost);
-
-	nlopt_optim_poly_run(x,params);
+	nlopt_optim_poly_run(x);
 
 	// test the lookup value to see if constraint is not violated
 	printf("================== TEST ==================\n");
 	printf("Lookup values:\n");
 	lookup(lookupTable,b0,v0,x);
-	test_optim(x,params);
+	test_optim(x);
 
 	return TRUE;
-}
-
-/*
- * Setup parameters to pass instead of using global variables
- * to the optimization
- *
- */
-pass* setup_pass_params(constr_pass* p_ineq, cost_pass* pc) {
-
-	pass* params = (pass*)malloc(sizeof(pass));
-
-	static double q0dot[DOF];
-	static double lb[OPTIM_DIM]; /* lower bounds */
-	static double ub[OPTIM_DIM]; /* upper bounds */
-	static double q0[DOF];
-	double time2return = 1.0;
-
-	read_joint_limits(lb,ub);
-	set_bounds(lb,ub,0.01);
-	init_joint_state(q0);
-
-	p_ineq->Tret = time2return;
-	p_ineq->q0 = &q0[0];
-	p_ineq->q0dot = &q0dot[0];
-	p_ineq->lb = &lb[0];
-	p_ineq->ub = &ub[0];
-
-	pc->q0 = &q0[0];
-	pc->q0dot = &q0dot[0];
-
-	params->p_ineq = p_ineq;
-	params->p_cost = pc;
-
-	return params;
-
 }
 
 /*
  * NLOPT optimization routine for table tennis traj gen
  *
  */
-void nlopt_optim_poly_run(double *x, pass *params) {
+void nlopt_optim_poly_run(double *x) {
 
 	static double tol[EQ_CONSTR_DIM];
 	static double lb[OPTIM_DIM]; /* lower bounds */
@@ -116,11 +76,11 @@ void nlopt_optim_poly_run(double *x, pass *params) {
 	//nlopt_set_local_optimizer(opt, opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, costfunc, params->p_cost);
+	nlopt_set_min_objective(opt, costfunc, NULL);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         params->p_ineq, tol);
-	//nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-	//		                         NULL, tol);
+			                         NULL, tol);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
+			                         NULL, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	//init_soln_to_rest_posture(x,params); //parameters are the initial joint positions q0
@@ -130,14 +90,14 @@ void nlopt_optim_poly_run(double *x, pass *params) {
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with dxit code %d!\n", res);
-	    test_optim(x,params);
+	    test_optim(x);
 	}
 	else {
 		//nlopt_example_run();
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    test_optim(x,params);
+	    test_optim(x);
 	}
 	nlopt_destroy(opt);
 }
@@ -146,7 +106,7 @@ void nlopt_optim_poly_run(double *x, pass *params) {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-void test_optim(double *x, pass *params) {
+void test_optim(double *x) {
 
 	// give info on solution vector
 	print_optim_vec(x);
@@ -156,8 +116,8 @@ void test_optim(double *x, pass *params) {
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, NULL);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, params->p_ineq);
-	double cost = costfunc(OPTIM_DIM, x, grad, params->p_cost);
+			                 OPTIM_DIM, x, grad, NULL);
+	double cost = costfunc(OPTIM_DIM, x, grad, NULL);
 	printf("f = %.2f\n",cost);
 	printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
 	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
@@ -240,13 +200,19 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[DOF];
 	static double joint_return_max_cand[DOF];
 	static double joint_return_min_cand[DOF];
+	static double q0[DOF];
+	static double q0dot[DOF];
+	static double ub[OPTIM_DIM];
+	static double lb[OPTIM_DIM];
+	static double Tret = 1.0; // TODO: set it from somewhere else
+	static int firsttime = TRUE;
 
-	static constr_pass *params = (constr_pass *) my_func_params;
-	static double* q0 = params->q0;
-	static double* q0dot = params->q0dot;
-	static double* ub = params->ub;
-	static double* lb = params->lb;
-	static double Tret = params->Tret;
+	if (firsttime) {
+		firsttime = FALSE;
+		init_joint_state(q0);
+		read_joint_limits(lb,ub);
+		set_bounds(lb,ub,0.01);
+	}
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
