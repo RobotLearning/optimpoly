@@ -204,17 +204,17 @@ void kinematics(double *state, double* basec, double* baseo,
 	Hi78[1][1]=rceff1a2*rceff1a3;
 	Hi78[1][2]=-(rceff1a2*rseff1a3);
 	Hi78[1][3]=rseff1a2;
-	Hi78[1][4]=eff_x[1];
+	Hi78[1][4]=eff_x[0];
 
 	Hi78[2][1]=rceff1a3*rseff1a1*rseff1a2 + rceff1a1*rseff1a3;
 	Hi78[2][2]=rceff1a1*rceff1a3 - rseff1a1*rseff1a2*rseff1a3;
 	Hi78[2][3]=-(rceff1a2*rseff1a1);
-	Hi78[2][4]=eff_x[2];
+	Hi78[2][4]=eff_x[1];
 
 	Hi78[3][1]=-(rceff1a1*rceff1a3*rseff1a2) + rseff1a1*rseff1a3;
 	Hi78[3][2]=rceff1a3*rseff1a1 + rceff1a1*rseff1a2*rseff1a3;
 	Hi78[3][3]=rceff1a1*rceff1a2;
-	Hi78[3][4]=eff_x[3];
+	Hi78[3][4]=eff_x[2];
 
 
 	/* per link inverse homogeneous rotation matrices */

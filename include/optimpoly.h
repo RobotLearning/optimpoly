@@ -29,19 +29,12 @@ extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seco
 extern Matrix racketMat; // racket strategy
 
 typedef struct {
-	double* base_state;
-	double* base_orient;
-	double* eff_angles;
-	double* eff_pos;
-} eq_pass;
-
-typedef struct {
 	double* q0; // initial pose
 	double* q0dot; // initial velocity
 	double* lb; // joint limits
 	double* ub;
 	double Tret; // time to return
-} ineq_pass;
+} constr_pass;
 
 typedef struct {
 	double* q0;
@@ -49,16 +42,17 @@ typedef struct {
 } cost_pass;
 
 typedef struct {
-	eq_pass* p_eq;
-	ineq_pass* p_ineq;
+	//eq_pass* p_eq;
+	constr_pass* p_ineq;
 	cost_pass* p_cost;
 } pass;
 
 
 // optimization related methods
 void nlopt_optim_poly_run(double *x, pass *params);
-pass* setup_pass_params(eq_pass* p_eq, ineq_pass* p_ineq, cost_pass* pc);
+pass* setup_pass_params(constr_pass* p_ineq, cost_pass* pc);
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
+double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) ;
 void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
 void joint_limits_ineq_constr(unsigned m, double *result,

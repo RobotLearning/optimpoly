@@ -9,6 +9,7 @@
  */
 
 #include "SL.h"
+#include "constants.h"
 #include "optimpoly.h"
 #include "table_tennis.h"
 #include "utils.h"
@@ -43,10 +44,9 @@ int main(void) {
 	/* run NLOPT opt algorithm here */
 	lookup(lookupTable,b0,v0,x); // initialize solution
 
-	eq_pass* params_eq = (eq_pass*)malloc(sizeof(eq_pass));
-	ineq_pass* params_ineq = (ineq_pass*)malloc(sizeof(ineq_pass));
+	constr_pass* params_ineq = (constr_pass*)malloc(sizeof(constr_pass));
 	cost_pass* params_cost = (cost_pass*)malloc(sizeof(cost_pass));
-	pass* params = setup_pass_params(params_eq,params_ineq,params_cost);
+	pass* params = setup_pass_params(params_ineq,params_cost);
 
 	nlopt_optim_poly_run(x,params);
 
@@ -64,14 +64,10 @@ int main(void) {
  * to the optimization
  *
  */
-pass* setup_pass_params(eq_pass* p_eq, ineq_pass* p_ineq, cost_pass* pc) {
+pass* setup_pass_params(constr_pass* p_ineq, cost_pass* pc) {
 
 	pass* params = (pass*)malloc(sizeof(pass));
 
-	static double base_state[3];
-	static double base_orient[4]; base_orient[1] = 1.0;
-	static double eff_pos[3];
-	static double eff_angles[3];
 	static double q0dot[DOF];
 	static double lb[OPTIM_DIM]; /* lower bounds */
 	static double ub[OPTIM_DIM]; /* upper bounds */
@@ -82,9 +78,6 @@ pass* setup_pass_params(eq_pass* p_eq, ineq_pass* p_ineq, cost_pass* pc) {
 	set_bounds(lb,ub,0.01);
 	init_joint_state(q0);
 
-	// the the default endeffector parameters
-	setDefaultEndeffector(eff_pos);
-
 	p_ineq->Tret = time2return;
 	p_ineq->q0 = &q0[0];
 	p_ineq->q0dot = &q0dot[0];
@@ -94,14 +87,8 @@ pass* setup_pass_params(eq_pass* p_eq, ineq_pass* p_ineq, cost_pass* pc) {
 	pc->q0 = &q0[0];
 	pc->q0dot = &q0dot[0];
 
-	p_eq->base_orient = &base_orient[0];
-	p_eq->base_state = &base_state[0];
-	p_eq->eff_pos = &eff_pos[0];
-	p_eq->eff_angles = &eff_angles[0]; // Euler angles?
-
 	params->p_ineq = p_ineq;
 	params->p_cost = pc;
-	params->p_eq = p_eq;
 
 	return params;
 
@@ -133,7 +120,7 @@ void nlopt_optim_poly_run(double *x, pass *params) {
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
 			                         params->p_ineq, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         params->p_eq, tol);
+			                         NULL, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	//init_soln_to_rest_posture(x,params); //parameters are the initial joint positions q0
@@ -167,7 +154,7 @@ void test_optim(double *x, pass *params) {
 	double *grad = FALSE;
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, params->p_eq);
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, NULL);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
 			                 OPTIM_DIM, x, grad, params->p_ineq);
 	double cost = costfunc(OPTIM_DIM, x, grad, params->p_cost);
@@ -180,6 +167,15 @@ void test_optim(double *x, pass *params) {
 		if (lim_violation[i] > 0.0)
 			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % DOF + 1);
 	}
+}
+
+/*
+ * Calculates the cost function for table tennis trajectory generation optimization
+ * to find spline (3rd order strike+return) polynomials
+ */
+double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+
+	return 1.0;
 }
 
 /*
@@ -240,7 +236,7 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_return_max_cand[DOF];
 	static double joint_return_min_cand[DOF];
 
-	static ineq_pass *params = (ineq_pass *) my_func_params;
+	static constr_pass *params = (constr_pass *) my_func_params;
 	static double* q0 = params->q0;
 	static double* q0dot = params->q0dot;
 	static double* ub = params->ub;
@@ -287,11 +283,11 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static int firsttime = TRUE;
 
 	static double q[DOF];
-	static eq_pass* params = (eq_pass*) data;
-	double* base_orient = params->base_orient;
-	double* base_state  = params->base_state;
-	double* eff_angles = params->eff_angles;
-	double* eff_pos = params->eff_pos;
+	static double base_orient[4]; // quat
+	static double base_state[3]; // pos
+	static double racket_angles[3]; // initial euler angles for racket
+	static double racket_pos[3]; // initial racket positions
+
 	double T = x[2*DOF];
 	int i;
 
@@ -310,6 +306,9 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 		for (i = 0; i <= N_LINKS; ++i)
 			Alink_des[i] = my_matrix(1,4,1,4);
+
+		base_orient[1] = 1.0;
+		racket_pos[Z] = 0.3; // set racket
 
 		// homogeneous transform instead of using quaternions
 		racketTransform[1][1] = 1;
@@ -337,7 +336,7 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	/* compute the desired link positions */
 	kinematics(q, base_state, base_orient,
-			      eff_angles, eff_pos,
+			      racket_angles, racket_pos,
 			      joint_axis_pos_des, joint_origin_pos_des,
 			      link_pos_des, Alink_des);
 
