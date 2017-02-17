@@ -14,22 +14,6 @@
 #include "utils.h"
 #include "string.h"
 
-SL_Cstate     cart_state[N_ENDEFFS+1];        /* endeffector state */
-SL_quat       cart_orient[N_ENDEFFS+1];       /* endeffector orientation */
-SL_endeff     endeff[N_ENDEFFS+1];            /* endeffector structure */
-SL_Cstate     base_state;                     /* cartesian state of base coordinate system */
-SL_quat       base_orient;                    /* cartesian orientation of base coordinate system */
-Matrix        Alink_des[N_LINKS+1];           /* homogeneous transformation matrices for all links */
-Matrix        link_pos_des;                   /* desired cart. pos of links */
-Matrix        joint_cog_mpos_des;             /* vector of mass*COG of each joint based on desireds*/
-Matrix       joint_origin_pos_des;           /* vector of pos. of local joint coord.sys based on des.*/
-Matrix        joint_axis_pos_des;             /* unit vector of joint rotation axis based on des.*/
-SL_DJstate    joint_default_state[N_DOFS+1];
-SL_OJstate    joint_opt_state[N_DOFS+1];
-SL_Jstate     joint_state[N_DOFS+1];
-SL_DJstate    joint_des_state[N_DOFS+1];
-double        joint_range[N_DOFS+1][3+1];
-SL_link       links[N_DOFS+1];                /* specs of links: mass, inertia, cm */
 
 /*!*****************************************************************************
  *******************************************************************************
@@ -58,9 +42,9 @@ SL_link       links[N_DOFS+1];                /* specs of links: mass, inertia, 
  \param[out]    Ahmat   : homogeneous transformation matrices of each link
 
  ******************************************************************************/
-void
-kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
-		   double **Xmcog, double **Xaxis, double **Xorigin, double **Xlink, double ***Ahmat) {
+void kinematics(double *state, double* basec, double* baseo,
+		        double* eff_a, double* eff_x,
+		        double **Xaxis, double **Xorigin, double **Xlink, double*** Ahmat) {
 
 	static double  sstate1th;
 	static double  cstate1th;
@@ -103,66 +87,59 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	static double  Ai07[4+1][4+1];
 	static double  Ai08[4+1][4+1];
 
-
 	/* Need [n_joints+1]x[3+1] matrices: Xorigin,Xmcog,Xaxis, and Xlink[nLinks+1][3+1] */
 
 	/* sine and cosine precomputation */
-	sstate1th=Sin(state[1].th);
-	cstate1th=Cos(state[1].th);
+	sstate1th=Sin(state[0]);
+	cstate1th=Cos(state[0]);
 
-	sstate2th=Sin(state[2].th);
-	cstate2th=Cos(state[2].th);
+	sstate2th=Sin(state[1]);
+	cstate2th=Cos(state[1]);
 
-	sstate3th=Sin(state[3].th);
-	cstate3th=Cos(state[3].th);
+	sstate3th=Sin(state[2]);
+	cstate3th=Cos(state[2]);
 
-	sstate4th=Sin(state[4].th);
-	cstate4th=Cos(state[4].th);
+	sstate4th=Sin(state[3]);
+	cstate4th=Cos(state[3]);
 
-	sstate5th=Sin(state[5].th);
-	cstate5th=Cos(state[5].th);
+	sstate5th=Sin(state[4]);
+	cstate5th=Cos(state[4]);
 
-	sstate6th=Sin(state[6].th);
-	cstate6th=Cos(state[6].th);
+	sstate6th=Sin(state[5]);
+	cstate6th=Cos(state[5]);
 
-	sstate7th=Sin(state[7].th);
-	cstate7th=Cos(state[7].th);
-
+	sstate7th=Sin(state[6]);
+	cstate7th=Cos(state[6]);
 
 	/* rotation matrix sine and cosine precomputation */
 
 
+	rseff1a1=Sin(eff_a[0]);
+	rceff1a1=Cos(eff_a[0]);
 
+	rseff1a2=Sin(eff_a[1]);
+	rceff1a2=Cos(eff_a[1]);
 
-
-
-
-	rseff1a1=Sin(eff[1].a[1]);
-	rceff1a1=Cos(eff[1].a[1]);
-
-	rseff1a2=Sin(eff[1].a[2]);
-	rceff1a2=Cos(eff[1].a[2]);
-
-	rseff1a3=Sin(eff[1].a[3]);
-	rceff1a3=Cos(eff[1].a[3]);
+	rseff1a3=Sin(eff_a[2]);
+	rceff1a3=Cos(eff_a[2]);
 
 
 
 	/* inverse homogeneous rotation matrices */
-	Hi00[1][1]=-1 + 2*Power(baseo[0].q[1],2) + 2*Power(baseo[0].q[2],2);
-	Hi00[1][2]=2*(baseo[0].q[2]*baseo[0].q[3] - baseo[0].q[1]*baseo[0].q[4]);
-	Hi00[1][3]=2*(baseo[0].q[1]*baseo[0].q[3] + baseo[0].q[2]*baseo[0].q[4]);
-	Hi00[1][4]=basec[0].x[1];
+	Hi00[1][1]=-1 + 2*Power(baseo[0],2) + 2*Power(baseo[1],2);
+	Hi00[1][2]=2*(baseo[1]*baseo[2] - baseo[0]*baseo[3]);
+	Hi00[1][3]=2*(baseo[0]*baseo[2] + baseo[1]*baseo[3]);
+	Hi00[1][4]=basec[0];
 
-	Hi00[2][1]=2*(baseo[0].q[2]*baseo[0].q[3] + baseo[0].q[1]*baseo[0].q[4]);
-	Hi00[2][2]=-1 + 2*Power(baseo[0].q[1],2) + 2*Power(baseo[0].q[3],2);
-	Hi00[2][3]=2*(-(baseo[0].q[1]*baseo[0].q[2]) + baseo[0].q[3]*baseo[0].q[4]);
-	Hi00[2][4]=basec[0].x[2];
+	Hi00[2][1]=2*(baseo[1]*baseo[2] + baseo[0]*baseo[3]);
+	Hi00[2][2]=-1 + 2*Power(baseo[0],2) + 2*Power(baseo[2],2);
+	Hi00[2][3]=2*(-(baseo[0]*baseo[1]) + baseo[2]*baseo[3]);
+	Hi00[2][4]=basec[1];
 
-	Hi00[3][1]=2*(-(baseo[0].q[1]*baseo[0].q[3]) + baseo[0].q[2]*baseo[0].q[4]);
-	Hi00[3][2]=2*(baseo[0].q[1]*baseo[0].q[2] + baseo[0].q[3]*baseo[0].q[4]);
-	Hi00[3][3]=-1 + 2*Power(baseo[0].q[1],2) + 2*Power(baseo[0].q[4],2);
-	Hi00[3][4]=basec[0].x[3];
+	Hi00[3][1]=2*(-(baseo[0]*baseo[2]) + baseo[1]*baseo[3]);
+	Hi00[3][2]=2*(baseo[0]*baseo[1] + baseo[2]*baseo[3]);
+	Hi00[3][3]=-1 + 2*Power(baseo[0],2) + 2*Power(baseo[3],2);
+	Hi00[3][4]=basec[2];
 
 
 	Hi01[1][1]=cstate1th;
@@ -227,18 +204,17 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Hi78[1][1]=rceff1a2*rceff1a3;
 	Hi78[1][2]=-(rceff1a2*rseff1a3);
 	Hi78[1][3]=rseff1a2;
-	Hi78[1][4]=eff[1].x[1];
+	Hi78[1][4]=eff_x[1];
 
 	Hi78[2][1]=rceff1a3*rseff1a1*rseff1a2 + rceff1a1*rseff1a3;
 	Hi78[2][2]=rceff1a1*rceff1a3 - rseff1a1*rseff1a2*rseff1a3;
 	Hi78[2][3]=-(rceff1a2*rseff1a1);
-	Hi78[2][4]=eff[1].x[2];
+	Hi78[2][4]=eff_x[2];
 
 	Hi78[3][1]=-(rceff1a1*rceff1a3*rseff1a2) + rseff1a1*rseff1a3;
 	Hi78[3][2]=rceff1a3*rseff1a1 + rceff1a1*rseff1a2*rseff1a3;
 	Hi78[3][3]=rceff1a1*rceff1a2;
-	Hi78[3][4]=eff[1].x[3];
-
+	Hi78[3][4]=eff_x[3];
 
 
 	/* per link inverse homogeneous rotation matrices */
@@ -376,10 +352,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[0][2]=Hi00[2][4];
 	Xorigin[0][3]=Hi00[3][4];
 
-	Xmcog[0][1]=links[0].mcm[1]*Hi00[1][1] + links[0].mcm[2]*Hi00[1][2] + links[0].mcm[3]*Hi00[1][3] + links[0].m*Hi00[1][4];
-	Xmcog[0][2]=links[0].mcm[1]*Hi00[2][1] + links[0].mcm[2]*Hi00[2][2] + links[0].mcm[3]*Hi00[2][3] + links[0].m*Hi00[2][4];
-	Xmcog[0][3]=links[0].mcm[1]*Hi00[3][1] + links[0].mcm[2]*Hi00[3][2] + links[0].mcm[3]*Hi00[3][3] + links[0].m*Hi00[3][4];
-
 	/* link: {basec$0$$x[[1]], basec$0$$x[[2]], basec$0$$x[[3]]} */
 	Xlink[0][1]=Hi00[1][4];
 	Xlink[0][2]=Hi00[2][4];
@@ -407,10 +379,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[1][1]=Ai01[1][4];
 	Xorigin[1][2]=Ai01[2][4];
 	Xorigin[1][3]=Ai01[3][4];
-
-	Xmcog[1][1]=links[1].mcm[1]*Ai01[1][1] + links[1].mcm[2]*Ai01[1][2] + links[1].mcm[3]*Ai01[1][3] + links[1].m*Ai01[1][4];
-	Xmcog[1][2]=links[1].mcm[1]*Ai01[2][1] + links[1].mcm[2]*Ai01[2][2] + links[1].mcm[3]*Ai01[2][3] + links[1].m*Ai01[2][4];
-	Xmcog[1][3]=links[1].mcm[1]*Ai01[3][1] + links[1].mcm[2]*Ai01[3][2] + links[1].mcm[3]*Ai01[3][3] + links[1].m*Ai01[3][4];
 
 	Xaxis[1][1]=Ai01[1][3];
 	Xaxis[1][2]=Ai01[2][3];
@@ -444,10 +412,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[2][2]=Ai02[2][4];
 	Xorigin[2][3]=Ai02[3][4];
 
-	Xmcog[2][1]=links[2].mcm[1]*Ai02[1][1] + links[2].mcm[2]*Ai02[1][2] + links[2].mcm[3]*Ai02[1][3] + links[2].m*Ai02[1][4];
-	Xmcog[2][2]=links[2].mcm[1]*Ai02[2][1] + links[2].mcm[2]*Ai02[2][2] + links[2].mcm[3]*Ai02[2][3] + links[2].m*Ai02[2][4];
-	Xmcog[2][3]=links[2].mcm[1]*Ai02[3][1] + links[2].mcm[2]*Ai02[3][2] + links[2].mcm[3]*Ai02[3][3] + links[2].m*Ai02[3][4];
-
 	Xaxis[2][1]=Ai02[1][3];
 	Xaxis[2][2]=Ai02[2][3];
 	Xaxis[2][3]=Ai02[3][3];
@@ -456,10 +420,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[3][1]=Ai03[1][4];
 	Xorigin[3][2]=Ai03[2][4];
 	Xorigin[3][3]=Ai03[3][4];
-
-	Xmcog[3][1]=links[3].mcm[1]*Ai03[1][1] + links[3].mcm[2]*Ai03[1][2] + links[3].mcm[3]*Ai03[1][3] + links[3].m*Ai03[1][4];
-	Xmcog[3][2]=links[3].mcm[1]*Ai03[2][1] + links[3].mcm[2]*Ai03[2][2] + links[3].mcm[3]*Ai03[2][3] + links[3].m*Ai03[2][4];
-	Xmcog[3][3]=links[3].mcm[1]*Ai03[3][1] + links[3].mcm[2]*Ai03[3][2] + links[3].mcm[3]*Ai03[3][3] + links[3].m*Ai03[3][4];
 
 	Xaxis[3][1]=Ai03[1][3];
 	Xaxis[3][2]=Ai03[2][3];
@@ -493,10 +453,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[4][2]=Ai04[2][4];
 	Xorigin[4][3]=Ai04[3][4];
 
-	Xmcog[4][1]=links[4].mcm[1]*Ai04[1][1] + links[4].mcm[2]*Ai04[1][2] + links[4].mcm[3]*Ai04[1][3] + links[4].m*Ai04[1][4];
-	Xmcog[4][2]=links[4].mcm[1]*Ai04[2][1] + links[4].mcm[2]*Ai04[2][2] + links[4].mcm[3]*Ai04[2][3] + links[4].m*Ai04[2][4];
-	Xmcog[4][3]=links[4].mcm[1]*Ai04[3][1] + links[4].mcm[2]*Ai04[3][2] + links[4].mcm[3]*Ai04[3][3] + links[4].m*Ai04[3][4];
-
 	Xaxis[4][1]=Ai04[1][3];
 	Xaxis[4][2]=Ai04[2][3];
 	Xaxis[4][3]=Ai04[3][3];
@@ -528,10 +484,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[5][1]=Ai05[1][4];
 	Xorigin[5][2]=Ai05[2][4];
 	Xorigin[5][3]=Ai05[3][4];
-
-	Xmcog[5][1]=links[5].mcm[1]*Ai05[1][1] + links[5].mcm[2]*Ai05[1][2] + links[5].mcm[3]*Ai05[1][3] + links[5].m*Ai05[1][4];
-	Xmcog[5][2]=links[5].mcm[1]*Ai05[2][1] + links[5].mcm[2]*Ai05[2][2] + links[5].mcm[3]*Ai05[2][3] + links[5].m*Ai05[2][4];
-	Xmcog[5][3]=links[5].mcm[1]*Ai05[3][1] + links[5].mcm[2]*Ai05[3][2] + links[5].mcm[3]*Ai05[3][3] + links[5].m*Ai05[3][4];
 
 	Xaxis[5][1]=Ai05[1][3];
 	Xaxis[5][2]=Ai05[2][3];
@@ -565,10 +517,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[6][2]=Ai06[2][4];
 	Xorigin[6][3]=Ai06[3][4];
 
-	Xmcog[6][1]=links[6].mcm[1]*Ai06[1][1] + links[6].mcm[2]*Ai06[1][2] + links[6].mcm[3]*Ai06[1][3] + links[6].m*Ai06[1][4];
-	Xmcog[6][2]=links[6].mcm[1]*Ai06[2][1] + links[6].mcm[2]*Ai06[2][2] + links[6].mcm[3]*Ai06[2][3] + links[6].m*Ai06[2][4];
-	Xmcog[6][3]=links[6].mcm[1]*Ai06[3][1] + links[6].mcm[2]*Ai06[3][2] + links[6].mcm[3]*Ai06[3][3] + links[6].m*Ai06[3][4];
-
 	Xaxis[6][1]=Ai06[1][3];
 	Xaxis[6][2]=Ai06[2][3];
 	Xaxis[6][3]=Ai06[3][3];
@@ -601,10 +549,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Xorigin[7][2]=Ai07[2][4];
 	Xorigin[7][3]=Ai07[3][4];
 
-	Xmcog[7][1]=links[7].mcm[1]*Ai07[1][1] + links[7].mcm[2]*Ai07[1][2] + links[7].mcm[3]*Ai07[1][3] + links[7].m*Ai07[1][4];
-	Xmcog[7][2]=links[7].mcm[1]*Ai07[2][1] + links[7].mcm[2]*Ai07[2][2] + links[7].mcm[3]*Ai07[2][3] + links[7].m*Ai07[2][4];
-	Xmcog[7][3]=links[7].mcm[1]*Ai07[3][1] + links[7].mcm[2]*Ai07[3][2] + links[7].mcm[3]*Ai07[3][3] + links[7].m*Ai07[3][4];
-
 	Xaxis[7][1]=Ai07[1][3];
 	Xaxis[7][2]=Ai07[2][3];
 	Xaxis[7][3]=Ai07[3][3];
@@ -630,10 +574,6 @@ kinematics(SL_DJstate *state,SL_Cstate *basec, SL_quat *baseo, SL_endeff *eff,
 	Ahmat[6][3][4]=Ai08[3][4];
 
 	Ahmat[6][4][4]=1;
-
-
-
-
 }
 
 /*
@@ -693,86 +633,60 @@ void revoluteGJacColumn(Vector p, Vector pi, Vector zi, Vector c) {
  * Copied from SL_user_common.c for convenience
  *
  */
-void setDefaultEndeffector(void) {
+void setDefaultEndeffector(double endeff_pos[3]) {
 
-
-	endeff[1].m       = 0.0;
-	endeff[1].mcm[_X_]= 0.0;
-	endeff[1].mcm[_Y_]= 0.0;
-	endeff[1].mcm[_Z_]= 0.0;
-	endeff[1].x[_X_]  = 0.0;
-	endeff[1].x[_Y_]  = 0.0;
-	endeff[1].x[_Z_]  = 0.08531+0.06;
-	endeff[1].a[_X_]  = 0.0;
-	endeff[1].a[_Y_]  = 0.0;
-	endeff[1].a[_Z_]  = 0.0;
-
+	endeff_pos[_X_]  = 0.0;
+	endeff_pos[_Y_]  = 0.0;
+	endeff_pos[_Z_]  = 0.30;
 	// attach the racket
-	endeff[1].x[_Z_] = .3;
 
 }
 
 /*
- * Load the joint limits from config/ file into joint_range array
+ * Copied from SL_common.
+ *
+ * Reads joint limits from file.
  *
  */
-void load_joint_limits() {
+int read_joint_limits(double *lb, double *ub) {
 
-	char *fname = "SensorOffset.cf";
-	read_sensor_offsets(fname);
+	char joint_names[][20] = {
+			{"R_SFE"},
+			{"R_SAA"},
+			{"R_HR"},
+			{"R_EB"},
+			{"R_WR"},
+			{"R_WFE"},
+			{"R_WAA"}
+	};
+	char fname[] = "SensorOffset.cf";
 
-}
+	/* find all joint variables and read them into the appropriate array */
 
-/*
- * Copied from SL_common. Dont want to call the function from SL because
- * we have to include a lot of extra SL files
- *
- */
-int read_sensor_offsets(char *fname) {
+	char string[100];
+	FILE *in;
 
-  char string[100];
-  FILE  *in;
+	/* get the max, min of the position sensors */
 
-  char joint_names[][20]= {
-    {"dummy"},
-    {"R_SFE"},
-    {"R_SAA"},
-    {"R_HR"},
-    {"R_EB"},
-    {"R_WR"},
-    {"R_WFE"},
-    {"R_WAA"}
-  };
+	sprintf(string,"%s/robolab/barrett/%s%s",getenv("HOME"),CONFIG,fname);
+	in = fopen(string,"r");
+	if (in == NULL) {
+		printf("ERROR: Cannot open file >%s<!\n",string);
+		return FALSE;
+	}
 
-  /* get the max, min, and offsets of the position sensors */
+	/* find all joint variables and read them into the appropriate array */
 
-  sprintf(string,"%s/robolab/barrett/%s%s",getenv("HOME"),CONFIG,fname);
-  in = fopen(string,"r");
-  if (in == NULL) {
-    printf("ERROR: Cannot open file >%s<!\n",string);
-    return FALSE;
-  }
+	for (int i = 0; i < DOF; i++) {
+		if (!find_keyword(in, &(joint_names[i][0]))) {
+			printf("ERROR: Cannot find offset for %s!\n",joint_names[i]);
+			fclose(in);
+			return TRUE;
+		}
+		fscanf(in,"%lf %lf", &lb[i], &ub[i]);
+	}
+	fclose(in);
 
-  /* find all joint variables and read them into the appropriate array */
-
-  for (int i=1; i<= N_DOFS; ++i) {
-    if (!find_keyword(in, &(joint_names[i][0]))) {
-      printf("ERROR: Cannot find offset for >%s<!\n",joint_names[i]);
-      fclose(in);
-      return FALSE;
-    }
-    fscanf(in,"%lf %lf %lf %lf %lf %lf",
-	&joint_range[i][MIN_THETA], &joint_range[i][MAX_THETA],
-	   &(joint_default_state[i].th),
-	   &(joint_opt_state[i].th),
-	   &(joint_opt_state[i].w),
-	   &joint_range[i][THETA_OFFSET]);
-    joint_default_state[i].thd = 0;
-    joint_default_state[i].uff = 0;
-  }
-
-  fclose(in);
-
-  return TRUE;
+	return TRUE;
 
 }

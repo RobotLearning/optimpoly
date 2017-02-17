@@ -11,6 +11,14 @@
 #include "string.h"
 #include "sys/time.h"
 
+#ifndef DOF
+#define DOF 7
+#endif
+
+#ifndef CART
+#define CART 3
+#endif
+
 /*
  * Prints the 2*DOF + 1 dimensional solution in user-friendly format
  */

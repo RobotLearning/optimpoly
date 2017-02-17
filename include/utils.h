@@ -22,14 +22,6 @@
 typedef double* Vector;
 typedef double** Matrix;
 
-#ifndef DOF
-#define DOF 7
-#endif
-
-#ifndef CART
-#define CART 3
-#endif
-
 // utility methods, zero indexed
 long get_time();
 void vec_minus(double *a1, const double *a2);

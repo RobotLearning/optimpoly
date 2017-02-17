@@ -1,4 +1,4 @@
-HEADER=$(HOME)/optimpoly/include
+HEADER=$(HOME)/polyoptim/include
 ROBOTDIR=$(HOME)/robolab
 CC=g++
 LIBS=-lm -lnlopt -lpthread
