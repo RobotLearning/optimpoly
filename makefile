@@ -3,9 +3,9 @@ HEADER1=$(DIR)/carma/include
 HEADER2=$(DIR)/optim/include
 CC=g++
 LIBS=-larmadillo -lm
-INSTALLFLAGS=-fPIC -g -I$(HEADER1) -shared -pthread -std=c++11#-O2
-TESTFLAGS=-g --std=c++11 #-O2 -pthread
-OPTIMFLAGS=-fPIC -g -Wall -O3 -shared -I$(HEADER2)
+INSTALLFLAGS=-fPIC -Wall -g -I$(HEADER1) -shared -pthread -std=c++11 -O
+TESTFLAGS=-g -Wall --std=c++11 #-O2 -pthread
+OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2)
 
 carma:
 	$(CC) $(INSTALLFLAGS) carma/src/player.cpp \

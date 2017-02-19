@@ -25,19 +25,20 @@ using namespace arma;
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then
  */
-inline void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
+inline void set_bounds(double lb[OPTIM_DIM],
+		               double ub[OPTIM_DIM], double SLACK, double Tmax) {
 
 	read_joint_limits(lb,ub);
 	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < DOF; i++) {
+	for (int i = 0; i < NDOF; i++) {
 		ub[i] -= SLACK;
 		lb[i] += SLACK;
-		ub[i+DOF] = MAX_VEL;
-		lb[i+DOF] = -MAX_VEL;
+		ub[i+NDOF] = MAX_VEL;
+		lb[i+NDOF] = -MAX_VEL;
 	}
 	// constraints on final time
-	ub[2*DOF] = Tmax;
-	lb[2*DOF] = 0.0;
+	ub[2*NDOF] = Tmax;
+	lb[2*NDOF] = 0.0;
 }
 
 /*
@@ -46,7 +47,7 @@ inline void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
  * SO FAR setting it to the first lookup table entry from May 2016
  *
  */
-inline void init_ball_state(double *b0, double *v0) {
+inline void init_ball_state(double b0[NCART], double v0[NCART]) {
 
 	// initialize the ball
 	b0[0] = 0.1972;
@@ -60,7 +61,7 @@ inline void init_ball_state(double *b0, double *v0) {
 /*
  * Set the initial posture of the robot
  */
-inline void init_joint_state(double* q0) {
+inline void init_joint_state(double q0[NDOF]) {
 
 	// initialize the variables
 	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
@@ -73,27 +74,16 @@ inline void init_joint_state(double* q0) {
 	q0[6] = 0.3;
 }
 
-inline coptim construct_optim_params(double* q0, double* q0dot, double* qrest,
-		                            double* lb, double* ub, double time2return) {
-	coptim params;
-	params.q0 = q0;
-	params.q0dot = q0dot;
-	params.qrest = qrest;
-	params.lb = lb;
-	params.ub = ub;
-	params.time2return = time2return;
-
-	return params;
-
-}
-
-inline cracket send_c_strategy(const racket & strategy) {
+/*
+ * Create the desired racket structure for the optimization
+ * to be performed in C
+ */
+inline cracket make_c_strategy(const racket & strategy) {
 
 	int N = strategy.pos.n_cols;
 	Matrix pos = my_matrix(0,NCART,0,N);
 	Matrix vel = my_matrix(0,NCART,0,N);
 	Matrix normal = my_matrix(0,NCART,0,N);
-	cracket params;
 
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < NCART; j++) {
@@ -102,10 +92,7 @@ inline cracket send_c_strategy(const racket & strategy) {
 			normal[j][i] = strategy.normal(j,i);
 		}
 	}
-	params.pos = pos;
-	params.vel = vel;
-	params.normal = normal;
-	params.Nmax = N;
+	cracket params = {pos, vel, normal, N};
 	return params;
 }
 
@@ -125,16 +112,16 @@ int lookup(const Matrix lookupTable, const double* b0, const double* v0, double 
 	double minVal = 0.0;
 	double bestVal = 1e6;
 	int bestIdx = 1;
-	Vector ballVec = my_vector(1,2*CART);
+	Vector ballVec = my_vector(1,2*NCART);
 
-	for (i = 1; i <= CART; i++) {
+	for (i = 1; i <= NCART; i++) {
 		ballVec[i] = b0[i-1];
-		ballVec[i+CART] = v0[i-1];
+		ballVec[i+NCART] = v0[i-1];
 	}
 
 	for (i = 1; i <= LOOKUP_TABLE_SIZE; i++) {
 		minVal = 0.0;
-		for (j = 1; j <= 2*CART; j++) {
+		for (j = 1; j <= 2*NCART; j++) {
 			minVal += pow(ballVec[j] - lookupTable[i][j],2);
 		}
 		if (minVal < bestVal) {
@@ -143,11 +130,11 @@ int lookup(const Matrix lookupTable, const double* b0, const double* v0, double 
 		}
 	}
 
-	for (i = 1; i <= N_DOFS; i++) {
-		x[i-1] = lookupTable[bestIdx][2*CART+i];
-		x[i-1+DOF] = lookupTable[bestIdx][2*CART+DOF+i];
+	for (i = 1; i <= NDOF; i++) {
+		x[i-1] = lookupTable[bestIdx][2*NCART+i];
+		x[i-1+NDOF] = lookupTable[bestIdx][2*NCART+NDOF+i];
 	}
-	x[2*DOF] = lookupTable[bestIdx][2*CART+2*DOF+1];
+	x[2*NDOF] = lookupTable[bestIdx][2*NCART+2*NDOF+1];
 
 	return TRUE;
 }
@@ -178,7 +165,7 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	double lb[OPTIM_DIM];
 	double ub[OPTIM_DIM];
 	double SLACK = 0.01;
-	double Tmax = 2.0;
+	double Tmax = 0.02;
 
 	Matrix lookup_table = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
 	load_lookup_table(lookup_table);
@@ -192,11 +179,15 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	lookup(lookup_table,b0,v0,x); // initialize solution
 	double time2return = 1.0;
 	racket strategy = send_racket_strategy(q0,b0,v0,Tmax);
-	cracket racket = send_c_strategy(strategy);
-	coptim optim = construct_optim_params(q0,q0dot,q0,lb,ub,time2return);
+	cracket racket = make_c_strategy(strategy);
+
+	BOOST_TEST(racket.normal[X][50] == strategy.normal(X,50));
+	BOOST_TEST(racket.vel[Y][5] != strategy.vel(Y,5));
+
+	coptim params = {q0, q0dot, q0, lb, ub, time2return};
 
 	// run NLOPT opt algorithm here //
-	nlopt_optim_poly_run(optim,racket);
+	//double max_violation = nlopt_optim_poly_run(&params,&racket);
 
 	// test to see if kinematics constraints are violated
 	//double max_violation = test_optim(x,FALSE);

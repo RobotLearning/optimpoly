@@ -22,8 +22,16 @@
 typedef double* Vector;
 typedef double** Matrix;
 
+#ifndef NDOF
+#define NDOF 7
+#endif
+
+#ifndef NCART
+#define NCART 3
+#endif
+
 #define LOOKUP_TABLE_SIZE 4002 //769
-#define LOOKUP_COLUMN_SIZE 2*DOF + 1 + 2*CART // ball state and optimization parameters (6 + 15)
+#define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
 #define LOOKUP_TABLE_NAME "LookupTable-16-May-2016"
 
 double sign(double expr);

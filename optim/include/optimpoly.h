@@ -18,10 +18,10 @@
 #include "SL.h"
 
 // defines
-#define DOF 7
-#define OPTIM_DIM 2*DOF+1
-#define EQ_CONSTR_DIM 3*CART
-#define INEQ_CONSTR_DIM 2*DOF + 2*DOF // both strike and returning trajectories, min and max
+#define NDOF 7
+#define OPTIM_DIM 2*NDOF+1
+#define EQ_CONSTR_DIM 3*NCART
+#define INEQ_CONSTR_DIM 2*NDOF + 2*NDOF // both strike and returning trajectories, min and max
 #define MAX_VEL 200
 #define MAX_ACC 200
 
@@ -42,8 +42,9 @@ typedef struct {
 } coptim;
 
 // interface
-void nlopt_optim_poly_run(coptim params, cracket racket);
-double test_optim(double *x, int give_info);
+double nlopt_optim_poly_run(coptim * const params,
+		                  cracket * const racket);
+double test_optim(double *x, coptim *params, cracket *racket, int info);
 
 // optimization related methods
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
@@ -64,7 +65,8 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void init_soln_to_rest_posture(coptim params, double x[OPTIM_DIM]);
+static void init_soln_to_rest_posture(const coptim * const params,
+		                              double x[OPTIM_DIM]);
 
 static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
