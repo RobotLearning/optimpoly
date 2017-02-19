@@ -22,6 +22,12 @@
 typedef double* Vector;
 typedef double** Matrix;
 
+#define LOOKUP_TABLE_SIZE 4002 //769
+#define LOOKUP_COLUMN_SIZE 2*DOF + 1 + 2*CART // ball state and optimization parameters (6 + 15)
+#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016"
+
+double sign(double expr);
+
 // utility methods, zero indexed
 long get_time();
 void vec_minus(double *a1, const double *a2);
@@ -29,6 +35,8 @@ void vec_plus(double *a1, const double *a2);
 double inner_prod(const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
 void print_optim_vec(double *x);
+double max_abs_array(double *x, int length);
+double max_array(double *x, int length);
 
 // utility methods, one indexed
 Vector my_vector(int nl, int nh);
@@ -43,9 +51,9 @@ int vec_equal(Vector a, Vector c);
 int mat_mult(Matrix a, Matrix b, Matrix c);
 int mat_equal(Matrix a, Matrix c);
 void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch);
-double sign(double expr);
 
 // io method from SL, one indexed
+void load_lookup_table(Matrix lookupTable);
 void load_vec_into_mat(Matrix mat, int m, int n, char name[]);
 int find_keyword(FILE *fp, char *name);
 

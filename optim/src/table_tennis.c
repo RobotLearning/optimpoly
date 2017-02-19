@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "table_tennis.h"
 #include "constants.h"
+#include "stdlib.h"
 
 /*
  * Function that calculates a racket strategy : positions, velocities and orientations
@@ -225,23 +226,22 @@ void predict_ball_state(double *b0, double *v0) {
 
 	int N = TPRED/TSTEP;
 	ballMat = my_matrix(1, N, 1, 2*CART);
-	SL_Cstate ballPred;
-	bzero((char *)&(ballPred), sizeof(ballPred));
+	SL_Cstate *ballPred = (SL_Cstate*)malloc(sizeof(SL_Cstate));
 	int i,j;
 
 	for (j = 1; j <= CART; j++) {
-		ballMat[0][j] = ballPred.x[j] = b0[j-1];
-		ballMat[0][j+CART] = ballPred.xd[j] = v0[j-1];
+		ballMat[1][j] = ballPred->x[j] = b0[j-1]; //
+		ballMat[1][j+CART] = ballPred->xd[j] = v0[j-1];
 	}
 
 	// predict Tpred seconds into the future
 	int bounce = FALSE;
 
 	for (i = 1; i <= N; i++) {
-		integrate_ball_state(ballPred,&ballPred,TSTEP,&bounce);
+		integrate_ball_state(*ballPred,ballPred,TSTEP,&bounce);
 		for (j = 1; j <= CART; j++) {
-			ballMat[i][j] = ballPred.x[j];
-			ballMat[i][j+CART] = ballPred.xd[j];
+			ballMat[i][j] = ballPred->x[j];
+			ballMat[i][j+CART] = ballPred->xd[j];
 		}
 	}
 
@@ -279,10 +279,10 @@ void first_order_hold(double *ballPred, double *racketVel, double *racketNormal,
 
 	int i;
 
-	if (isnan(T)) {
-		printf("Warning: T value is nan! Setting ballPred to initial value\n");
+	if (isnan(T) || T <= TSTEP) {
+		printf("Setting ballPred to initial value\n");
 		for (i = 1; i <= CART; i++) {
-			ballPred[i-1] = ballMat[0][i];
+			ballPred[i-1] = ballMat[1][i];
 		}
 		return;
 	}

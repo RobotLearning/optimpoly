@@ -11,93 +11,50 @@
 #include "SL.h"
 #include "constants.h"
 #include "optimpoly.h"
-#include "table_tennis.h"
 #include "utils.h"
 #include "kinematics.h"
 #include "stdlib.h"
-
-Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
-Matrix racketMat; // racket strategy
-
-int main(void) {
-
-	//nlopt_example_run();
-	//pthread_example_run();
-	//return TRUE;
-
-	Vector ballLand = my_vector(1,CART);
-	double landTime;
-	double b0[CART];
-	double v0[CART];
-	double x[OPTIM_DIM]; /* initial guess for optim */
-
-	Matrix lookupTable = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
-	load_lookup_table(lookupTable);
-	set_des_land_param(ballLand,&landTime);
-
-	/* initialize ball and racket */
-	// predict for T_pred seconds
-	init_ball_state(b0,v0);
-	predict_ball_state(b0,v0);
-	calc_racket_strategy(ballLand,landTime);
-
-	/* run NLOPT opt algorithm here */
-	lookup(lookupTable,b0,v0,x); // initialize solution
-	nlopt_optim_poly_run(x);
-
-	// test the lookup value to see if constraint is not violated
-	printf("================== TEST ==================\n");
-	printf("Lookup values:\n");
-	lookup(lookupTable,b0,v0,x);
-	test_optim(x);
-
-	return TRUE;
-}
+#include "math.h"
 
 /*
  * NLOPT optimization routine for table tennis traj gen
  *
  */
-void nlopt_optim_poly_run(double *x) {
+void nlopt_optim_poly_run(coptim params,
+						  cracket racket) {
 
+	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
-	static double lb[OPTIM_DIM]; /* lower bounds */
-	static double ub[OPTIM_DIM]; /* upper bounds */
-
-	double SLACK = 0.01;
-	read_joint_limits(lb,ub);
-	set_bounds(lb,ub,SLACK);
-	const_vec(EQ_CONSTR_DIM,1e-2,tol); /* set tolerances equal to second argument */
+	const_vec(EQ_CONSTR_DIM,1e-2,tol);
+	init_soln_to_rest_posture(params,x); //parameters are the initial joint positions q0
+	// set tolerances equal to second argument //
 
 	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM); /* LN = does not require gradients */
-	//nlopt_set_xtol_rel(opt, 1e-2);
-	//opt = nlopt_create(NLOPT_AUGLAG, OPTIM_DIM); /* algorithm and dimensionality */
-	//nlopt_set_local_optimizer(opt, opt);
-	nlopt_set_lower_bounds(opt, lb);
-	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, costfunc, NULL);
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	// LN = does not require gradients //
+	nlopt_set_lower_bounds(opt, params.lb);
+	nlopt_set_upper_bounds(opt, params.ub);
+	nlopt_set_min_objective(opt, costfunc, &params);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         NULL, tol);
+			                         &params, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         NULL, tol);
+			                         &racket, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	//init_soln_to_rest_posture(x,params); //parameters are the initial joint positions q0
 	double initTime = get_time();
-	double minf; /* the minimum objective value, upon return */
+	double minf; // the minimum objective value, upon return //
 	int res; // error code
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-	    printf("NLOPT failed with dxit code %d!\n", res);
-	    test_optim(x);
+	    printf("NLOPT failed with exit code %d!\n", res);
+	    //test_optim(x,TRUE);
 	}
 	else {
 		//nlopt_example_run();
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    test_optim(x);
+	    //test_optim(x,TRUE);
 	}
 	nlopt_destroy(opt);
 }
@@ -106,10 +63,8 @@ void nlopt_optim_poly_run(double *x) {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-void test_optim(double *x) {
+double test_optim(double *x, int info) {
 
-	// give info on solution vector
-	print_optim_vec(x);
 	// give info on constraint violation
 	double *grad = FALSE;
 	static double kin_violation[EQ_CONSTR_DIM];
@@ -118,22 +73,30 @@ void test_optim(double *x) {
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
 			                 OPTIM_DIM, x, grad, NULL);
 	double cost = costfunc(OPTIM_DIM, x, grad, NULL);
-	printf("f = %.2f\n",cost);
-	printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
-	printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
-	printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+
+	if (info) {
+		// give info on solution vector
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
+		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
+		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+	}
 
 	for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
 		if (lim_violation[i] > 0.0)
 			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % DOF + 1);
 	}
+
+	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+			    max_array(lim_violation,INEQ_CONSTR_DIM));
 }
 
 /*
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
-double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	return 1.0;
 }
@@ -142,39 +105,20 @@ double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_p
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
-double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	double a1[DOF];
 	double a2[DOF];
-	static double qfdot[DOF]; // all zeros
-	static double qf[DOF]; // opt value
-	static double q0dot[DOF]; // initial joint velocity
-	static double q0[DOF]; // initial joint pos
+	static double *q0dot; // initial joint velocity
+	static double *q0; // initial joint pos
 	static int firsttime = TRUE;
 	double T = x[2*DOF];
 
 	if (firsttime) {
 		firsttime = FALSE;
-		init_joint_state(q0);
-	}
-
-	// instead of using global variables feeding parameters directly
-
-	if (grad) { // TODO: qf and qfdot need to be passed!
-
-		for (int i = 0; i < DOF; i++) {
-			qf[i] = x[i];
-			qfdot[i] = x[i+DOF];
-			grad[i] = (6/pow(T,3))*(qf[i]-q0[i]) - (3/(T*T))*(q0dot[i]+qfdot[i]);
-			grad[i+DOF] = (-3/(T*T))*(qf[i]-q0[i]) + (1/T)*(2*qfdot[i]+q0dot[i]);
-		}
-		//time derivative of cost J
-		vec_minus(qf,q0);
-		//assuming q0dot = 0 here;
-		grad[2*DOF] = (-9/pow(T,4))*inner_prod(qf,qf) +
-					  (6/pow(T,3))*inner_prod(qf,qfdot) +
-					  (3/(T*T))*inner_prod(q0dot,qfdot) -
-					  (1/(T*T))*inner_prod(qfdot,qfdot);
+		coptim* optim_data = (coptim*)my_func_params;
+		q0 = optim_data->q0;
+		q0dot = optim_data->q0dot;
 	}
 
 	// calculate the polynomial coeffs which are used in the cost calculation
@@ -189,7 +133,7 @@ double costfunc(unsigned n, const double *x, double *grad, void *my_func_params)
  * joint limits during the striking and returning motion
  *
  */
-void joint_limits_ineq_constr(unsigned m, double *result,
+static void joint_limits_ineq_constr(unsigned m, double *result,
 		unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	static double a1[DOF];
@@ -200,18 +144,21 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[DOF];
 	static double joint_return_max_cand[DOF];
 	static double joint_return_min_cand[DOF];
-	static double q0[DOF];
-	static double q0dot[DOF];
-	static double ub[OPTIM_DIM];
-	static double lb[OPTIM_DIM];
-	static double Tret = 1.0; // TODO: set it from somewhere else
+	static double *q0;
+	static double *q0dot;
+	static double *ub;
+	static double *lb;
+	static double Tret;
 	static int firsttime = TRUE;
 
 	if (firsttime) {
 		firsttime = FALSE;
-		init_joint_state(q0);
-		read_joint_limits(lb,ub);
-		set_bounds(lb,ub,0.01);
+		coptim* optim_data = (coptim*)my_func_params;
+		q0 = optim_data->q0;
+		q0dot = optim_data->q0dot;
+		ub = optim_data->ub;
+		lb = optim_data->lb;
+		Tret = optim_data->time2return;
 	}
 
 	// calculate the polynomial coeffs which are used for checking joint limits
@@ -236,28 +183,29 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 /*
  * This is the constraint that makes sure we hit the ball
  */
-void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *data) {
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *my_function_data) {
 
-	static double ballPred[CART];
-	static double racketDesVel[CART];
-	static double racketDesNormal[CART];
-	static Matrix  link_pos_des;
-	static Matrix  joint_origin_pos_des;
-	static Matrix  joint_axis_pos_des;
-	static Matrix  Alink_des[N_LINKS+1];
-	static Matrix  racketTransform;
-	static Matrix  Jacobi;
-	static Vector  qfdot;
-	static Vector  xfdot;
-	static Vector  normal;
+	static double racket_des_pos[CART];
+	static double racket_des_vel[CART];
+	static double racket_des_normal[CART];
+	static Matrix link_pos_des;
+	static Matrix joint_origin_pos_des;
+	static Matrix joint_axis_pos_des;
+	static Matrix Alink_des[N_LINKS+1];
+	static Matrix racketTransform;
+	static Matrix Jacobi;
+	static Vector qfdot;
+	static Vector xfdot;
+	static double normal[CART];
 	static int firsttime = TRUE;
 
 	static double q[DOF];
 	static double base_orient[4]; // quat
 	static double base_state[3]; // pos
-	static double racket_angles[3]; // initial euler angles for racket
-	static double racket_pos[3]; // initial racket positions
+	static double eff_angles[3]; // initial euler angles for racket
+	static double eff_pos[3]; // initial racket positions
+	static cracket* racket;
 
 	double T = x[2*DOF];
 	int i;
@@ -273,19 +221,20 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		racketTransform      = my_matrix(1,4,1,4);
 		qfdot                = my_vector(1,DOF);
 		xfdot                = my_vector(1,2*CART);
-		normal               = my_vector(1,CART);
 
 		for (i = 0; i <= N_LINKS; ++i)
 			Alink_des[i] = my_matrix(1,4,1,4);
 
 		base_orient[1] = 1.0;
-		racket_pos[Z] = 0.3; // set racket
+		eff_pos[Z] = 0.3; // set racket
 
 		// homogeneous transform instead of using quaternions
 		racketTransform[1][1] = 1;
 		racketTransform[2][3] = 1;
 		racketTransform[3][2] = -1;
 		racketTransform[4][4] = 1;
+
+		racket = (cracket*) my_function_data;
 	}
 
 	if (grad) {
@@ -297,7 +246,7 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// interpolate at time T to get the desired racket parameters
-	first_order_hold(ballPred,racketDesVel,racketDesNormal,T);
+	first_order_hold(racket,T,racket_des_pos,racket_des_vel,racket_des_normal);
 
 	// extract state information from array to joint_des_state structure
 	for (i = 0; i < DOF; i++) {
@@ -305,37 +254,80 @@ void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		qfdot[i+1] = x[i+DOF];
 	}
 
-	/* compute the desired link positions */
+	// compute the desired link positions
 	kinematics(q, base_state, base_orient,
-			      racket_angles, racket_pos,
+			      eff_angles, eff_pos,
 			      joint_axis_pos_des, joint_origin_pos_des,
 			      link_pos_des, Alink_des);
 
-
-	/* compute the racket normal */
-	mat_mult(Alink_des[6],racketTransform,Alink_des[6]);
-	for (i = 1; i <= CART; i++) {
-		normal[i] = Alink_des[6][i][3];
+	/*
+	// compute the racket normal
+	/*mat_mult(Alink_des[6],racketTransform,Alink_des[6]);
+	for (i = 0; i < CART; i++) {
+		normal[i] = Alink_des[6][i+1][3];
 	}
 
-	/* compute the jacobian */
+	// compute the jacobian //
 	jacobian(link_pos_des, joint_origin_pos_des, joint_axis_pos_des, Jacobi);
 	mat_vec_mult(Jacobi, qfdot, xfdot);
 
-	/* deviations from the desired racket frame */
-	for (i = 1; i <= CART; i++) {
-		result[i-1] = link_pos_des[6][i] - ballPred[i-1];
-		result[i-1 + CART] = xfdot[i] - racketDesVel[i-1];
-		result[i-1 + 2*CART] = normal[i] - racketDesNormal[i-1];
-	}
+	// deviations from the desired racket frame
+	for (i = 0; i < CART; i++) {
+		result[i] = link_pos_des[6][i+1] - racket_des_pos[i];
+		result[i + CART] = xfdot[i+1] - racket_des_vel[i];
+		result[i + 2*CART] = normal[i] - racket_des_normal[i];
+	}*/
 
+}
+
+/*
+ * First order hold to interpolate linearly at time T
+ * between racket pos,vel,normal entries
+ *
+ * IF T is nan, racket variables are assigned to zero-element of
+ * relevant racket entries
+ *
+ */
+static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
+		               double racket_vel[NCART], double racket_n[NCART]) {
+
+	if (isnan(T)) {
+		printf("Warning: T value is nan!\n");
+
+		for(int i = 0; i < CART; i++) {
+			racket_pos[i] = racket->pos[i][0];
+			racket_vel[i] = racket->vel[i][0];
+			racket_n[i] = racket->normal[i][0];
+		}
+	}
+	else {
+		int N = (int) (T/dt);
+		double Tdiff = T - N*dt;
+		int Nmax = racket->Nmax;
+
+		for (int i = 0; i < CART; i++) {
+			if (N < Nmax) {
+				racket_pos[i] = racket->pos[i][N] +
+						(Tdiff/dt) * (racket->pos[i][N+1] - racket->pos[i][N]);
+				racket_vel[i] = racket->vel[i][N] +
+						(Tdiff/dt) * (racket->vel[i][N+1] - racket->vel[i][N]);
+				racket_n[i] = racket->normal[i][N] +
+						(Tdiff/dt) * (racket->normal[i][N+1] - racket->normal[i][N]);
+			}
+			else {
+				racket_pos[i] = racket->pos[i][N];
+				racket_vel[i] = racket->vel[i][N];
+				racket_n[i] = racket->normal[i][N];
+			}
+		}
+	}
 }
 
 /*
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2) {
 
 	double T = x[2*DOF];
@@ -353,7 +345,7 @@ void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double 
  * and time to return constant T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-void calc_return_poly_coeff(const double *q0, const double *q0dot,
+static void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		                    const double *x, const double T,
 		                    double *a1, double *a2) {
 
@@ -370,7 +362,7 @@ void calc_return_poly_coeff(const double *q0, const double *q0dot,
  * Clamp to [0,T]
  *
  */
-void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+static void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
 		                      const double *q0, const double *q0dot,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
@@ -392,7 +384,7 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
  * Clamp to [0,TIME2RETURN]
  *
  */
-void calc_return_extrema_cand(const double *a1, const double *a2,
+static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double Tret,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
@@ -409,86 +401,17 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 }
 
 /*
- *
- * Loading lookup table to initialize the optimization
- * And to test constraints
- */
-void load_lookup_table(Matrix lookupTable) {
-
-	printf("Loading lookup table...\n");
-
-	load_vec_into_mat(lookupTable, LOOKUP_TABLE_SIZE, LOOKUP_COLUMN_SIZE, LOOKUP_TABLE_NAME);
-	//print_mat("Lookup: ", lookupTable);
-	/*int i;
-	for(i = 1; i <= LOOKUP_COLUMN_SIZE; i++)
-		printf("%.2f\t",lookupTable[1][i]);
-	printf("\n");*/
-}
-
-/*
- * Set upper and lower bounds on the optimization
- */
-void set_bounds(double *lb, double *ub, double SLACK) {
-
-	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < DOF; i++) {
-		ub[i] -= SLACK;
-		lb[i] += SLACK;
-		ub[i+DOF] = MAX_VEL;
-		lb[i+DOF] = -MAX_VEL;
-	}
-	// constraints on final time
-	ub[2*DOF] = 1.0;
-	lb[2*DOF] = 0.0;
-}
-
-/*
  * Estimate an initial solution for NLOPT
  * 2*dof + 1 dimensional problem
  *
  * The closer to the optimum it is the faster alg should converge
  */
-void init_soln_to_rest_posture(double *x, double *q0) {
+void init_soln_to_rest_posture(coptim params, double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
-	int i;
-	for (i = 0; i < DOF; i++) {
-		x[i] = q0[i];
-		x[i+DOF] = 0.0;
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = params.qrest[i];
+		x[i+NDOF] = 0.0;
 	}
-	x[2*DOF] = 0.58;
-}
-
-
-/*
- *
- * Set the ball values to a reasonable value
- * SO FAR setting it to the first lookup table entry from May 2016
- *
- */
-void init_ball_state(double *b0, double *v0) {
-
-	// initialize the ball
-	b0[0] = 0.1972;
-	b0[1] = -2.4895;
-	b0[2] = -0.5040;
-	v0[0] = -1.7689;
-	v0[1] = 4.7246;
-	v0[2] = -1.0867;
-}
-
-/*
- * Set the initial posture of the robot
- */
-void init_joint_state(double* q0) {
-
-	// initialize the variables
-	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
-	q0[0] = 1.0;
-	q0[1] = -0.2;
-	q0[2] = -0.1;
-	q0[3] = 1.8;
-	q0[4] = -1.57;
-	q0[5] = 0.1;
-	q0[6] = 0.3;
+	x[2*NDOF] = 0.50;
 }

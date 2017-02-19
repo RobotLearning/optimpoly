@@ -165,6 +165,51 @@ joint Player::play(const joint & qact, const vec3 & obs) {
 }
 
 /*
+ * Return desired racket information (positions, velocities and normals)
+ * by interpolating at time T
+ *
+ * TODO: Gives warning if racket calculations are not yet done
+ *
+ */
+void Player::get_des_racket_state(const double T, double racket_pos[NCART],
+										    	  double racket_vel[NCART],
+											      double racket_normal[NCART]) const {
+	vec3 pos, vel, normal;
+	int N = (int) (T/dt);
+	double Tdiff = T - N*dt;
+	int Nmax = racket_params.pos.n_cols - 1;
+
+	if (isnan(T)) {
+		cout << "Warning: T value is nan!" << endl;
+		pos = racket_params.pos.col(0);
+		vel = racket_params.vel.col(0);
+		normal = racket_params.normal.col(0);
+	}
+	else {
+		if (N < Nmax) {
+			pos = racket_params.pos.col(N) + (Tdiff/dt) * (racket_params.pos.col(N+1) -
+					        		racket_params.pos.col(N));
+			vel = racket_params.vel.col(N) + (Tdiff/dt) * (racket_params.vel.col(N+1) -
+					        		racket_params.vel.col(N));
+			normal = racket_params.normal.col(N) + (Tdiff/dt) *
+					(racket_params.normal.col(N+1) - racket_params.normal.col(N));
+		}
+		else {
+			pos = racket_params.pos.col(N);
+			vel = racket_params.vel.col(N);
+			normal = racket_params.normal.col(N);
+		}
+	}
+
+	// return as normal arrays
+	for (int i = 0; i < NCART; i++) {
+		racket_pos[i] = pos(i);
+		racket_vel[i] = vel(i);
+		racket_normal[i] = normal(i);
+	}
+}
+
+/*
  * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
  *
@@ -187,12 +232,12 @@ void Player::calc_optim_param() {
 		if (check_legal_ball(balls_pred)) { // ball is legal
 			moving = true;
 			calc_racket_strategy(balls_pred);
-			opt minimizer = opt(LN_COBYLA, OPTIM_DIM);
+			/*opt minimizer = opt(LN_COBYLA, OPTIM_DIM);
 			PolyOptim polyopt = PolyOptim(q_rest_des,racket_params,
 					                  time2return,optim_params,minimizer);
 			polyopt.setup();
 			// run optimization in another thread
-			thread my_thread(polyopt);
+			thread my_thread(polyopt);*/
 		}
 	}
 }
@@ -371,7 +416,7 @@ void gen_3rd_poly(const vec & times, const vec7 & a3, const vec7 & a2, const vec
 void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 		                 const mat & racket_normal, mat & racket_vel) {
 
-	int N = vel_ball_in.n_elem;
+	int N = vel_ball_in.n_cols;
 	for (int i = 0; i < N; i++) {
 		racket_vel.col(i) = dot((vel_ball_out.col(i) + CRR * vel_ball_in.col(i) / (1 + CRR)),
 								racket_normal.col(i)) * racket_normal.col(i);
@@ -427,4 +472,27 @@ bool check_new_obs(const vec3 & obs) {
 		return true;
 	}
 	return false;
+}
+
+/*
+ * Friend function that exposes Player's racket strategy
+ *
+ */
+racket send_racket_strategy(const double q0[NDOF],
+		                    const double b0[NCART],
+							const double v0[NCART],
+							const double T) {
+
+	EKF filter = init_filter();
+	vec3 ballpos(b0);
+	vec3 ballvel(v0);
+	vec7 qinit(q0);
+	mat66 P; P.eye();
+	filter.set_prior(join_vert(ballpos,ballvel),P);
+
+	Player robot = Player(qinit,filter);
+	mat balls_pred = filter.predict_path(dt,(int)(T/dt));
+	robot.calc_racket_strategy(balls_pred);
+
+	return robot.racket_params;
 }

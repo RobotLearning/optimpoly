@@ -20,10 +20,6 @@
 #define TPRED 1.0
 #define DOF 7
 
-#define LOOKUP_TABLE_SIZE 4002 //769
-#define LOOKUP_COLUMN_SIZE 2*DOF + 1 + 2*CART // ball state and optimization parameters (6 + 15)
-#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016"
-
 extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
 extern Matrix racketMat; // racket strategy: desired positions, velocities and normal saved in matrix
 

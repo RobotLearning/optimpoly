@@ -17,19 +17,20 @@
 using namespace arma;
 
 // flags for table tennis players
-static const bool SPIN_MODE = false; // turn on prediction with a spin model
 static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
-static const bool VERBOSE = true;
 
 // functions outside of Table Tennis class
 mat33 quat2mat(const vec4 & q);
-void table_contact_model(vec3 & ball_spin, vec3 & ball_vel);
+void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
 void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal, vec3 ball_vel);
 vec calc_next_ball(const vec & xnow, double dt);
 
 class TableTennis { // Table Tennis ball prediction methods
 
 private:
+
+	bool SPIN_MODE; // turn on prediction with a spin model
+	bool VERBOSE;
 
 	vec3 ball_pos;
 	vec3 ball_vel;
@@ -61,8 +62,8 @@ private:
 public:
 
 	// initialization
-	TableTennis();
-	TableTennis(vec6 ball_state);
+	TableTennis(bool spin, bool verbose);
+	TableTennis(bool spin, bool verbose, const vec6 & ball_state);
 
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;

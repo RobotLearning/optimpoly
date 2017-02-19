@@ -60,6 +60,17 @@ public:
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
 
+	// public interface to racket computations
+	void get_des_racket_state(double T, double racket_pos[NCART],
+			                            double racket_vel[NCART],
+										double racket_normal[NCART]) const;
+
+	// public interface to racket computations
+	friend racket send_racket_strategy(const double q0[NDOF],
+			                           const double b0[NCART],
+									   const double v0[NCART],
+									   const double T);
+
 	// main function
 	joint play(const joint & qact, const vec3 & obs);
 };
@@ -71,5 +82,9 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 		                 const mat & racket_normal, mat & racket_vel);
 bool check_legal_ball(const mat & balls_predicted);
 bool check_new_obs(const vec3 & obs);
+racket send_racket_strategy(const double q0[NDOF],
+			                           const double b0[NCART],
+									   const double v0[NCART],
+									   const double T);
 
 #endif /* PLAYER_HPP_ */

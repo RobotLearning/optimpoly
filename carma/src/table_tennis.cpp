@@ -22,8 +22,11 @@
  * TODO: initialized racket variables to inf!
  *
  */
-TableTennis::TableTennis(vec6 ball_state) {
+TableTennis::TableTennis(bool spin_flag, bool verbosity,
+		                 const vec6 & ball_state) {
 
+	SPIN_MODE = spin_flag;
+	VERBOSE = verbosity;
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
@@ -39,8 +42,10 @@ TableTennis::TableTennis(vec6 ball_state) {
  * Initialize ball variables to zero and init racket variables to inf!
  *
  */
-TableTennis::TableTennis() {
+TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 
+	SPIN_MODE = spin_flag;
+	VERBOSE = verbosity;
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
@@ -225,7 +230,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
 			if (VERBOSE)
 				cout << "Bounces on table!" << endl;
-			table_contact_model(ball_spin,ball_cand_vel);
+			table_contact_model(ball_spin,ball_cand_vel,SPIN_MODE);
 		}
 	}
 }
@@ -364,9 +369,10 @@ void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal, v
  * Spin vector is also modified.
  * Coeff of restitution and friction used.
  */
-void table_contact_model(vec3 & ball_spin, vec3 & ball_vel) {
+void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
+		                 bool spin_flag) {
 
-	if (SPIN_MODE) { // if spin mode is on ballvec is not a null pointer
+	if (spin_flag) { // if spin mode is on ballvec is not a null pointer
 		// compute effect on spin
 		ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
 		ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
@@ -388,6 +394,8 @@ void table_contact_model(vec3 & ball_spin, vec3 & ball_vel) {
  * Friend function that exposes table tennis ball integration function
  * to an outside filter (e.g. EKF)
  *
+ * Warning: spin is turned off!
+ *
  * xnow consists of current ball position and velocity
  *
  * FIXME: dt should not be large otherwise could be really inaccurate!
@@ -395,7 +403,7 @@ void table_contact_model(vec3 & ball_spin, vec3 & ball_vel) {
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow);
+	TableTennis tennis = TableTennis(false,false,xnow);
 	tennis.integrate_ball_state(dt);
 	vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;

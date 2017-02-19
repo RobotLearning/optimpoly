@@ -19,6 +19,8 @@
 #define NCART 3
 #define NDOF 7
 
+static const double dt = 0.002; // 500 Hz robot operation
+
 /************************************* constants  ***********************/
 
 /* Contact Coefficients */

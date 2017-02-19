@@ -19,6 +19,8 @@
 #define NCART 3
 #define NDOF 7
 
+static const double dt = 0.002; // 500 Hz robot operation
+
 /************************************* constants  ***********************/
 
 /* Contact Coefficients */
@@ -38,7 +40,6 @@ static const double Cdrag = 0.1414;
 static const double gravity = -9.802;
 
 static const double Clift = 0.001; // coefficient of lift for the magnus force
-
 
 
 #endif /* INCLUDE_CONSTANTS_H_ */

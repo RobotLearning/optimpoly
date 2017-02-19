@@ -25,37 +25,47 @@
 #define MAX_VEL 200
 #define MAX_ACC 200
 
-extern Matrix ballMat; // predicted ball pos and vel values for T_pred time seconds
-extern Matrix racketMat; // racket strategy
+typedef struct {
+	double** pos;
+	double** vel;
+	double** normal;
+	int Nmax; // max column length
+} cracket;
+
+typedef struct {
+	double* q0;
+	double* q0dot;
+	double* qrest;
+	double* lb;
+	double* ub;
+	double time2return;
+} coptim;
+
+// interface
+void nlopt_optim_poly_run(coptim params, cracket racket);
+double test_optim(double *x, int give_info);
 
 // optimization related methods
-void nlopt_optim_poly_run(double *x);
-double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
-double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) ;
-void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
+static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) ;
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-void joint_limits_ineq_constr(unsigned m, double *result,
+static void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
-void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2);
-void calc_return_poly_coeff(const double *q0, const double *q0dot,
+static void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		                    const double *x, const double time2return,
 		                    double *a1, double *a2);
-void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+static void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
 		                      const double *q0, const double *q0dot,
 							  double *joint_max_cand, double *joint_min_cand);
-void calc_return_extrema_cand(const double *a1, const double *a2,
+static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
+static void init_soln_to_rest_posture(coptim params, double x[OPTIM_DIM]);
 
-void init_soln_to_rest_posture(double *x, double *q0);
-void init_joint_state(double *q0);
-void init_ball_state(double *b0, double *v0);
-void set_bounds(double *lb, double *ub, double SLACK);
-
-// debugging methods
-void test_optim(double *x);
-void load_lookup_table(Matrix lookupTable);
-
+static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
+		               double racket_vel[NCART], double racket_n[NCART]);
 #endif /* OPTIMPOLY_H_ */

@@ -10,6 +10,7 @@
 #include "stdio.h"
 #include "string.h"
 #include "sys/time.h"
+#include "math.h"
 
 #ifndef DOF
 #define DOF 7
@@ -39,6 +40,34 @@ void print_optim_vec(double *x) {
 }
 
 /*
+ * Return the maximum absolute value of an array with length size
+ */
+double max_abs_array(double *x, int length) {
+
+	double val = x[0];
+	for (int i = 1; i < length; i++) {
+		if (fabs(x[i]) > val) {
+			val = fabs(x[i]);
+		}
+	}
+	return val;
+}
+
+/*
+ * Return the maximum value of an array with length size
+ */
+double max_array(double *x, int length) {
+
+	double val = x[0];
+	for (int i = 1; i < length; i++) {
+		if (x[i] > val) {
+			val = x[i];
+		}
+	}
+	return val;
+}
+
+/*
  * Read a vector into a matrix (e.g. saved from MATLAB)
  * Necessary for loading large matrices into memory
  *
@@ -61,6 +90,23 @@ void load_vec_into_mat(Matrix mat, int m, int n, char name[]) {
     }
 
 	fclose(fid);
+}
+
+/*
+ *
+ * Loading lookup table to initialize the optimization
+ * And to test constraints
+ */
+void load_lookup_table(Matrix lookupTable) {
+
+	printf("Loading lookup table...\n");
+
+	load_vec_into_mat(lookupTable, LOOKUP_TABLE_SIZE, LOOKUP_COLUMN_SIZE, LOOKUP_TABLE_NAME);
+	//print_mat("Lookup: ", lookupTable);
+	/*int i;
+	for(i = 1; i <= LOOKUP_COLUMN_SIZE; i++)
+		printf("%.2f\t",lookupTable[1][i]);
+	printf("\n");*/
 }
 
 /*!*****************************************************************************
