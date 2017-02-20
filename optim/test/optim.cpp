@@ -11,7 +11,6 @@
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
-#include "SL.h"
 #include "constants.h"
 #include "kinematics.h"
 #include "optimpoly.h"
@@ -21,6 +20,39 @@
 
 using namespace std;
 using namespace arma;
+
+#define LOOKUP_TABLE_SIZE 4002 //769
+#define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
+#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016" //"LookupTable-March-2016" //"LookupTable-April-2016"
+
+/*
+ * Load the lookup table of coparameters and main parameters of interest
+ */
+inline void load_lookup_table(mat & lookup) {
+
+	lookup = zeros<mat>(LOOKUP_TABLE_SIZE * LOOKUP_COLUMN_SIZE, 1);
+	string env = getenv("HOME");
+	string filename = env + "/robolab/barrett/saveData/" +
+			          LOOKUP_TABLE_NAME + ".txt";
+
+	lookup.load(filename);
+	lookup.reshape(LOOKUP_TABLE_SIZE,LOOKUP_COLUMN_SIZE);
+	//cout << lookup(span(0,5),span(0,5)) << endl;
+}
+
+/*
+ * Initialize robot posture on the right size of the robot
+ */
+inline void init_right_posture(vec7 & q0) {
+
+	q0(0) = 1.0;
+	q0(1) = -0.2;
+	q0(2) = -0.1;
+	q0(3) = 1.8;
+	q0(4) = -1.57;
+	q0(5) = 0.1;
+	q0(6) = 0.3;
+}
 
 /*
  * Set upper and lower bounds on the optimization.
@@ -40,39 +72,6 @@ inline void set_bounds(double *lb,
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
 	lb[2*NDOF] = 0.0;
-}
-
-/*
- *
- * Set the ball values to a reasonable value
- * SO FAR setting it to the first lookup table entry from May 2016
- *
- */
-inline void init_ball_state(double *b0, double *v0) {
-
-	// initialize the ball
-	b0[0] = 0.1972;
-	b0[1] = -2.4895;
-	b0[2] = -0.5040;
-	v0[0] = -1.7689;
-	v0[1] = 4.7246;
-	v0[2] = -1.0867;
-}
-
-/*
- * Set the initial posture of the robot
- */
-inline void init_joint_state(double *q0) {
-
-	// initialize the variables
-	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
-	q0[0] = 1.0;
-	q0[1] = -0.2;
-	q0[2] = -0.1;
-	q0[3] = 1.8;
-	q0[4] = -1.57;
-	q0[5] = 0.1;
-	q0[6] = 0.3;
 }
 
 /*
@@ -98,46 +97,66 @@ inline cracket make_c_strategy(const racket & strategy) {
 }
 
 /*
- * Find the closest ball state in the lookup table
+ *
+ * K-nearest-neighbours method for looking up optimization values
+ *
+ * Find the closest ball states in the lookup table
  * and lookup the corresponding qf,qfdot,T values
+ * and average them
  *
  * INPUT:
- * 	b0,v0: ball position and velocity estimates
- * 	x:     optimization parameters to be loaded
  *
- * TODO: expand with more sophisticated interpolation methods (kNN with k = 1 at the moment)
+ * 	ball_state:     ball position and velocity estimates
+ * 	params    :     optimization parameters to be loaded
+ *
+ *
  */
-int lookup(const Matrix lookupTable, const double* b0, const double* v0, double *x) {
+inline void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & params, int k) {
 
-	int i,j;
-	double minVal = 0.0;
-	double bestVal = 1e6;
-	int bestIdx = 1;
-	Vector ballVec = my_vector(1,2*NCART);
+	// find the closest entry
+	static bool firsttime = true;
+	static vec dots;
+	static mat A;
 
-	for (i = 1; i <= NCART; i++) {
-		ballVec[i] = b0[i-1];
-		ballVec[i+NCART] = v0[i-1];
-	}
-
-	for (i = 1; i <= LOOKUP_TABLE_SIZE; i++) {
-		minVal = 0.0;
-		for (j = 1; j <= 2*NCART; j++) {
-			minVal += pow(ballVec[j] - lookupTable[i][j],2);
-		}
-		if (minVal < bestVal) {
-			bestIdx = i;
-			bestVal = minVal;
+	if (firsttime) {
+		A = lookupt.cols(span(X,DZ));
+		for (int i = 0; i < A.n_rows; i++) {
+			dots(i) = dot(A.row(i), A.row(i));
 		}
 	}
 
-	for (i = 1; i <= NDOF; i++) {
-		x[i-1] = lookupTable[bestIdx][2*NCART+i];
-		x[i-1+NDOF] = lookupTable[bestIdx][2*NCART+NDOF+i];
-	}
-	x[2*NDOF] = lookupTable[bestIdx][2*NCART+2*NDOF+1];
+	uvec idx = sort_index(dots - 2*A.t()*ballstate, "descend");
 
-	return TRUE;
+	vec fullvec = zeros<vec>(OPTIM_DIM + 2*NCART);
+	for (int i = 0; i < k; i++) {
+		fullvec += lookupt.row(idx(i));
+	}
+	params = fullvec(span(DZ+1,DZ+OPTIM_DIM)) / k;
+}
+
+/*
+ * Sending to C optimization routine the right data
+ */
+inline void init_coptim_params(const vec7 & qinit, double *q0) {
+
+	for (int i = 0; i < NDOF; i++) {
+		q0[i] = qinit(i);
+	}
+}
+
+/*
+ * Lookup a random entry with optimization coparameters (b0,v0) and optimization
+ * main parameters (qf,qfdot,T)
+ */
+inline void lookup_random_entry(vec & coparams, vec & params) {
+
+	mat lookup;
+	load_lookup_table(lookup);
+	int entry = as_scalar(randi<vec>(1,distr_param(0,LOOKUP_TABLE_SIZE-1)));
+	vec lookup_state = lookup.row(entry).t();
+	coparams = lookup_state(span(X,DZ));
+	params = lookup_state(span(6,LOOKUP_COLUMN_SIZE-1));
+
 }
 
 //BOOST_AUTO_TEST_CASE(test_predict_path) {
@@ -160,40 +179,31 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	cout << "Testing NLOPT Optimization" << endl;
 	double *q0dot = (double*)calloc(NDOF,sizeof(double));
 	double *q0 = (double*)calloc(NDOF,sizeof(double));
-	double *b0 = (double*)calloc(NCART,sizeof(double));
-	double *v0 = (double*)calloc(NCART,sizeof(double));
-	double *x = (double*)calloc(OPTIM_DIM,sizeof(double));
 	// initial guess for optim //
 	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 
-	Matrix lookup_table = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
-	load_lookup_table(lookup_table);
-	//set_des_land_param(ballLand,&landTime);
+	cout << "Looking up a random entry..." << endl;
+	vec::fixed<15> strike_params;
+	vec6 ball_state;
+	lookup_random_entry(ball_state,strike_params);
+
+	vec7 init_joint_state;
+	init_right_posture(init_joint_state);
 
 	// initialize ball and racket //
 	// predict for T_pred seconds
 	set_bounds(lb,ub,SLACK,Tmax);
-	init_joint_state(q0);
-	init_ball_state(b0,v0);
-	lookup(lookup_table,b0,v0,x); // initialize solution
+
 	double time2return = 1.0;
-	racket strategy = send_racket_strategy(q0,b0,v0,Tmax);
+	racket strategy = send_racket_strategy(init_joint_state,ball_state,Tmax);
 	cracket racket = make_c_strategy(strategy);
-
-	/*BOOST_TEST(racket.pos[Z][5] != strategy.pos(Z,5));
-	BOOST_TEST(racket.normal[X][5] != strategy.normal(X,5));
-	BOOST_TEST(racket.vel[Y][5] != strategy.vel(Y,5));*/
-
-	/*cout << strategy.pos << endl
-		 << strategy.vel << endl
-		 << strategy.normal	<< endl;*/
-
 
 	BOOST_TEST(arma::norm(strategy.normal.col(5)) == 1);
 
+	init_coptim_params(init_joint_state,q0);
 	coptim params = {q0, q0dot, q0, lb, ub, time2return};
 
 	// run NLOPT opt algorithm here //

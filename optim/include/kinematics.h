@@ -11,11 +11,28 @@
 #define KINEMATICS_H_
 
 #include "math.h"
-#include "SL.h"
+
+#define CONFIG   "config/"
+#define PREFS    "prefs/"
 
 #define NDOF 7
 #define NCART 3
 #define NQUAT 4
+#define NLINK 6
+
+/*! defines that are used to parse the config and prefs files */
+#define MIN_THETA    1
+#define MAX_THETA    2
+#define THETA_OFFSET 3
+
+// dimensions of the robot
+#define ZSFE 0.346              //!< z height of SAA axis above ground
+#define ZHR  0.505              //!< length of upper arm until 4.5cm before elbow link
+#define YEB  0.045              //!< elbow y offset
+#define ZEB  0.045              //!< elbow z offset
+#define YWR -0.045              //!< elbow y offset (back to forewarm)
+#define ZWR  0.045              //!< elbow z offset (back to forearm)
+#define ZWFE 0.255              //!< forearm length (minus 4.5cm)
 
 // FROM MDEFS.H FILE
 #define Power(x, y)	(pow((double)(x), (double)(y)))
@@ -56,14 +73,13 @@ void calc_racket_state(const double q[NDOF],
 void get_cart_velocity(double jac[NCART+1][NDOF+1],
 		               const double qdot[NDOF],
 					   double vel[NCART]);
-void rev_geo_jac_col(Vector p, Vector pi, Vector zi, Vector c);
 
 void kinematics(const double state[NDOF],
-		        double Xlink[N_LINKS+1][4],
+		        double Xlink[NLINK+1][4],
 				double Xorigin[NDOF+1][4],
 				double Xaxis[NDOF+1][4],
 		        double Ahmat[NDOF+1][5][5]);
-void jacobian(const double link[N_LINKS+1][4],
+void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
 		double jac[NCART+1][NDOF+1]);

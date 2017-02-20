@@ -9,7 +9,6 @@
 
 #include "stdio.h"
 #include "stdlib.h"
-#include "SL.h"
 #include "constants.h"
 #include "kinematics.h"
 #include "utils.h"
@@ -26,10 +25,9 @@ void calc_racket_state(const double q[NDOF],
 					   double vel[NCART],
 					   double normal[NCART]) {
 
-	static int firsttime = TRUE;
 	static const int PALM = 6;
 
-	static double link[N_LINKS+1][3+1];
+	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
@@ -69,7 +67,7 @@ void get_cart_velocity(double jac[3+1][7+1],
  *
  */
 void kinematics(const double state[NDOF],
-		        double Xlink[N_LINKS+1][4],
+		        double Xlink[NLINK+1][4],
 				double Xorigin[NDOF+1][4],
 				double Xaxis[NDOF+1][4],
 		        double Ahmat[NDOF+1][5][5]) {
@@ -628,7 +626,7 @@ void kinematics(const double state[NDOF],
 
 }
 
-void jacobian(const double link[N_LINKS+1][4],
+void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
 		double jac[NCART+1][NDOF+1]) {
@@ -643,18 +641,6 @@ void jacobian(const double link[N_LINKS+1][4],
 		for (int i = 0; i < NCART; i++)
 			jac[i+1][j] = c[i];
 	}
-}
-
-
-void rev_geo_jac_col(Vector p, Vector pi, Vector zi, Vector c) {
-
-  c[1] = zi[2] * (p[3]-pi[3]) - zi[3] * (p[2]-pi[2]);
-  c[2] = zi[3] * (p[1]-pi[1]) - zi[1] * (p[3]-pi[3]);
-  c[3] = zi[1] * (p[2]-pi[2]) - zi[2] * (p[1]-pi[1]);
-  c[4] = zi[1];
-  c[5] = zi[2];
-  c[6] = zi[3];
-
 }
 
 /*

@@ -66,10 +66,7 @@ public:
 										double racket_normal[NCART]) const;
 
 	// public interface to racket computations
-	friend racket send_racket_strategy(const double q0[NDOF],
-			                           const double b0[NCART],
-									   const double v0[NCART],
-									   const double T);
+	friend racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const double T);
 
 	// main function
 	joint play(const joint & qact, const vec3 & obs);
@@ -82,9 +79,6 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 		                 const mat & racket_normal, mat & racket_vel);
 bool check_legal_ball(const mat & balls_predicted);
 bool check_new_obs(const vec3 & obs);
-racket send_racket_strategy(const double q0[NDOF],
-			                           const double b0[NCART],
-									   const double v0[NCART],
-									   const double T);
+racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const double T);
 
 #endif /* PLAYER_HPP_ */

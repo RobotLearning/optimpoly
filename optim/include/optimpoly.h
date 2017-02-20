@@ -14,9 +14,6 @@
 #include <pthread.h>
 #include "string.h" //for bzero
 
-// SL variables and kinematics
-#include "SL.h"
-
 // defines
 #define NDOF 7
 #define OPTIM_DIM 2*NDOF+1

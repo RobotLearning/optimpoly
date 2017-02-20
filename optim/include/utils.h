@@ -30,10 +30,6 @@ typedef double** Matrix;
 #define NCART 3
 #endif
 
-#define LOOKUP_TABLE_SIZE 4002 //769
-#define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
-#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016"
-
 double sign(double expr);
 
 // utility methods, zero indexed
@@ -61,8 +57,6 @@ int mat_equal(Matrix a, Matrix c);
 void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch);
 
 // io method from SL, one indexed
-void load_lookup_table(Matrix lookupTable);
-void load_vec_into_mat(Matrix mat, int m, int n, char name[]);
 int find_keyword(FILE *fp, char *name);
 
 #endif /* UTILS_H_ */

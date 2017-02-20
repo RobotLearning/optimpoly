@@ -479,17 +479,11 @@ bool check_new_obs(const vec3 & obs) {
  * Friend function that exposes Player's racket strategy
  *
  */
-racket send_racket_strategy(const double q0[NDOF],
-		                    const double b0[NCART],
-							const double v0[NCART],
-							const double T) {
+racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const double T) {
 
 	EKF filter = init_filter();
-	vec3 ballpos(b0);
-	vec3 ballvel(v0);
-	vec7 qinit(q0);
 	mat66 P; P.eye();
-	filter.set_prior(join_vert(ballpos,ballvel),P);
+	filter.set_prior(ball_state,P);
 	//cout << filter.get_mean() << endl;
 
 	Player robot = Player(qinit,filter);

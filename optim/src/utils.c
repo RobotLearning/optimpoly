@@ -67,48 +67,6 @@ double max_array(double *x, int length) {
 	return val;
 }
 
-/*
- * Read a vector into a matrix (e.g. saved from MATLAB)
- * Necessary for loading large matrices into memory
- *
- */
-void load_vec_into_mat(Matrix mat, int m, int n, char name[]) {
-
-	FILE * fid;
-	int i, j;
-	static char fileName[100];
-	static char dirName[] = "../robolab/barrett/saveData";
-
-	sprintf(fileName,"%s//%s.txt",dirName,name);
-    fid = fopen(fileName,"r");
-
-    for (i = 1; i <= n; i++) {
-    	for (j = 1; j <= m; j++) {
-    		fscanf(fid, "%lf", &(mat[j][i]));
-    		//printf("M[%d][%d] = %f \n", j, i, mat[j][i]);
-    	}
-    }
-
-	fclose(fid);
-}
-
-/*
- *
- * Loading lookup table to initialize the optimization
- * And to test constraints
- */
-void load_lookup_table(Matrix lookupTable) {
-
-	printf("Loading lookup table...\n");
-
-	load_vec_into_mat(lookupTable, LOOKUP_TABLE_SIZE, LOOKUP_COLUMN_SIZE, LOOKUP_TABLE_NAME);
-	//print_mat("Lookup: ", lookupTable);
-	/*int i;
-	for(i = 1; i <= LOOKUP_COLUMN_SIZE; i++)
-		printf("%.2f\t",lookupTable[1][i]);
-	printf("\n");*/
-}
-
 /*!*****************************************************************************
  *******************************************************************************
  \note  find_keyword

@@ -8,7 +8,6 @@
  ============================================================================
  */
 
-#include "SL.h"
 #include "constants.h"
 #include "optimpoly.h"
 #include "utils.h"
