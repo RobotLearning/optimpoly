@@ -12,37 +12,29 @@
 #include "sys/time.h"
 #include "math.h"
 
-#ifndef DOF
-#define DOF 7
-#endif
-
-#ifndef CART
-#define CART 3
-#endif
-
 /*
  * Prints the 2*DOF + 1 dimensional solution in user-friendly format
  */
-void print_optim_vec(double *x) {
+void print_optim_vec(const double *x) {
 
 	int i;
 	printf("qf = [");
-	for (i = 0; i < DOF; i++) {
+	for (i = 0; i < NDOF; i++) {
 		printf("%.2f  ", x[i]);
 	}
 	printf("]\n");
 	printf("qfdot = [");
-	for (i = 0; i < DOF; i++) {
-		printf("%.2f  ", x[i+DOF]);
+	for (i = 0; i < NDOF; i++) {
+		printf("%.2f  ", x[i+NDOF]);
 	}
 	printf("]\n");
-	printf("T = %.2f\n", x[2*DOF]);
+	printf("T = %.2f\n", x[2*NDOF]);
 }
 
 /*
  * Return the maximum absolute value of an array with length size
  */
-double max_abs_array(double *x, int length) {
+double max_abs_array(const double *x, const int length) {
 
 	double val = x[0];
 	for (int i = 1; i < length; i++) {
@@ -56,7 +48,7 @@ double max_abs_array(double *x, int length) {
 /*
  * Return the maximum value of an array with length size
  */
-double max_array(double *x, int length) {
+double max_array(const double *x, const int length) {
 
 	double val = x[0];
 	for (int i = 1; i < length; i++) {
@@ -148,7 +140,7 @@ double inner_prod(const double *a1, const double *a2) {
 
 	int i;
 	double val = 0.0;
-	for (i = 0; i < DOF; i++) {
+	for (i = 0; i < NDOF; i++) {
 		val += a1[i]*a2[i];
 	}
 
@@ -161,7 +153,7 @@ double inner_prod(const double *a1, const double *a2) {
 void vec_plus(double *a1, const double *a2) {
 
 	int i;
-	for (i = 0; i < DOF; i++) {
+	for (i = 0; i < NDOF; i++) {
 		a1[i] = a1[i] + a2[i];
 	}
 }
@@ -172,7 +164,7 @@ void vec_plus(double *a1, const double *a2) {
 void vec_minus(double *a1, const double *a2) {
 
 	int i;
-	for (i = 0; i < DOF; i++) {
+	for (i = 0; i < NDOF; i++) {
 		a1[i] = a1[i] - a2[i];
 	}
 }

@@ -16,7 +16,7 @@
 #include "math.h"
 
 /*
- * NLOPT optimization routine for table tennis traj gen
+ * NLOPT optimization routine for table tennis trajectory generation
  *
  * Returns the maximum of violations
  * Maximum of :
@@ -24,23 +24,24 @@
  * 2. joint limit violations throughout trajectory
  *
  */
-double nlopt_optim_poly_run(coptim *params,
-					      cracket *racket) {
+double nlopt_optim_poly_run(coptim * coparams,
+					        cracket * racket,
+							optim * params) {
 
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol);
-	init_soln_to_rest_posture(params,x); //parameters are the initial joint positions q0
+	init_soln(params,x); //parameters are the initial joint positions q0
 	// set tolerances equal to second argument //
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	// LN = does not require gradients //
-	nlopt_set_lower_bounds(opt, params->lb);
-	nlopt_set_upper_bounds(opt, params->ub);
-	nlopt_set_min_objective(opt, costfunc, params);
+	nlopt_set_lower_bounds(opt, coparams->lb);
+	nlopt_set_upper_bounds(opt, coparams->ub);
+	nlopt_set_min_objective(opt, costfunc, coparams);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         params, tol);
+			                         coparams, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
 			                         racket, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
@@ -52,23 +53,97 @@ double nlopt_optim_poly_run(coptim *params,
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
-	    max_violation = test_optim(x,params,racket,TRUE);
+	    max_violation = test_optim(x,coparams,racket,TRUE);
 	}
 	else {
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,params,racket,TRUE);
+	    max_violation = test_optim(x,coparams,racket,TRUE);
+	    finalize_soln(x,params);
 	}
+	check_optim_result(res);
 	nlopt_destroy(opt);
 	return max_violation;
+}
+
+/*
+ * Finalize the solution and update target SL structure and hitTime value
+ */
+static void finalize_soln(const double *x, optim *strike) {
+
+	for (int i = 0; i < NDOF; i++) {
+		strike->qf[i] = x[i];
+		strike->qfdot[i] = x[i+NDOF];
+	}
+	strike->T = x[2*NDOF];
+}
+
+/*
+ * Give info about the optimization after termination
+ *
+ */
+static int check_optim_result(const int res) {
+
+	int flag = FALSE;
+	switch (res) {
+	case NLOPT_SUCCESS:
+		printf("Success!\n");
+		flag = TRUE;
+		break;
+	case NLOPT_STOPVAL_REACHED:
+		printf("Optimization stopped because stopval (above) was reached.\n");
+		flag = TRUE;
+		break;
+	case NLOPT_FTOL_REACHED:
+		printf("Optimization stopped because ftol_rel "
+				"or ftol_abs (above) was reached.\n");
+		flag = TRUE;
+		break;
+	case NLOPT_XTOL_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because xtol_rel or xtol_abs (above) was reached.\n");
+		break;
+	case NLOPT_MAXEVAL_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because maxeval (above) was reached.\n");
+		break;
+	case NLOPT_MAXTIME_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because maxtime (above) was reached.\n");
+		break;
+	case NLOPT_FAILURE:
+		printf("Epic fail!\n");
+		break;
+	case NLOPT_INVALID_ARGS:
+		printf("Invalid arguments (e.g. lower bounds are bigger than "
+				"upper bounds, an unknown algorithm was specified, etcetera).\n");
+		break;
+	case NLOPT_OUT_OF_MEMORY:
+		printf("Ran out of memory!\n");
+		break;
+	case NLOPT_ROUNDOFF_LIMITED:
+		printf("Halted because roundoff errors limited progress."
+			"(In this case, the optimization still typically returns a useful result.\n");
+		break;
+	case NLOPT_FORCED_STOP:
+		printf("Halted because of a forced termination: "
+				"the user called nlopt_force_stop(opt)"
+				"on the optimization’s nlopt_opt object "
+				"opt from the user’s objective function or constraints.\n");
+		break;
+
+	}
+	return flag;
 }
 
 /*
  * Debug by testing the constraint violation of the solution vector
  *
  */
-double test_optim(double *x, coptim *params, cracket *racket, int info) {
+static double test_optim(const double *x,
+		          coptim * params,
+				  cracket * racket, int info) {
 
 	// give info on constraint violation
 	double *grad = FALSE;
@@ -146,12 +221,14 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double a2[NDOF];
 	static double a1ret[NDOF]; // coefficients for the returning polynomials
 	static double a2ret[NDOF];
+	static double qdot_rest[NDOF];
 	static double joint_strike_max_cand[NDOF];
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
 	static double *q0;
 	static double *q0dot;
+	static double *qrest;
 	static double *ub;
 	static double *lb;
 	static double Tret;
@@ -162,6 +239,7 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 		coptim* optim_data = (coptim*)my_func_params;
 		q0 = optim_data->q0;
 		q0dot = optim_data->q0dot;
+		qrest = optim_data->qrest;
 		ub = optim_data->ub;
 		lb = optim_data->lb;
 		Tret = optim_data->time2return;
@@ -169,7 +247,7 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-	calc_return_poly_coeff(q0,q0dot,x,Tret,a1ret,a2ret);
+	calc_return_poly_coeff(qrest,qdot_rest,x,Tret,a1ret,a2ret);
 	// calculate the candidate extrema both for strike and return
 	calc_strike_extrema_cand(a1,a2,x[2*NDOF],q0,q0dot,
 			joint_strike_max_cand,joint_strike_min_cand);
@@ -357,13 +435,13 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
  *
  * The closer to the optimum it is the faster alg should converge
  */
-void init_soln_to_rest_posture(const coptim * const params,
-		                       double x[OPTIM_DIM]) {
+static void init_soln(const optim * const params,
+		       double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qrest[i];
-		x[i+NDOF] = 0.0;
+		x[i] = params->qf[i];
+		x[i+NDOF] = params->qfdot[i];
 	}
-	x[2*NDOF] = 0.6;
+	x[2*NDOF] = params->T;
 }

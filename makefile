@@ -4,7 +4,7 @@ HEADER2=$(DIR)/optim/include
 CC=g++
 LIBS=-larmadillo -lm
 INSTALLFLAGS=-fPIC -Wall -g -I$(HEADER1) -shared -pthread -std=c++11 -O
-TESTFLAGS=-g -Wall --std=c++11 #-pthread
+TESTFLAGS=-g --std=c++11 #-pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 
 carma:
@@ -24,7 +24,6 @@ optim:
 
 test-optim:
 	$(CC) $(TESTFLAGS) optim/test/optim.cpp \
-	                   optim/test/kinematics.cpp \
 	                 -o opt_unit_test.o -lm -larmadillo \
 	                   -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
 	                   /usr/local/lib/libboost_unit_test_framework.a ./liboptim.so -lnlopt ./libcarma.so

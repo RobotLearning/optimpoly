@@ -38,9 +38,9 @@ void vec_minus(double *a1, const double *a2);
 void vec_plus(double *a1, const double *a2);
 double inner_prod(const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
-void print_optim_vec(double *x);
-double max_abs_array(double *x, int length);
-double max_array(double *x, int length);
+void print_optim_vec(const double *x);
+double max_abs_array(const double *x, const int length);
+double max_array(const double *x, const int length);
 
 // utility methods, one indexed
 Vector my_vector(int nl, int nh);

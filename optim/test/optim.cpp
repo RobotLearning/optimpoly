@@ -111,7 +111,8 @@ inline cracket make_c_strategy(const racket & strategy) {
  *
  *
  */
-inline void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & params, int k) {
+inline void knn(const mat & lookupt, const vec6 & ballstate,
+		        vec::fixed<15> & params, int k) {
 
 	// find the closest entry
 	static bool firsttime = true;
@@ -119,6 +120,7 @@ inline void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & pa
 	static mat A;
 
 	if (firsttime) {
+		firsttime = false;
 		A = lookupt.cols(span(X,DZ));
 		for (int i = 0; i < A.n_rows; i++) {
 			dots(i) = dot(A.row(i), A.row(i));
@@ -155,9 +157,25 @@ inline void lookup_random_entry(vec & coparams, vec & params) {
 	int entry = as_scalar(randi<vec>(1,distr_param(0,LOOKUP_TABLE_SIZE-1)));
 	vec lookup_state = lookup.row(entry).t();
 	coparams = lookup_state(span(X,DZ));
-	params = lookup_state(span(6,LOOKUP_COLUMN_SIZE-1));
+	params = lookup_state(span(DZ+1,LOOKUP_COLUMN_SIZE-1));
 
 }
+
+/*
+ * Set optimization parameters
+ * possibly after a lookup
+ *
+ */
+inline void set_optim_params(const vec::fixed<15> & strike_params,
+		                        optim & params) {
+
+	for (int i = 0; i < NDOF; i++) {
+		params.qf[i] = strike_params(i);
+		params.qfdot[i] = strike_params(i+NDOF);
+	}
+	params.T = strike_params(2*NDOF);
+}
+
 
 //BOOST_AUTO_TEST_CASE(test_predict_path) {
 //
@@ -185,7 +203,9 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 
+	// update initial parameters from lookup table
 	cout << "Looking up a random entry..." << endl;
+	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -204,12 +224,15 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	BOOST_TEST(arma::norm(strategy.normal.col(5)) == 1);
 
 	init_coptim_params(init_joint_state,q0);
-	coptim params = {q0, q0dot, q0, lb, ub, time2return};
+	coptim coparams = {q0, q0dot, q0, lb, ub, time2return};
+	optim params = {q0,q0dot,0.7};
+
+	//cout << "Initializing optimization with this lookup entry..." << endl;
+	//set_optim_params(strike_params,params);
 
 	// run NLOPT opt algorithm here //
-	double max_violation = nlopt_optim_poly_run(&params,&racket);
+	double max_violation = nlopt_optim_poly_run(&coparams,&racket,&params);
 
 	// test to see if kinematics constraints are violated
-	//double max_violation = test_optim(x,FALSE);
 	BOOST_TEST(max_violation < 0.01);
 }

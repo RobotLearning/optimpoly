@@ -12,7 +12,6 @@
 #include "tabletennis.h"
 #include "kalman.h"
 #include "player.hpp"
-#include "optim.hpp"
 #include <thread>
 
 using namespace std;
