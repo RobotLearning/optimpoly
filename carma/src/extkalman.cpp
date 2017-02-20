@@ -8,7 +8,6 @@
 #include <armadillo>
 #include "kalman.h"
 
-using namespace std;
 using namespace arma;
 
 /*
@@ -33,7 +32,9 @@ EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(C
 	this->f = fp;
 
 	if (x(0) == datum::inf) {
-		cout << "EKF not initialized! Call set_prior before filtering!" << endl;
+		std::cout
+		<< "EKF not initialized! Call set_prior before filtering!"
+		<< std::endl;
 	}
 }
 
@@ -47,10 +48,10 @@ EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(C
 mat EKF::linearize(double dt) const {
 
 	int dimx = x.n_elem;
-	mat delta = dt * eye<mat>(dimx,dimx);
-	mat dfdx = zeros<mat>(dimx,dimx);
-	mat fPlus = zeros<mat>(dimx,dimx);
-	mat fMinus = zeros<mat>(dimx,dimx);
+	static mat delta = dt * eye<mat>(dimx,dimx);
+	static mat dfdx = zeros<mat>(dimx,dimx);
+	static mat fPlus = zeros<mat>(dimx,dimx);
+	static mat fMinus = zeros<mat>(dimx,dimx);
 	for (int i = 0; i < dimx; i++) {
 		fPlus.col(i) = this->f(x + delta.col(i),dt);
 		fMinus.col(i) = this->f(x - delta.col(i),dt);

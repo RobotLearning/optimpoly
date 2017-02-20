@@ -198,7 +198,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double racket_des_normal[NCART];
 	static double pos[NCART];
 	static double qfdot[NDOF];
-	static double xfdot[NCART];
+	static double vel[NCART];
 	static double normal[NCART];
 	static int firsttime = TRUE;
 	static double q[NDOF];
@@ -221,12 +221,12 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_racket_state(q,qfdot,pos,xfdot,normal);
+	calc_racket_state(q,qfdot,pos,vel,normal);
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
 		result[i] = pos[i] - racket_des_pos[i];
-		result[i + NCART] = xfdot[i] - racket_des_vel[i];
+		result[i + NCART] = vel[i] - racket_des_vel[i];
 		result[i + 2*NCART] = normal[i] - racket_des_normal[i];
 	}
 

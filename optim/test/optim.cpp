@@ -16,6 +16,7 @@
 #include "kinematics.h"
 #include "optimpoly.h"
 #include "utils.h"
+#include "stdlib.h"
 #include "player.hpp"
 
 using namespace std;
@@ -25,8 +26,8 @@ using namespace arma;
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then
  */
-inline void set_bounds(double lb[OPTIM_DIM],
-		               double ub[OPTIM_DIM], double SLACK, double Tmax) {
+inline void set_bounds(double *lb,
+		               double *ub, double SLACK, double Tmax) {
 
 	read_joint_limits(lb,ub);
 	// lower bounds and upper bounds for qf are the joint limits
@@ -47,7 +48,7 @@ inline void set_bounds(double lb[OPTIM_DIM],
  * SO FAR setting it to the first lookup table entry from May 2016
  *
  */
-inline void init_ball_state(double b0[NCART], double v0[NCART]) {
+inline void init_ball_state(double *b0, double *v0) {
 
 	// initialize the ball
 	b0[0] = 0.1972;
@@ -61,7 +62,7 @@ inline void init_ball_state(double b0[NCART], double v0[NCART]) {
 /*
  * Set the initial posture of the robot
  */
-inline void init_joint_state(double q0[NDOF]) {
+inline void init_joint_state(double *q0) {
 
 	// initialize the variables
 	//q0 = [1.0; -0.2; -0.1; 1.8; -1.57; 0.1; 0.3];
@@ -139,33 +140,34 @@ int lookup(const Matrix lookupTable, const double* b0, const double* v0, double 
 	return TRUE;
 }
 
-BOOST_AUTO_TEST_CASE(test_robot_racket_calc) {
+BOOST_AUTO_TEST_CASE(test_predict_path) {
 
 	cout << "Testing Robot racket calculations..." << endl;
-	static double x1[NCART];
-	static double x2[NCART];
+	static double pos[NCART] = {1.0, -2.0, -0.5};
+	static double vel[NCART] = {3.0, 5.0, 4.0};
 	EKF filter = init_filter();
-	vec3 ballpos(x1);
-	vec3 ballvel(x2);
+	vec3 ballpos(pos);
+	vec3 ballvel(vel);
 	mat66 P; P.eye();
 	filter.set_prior(join_vert(ballpos,ballvel),P);
-	Player robot = Player(zeros<vec>(7),filter);
-	mat balls_pred = filter.predict_path(dt,100);
+	mat balls_pred = filter.predict_path(dt,10);
+	cout << "Balls predicted:" << endl << balls_pred << endl;
 
 }
 
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
 	cout << "Testing NLOPT Optimization" << endl;
-	static double q0dot[NDOF];
-	double q0[NDOF];
-	double b0[NCART];
-	double v0[NCART];
-	double x[OPTIM_DIM]; // initial guess for optim //
-	double lb[OPTIM_DIM];
-	double ub[OPTIM_DIM];
+	double *q0dot = (double*)calloc(NDOF,sizeof(double));
+	double *q0 = (double*)calloc(NDOF,sizeof(double));
+	double *b0 = (double*)calloc(NCART,sizeof(double));
+	double *v0 = (double*)calloc(NCART,sizeof(double));
+	double *x = (double*)calloc(OPTIM_DIM,sizeof(double));
+	// initial guess for optim //
+	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double SLACK = 0.01;
-	double Tmax = 0.02;
+	double Tmax = 1.0;
 
 	Matrix lookup_table = my_matrix(1, LOOKUP_TABLE_SIZE, 1, LOOKUP_COLUMN_SIZE);
 	load_lookup_table(lookup_table);
@@ -181,15 +183,23 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	racket strategy = send_racket_strategy(q0,b0,v0,Tmax);
 	cracket racket = make_c_strategy(strategy);
 
-	BOOST_TEST(racket.normal[X][50] == strategy.normal(X,50));
-	BOOST_TEST(racket.vel[Y][5] != strategy.vel(Y,5));
+	/*BOOST_TEST(racket.pos[Z][5] != strategy.pos(Z,5));
+	BOOST_TEST(racket.normal[X][5] != strategy.normal(X,5));
+	BOOST_TEST(racket.vel[Y][5] != strategy.vel(Y,5));*/
+
+	/*cout << strategy.pos << endl
+		 << strategy.vel << endl
+		 << strategy.normal	<< endl;*/
+
+
+	BOOST_TEST(arma::norm(strategy.normal.col(5)) == 1);
 
 	coptim params = {q0, q0dot, q0, lb, ub, time2return};
 
 	// run NLOPT opt algorithm here //
-	//double max_violation = nlopt_optim_poly_run(&params,&racket);
+	double max_violation = nlopt_optim_poly_run(&params,&racket);
 
 	// test to see if kinematics constraints are violated
 	//double max_violation = test_optim(x,FALSE);
-	//BOOST_TEST(max_violation < 0.01);
+	BOOST_TEST(max_violation < 0.01);
 }

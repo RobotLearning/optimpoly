@@ -27,7 +27,7 @@ void calc_racket_state(const double q[NDOF],
 					   double normal[NCART]) {
 
 	static int firsttime = TRUE;
-	static const int PALM = 6;
+	static const int PALM = 5;
 	static double base_orient[4]; // quat
 	static double base_state[3]; // pos
 	static double eff_angles[3]; // initial euler angles for racket
@@ -658,7 +658,7 @@ void jacobian(const double link[NCART],
 	double c[2*NCART];
 	for (i = 0; i < NDOF; ++i) {
 		revolute_geo_jac_col(link, origin[i], axis[i], c);
-		for (j = 0; j < 2*NCART; ++j)
+		for (j = 0; j < NCART; ++j)
 			Jac[j][i] = c[j];
 	}
 

@@ -405,7 +405,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(false,false,xnow);
 	tennis.integrate_ball_state(dt);
-	vec6 out = zeros<vec>(6);
+	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
 	out(span(DX,DZ)) = tennis.ball_vel;
 	return out;

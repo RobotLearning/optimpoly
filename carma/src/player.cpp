@@ -72,7 +72,7 @@ void Player::estimate_prior(const mat & observations, const vec & times) {
 	filter.update(observations.col(0));
 
 	double dt;
-	for (int i = 1; i < times.n_elem; i++) {
+	for (unsigned i = 1; i < times.n_elem; i++) {
 		dt = times(i) - times(i-1);
 		filter.predict(dt);
 		filter.update(observations.col(i));
@@ -253,7 +253,7 @@ void Player::calc_optim_param() {
  */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
-	static int idx = 0;
+	static unsigned idx = 0;
 	static mat Q_des, Qd_des, Qdd_des;
 
 	// this should be only for MPC?
@@ -333,7 +333,8 @@ void Player::calc_racket_strategy(const mat & balls_predicted) {
 	calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
 	calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
-	racket_params.pos = balls_predicted;
+	racket_params.pos = balls_predicted.rows(X,Z);
+	// place racket centre on the predicted ball
 	racket_params.normal = racket_des_normal;
 	racket_params.vel = racket_des_vel;
 }
@@ -345,7 +346,7 @@ void Player::calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & n
 
 	normal = v_out - v_in;
 	// normalize
-	normalise(normal);
+	normal = normalise(normal);
 }
 
 /*
@@ -489,6 +490,7 @@ racket send_racket_strategy(const double q0[NDOF],
 	vec7 qinit(q0);
 	mat66 P; P.eye();
 	filter.set_prior(join_vert(ballpos,ballvel),P);
+	//cout << filter.get_mean() << endl;
 
 	Player robot = Player(qinit,filter);
 	mat balls_pred = filter.predict_path(dt,(int)(T/dt));
