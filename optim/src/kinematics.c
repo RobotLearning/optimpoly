@@ -29,22 +29,11 @@ void calc_racket_state(const double q[NDOF],
 	static int firsttime = TRUE;
 	static const int PALM = 6;
 
-	static Matrix link;
-	static Matrix origin;
-	static Matrix axis;
-	static Matrix amats[NDOF+1];
-	static Matrix jacobi;
-
-	/* initialization of static variables */
-	if (firsttime) {
-		link = my_matrix(1,N_LINKS,1,3);
-		origin = my_matrix(1,NDOF,1,3);
-		axis = my_matrix(1,NDOF,1,3);
-		for (int i = 0; i <= NDOF; i++)
-			amats[i] = my_matrix(1,4+1,1,4+1);
-		jacobi = my_matrix(1,6,1,7);
-		firsttime = FALSE;
-	}
+	static double link[N_LINKS+1][3+1];
+	static double origin[NDOF+1][3+1];
+	static double axis[NDOF+1][3+1];
+	static double amats[NDOF+1][4+1][4+1];
+	static double jacobi[3+1][7+1];
 
 	kinematics(q,link,origin,axis,amats);
 	//rotate_to_quat(amats.slice(PALM)(span(X,Z),span(X,Z)),quat);
@@ -62,7 +51,7 @@ void calc_racket_state(const double q[NDOF],
  * Find cartesian racket velocity given
  * joint velocities and Jacobian
  */
-void get_cart_velocity(Matrix jac,
+void get_cart_velocity(double jac[3+1][7+1],
 		               const double qdot[NDOF],
 					   double vel[NCART]) {
 
@@ -79,8 +68,11 @@ void get_cart_velocity(Matrix jac,
  * Kinematics from SL
  *
  */
-void kinematics(const double state[NDOF], Matrix Xlink, Matrix Xorigin, Matrix Xaxis,
-		        Matrix Ahmat[]) {
+void kinematics(const double state[NDOF],
+		        double Xlink[N_LINKS+1][4],
+				double Xorigin[NDOF+1][4],
+				double Xaxis[NDOF+1][4],
+		        double Ahmat[NDOF+1][5][5]) {
 
 	static int firsttime = TRUE;
 	static double basec[3+1] = {0.0};
@@ -636,14 +628,20 @@ void kinematics(const double state[NDOF], Matrix Xlink, Matrix Xorigin, Matrix X
 
 }
 
-void jacobian(Matrix lp, Matrix jop, Matrix jap, Matrix Jac) {
+void jacobian(const double link[N_LINKS+1][4],
+		const double origin[NDOF+1][4],
+		const double axis[NDOF+1][4],
+		double jac[NCART+1][NDOF+1]) {
 
 	static const int PALM = 6;
-	double c[2*N_CART + 1];
+	static double c[NCART];
 	for (int j = 1; j <= NDOF; ++j) {
-		rev_geo_jac_col(lp[PALM], jop[j], jap[j], c);
-		for (int i = 1; i <= 2*N_CART; i++)
-			Jac[i][j] = c[i];
+		c[0] = axis[j][2] * (link[PALM][3] - origin[j][3]) - axis[j][3] * (link[PALM][2]-origin[j][2]);
+		c[1] = axis[j][3] * (link[PALM][1] - origin[j][1]) - axis[j][1] * (link[PALM][3]-origin[j][3]);
+		c[2] = axis[j][1] * (link[PALM][2] - origin[j][2]) - axis[j][2] * (link[PALM][1]-origin[j][1]);
+		//rev_geo_jac_col(lp[PALM], jop[j], jap[j], c);
+		for (int i = 0; i < NCART; i++)
+			jac[i+1][j] = c[i];
 	}
 }
 

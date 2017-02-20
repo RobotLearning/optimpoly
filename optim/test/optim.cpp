@@ -140,20 +140,20 @@ int lookup(const Matrix lookupTable, const double* b0, const double* v0, double 
 	return TRUE;
 }
 
-BOOST_AUTO_TEST_CASE(test_predict_path) {
-
-	cout << "Testing Robot racket calculations..." << endl;
-	static double pos[NCART] = {1.0, -2.0, -0.5};
-	static double vel[NCART] = {3.0, 5.0, 4.0};
-	EKF filter = init_filter();
-	vec3 ballpos(pos);
-	vec3 ballvel(vel);
-	mat66 P; P.eye();
-	filter.set_prior(join_vert(ballpos,ballvel),P);
-	mat balls_pred = filter.predict_path(dt,10);
-	//cout << "Balls predicted:" << endl << balls_pred << endl;
-
-}
+//BOOST_AUTO_TEST_CASE(test_predict_path) {
+//
+//	cout << "Testing Robot racket calculations..." << endl;
+//	static double pos[NCART] = {1.0, -2.0, -0.5};
+//	static double vel[NCART] = {3.0, 5.0, 4.0};
+//	EKF filter = init_filter();
+//	vec3 ballpos(pos);
+//	vec3 ballvel(vel);
+//	mat66 P; P.eye();
+//	filter.set_prior(join_vert(ballpos,ballvel),P);
+//	mat balls_pred = filter.predict_path(dt,10);
+//	//cout << "Balls predicted:" << endl << balls_pred << endl;
+//
+//}
 
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
