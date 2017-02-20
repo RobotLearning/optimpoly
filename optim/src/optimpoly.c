@@ -49,7 +49,7 @@ double nlopt_optim_poly_run(coptim *params,
 	double initTime = get_time();
 	double minf; // the minimum objective value, upon return //
 	int res; // error code
-	int max_violation;
+	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
@@ -366,5 +366,5 @@ void init_soln_to_rest_posture(const coptim * const params,
 		x[i] = params->qrest[i];
 		x[i+NDOF] = 0.0;
 	}
-	x[2*NDOF] = 0.50;
+	x[2*NDOF] = 0.6;
 }

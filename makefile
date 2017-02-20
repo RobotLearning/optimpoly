@@ -24,6 +24,7 @@ optim:
 
 test-optim:
 	$(CC) $(TESTFLAGS) optim/test/optim.cpp \
+	                   optim/test/kinematics.cpp \
 	                 -o opt_unit_test.o -lm -larmadillo \
 	                   -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
 	                   /usr/local/lib/libboost_unit_test_framework.a ./liboptim.so -lnlopt ./libcarma.so

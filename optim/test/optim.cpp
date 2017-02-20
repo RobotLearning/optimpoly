@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(test_predict_path) {
 	mat66 P; P.eye();
 	filter.set_prior(join_vert(ballpos,ballvel),P);
 	mat balls_pred = filter.predict_path(dt,10);
-	cout << "Balls predicted:" << endl << balls_pred << endl;
+	//cout << "Balls predicted:" << endl << balls_pred << endl;
 
 }
 

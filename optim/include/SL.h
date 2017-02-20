@@ -20,7 +20,7 @@
 #define N_CART 3
 #define N_QUAT 4
 #define N_ENDEFFS 1
-#define N_LINKS 7
+#define N_LINKS 6
 #define _X_ (0+START_INDEX)
 #define _Y_ (1+START_INDEX)
 #define _Z_ (2+START_INDEX)
