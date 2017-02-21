@@ -119,6 +119,7 @@ inline void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & pa
 	static mat A;
 
 	if (firsttime) {
+		firsttime = false;
 		A = lookupt.cols(span(X,DZ));
 		for (int i = 0; i < A.n_rows; i++) {
 			dots(i) = dot(A.row(i), A.row(i));
@@ -204,10 +205,11 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	BOOST_TEST(arma::norm(strategy.normal.col(5)) == 1);
 
 	init_coptim_params(init_joint_state,q0);
-	coptim params = {q0, q0dot, q0, lb, ub, time2return};
+	coptim coparams = {q0, q0dot, q0, lb, ub, time2return};
+	optim params = {q0, q0dot, 0.5};
 
 	// run NLOPT opt algorithm here //
-	double max_violation = nlopt_optim_poly_run(&params,&racket);
+	double max_violation = nlopt_optim_poly_run(&coparams,&racket,&params);
 
 	// test to see if kinematics constraints are violated
 	//double max_violation = test_optim(x,FALSE);

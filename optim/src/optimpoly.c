@@ -24,23 +24,24 @@
  * 2. joint limit violations throughout trajectory
  *
  */
-double nlopt_optim_poly_run(coptim *params,
-					      cracket *racket) {
+double nlopt_optim_poly_run(coptim *coparams,
+					      cracket *racket,
+						  optim * params) {
 
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol);
-	init_soln_to_rest_posture(params,x); //parameters are the initial joint positions q0
+	init_soln(params,x); //parameters are the initial joint positions q0
 	// set tolerances equal to second argument //
 
 	nlopt_opt opt;
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	// LN = does not require gradients //
-	nlopt_set_lower_bounds(opt, params->lb);
-	nlopt_set_upper_bounds(opt, params->ub);
-	nlopt_set_min_objective(opt, costfunc, params);
+	nlopt_set_lower_bounds(opt, coparams->lb);
+	nlopt_set_upper_bounds(opt, coparams->ub);
+	nlopt_set_min_objective(opt, costfunc, coparams);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         params, tol);
+			                         coparams, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
 			                         racket, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
@@ -52,13 +53,14 @@ double nlopt_optim_poly_run(coptim *params,
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
-	    max_violation = test_optim(x,params,racket,TRUE);
+	    max_violation = test_optim(x,coparams,racket,TRUE);
 	}
 	else {
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,params,racket,TRUE);
+	    max_violation = test_optim(x,coparams,racket,TRUE);
+	    finalize_soln(x,params);
 	}
 	nlopt_destroy(opt);
 	return max_violation;
@@ -68,7 +70,7 @@ double nlopt_optim_poly_run(coptim *params,
  * Debug by testing the constraint violation of the solution vector
  *
  */
-double test_optim(double *x, coptim *params, cracket *racket, int info) {
+static double test_optim(double *x, coptim *coparams, cracket *racket, int info) {
 
 	// give info on constraint violation
 	double *grad = FALSE;
@@ -77,8 +79,8 @@ double test_optim(double *x, coptim *params, cracket *racket, int info) {
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
 			             OPTIM_DIM, x, grad, racket);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, params);
-	double cost = costfunc(OPTIM_DIM, x, grad, params);
+			                 OPTIM_DIM, x, grad, coparams);
+	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
 
 	if (info) {
 		// give info on solution vector
@@ -96,6 +98,19 @@ double test_optim(double *x, coptim *params, cracket *racket, int info) {
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
+}
+
+/*
+ * Finalize the solution and update target SL structure and hitTime value
+ */
+static void finalize_soln(const double* x, optim * params) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		params->qf[i] = x[i];
+		params->qfdot[i] = x[i+NDOF];
+	}
+	params->T = x[2*NDOF];
 }
 
 /*
@@ -357,13 +372,12 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
  *
  * The closer to the optimum it is the faster alg should converge
  */
-void init_soln_to_rest_posture(const coptim * const params,
-		                       double x[OPTIM_DIM]) {
+static void init_soln(const optim * params, double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qrest[i];
-		x[i+NDOF] = 0.0;
+		x[i] = params->qf[i];
+		x[i+NDOF] = params->qfdot[i];
 	}
-	x[2*NDOF] = 0.6;
+	x[2*NDOF] = params->T;
 }

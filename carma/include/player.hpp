@@ -17,7 +17,7 @@ typedef struct {
 	vec7 qdot; // hit joint vel
 	double t; // hit time
 	bool update; // new optimization results available
-} optim;
+} optima;
 
 typedef struct {
 	mat pos;
@@ -39,7 +39,7 @@ private:
 	vec2 ball_land_des; // desired landing position
 	double time_land_des; // desired landing time
 	double time2return; // fixed return time for robot
-	optim optim_params;
+	optima optim_params;
 	racket racket_params;
 	vec7 q_rest_des; // desired resting joint state
 	bool moving; // robot is moving or not
