@@ -98,7 +98,7 @@ inline void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & pa
 	if (firsttime) {
 		firsttime = false;
 		A = lookupt.cols(span(X,DZ));
-		for (int i = 0; i < A.n_rows; i++) {
+		for (unsigned i = 0; i < A.n_rows; i++) {
 			dots(i) = dot(A.row(i), A.row(i));
 		}
 	}
@@ -162,7 +162,6 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
 	double time2return = 1.0;
 	racket* racket_params = send_racket_strategy(init_joint_state,ball_state,Tmax);
-
 	vec3 normal_example;
 	int example = 5;
 	for (int i = 0; i < NCART; i++) {

@@ -14,8 +14,8 @@
 #include "player.hpp"
 #include "optimpoly.h"
 #include "kinematics.h"
-#include "utils.h"
 #include <thread>
+#include "stdlib.h"
 
 using namespace std;
 using namespace arma;
@@ -180,8 +180,6 @@ joint Player::play(const joint & qact, const vec3 & obs) {
  * The optimized parameters are: qf, qf_dot, T
  * assuming T_return and q0 are fixed
  *
- *
- *
  */
 void Player::calc_optim_param(const joint & qact) {
 
@@ -224,6 +222,8 @@ coptim* Player::setup_coparam(const joint & qact) const {
 		coparams->lb[i] = lb[i];
 		coparams->ub[i] = ub[i];
 	}
+	free(lb);
+	free(ub);
 	return coparams;
 
 }
@@ -319,11 +319,8 @@ racket* Player::calc_racket_strategy(const mat & balls_predicted) {
 	calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
 	calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
-	mat pos = balls_predicted.rows(X,Z);
 	// place racket centre on the predicted ball
-	mat normal = racket_des_normal;
-	mat vel = racket_des_vel;
-	return make_c_strategy(pos,normal,vel);
+	return make_c_strategy(balls_predicted.rows(X,Z),racket_des_normal,racket_des_vel);
 }
 
 /*
@@ -473,10 +470,11 @@ racket* send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-	//cout << filter.get_mean() << endl;
 
 	Player robot = Player(qinit,filter);
 	mat balls_pred = filter.predict_path(dt,(int)(T/dt));
+
+	//cout << filter.get_mean() << endl;
 	return robot.calc_racket_strategy(balls_pred);
 }
 
@@ -488,9 +486,12 @@ racket* send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const 
 racket* make_c_strategy(const mat & pos, const mat & vel, const mat & normal) {
 
 	int N = pos.n_cols;
-	Matrix cpos = my_matrix(0,NCART,0,N);
-	Matrix cvel = my_matrix(0,NCART,0,N);
-	Matrix cnormal = my_matrix(0,NCART,0,N);
+	double* val;
+	val = (double*)malloc(sizeof(double));
+
+	double** cpos = my_matrix(0,NCART,0,N);
+	double** cvel = my_matrix(0,NCART,0,N);
+	double** cnormal = my_matrix(0,NCART,0,N);
 
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < NCART; j++) {
@@ -525,4 +526,45 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
 	lb[2*NDOF] = 0.0;
+}
+
+/*
+ * Allocate memory for a simple double array structure
+ * in one chunk.
+ *
+ * Puts some info about matrix size into (0,0) and (0,1) entries
+ *
+ * From numerical recipes.
+ */
+double** my_matrix(int nrl, int nrh, int ncl, int nch) {
+
+	static const int NR = 0;
+	static const int NC = 1;
+	static const int N_MAT_INFO = 3;
+
+	double *chunk;
+	int info = 0;
+
+	if (nrl == 1 && ncl == 1) {
+		info = 1;
+	}
+
+	double **m = (double **) calloc((size_t) (nrh-nrl+1+info), sizeof(double*));
+
+	if (info) {
+		m[0] = (double *) calloc((size_t) N_MAT_INFO, sizeof(double));
+		m[0][NR] = nrh-nrl+1;
+		m[0][NC] = nch-ncl+1;
+	}
+	else {
+		m -= nrl;
+	}
+
+	chunk = (double *) calloc( (size_t) (nrh-nrl+1) * (nch-ncl+1), sizeof(double));
+
+	for(int i = nrl ; i <= nrh; i++) {
+		m[i] = (double *) &(chunk[(i-nrl)*(nch-ncl+1)]);
+		m[i] -= ncl;
+	}
+	return m;
 }

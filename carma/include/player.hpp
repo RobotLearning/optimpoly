@@ -67,5 +67,7 @@ bool check_new_obs(const vec3 & obs);
 racket* send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const double T);
 racket* make_c_strategy(const mat & pos, const mat & vel, const mat & normal);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
+double** my_matrix(int nrl, int nrh, int ncl, int nch);
+
 
 #endif /* PLAYER_HPP_ */
