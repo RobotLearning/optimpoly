@@ -15,6 +15,58 @@
 #include "stdlib.h"
 #include "math.h"
 
+// termination
+static double test_optim(const double *x, coptim *params, racket *racket, int info);
+static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static int check_optim_result(const int res);
+
+// optimization related methods
+static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
+static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) ;
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *f_data);
+static void joint_limits_ineq_constr(unsigned m, double *result,
+		                      unsigned n, const double *x, double *grad, void *data);
+
+static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+		                    double *a1, double *a2);
+static void calc_return_poly_coeff(const double *q0, const double *q0dot,
+		                    const double *x, const double time2return,
+		                    double *a1, double *a2);
+static void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+		                      const double *q0, const double *q0dot,
+							  double *joint_max_cand, double *joint_min_cand);
+static void calc_return_extrema_cand(const double *a1, const double *a2,
+		                      const double *x, const double time2return,
+							  double *joint_max_cand, double *joint_min_cand);
+static void init_soln(const optim * params, double x[OPTIM_DIM]);
+
+static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
+		               double racket_vel[NCART], double racket_n[NCART]);
+
+/*
+ * Caller thread executes this function
+ *
+ * TODO:
+ */
+/*void run_optim_thread() {
+
+	static const int PRINT_VERBOSE = TRUE;
+	static int count = 0;
+
+	if (PRINT_VERBOSE) {
+		printf("==========================================\n");
+		printf("Running NLOPT\n");
+	}
+
+	nlopt_optim_poly_run();
+
+	if (PRINT_VERBOSE) {
+		printf("Optim count: %d\n", ++count);
+		printf("==========================================\n");
+	}
+}*/
+
 /*
  * NLOPT optimization routine for table tennis trajectory generation
  *
@@ -24,9 +76,9 @@
  * 2. joint limit violations throughout trajectory
  *
  */
-double nlopt_optim_poly_run(coptim * coparams,
-					        cracket * racket,
-							optim * params) {
+double nlopt_optim_poly_run(coptim *coparams,
+					      racket *racket,
+						  optim * params) {
 
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
@@ -46,37 +98,28 @@ double nlopt_optim_poly_run(coptim * coparams,
 			                         racket, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	double initTime = get_time();
+	double init_time = get_time();
+	double past_time = 0.0;
 	double minf; // the minimum objective value, upon return //
 	int res; // error code
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
+	    past_time = (get_time() - init_time)/1e3;
 	    max_violation = test_optim(x,coparams,racket,TRUE);
 	}
 	else {
+		past_time = (get_time() - init_time)/1e3;
 		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
+		printf("NLOPT took %f ms\n", past_time);
 	    printf("Found minimum at f = %0.10g\n", minf);
 	    max_violation = test_optim(x,coparams,racket,TRUE);
-	    finalize_soln(x,params);
+	    finalize_soln(x,params,past_time);
 	}
 	check_optim_result(res);
 	nlopt_destroy(opt);
 	return max_violation;
-}
-
-/*
- * Finalize the solution and update target SL structure and hitTime value
- */
-static void finalize_soln(const double *x, optim *strike) {
-
-	for (int i = 0; i < NDOF; i++) {
-		strike->qf[i] = x[i];
-		strike->qfdot[i] = x[i+NDOF];
-	}
-	strike->T = x[2*NDOF];
 }
 
 /*
@@ -142,8 +185,8 @@ static int check_optim_result(const int res) {
  *
  */
 static double test_optim(const double *x,
-		          coptim * params,
-				  cracket * racket, int info) {
+		          coptim * coparams,
+				  racket * racket, int info) {
 
 	// give info on constraint violation
 	double *grad = FALSE;
@@ -152,8 +195,8 @@ static double test_optim(const double *x,
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
 			             OPTIM_DIM, x, grad, racket);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, params);
-	double cost = costfunc(OPTIM_DIM, x, grad, params);
+			                 OPTIM_DIM, x, grad, coparams);
+	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
 
 	if (info) {
 		// give info on solution vector
@@ -171,6 +214,20 @@ static double test_optim(const double *x,
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
+}
+
+/*
+ * Finalize the solution and update target SL structure and hitTime value
+ */
+static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		params->qf[i] = x[i];
+		params->qfdot[i] = x[i+NDOF];
+	}
+	params->T = x[2*NDOF] - time_elapsed;
+	params->update = TRUE;
 }
 
 /*
@@ -279,17 +336,17 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double normal[NCART];
 	static int firsttime = TRUE;
 	static double q[NDOF];
-	static cracket* racket;
+	static racket* racket_data;
 	double T = x[2*NDOF];
 
 	/* initialization of static variables */
 	if (firsttime) {
 		firsttime = FALSE;
-		racket = (cracket*) my_function_data;
+		racket_data = (racket*) my_function_data;
 	}
 
 	// interpolate at time T to get the desired racket parameters
-	first_order_hold(racket,T,racket_des_pos,racket_des_vel,racket_des_normal);
+	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF; i++) {
@@ -317,7 +374,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
+static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	if (isnan(T)) {
@@ -435,8 +492,7 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
  *
  * The closer to the optimum it is the faster alg should converge
  */
-static void init_soln(const optim * const params,
-		       double x[OPTIM_DIM]) {
+static void init_soln(const optim * params, double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {

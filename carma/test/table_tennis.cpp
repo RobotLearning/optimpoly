@@ -27,6 +27,26 @@
 using namespace std;
 using namespace arma;
 
+
+/*
+ * TODO:
+ */
+BOOST_AUTO_TEST_CASE(test_player) {
+
+	cout << "Testing Robot racket calculations..." << endl;
+	static double pos[NCART] = {1.0, -2.0, -0.5};
+	static double vel[NCART] = {3.0, 5.0, 4.0};
+	EKF filter = init_filter();
+	vec3 ballpos(pos);
+	vec3 ballvel(vel);
+	mat66 P; P.eye();
+	filter.set_prior(join_vert(ballpos,ballvel),P);
+	mat balls_pred = filter.predict_path(dt,10);
+	//cout << "Balls predicted:" << endl << balls_pred << endl;
+
+}
+
+
 /*
  * Testing whether table tennis ball bounces on table and touches the ground
  */

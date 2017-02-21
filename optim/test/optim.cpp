@@ -58,8 +58,7 @@ inline void init_right_posture(vec7 & q0) {
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then
  */
-inline void set_bounds(double *lb,
-		               double *ub, double SLACK, double Tmax) {
+inline void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
 	read_joint_limits(lb,ub);
 	// lower bounds and upper bounds for qf are the joint limits
@@ -72,28 +71,6 @@ inline void set_bounds(double *lb,
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
 	lb[2*NDOF] = 0.0;
-}
-
-/*
- * Create the desired racket structure for the optimization
- * to be performed in C
- */
-inline cracket make_c_strategy(const racket & strategy) {
-
-	int N = strategy.pos.n_cols;
-	Matrix pos = my_matrix(0,NCART,0,N);
-	Matrix vel = my_matrix(0,NCART,0,N);
-	Matrix normal = my_matrix(0,NCART,0,N);
-
-	for (int i = 0; i < N; i++) {
-		for (int j = 0; j < NCART; j++) {
-			pos[j][i] = strategy.pos(j,i);
-			vel[j][i] = strategy.vel(j,i);
-			normal[j][i] = strategy.normal(j,i);
-		}
-	}
-	cracket params = {pos, vel, normal, N};
-	return params;
 }
 
 /*
@@ -122,7 +99,7 @@ inline void knn(const mat & lookupt, const vec6 & ballstate,
 	if (firsttime) {
 		firsttime = false;
 		A = lookupt.cols(span(X,DZ));
-		for (int i = 0; i < A.n_rows; i++) {
+		for (unsigned i = 0; i < A.n_rows; i++) {
 			dots(i) = dot(A.row(i), A.row(i));
 		}
 	}
@@ -218,20 +195,20 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	double time2return = 1.0;
-	racket strategy = send_racket_strategy(init_joint_state,ball_state,Tmax);
-	cracket racket = make_c_strategy(strategy);
+	racket racket_params = send_racket_strategy(init_joint_state,ball_state,Tmax);
+	vec3 normal_example;
+	int example = 5;
+	for (int i = 0; i < NCART; i++) {
+		normal_example(i) = racket_params.normal[i][example];
+	}
+	BOOST_TEST(arma::norm(normal_example) == 1);
 
-	BOOST_TEST(arma::norm(strategy.normal.col(5)) == 1);
-
-	init_coptim_params(init_joint_state,q0);
+	init_coptim_params(init_joint_state, q0);
 	coptim coparams = {q0, q0dot, q0, lb, ub, time2return};
-	optim params = {q0,q0dot,0.7};
-
-	//cout << "Initializing optimization with this lookup entry..." << endl;
-	//set_optim_params(strike_params,params);
+	optim opt_params = {q0, q0dot, 0.5};
 
 	// run NLOPT opt algorithm here //
-	double max_violation = nlopt_optim_poly_run(&coparams,&racket,&params);
+	double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);
 
 	// test to see if kinematics constraints are violated
 	BOOST_TEST(max_violation < 0.01);

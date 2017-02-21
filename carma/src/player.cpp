@@ -11,8 +11,11 @@
 #include "constants.h"
 #include "tabletennis.h"
 #include "kalman.h"
+#include "optimpoly.h"
 #include "player.hpp"
+#include "kinematics.h"
 #include <thread>
+#include "stdlib.h"
 
 using namespace std;
 using namespace arma;
@@ -30,10 +33,22 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
-
 	q_rest_des = q0;
-	optim_params = {q0, zeros<vec>(7), 1.0, false};
-	racket_params = {zeros<mat>(3,1), zeros<mat>(3,1), zeros<mat>(3,1)};
+
+	int N = 100;
+	double** pos = my_matrix(0,NCART,0,N);
+	double** vel = my_matrix(0,NCART,0,N);
+	double** normal = my_matrix(0,NCART,0,N);
+	racket_params = {pos, vel, normal, N};
+
+	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
+	double* qzero = (double*)malloc(NDOF*sizeof(double));
+
+	for (int i = 0; i < NDOF; i++)
+		qzero[i] = q_rest_des(i);
+
+	optim_params = {qzero, qzerodot, 0.5, false};
+
 	moving = false;
 
 }
@@ -154,7 +169,7 @@ joint Player::play(const joint & qact, const vec3 & obs) {
 	estimate_ball_state(obs);
 
 	// initialize optimization and get the hitting parameters
-	calc_optim_param();
+	calc_optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -164,81 +179,72 @@ joint Player::play(const joint & qact, const vec3 & obs) {
 }
 
 /*
- * Return desired racket information (positions, velocities and normals)
- * by interpolating at time T
- *
- * TODO: Gives warning if racket calculations are not yet done
- *
- */
-void Player::get_des_racket_state(const double T, double racket_pos[NCART],
-										    	  double racket_vel[NCART],
-											      double racket_normal[NCART]) const {
-	vec3 pos, vel, normal;
-	int N = (int) (T/dt);
-	double Tdiff = T - N*dt;
-	int Nmax = racket_params.pos.n_cols - 1;
-
-	if (isnan(T)) {
-		cout << "Warning: T value is nan!" << endl;
-		pos = racket_params.pos.col(0);
-		vel = racket_params.vel.col(0);
-		normal = racket_params.normal.col(0);
-	}
-	else {
-		if (N < Nmax) {
-			pos = racket_params.pos.col(N) + (Tdiff/dt) * (racket_params.pos.col(N+1) -
-					        		racket_params.pos.col(N));
-			vel = racket_params.vel.col(N) + (Tdiff/dt) * (racket_params.vel.col(N+1) -
-					        		racket_params.vel.col(N));
-			normal = racket_params.normal.col(N) + (Tdiff/dt) *
-					(racket_params.normal.col(N+1) - racket_params.normal.col(N));
-		}
-		else {
-			pos = racket_params.pos.col(N);
-			vel = racket_params.vel.col(N);
-			normal = racket_params.normal.col(N);
-		}
-	}
-
-	// return as normal arrays
-	for (int i = 0; i < NCART; i++) {
-		racket_pos[i] = pos(i);
-		racket_vel[i] = vel(i);
-		racket_normal[i] = normal(i);
-	}
-}
-
-/*
  * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
  *
  * The optimized parameters are: qf, qf_dot, T
  * assuming T_return and q0 are fixed
  *
- *
  */
-void Player::calc_optim_param() {
+void Player::calc_optim_param(const joint & qact) {
 
-	int N = 100;
-	double dt = 0.02;
 	vec6 state_est = filter.get_mean();
+	static mat balls_pred = zeros<mat>(6,racket_params.Nmax);
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (!moving && state_est(Y) > (dist_to_table - table_length/2) && state_est(DY) > 1.0) {
-
-		mat balls_pred = filter.predict_path(dt,N);
-
+		predict_ball(balls_pred);
 		if (check_legal_ball(balls_pred)) { // ball is legal
 			moving = true;
 			calc_racket_strategy(balls_pred);
-			/*opt minimizer = opt(LN_COBYLA, OPTIM_DIM);
-			PolyOptim polyopt = PolyOptim(q_rest_des,racket_params,
-					                  time2return,optim_params,minimizer);
-			polyopt.setup();
+			coptim coparams = setup_coparam(qact);
 			// run optimization in another thread
-			thread my_thread(polyopt);*/
+			thread my_thread(&nlopt_optim_poly_run,
+					&coparams,&racket_params,&optim_params);
 		}
 	}
+}
+
+/*
+ * Predict ball with the models fed into the filter
+ *
+ * Number of prediction steps is given by Nmax in racket
+ * parameters
+ *
+ */
+void Player::predict_ball(mat & balls_pred) {
+
+	static const double dt = 0.02;
+	static int N = racket_params.Nmax;
+
+	balls_pred = filter.predict_path(dt,N);
+}
+
+/*
+ * Setup the coparameters for the optimization
+ *
+ */
+coptim Player::setup_coparam(const joint & qact) const {
+
+	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double SLACK = 0.01;
+	coptim *coparams = (coptim*)malloc(sizeof(coptim));
+	double Tmax = 1.0;
+	set_bounds(lb,ub,SLACK,Tmax);
+
+	for (int i = 0; i < NDOF; i++) {
+		coparams->q0[i] = qact.q(i);
+		coparams->q0dot[i] = qact.qd(i);
+		coparams->qrest[i] = q_rest_des(i);
+		coparams->time2return = time2return;
+		coparams->lb[i] = lb[i];
+		coparams->ub[i] = ub[i];
+	}
+	free(lb);
+	free(ub);
+	return *coparams;
+
 }
 
 /*
@@ -289,9 +295,9 @@ void Player::generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) c
 	// first create hitting polynomials
 	vec7 a2, a3;
 	vec7 b2, b3; // for returning
-	double T = optim_params.t;
-	vec7 qf = optim_params.q;
-	vec7 qfdot = optim_params.qdot;
+	double T = optim_params.T;
+	vec7 qf(optim_params.qf);
+	vec7 qfdot(optim_params.qfdot);
 	vec7 qnow = qact.q;
 	vec7 qdnow = qact.qd;
 	a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
@@ -322,54 +328,27 @@ void Player::generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) c
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
  */
-void Player::calc_racket_strategy(const mat & balls_predicted) {
+racket Player::calc_racket_strategy(const mat & balls_predicted) {
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
 	mat racket_des_normal = zeros<mat>(3,N);
 	mat racket_des_vel = zeros<mat>(3,N);
-	calc_des_ball_out_vel(balls_predicted,balls_out_vel);
+	calc_des_ball_out_vel(ball_land_des,time_land_des,balls_predicted,balls_out_vel);
 	calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
 	calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
-	racket_params.pos = balls_predicted.rows(X,Z);
 	// place racket centre on the predicted ball
-	racket_params.normal = racket_des_normal;
-	racket_params.vel = racket_des_vel;
-}
 
-/*
- * Calculate desired racket normal assuming mirror law
- */
-void Player::calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) const {
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < NCART; j++) {
+			racket_params.pos[j][i] = balls_predicted.rows(DX,DZ)(j,i);
+			racket_params.vel[j][i] = racket_des_vel(j,i);
+			racket_params.normal[j][i] = racket_des_normal(j,i);
+		}
+	}
 
-	normal = v_out - v_in;
-	// normalize
-	normal = normalise(normal);
-}
-
-/*
- *
- *  Computes the desired outgoing velocity of the ball after contact
- *	to hit the goal on a desired landing position on the
- *	opponents court
- *
- *
- */
-void Player::calc_des_ball_out_vel(const mat & balls_predicted, mat & balls_out_vel) const {
-
-	static double z_table = floor_level - table_height + ball_radius;
-
-	// elementwise division
-	balls_out_vel.row(X) = (ball_land_des(X) - balls_predicted.row(X)) / time_land_des;
-	balls_out_vel.row(Y) = (ball_land_des(Y) - balls_predicted.row(Y)) / time_land_des;
-	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) +
-			                0.5 * gravity * pow(time_land_des,2)) / time_land_des;
-
-	//TODO: consider air drag, hack for now
-	balls_out_vel.row(X) *= 1.1;
-	balls_out_vel.row(Y) *= 1.1;
-	balls_out_vel.row(Z) *= 1.2;
+	return racket_params;
 }
 
 /*
@@ -402,6 +381,42 @@ void gen_3rd_poly(const vec & times, const vec7 & a3, const vec7 & a2, const vec
 		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
 		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
 	}
+}
+
+/*
+ * Calculate desired racket normal assuming mirror law
+ */
+void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) {
+
+	normal = v_out - v_in;
+	// normalize
+	normal = normalise(normal);
+}
+
+/*
+ *
+ *  Computes the desired outgoing velocity of the ball after contact
+ *	to hit the goal on a desired landing position on the
+ *	opponents court
+ *
+ *
+ */
+void calc_des_ball_out_vel(const vec2 & ball_land_des,
+						   const double time_land_des,
+						   const mat & balls_predicted, mat & balls_out_vel) {
+
+	static double z_table = floor_level - table_height + ball_radius;
+
+	// elementwise division
+	balls_out_vel.row(X) = (ball_land_des(X) - balls_predicted.row(X)) / time_land_des;
+	balls_out_vel.row(Y) = (ball_land_des(Y) - balls_predicted.row(Y)) / time_land_des;
+	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) +
+			                0.5 * gravity * pow(time_land_des,2)) / time_land_des;
+
+	//TODO: consider air drag, hack for now
+	balls_out_vel.row(X) *= 1.1;
+	balls_out_vel.row(Y) *= 1.1;
+	balls_out_vel.row(Z) *= 1.2;
 }
 
 /*
@@ -478,16 +493,76 @@ bool check_new_obs(const vec3 & obs) {
  * Friend function that exposes Player's racket strategy
  *
  */
-racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state, const double T) {
+racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state) {
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-	//cout << filter.get_mean() << endl;
 
 	Player robot = Player(qinit,filter);
-	mat balls_pred = filter.predict_path(dt,(int)(T/dt));
-	robot.calc_racket_strategy(balls_pred);
+	mat balls_pred = zeros<mat>(6,robot.racket_params.Nmax);
+	robot.predict_ball(balls_pred);
 
-	return robot.racket_params;
+	//cout << filter.get_mean() << endl;
+	return robot.calc_racket_strategy(balls_pred);
+}
+
+/*
+ * Set upper and lower bounds on the optimization.
+ * First loads the joint limits and then
+ */
+void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
+
+	read_joint_limits(lb,ub);
+	// lower bounds and upper bounds for qf are the joint limits
+	for (int i = 0; i < NDOF; i++) {
+		ub[i] -= SLACK;
+		lb[i] += SLACK;
+		ub[i+NDOF] = MAX_VEL;
+		lb[i+NDOF] = -MAX_VEL;
+	}
+	// constraints on final time
+	ub[2*NDOF] = Tmax;
+	lb[2*NDOF] = 0.0;
+}
+
+/*
+ * Allocate memory for a simple double array structure
+ * in one chunk.
+ *
+ * Puts some info about matrix size into (0,0) and (0,1) entries
+ *
+ * From numerical recipes.
+ */
+double** my_matrix(int nrl, int nrh, int ncl, int nch) {
+
+	static const int NR = 0;
+	static const int NC = 1;
+	static const int N_MAT_INFO = 3;
+
+	double *chunk;
+	int info = 0;
+
+	if (nrl == 1 && ncl == 1) {
+		info = 1;
+	}
+
+	double **m = (double **) calloc((size_t) (nrh-nrl+1+info), sizeof(double*));
+
+	if (info) {
+		m[0] = (double *) calloc((size_t) N_MAT_INFO, sizeof(double));
+		m[0][NR] = nrh-nrl+1;
+		m[0][NC] = nch-ncl+1;
+	}
+	else {
+		m -= nrl;
+	}
+
+	chunk = (double *) calloc( (size_t) (nrh-nrl+1) * (nch-ncl+1), sizeof(double));
+
+	for(int i = nrl ; i <= nrh; i++) {
+		m[i] = (double *) &(chunk[(i-nrl)*(nch-ncl+1)]);
+		m[i] -= ncl;
+	}
+	return m;
 }
