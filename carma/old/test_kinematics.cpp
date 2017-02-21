@@ -23,7 +23,7 @@ inline double Power(double x, double y)	{return pow(x,y); };
 void print_mat(const string & comm, double a[4+1][4+1]);
 double** my_matrix(int nrl, int nrh, int ncl, int nch);
 void sl_kin(double * state, double ** Xlink, double ** Xorigin, double ** Xaxis,
-		           double *** Ahmat);
+		    double *** Ahmat);
 
 /*
  * Comparing with MATLAB the racket states calculated given q, qd

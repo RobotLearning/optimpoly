@@ -27,7 +27,7 @@ typedef struct {
 	double** vel;
 	double** normal;
 	int Nmax; // max column length
-} cracket;
+} racket;
 
 typedef struct {
 	double* q0;
@@ -42,14 +42,16 @@ typedef struct {
 	double* qf;
 	double* qfdot;
 	double T;
+	int update;
 } optim; // optimization variables
 
 // interface
-double nlopt_optim_poly_run(coptim * coparams, cracket * racket, optim * params);
+double nlopt_optim_poly_run(coptim * coparams, racket * racket, optim * params);
 
 // termination
-static double test_optim(double *x, coptim *params, cracket *racket, int info);
-static void finalize_soln(const double* x, optim * params);
+static double test_optim(double *x, coptim *params, racket *racket, int info);
+static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static int check_optim_result(const int res);
 
 // optimization related methods
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
@@ -70,8 +72,9 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void init_soln(const optim * params, double x[OPTIM_DIM])
+static void init_soln(const optim * params, double x[OPTIM_DIM]);
 
-static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
+static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
+
 #endif /* OPTIMPOLY_H_ */

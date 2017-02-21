@@ -3,7 +3,7 @@ HEADER1=$(DIR)/carma/include
 HEADER2=$(DIR)/optim/include
 CC=g++
 LIBS=-larmadillo -lm
-INSTALLFLAGS=-fPIC -Wall -g -I$(HEADER1) -shared -pthread -std=c++11 -O
+INSTALLFLAGS=-fPIC -Wall -g -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O
 TESTFLAGS=-g -Wall --std=c++11 #-pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 

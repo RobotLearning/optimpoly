@@ -16,6 +16,29 @@
 #include "math.h"
 
 /*
+ * Caller thread executes this function
+ *
+ * TODO:
+ */
+/*void run_optim_thread() {
+
+	static const int PRINT_VERBOSE = TRUE;
+	static int count = 0;
+
+	if (PRINT_VERBOSE) {
+		printf("==========================================\n");
+		printf("Running NLOPT\n");
+	}
+
+	nlopt_optim_poly_run();
+
+	if (PRINT_VERBOSE) {
+		printf("Optim count: %d\n", ++count);
+		printf("==========================================\n");
+	}
+}*/
+
+/*
  * NLOPT optimization routine for table tennis traj gen
  *
  * Returns the maximum of violations
@@ -25,7 +48,7 @@
  *
  */
 double nlopt_optim_poly_run(coptim *coparams,
-					      cracket *racket,
+					      racket *racket,
 						  optim * params) {
 
 	static double x[OPTIM_DIM];
@@ -46,22 +69,26 @@ double nlopt_optim_poly_run(coptim *coparams,
 			                         racket, tol);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	double initTime = get_time();
+	double init_time = get_time();
+	double past_time = 0.0;
 	double minf; // the minimum objective value, upon return //
 	int res; // error code
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
+	    past_time = (get_time() - init_time)/1e3;
 	    max_violation = test_optim(x,coparams,racket,TRUE);
 	}
 	else {
+		past_time = (get_time() - init_time)/1e3;
 		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", (get_time() - initTime)/1e3);
+		printf("NLOPT took %f ms\n", past_time);
 	    printf("Found minimum at f = %0.10g\n", minf);
 	    max_violation = test_optim(x,coparams,racket,TRUE);
-	    finalize_soln(x,params);
+	    finalize_soln(x,params,past_time);
 	}
+	check_optim_result(res);
 	nlopt_destroy(opt);
 	return max_violation;
 }
@@ -70,7 +97,7 @@ double nlopt_optim_poly_run(coptim *coparams,
  * Debug by testing the constraint violation of the solution vector
  *
  */
-static double test_optim(double *x, coptim *coparams, cracket *racket, int info) {
+static double test_optim(double *x, coptim *coparams, racket *racket, int info) {
 
 	// give info on constraint violation
 	double *grad = FALSE;
@@ -103,14 +130,71 @@ static double test_optim(double *x, coptim *coparams, cracket *racket, int info)
 /*
  * Finalize the solution and update target SL structure and hitTime value
  */
-static void finalize_soln(const double* x, optim * params) {
+static void finalize_soln(const double* x, optim * params, double time_elapsed) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF];
+	params->T = x[2*NDOF] - time_elapsed;
+	params->update = TRUE;
+}
+
+/*
+ * Give info about the optimization
+ *
+ */
+static int check_optim_result(const int res) {
+
+	int flag = FALSE;
+	switch (res) {
+	case NLOPT_SUCCESS:
+		printf("Success!\n");
+		flag = TRUE;
+		break;
+	case NLOPT_STOPVAL_REACHED:
+		printf("Optimization stopped because stopval (above) was reached.\n");
+		flag = TRUE;
+		break;
+	case NLOPT_FTOL_REACHED:
+		printf("Optimization stopped because ftol_rel or ftol_abs (above) was reached.\n");
+		flag = TRUE;
+		break;
+	case NLOPT_XTOL_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because xtol_rel or xtol_abs (above) was reached.\n");
+		break;
+	case NLOPT_MAXEVAL_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because maxeval (above) was reached.\n");
+		break;
+	case NLOPT_MAXTIME_REACHED:
+		flag = TRUE;
+		printf("Optimization stopped because maxtime (above) was reached.\n");
+		break;
+	case NLOPT_FAILURE:
+		printf("Epic fail!\n");
+		break;
+	case NLOPT_INVALID_ARGS:
+		printf("Invalid arguments (e.g. lower bounds are bigger than "
+				"upper bounds, an unknown algorithm was specified, etcetera).\n");
+		break;
+	case NLOPT_OUT_OF_MEMORY:
+		printf("Ran out of memory!\n");
+		break;
+	case NLOPT_ROUNDOFF_LIMITED:
+		printf("Halted because roundoff errors limited progress."
+				"(In this case, the optimization still typically returns a useful result.)\n");
+		break;
+	case NLOPT_FORCED_STOP:
+		printf("Halted because of a forced termination: the user called nlopt_force_stop(opt)"
+				"on the optimization’s nlopt_opt object opt from the user’s "
+				"objective function or constraints.\n");
+		break;
+
+	}
+	return flag;
 }
 
 /*
@@ -216,17 +300,17 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double normal[NCART];
 	static int firsttime = TRUE;
 	static double q[NDOF];
-	static cracket* racket;
+	static racket* racket_data;
 	double T = x[2*NDOF];
 
 	/* initialization of static variables */
 	if (firsttime) {
 		firsttime = FALSE;
-		racket = (cracket*) my_function_data;
+		racket_data = (racket*) my_function_data;
 	}
 
 	// interpolate at time T to get the desired racket parameters
-	first_order_hold(racket,T,racket_des_pos,racket_des_vel,racket_des_normal);
+	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF; i++) {
@@ -254,7 +338,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const cracket* racket, const double T, double racket_pos[NCART],
+static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	if (isnan(T)) {
