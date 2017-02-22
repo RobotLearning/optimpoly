@@ -43,6 +43,9 @@ static void init_soln(const optim * params, double x[OPTIM_DIM]);
 
 static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
+static void print_input_structs(coptim *coparams,
+	      	  	  	  	  	   racket *racket,
+							   optim * params);
 
 /*
  * Caller thread executes this function
@@ -80,6 +83,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 					      racket *racket,
 						  optim * params) {
 
+	//print_input_structs(coparams,racket,params);
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol);
@@ -120,6 +124,33 @@ double nlopt_optim_poly_run(coptim *coparams,
 	check_optim_result(res);
 	nlopt_destroy(opt);
 	return max_violation;
+}
+
+static void print_input_structs(coptim *coparams,
+	      	  	  	  	  	   racket *racket,
+							   optim * params) {
+
+	for (int i = 0; i < NDOF; i++) {
+		printf("q0[%d] = %f\n", i, coparams->q0[i]);
+		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
+		printf("lb[%d] = %f\n", i, coparams->lb[i]);
+		printf("ub[%d] = %f\n", i, coparams->ub[i]);
+	}
+	printf("Tret = %f\n", coparams->time2return);
+	for (int i = 0; i < NDOF; i++) {
+		printf("qf[%d] = %f\n", i, params->qf[i]);
+		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
+	}
+	printf("Thit = %f\n", params->T);
+
+	for (int i = 0; i < racket->Nmax; i++) {
+		for (int j = 0; j < NCART; j++) {
+			printf("pos[%d,%d] = %f\n", j, i, racket->pos[j][i]);
+			printf("vel[%d,%d] = %f\n", j, i, racket->vel[j][i]);
+			printf("normal[%d,%d] = %f\n", j, i, racket->normal[j][i]);
+		}
+	}
+
 }
 
 /*
@@ -377,6 +408,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
+	const double deltat = 0.02;
 	if (isnan(T)) {
 		printf("Warning: T value is nan!\n");
 
@@ -387,18 +419,18 @@ static void first_order_hold(const racket* racket, const double T, double racket
 		}
 	}
 	else {
-		int N = (int) (T/dt);
-		double Tdiff = T - N*dt;
+		int N = (int) (T/deltat);
+		double Tdiff = T - N*deltat;
 		int Nmax = racket->Nmax;
 
 		for (int i = 0; i < NCART; i++) {
 			if (N < Nmax) {
 				racket_pos[i] = racket->pos[i][N] +
-						(Tdiff/dt) * (racket->pos[i][N+1] - racket->pos[i][N]);
+						(Tdiff/deltat) * (racket->pos[i][N+1] - racket->pos[i][N]);
 				racket_vel[i] = racket->vel[i][N] +
-						(Tdiff/dt) * (racket->vel[i][N+1] - racket->vel[i][N]);
+						(Tdiff/deltat) * (racket->vel[i][N+1] - racket->vel[i][N]);
 				racket_n[i] = racket->normal[i][N] +
-						(Tdiff/dt) * (racket->normal[i][N+1] - racket->normal[i][N]);
+						(Tdiff/deltat) * (racket->normal[i][N+1] - racket->normal[i][N]);
 			}
 			else {
 				racket_pos[i] = racket->pos[i][N];

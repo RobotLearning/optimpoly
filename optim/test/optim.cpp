@@ -7,52 +7,17 @@
  *      Author: okoc
  */
 
-#define BOOST_TEST_MODULE test_optim
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
 #include "constants.h"
 #include "kinematics.h"
 #include "optimpoly.h"
-#include "utils.h"
-#include "stdlib.h"
+#include "lookup.h"
 #include "player.hpp"
 
 using namespace std;
 using namespace arma;
-
-#define LOOKUP_TABLE_SIZE 4002 //769
-#define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
-#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016" //"LookupTable-March-2016" //"LookupTable-April-2016"
-
-/*
- * Load the lookup table of coparameters and main parameters of interest
- */
-inline void load_lookup_table(mat & lookup) {
-
-	lookup = zeros<mat>(LOOKUP_TABLE_SIZE * LOOKUP_COLUMN_SIZE, 1);
-	string env = getenv("HOME");
-	string filename = env + "/robolab/barrett/saveData/" +
-			          LOOKUP_TABLE_NAME + ".txt";
-
-	lookup.load(filename);
-	lookup.reshape(LOOKUP_TABLE_SIZE,LOOKUP_COLUMN_SIZE);
-	//cout << lookup(span(0,5),span(0,5)) << endl;
-}
-
-/*
- * Initialize robot posture on the right size of the robot
- */
-inline void init_right_posture(vec7 & q0) {
-
-	q0(0) = 1.0;
-	q0(1) = -0.2;
-	q0(2) = -0.1;
-	q0(3) = 1.8;
-	q0(4) = -1.57;
-	q0(5) = 0.1;
-	q0(6) = 0.3;
-}
 
 /*
  * Set upper and lower bounds on the optimization.
@@ -74,46 +39,6 @@ inline void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 }
 
 /*
- *
- * K-nearest-neighbours method for looking up optimization values
- *
- * Find the closest ball states in the lookup table
- * and lookup the corresponding qf,qfdot,T values
- * and average them
- *
- * INPUT:
- *
- * 	ball_state:     ball position and velocity estimates
- * 	params    :     optimization parameters to be loaded
- *
- *
- */
-inline void knn(const mat & lookupt, const vec6 & ballstate,
-		        vec::fixed<15> & params, int k) {
-
-	// find the closest entry
-	static bool firsttime = true;
-	static vec dots;
-	static mat A;
-
-	if (firsttime) {
-		firsttime = false;
-		A = lookupt.cols(span(X,DZ));
-		for (unsigned i = 0; i < A.n_rows; i++) {
-			dots(i) = dot(A.row(i), A.row(i));
-		}
-	}
-
-	uvec idx = sort_index(dots - 2*A.t()*ballstate, "descend");
-
-	vec fullvec = zeros<vec>(OPTIM_DIM + 2*NCART);
-	for (int i = 0; i < k; i++) {
-		fullvec += lookupt.row(idx(i));
-	}
-	params = fullvec(span(DZ+1,DZ+OPTIM_DIM)) / k;
-}
-
-/*
  * Sending to C optimization routine the right data
  */
 inline void init_coptim_params(const vec7 & qinit, double *q0) {
@@ -124,35 +49,18 @@ inline void init_coptim_params(const vec7 & qinit, double *q0) {
 }
 
 /*
- * Lookup a random entry with optimization coparameters (b0,v0) and optimization
- * main parameters (qf,qfdot,T)
+ * Initialize robot posture on the right size of the robot
  */
-inline void lookup_random_entry(vec & coparams, vec & params) {
+inline void init_right_posture(vec7 & q0) {
 
-	mat lookup;
-	load_lookup_table(lookup);
-	int entry = as_scalar(randi<vec>(1,distr_param(0,LOOKUP_TABLE_SIZE-1)));
-	vec lookup_state = lookup.row(entry).t();
-	coparams = lookup_state(span(X,DZ));
-	params = lookup_state(span(DZ+1,LOOKUP_COLUMN_SIZE-1));
-
+	q0(0) = 1.0;
+	q0(1) = -0.2;
+	q0(2) = -0.1;
+	q0(3) = 1.8;
+	q0(4) = -1.57;
+	q0(5) = 0.1;
+	q0(6) = 0.3;
 }
-
-/*
- * Set optimization parameters
- * possibly after a lookup
- *
- */
-inline void set_optim_params(const vec::fixed<15> & strike_params,
-		                        optim & params) {
-
-	for (int i = 0; i < NDOF; i++) {
-		params.qf[i] = strike_params(i);
-		params.qfdot[i] = strike_params(i+NDOF);
-	}
-	params.T = strike_params(2*NDOF);
-}
-
 
 //BOOST_AUTO_TEST_CASE(test_predict_path) {
 //
@@ -195,17 +103,21 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	double time2return = 1.0;
-	racket racket_params = send_racket_strategy(init_joint_state,ball_state,Tmax);
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	Player robot = Player(init_joint_state,filter);
+	racket racket_params = send_racket_strategy(robot);
 	vec3 normal_example;
 	int example = 5;
 	for (int i = 0; i < NCART; i++) {
 		normal_example(i) = racket_params.normal[i][example];
 	}
-	BOOST_TEST(arma::norm(normal_example) == 1);
+	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
 	init_coptim_params(init_joint_state, q0);
 	coptim coparams = {q0, q0dot, q0, lb, ub, time2return};
-	optim opt_params = {q0, q0dot, 0.5};
+	optim opt_params = {q0, q0dot, 0.5, false};
 
 	// run NLOPT opt algorithm here //
 	double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);

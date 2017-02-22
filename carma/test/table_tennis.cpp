@@ -21,27 +21,51 @@
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "player.hpp"
+#include "constants.h"
 #include "tabletennis.h"
 #include "kalman.h"
 
 using namespace std;
 using namespace arma;
 
+/*
+ * Initialize robot posture on the right size of the robot
+ */
+inline void init_right_posture(vec7 & q0) {
+
+	q0(0) = 1.0;
+	q0(1) = -0.2;
+	q0(2) = -0.1;
+	q0(3) = 1.8;
+	q0(4) = -1.57;
+	q0(5) = 0.1;
+	q0(6) = 0.3;
+}
 
 /*
  * TODO:
  */
 BOOST_AUTO_TEST_CASE(test_player) {
 
-	cout << "Testing Robot racket calculations..." << endl;
-	static double pos[NCART] = {1.0, -2.0, -0.5};
-	static double vel[NCART] = {3.0, 5.0, 4.0};
+	cout << "Testing Robot optim launch..." << endl;
+
+	TableTennis tt = TableTennis(false,true);
+	tt.set_ball_state(0.2);
+
+	vec7 q0;
+	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	init_right_posture(q0);
 	EKF filter = init_filter();
-	vec3 ballpos(pos);
-	vec3 ballvel(vel);
-	mat66 P; P.eye();
-	filter.set_prior(join_vert(ballpos,ballvel),P);
-	mat balls_pred = filter.predict_path(dt,10);
+
+	Player robot = Player(q0,filter);
+
+	int N = 50;
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(dt);
+		robot.play(qact, tt.get_ball_position());
+		usleep(2e3);
+	}
+
 	//cout << "Balls predicted:" << endl << balls_pred << endl;
 
 }
@@ -52,7 +76,7 @@ BOOST_AUTO_TEST_CASE(test_player) {
  */
 BOOST_AUTO_TEST_CASE( test_touch_ground ) {
 
-	TableTennis tt = TableTennis();
+	TableTennis tt = TableTennis(false,false);
 
 	int N = 200;
 	double dt = 0.01;
@@ -66,56 +90,6 @@ BOOST_AUTO_TEST_CASE( test_touch_ground ) {
 }
 
 /*
- * Testing whether the errors in the KF filter estimate
- * are shrinking
- *
- */
-/*BOOST_AUTO_TEST_CASE( test_ball_kf ) {
-
-	cout << endl << "Running KF table tennis estimator" << endl;
-	// initialize TableTennis and Filter classes
-	TableTennis tt = TableTennis();
-	double std = 0.001;
-	mat C = eye<mat>(3,7);
-	mat77 Q = zeros<mat>(7,7);
-	mat33 R = std * eye<mat>(3,3);
-	KF filter = KF(C,Q,R);
-	mat77 Ac = zeros<mat>(7,7);  // continuous
-	mat77 B = zeros<mat>(7,7); // not used
-	// fill the continuous matrix
-	Ac(span(X,Z),span(DX,DZ)) = eye<mat>(3,3);
-	Ac(DZ,DZ+1) = gravity;
-
-	// set table tennis ball and filter
-	tt.set_ball_state(0.2);
-	vec3 init_pos = tt.get_ball_position() + 0.0 * ones<vec>(3);
-	vec3 init_vel = tt.get_ball_velocity();
-	mat77 P0;
-	P0.eye(7,7);
-	vec7 x0 = join_vert(join_vert(init_pos,init_vel),vec(1,fill::ones));
-	filter.set_prior(x0,P0);
-
-	int N = 20;
-	double dt = 0.001;
-	vec3 ball_pos;
-	vec3 ball_vel;
-	vec err = zeros<vec>(N);
-
-	for (int i = 0; i < N; i++) {
-		tt.integrate_ball_state(dt);
-		ball_pos = tt.get_ball_position();
-		ball_vel = tt.get_ball_velocity();
-		filter.discretize(Ac,B,dt);
-		filter.predict();
-		filter.update(ball_pos);
-		err(i) = norm(filter.get_mean()(span(X,DZ)) - join_vert(ball_pos,ball_vel),2);
-	}
-
-	cout << "Error of state estimate" << endl << err.t() << endl;
-	BOOST_TEST(err(N-1) < err(0));
-}*/
-
-/*
  * Testing whether the errors in the EKF filter estimate
  * are shrinking
  *
@@ -124,7 +98,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 
 	cout << endl << "Running EKF table tennis estimator..." << endl;
 	// initialize TableTennis and Filter classes
-	TableTennis tt = TableTennis();
+	TableTennis tt = TableTennis(false,false);
 	double std = 0.001;
 	mat C = eye<mat>(3,6);
 	mat66 Q = zeros<mat>(6,6);
@@ -152,7 +126,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 		ball_vel = tt.get_ball_velocity();
 		filter.predict(dt);
 		filter.update(ball_pos);
-		err(i) = norm(filter.get_mean()(span(X,DZ)) - join_vert(ball_pos,ball_vel),2);
+		err(i) = norm(filter.get_mean() - join_vert(ball_pos,ball_vel),2);
 	}
 
 	//cout << "Error of state estimate" << endl << err << endl;
@@ -170,7 +144,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	cout << endl << "Testing Player class's Filtering performance" << endl;
-	TableTennis tt = TableTennis();
+	TableTennis tt = TableTennis(false,false);
 	EKF filter = init_filter();
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
 	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);

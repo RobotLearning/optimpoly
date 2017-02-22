@@ -49,8 +49,7 @@ public:
 	vec6 filt_ball_state(const vec3 & obs);
 
 	// friend function to test racket strategy
-	friend racket send_racket_strategy(const vec7 & qinit,
-			const vec6 & ball_state, const double T);
+	friend racket send_racket_strategy(Player & robot);
 
 	// main function
 	joint play(const joint & qact, const vec3 & obs);

@@ -188,21 +188,30 @@ joint Player::play(const joint & qact, const vec3 & obs) {
  */
 void Player::calc_optim_param(const joint & qact) {
 
-	vec6 state_est = filter.get_mean();
-	static mat balls_pred = zeros<mat>(6,racket_params.Nmax);
+	vec6 state_est;
+	try {
+		state_est = filter.get_mean();
+		static mat balls_pred = zeros<mat>(6,racket_params.Nmax);
 
-	// if ball is fast enough and robot is not moving consider optimization
-	if (!moving && state_est(Y) > (dist_to_table - table_length/2) && state_est(DY) > 1.0) {
-		predict_ball(balls_pred);
-		if (check_legal_ball(balls_pred)) { // ball is legal
-			moving = true;
-			calc_racket_strategy(balls_pred);
-			coptim coparams = setup_coparam(qact);
-			// run optimization in another thread
-			thread my_thread(&nlopt_optim_poly_run,
-					&coparams,&racket_params,&optim_params);
+		// if ball is fast enough and robot is not moving consider optimization
+		if (!moving && state_est(Y) > (dist_to_table - table_length/2) && state_est(DY) > 1.0) {
+			predict_ball(balls_pred);
+			if (check_legal_ball(balls_pred)) { // ball is legal
+				moving = true;
+				cout << "Launching optimization..." << endl;
+				calc_racket_strategy(balls_pred);
+				coptim coparams = setup_coparam(qact);
+				// run optimization in another thread
+				thread my_thread(&nlopt_optim_poly_run,
+						&coparams,&racket_params,&optim_params);
+			}
 		}
 	}
+	catch (const char * not_init_error) {
+		return; // dont do anything
+	}
+
+
 }
 
 /*
@@ -342,12 +351,11 @@ racket Player::calc_racket_strategy(const mat & balls_predicted) {
 
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < NCART; j++) {
-			racket_params.pos[j][i] = balls_predicted.rows(DX,DZ)(j,i);
+			racket_params.pos[j][i] = balls_predicted.rows(X,Z)(j,i);
 			racket_params.vel[j][i] = racket_des_vel(j,i);
 			racket_params.normal[j][i] = racket_des_normal(j,i);
 		}
 	}
-
 	return racket_params;
 }
 
@@ -448,7 +456,7 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 bool check_legal_ball(const mat & balls_predicted) {
 
 	int num_bounces = 0;
-	int N = balls_predicted.n_elem;
+	int N = balls_predicted.n_cols;
 
 	// if sign of z-velocity changes then the ball bounces
 	for (int i = 0; i < N-1; i++) {
@@ -493,14 +501,9 @@ bool check_new_obs(const vec3 & obs) {
  * Friend function that exposes Player's racket strategy
  *
  */
-racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state) {
+racket send_racket_strategy(Player & robot) {
 
-	EKF filter = init_filter();
-	mat66 P; P.eye();
-	filter.set_prior(ball_state,P);
-
-	Player robot = Player(qinit,filter);
-	mat balls_pred = zeros<mat>(6,robot.racket_params.Nmax);
+	mat balls_pred;
 	robot.predict_ball(balls_pred);
 
 	//cout << filter.get_mean() << endl;

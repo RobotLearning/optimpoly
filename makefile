@@ -12,6 +12,7 @@ carma:
 					      carma/src/kalman.cpp \
 	                      carma/src/extkalman.cpp \
 	                      carma/src/table_tennis.cpp \
+	                      carma/src/lookup.cpp \
 	                      $(LIBS) -o libcarma.so
 	#gcc -c -I$(HEADER) src/carma.c -o carma.o
 	#g++ -Wall -c -I$(HEADER) src/carma.cpp $(LIBS) -o carma.o
@@ -23,20 +24,15 @@ optim:
 					optim/src/utils.c \
 	      -lm -o liboptim.so
 
-test-optim:
-	$(CC) $(TESTFLAGS) optim/test/optim.cpp \
-	                 -o opt_unit_test.o -lm -larmadillo \
-	                   -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
-	                   /usr/local/lib/libboost_unit_test_framework.a ./liboptim.so -lnlopt ./libcarma.so
 
-test-carma:
+test:
 	$(CC) $(TESTFLAGS) carma/test/table_tennis.cpp \
-					 carma/test/optim.cpp \
-		             carma/test/kinematics.cpp \
 	                 carma/test/kalman.cpp \
-	                  -o carma_unit_tests.o \
-	                   $(LIBS) -I$(HEADER1) -I/usr/local/include \
-	                   /usr/local/lib/libboost_unit_test_framework.a ./libcarma.so -lnlopt	                  
+	                 optim/test/optim.cpp \
+	                 optim/test/kinematics.cpp \
+	                  -o unit_tests.o -lm -larmadillo \
+	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
+	                   /usr/local/lib/libboost_unit_test_framework.a ./liboptim.so -lnlopt ./libcarma.so            
 
 clean:
 	rm -rf *.a *.o *.so
