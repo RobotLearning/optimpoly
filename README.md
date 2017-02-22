@@ -18,3 +18,15 @@ We investigate the following problems:
 3. Can we try altogether different optimal control strategies in table tennis? Can we use NLOPT to solve them sufficiently well?
 
 4. Should we try different optimization toolboxes?
+
+# carma
+
+Includes ARMADILLO matrix library in C++. 
+Make sure to run tcsh and then check the following:
+
+```echo $LD_LIBRARY_PATH```
+
+If carma directory is not included add it, e.g. :
+
+```setenv LD_LIBRARY_PATH ~/robolab/barrett/carma```
+
