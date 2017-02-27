@@ -81,17 +81,25 @@ static void print_input_structs(coptim *coparams,
  */
 double nlopt_optim_poly_run(coptim *coparams,
 					      racket *racket,
-						  optim * params) {
+						  optim *params) {
 
-	//print_input_structs(coparams,racket,params);
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol);
+	static int firsttime = TRUE;
+	static nlopt_opt opt;
+
+	if (firsttime) {
+		firsttime = FALSE;
+		const_vec(EQ_CONSTR_DIM,1e-2,tol);
+		opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+		nlopt_set_xtol_rel(opt, 1e-2);
+	}
+
+	//print_input_structs(coparams,racket,params);
+
 	init_soln(params,x); //parameters are the initial joint positions q0
 	// set tolerances equal to second argument //
 
-	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	// LN = does not require gradients //
 	nlopt_set_lower_bounds(opt, coparams->lb);
 	nlopt_set_upper_bounds(opt, coparams->ub);
@@ -100,7 +108,6 @@ double nlopt_optim_poly_run(coptim *coparams,
 			                         coparams, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
 			                         racket, tol);
-	nlopt_set_xtol_rel(opt, 1e-2);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -122,7 +129,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 	    finalize_soln(x,params,past_time);
 	}
 	check_optim_result(res);
-	nlopt_destroy(opt);
+	//nlopt_destroy(opt);
 	return max_violation;
 }
 
@@ -257,7 +264,7 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF] - time_elapsed;
+	params->T = x[2*NDOF] - (time_elapsed/1e3);
 	params->update = TRUE;
 }
 

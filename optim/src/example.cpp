@@ -10,16 +10,13 @@
  * Here we can test various optimization algorithms provided by NLOPT
  * Especially LN (local, no-derivative) vs. LD (local, derivative-supplied)
  *
- * 2. Multithreading example using pthread
- *
- * Here we can test concurrent processing within SL and optimization (using ball state as shared variable)
- *
- *  Created on: Jun 2, 2016
+ * Created on: Jun 2, 2016
  *      Author: okoc
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "sys/time.h"
 
 // optimization and math libraries
 #include <math.h>
@@ -33,6 +30,13 @@ typedef struct {
 double myfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 double myconstraint(unsigned n, const double *x, double *grad, void *data);
 void nlopt_example_run();
+long get_time();
+
+int main() {
+	nlopt_example_run();
+
+	return 1;
+}
 
 /*
  * NLOPT nonlinear optimization example
@@ -41,9 +45,14 @@ void nlopt_example_run();
  */
 void nlopt_example_run() {
 
-	double lb[2] = { -HUGE_VAL, 0 }; /* lower bounds */
+	double lb[2] = { -HUGE_VAL, 0.0 }; /* lower bounds */
+	//nlopt_opt local_opt;
+	//local_opt = nlopt_create(NLOPT_LD_TNEWTON_PRECOND, 2);
+	//nlopt_set_xtol_rel(local_opt, 1e-4);
 	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LD_MMA, 2); /* algorithm and dimensionality */
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2); /* algorithm and dimensionality */
+	//nlopt_set_local_optimizer(opt, local_opt);
+	//nlopt_destroy(local_opt);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_min_objective(opt, myfunc, NULL);
 	my_constraint_data data[2] = { {2,0}, {-1,1} };
@@ -54,11 +63,13 @@ void nlopt_example_run() {
 
 	double x[2] = { 1.234, 5.678 };  /* some initial guess */
 	double minf; /* the minimum objective value, upon return */
+	double init_time = get_time();
 
 	if (nlopt_optimize(opt, x, &minf) < 0) {
 	    printf("NLOPT failed!\n");
 	}
 	else {
+		printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
 	    printf("Found minimum at f(%g,%g) = %0.10g\n", x[0], x[1], minf);
 	}
 	nlopt_destroy(opt);
@@ -94,6 +105,15 @@ double myconstraint(unsigned n, const double *x, double *grad, void *data) {
     return ((a*x[0] + b) * (a*x[0] + b) * (a*x[0] + b) - x[1]);
 }
 
+/*
+ * Return time of day as micro seconds
+ */
+long get_time() {
+	struct timeval tv;
+	if (gettimeofday(&tv, (struct timezone *)0) == 0)
+		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
 
+	return 0.;
+}
 
 

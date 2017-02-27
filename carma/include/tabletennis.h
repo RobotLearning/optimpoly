@@ -62,8 +62,8 @@ private:
 public:
 
 	// initialization
-	TableTennis(bool spin, bool verbose);
-	TableTennis(bool spin, bool verbose, const vec6 & ball_state);
+	TableTennis(bool spin = false, bool verbose = false);
+	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;

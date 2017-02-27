@@ -29,6 +29,7 @@ private:
 	double time2return; // fixed return time for robot
 	racket racket_params;
 	optim optim_params;
+	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	bool moving; // robot is moving or not
 
@@ -39,7 +40,6 @@ private:
 	racket calc_racket_strategy(const mat & balls_predicted);
 	void calc_next_state(const joint & qact, joint & qdes);
 	void generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) const;
-	coptim setup_coparam(const joint & qact) const;
 
 public:
 
@@ -56,7 +56,7 @@ public:
 };
 
 EKF init_filter(); // init filter for ball estimation
-void gen_3rd_poly(const vec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
+void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void calc_des_ball_out_vel(const vec2 & ball_land_des,
 						   const double time_land_des,

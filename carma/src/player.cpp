@@ -17,7 +17,6 @@
 #include <thread>
 #include "stdlib.h"
 
-using namespace std;
 using namespace arma;
 
 /*
@@ -42,12 +41,22 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 	racket_params = {pos, vel, normal, N};
 
 	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
-	double* qzero = (double*)malloc(NDOF*sizeof(double));
+	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
+	double* qzero = (double*)calloc(NDOF, sizeof(double));
+	double* qinit = (double*)calloc(NDOF, sizeof(double));
+	double* qrest = (double*)calloc(NDOF, sizeof(double));
+	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double SLACK = 0.01;
+	double Tmax = 1.0;
+	set_bounds(lb,ub,SLACK,Tmax);
 
-	for (int i = 0; i < NDOF; i++)
-		qzero[i] = q_rest_des(i);
+	for (int i = 0; i < NDOF; i++) {
+		qinit[i] = qrest[i] = qzero[i] = q0(i);
+	}
 
 	optim_params = {qzero, qzerodot, 0.5, false};
+	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return};
 
 	moving = false;
 
@@ -188,22 +197,27 @@ joint Player::play(const joint & qact, const vec3 & obs) {
  */
 void Player::calc_optim_param(const joint & qact) {
 
+	static bool firsttime = true;
 	vec6 state_est;
+	mat balls_pred;
 	try {
 		state_est = filter.get_mean();
-		static mat balls_pred = zeros<mat>(6,racket_params.Nmax);
 
 		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && state_est(Y) > (dist_to_table - table_length/2) && state_est(DY) > 1.0) {
+		if (!moving && state_est(Y) > (dist_to_table - table_length/2)
+				&& state_est(DY) > 1.0 && firsttime) {
 			predict_ball(balls_pred);
 			if (check_legal_ball(balls_pred)) { // ball is legal
-				moving = true;
-				cout << "Launching optimization..." << endl;
+				firsttime = false;
 				calc_racket_strategy(balls_pred);
-				coptim coparams = setup_coparam(qact);
+				/*for (int i = 0; i < NDOF; i++) {
+					coparams.q0[i] = qact.q(i);
+					coparams.q0dot[i] = qact.qd(i);
+				}*/
 				// run optimization in another thread
-				thread my_thread(&nlopt_optim_poly_run,
+				std::thread t(&nlopt_optim_poly_run,
 						&coparams,&racket_params,&optim_params);
+				t.detach();
 			}
 		}
 	}
@@ -227,33 +241,6 @@ void Player::predict_ball(mat & balls_pred) {
 	static int N = racket_params.Nmax;
 
 	balls_pred = filter.predict_path(dt,N);
-}
-
-/*
- * Setup the coparameters for the optimization
- *
- */
-coptim Player::setup_coparam(const joint & qact) const {
-
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double SLACK = 0.01;
-	coptim *coparams = (coptim*)malloc(sizeof(coptim));
-	double Tmax = 1.0;
-	set_bounds(lb,ub,SLACK,Tmax);
-
-	for (int i = 0; i < NDOF; i++) {
-		coparams->q0[i] = qact.q(i);
-		coparams->q0dot[i] = qact.qd(i);
-		coparams->qrest[i] = q_rest_des(i);
-		coparams->time2return = time2return;
-		coparams->lb[i] = lb[i];
-		coparams->ub[i] = ub[i];
-	}
-	free(lb);
-	free(ub);
-	return *coparams;
-
 }
 
 /*
@@ -287,9 +274,10 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
 			moving = false;
-			qdes.q = zeros<vec>(7);
+			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(7);
 			qdes.qdd = zeros<vec>(7);
+			idx = 0;
 		}
 	}
 
@@ -314,11 +302,10 @@ void Player::generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) c
 	b3 = 2.0 * (qf - q_rest_des) / pow(T,3) + (qfdot) / pow(T,2);
 	b2 = 3.0 * (q_rest_des - qf) / pow(T,2) - (qfdot) / T;
 
-	static const double dt = 0.002;
-	int N_hit = (int)T/dt;
-	vec times_hit = linspace<vec>(dt,T,N_hit);
-	int N_return = (int)time2return/dt;
-	vec times_ret = linspace<vec>(dt,time2return,N_return);
+	int N_hit = T/dt;
+	rowvec times_hit = linspace<rowvec>(dt,T,N_hit);
+	int N_return = time2return/dt;
+	rowvec times_ret = linspace<rowvec>(dt,time2return,N_return);
 
 	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
 	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
@@ -376,7 +363,7 @@ EKF init_filter() {
 /*
  * Generate matrix of joint angles, velocities and accelerations
  */
-void gen_3rd_poly(const vec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
+void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd) {
 
 	// IN MATLAB:
@@ -385,7 +372,7 @@ void gen_3rd_poly(const vec & times, const vec7 & a3, const vec7 & a2, const vec
 	//	qddStrike(m,:) = 6*a(1)*t + 2*a(2);
 
 	for(int i = 0; i < NDOF; i++) {
-		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0;
+		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0(i);
 		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
 		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
 	}
@@ -460,19 +447,19 @@ bool check_legal_ball(const mat & balls_predicted) {
 
 	// if sign of z-velocity changes then the ball bounces
 	for (int i = 0; i < N-1; i++) {
-		if (balls_predicted(Z,i) < 0 && balls_predicted(Z,i+1) > 0) {
+		if (balls_predicted(DZ,i) < 0 && balls_predicted(DZ,i+1) > 0) {
 			num_bounces++;
 		}
 	}
 
 	// multiple bounces are predicted
 	if (num_bounces > 1) {
-		cout << "Multiple bounces predicted. Not moving" << endl;
+		std::cout << "Multiple bounces predicted. Not moving" << endl;
 		return false;
 	}
 	// no bounce is predicted
 	if (num_bounces == 0) {
-		cout << "No bounce predicted. Not moving\n" << endl;
+		std::cout << "No bounce predicted. Not moving\n" << endl;
 		return false;
 	}
 

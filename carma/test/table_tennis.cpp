@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(test_player) {
 
 	cout << "Testing Robot optim launch..." << endl;
 
-	TableTennis tt = TableTennis(false,true);
+	TableTennis tt = TableTennis();
 	tt.set_ball_state(0.2);
 
 	vec7 q0;
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(test_player) {
 
 	Player robot = Player(q0,filter);
 
-	int N = 50;
+	int N = 500;
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(dt);
 		robot.play(qact, tt.get_ball_position());
@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(test_player) {
  */
 BOOST_AUTO_TEST_CASE( test_touch_ground ) {
 
-	TableTennis tt = TableTennis(false,false);
+	TableTennis tt = TableTennis();
 
 	int N = 200;
 	double dt = 0.01;
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 
 	cout << endl << "Running EKF table tennis estimator..." << endl;
 	// initialize TableTennis and Filter classes
-	TableTennis tt = TableTennis(false,false);
+	TableTennis tt = TableTennis();
 	double std = 0.001;
 	mat C = eye<mat>(3,6);
 	mat66 Q = zeros<mat>(6,6);
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	cout << endl << "Testing Player class's Filtering performance" << endl;
-	TableTennis tt = TableTennis(false,false);
+	TableTennis tt = TableTennis();
 	EKF filter = init_filter();
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
 	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);

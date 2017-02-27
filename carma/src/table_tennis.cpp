@@ -22,8 +22,7 @@
  * TODO: initialized racket variables to inf!
  *
  */
-TableTennis::TableTennis(bool spin_flag, bool verbosity,
-		                 const vec6 & ball_state) {
+TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity) {
 
 	SPIN_MODE = spin_flag;
 	VERBOSE = verbosity;
@@ -315,7 +314,7 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
 
 	static double ball_last_z_pos;
 	if (ball_cand_pos(Z) <= floor_level) {
-		if (VERBOSE && ball_pos(Z) != ball_last_z_pos) // we dont want to print all the time
+		if (VERBOSE && (ball_pos(Z) != ball_last_z_pos)) // we dont want to print all the time
 			cout << "Contact with ground Zeroing the velocities!" << endl;
 		// zero the velocities
 		ball_cand_vel = zeros<vec>(3);
@@ -398,12 +397,11 @@ void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
  *
  * xnow consists of current ball position and velocity
  *
- * FIXME: dt should not be large otherwise could be really inaccurate!
  *
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(false,false,xnow);
+	TableTennis tennis = TableTennis(xnow);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
