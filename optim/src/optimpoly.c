@@ -48,29 +48,6 @@ static void print_input_structs(coptim *coparams,
 							   optim * params);
 
 /*
- * Caller thread executes this function
- *
- * TODO:
- */
-/*void run_optim_thread() {
-
-	static const int PRINT_VERBOSE = TRUE;
-	static int count = 0;
-
-	if (PRINT_VERBOSE) {
-		printf("==========================================\n");
-		printf("Running NLOPT\n");
-	}
-
-	nlopt_optim_poly_run();
-
-	if (PRINT_VERBOSE) {
-		printf("Optim count: %d\n", ++count);
-		printf("==========================================\n");
-	}
-}*/
-
-/*
  * NLOPT optimization routine for table tennis trajectory generation
  *
  * Returns the maximum of violations
@@ -82,6 +59,8 @@ static void print_input_structs(coptim *coparams,
 double nlopt_optim_poly_run(coptim *coparams,
 					      racket *racket,
 						  optim *params) {
+
+	print_input_structs(coparams, racket, params);
 
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
@@ -137,7 +116,7 @@ static void print_input_structs(coptim *coparams,
 	      	  	  	  	  	   racket *racket,
 							   optim * params) {
 
-	for (int i = 0; i < NDOF; i++) {
+	/*for (int i = 0; i < NDOF; i++) {
 		printf("q0[%d] = %f\n", i, coparams->q0[i]);
 		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
 		printf("lb[%d] = %f\n", i, coparams->lb[i]);
@@ -148,15 +127,11 @@ static void print_input_structs(coptim *coparams,
 		printf("qf[%d] = %f\n", i, params->qf[i]);
 		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
 	}
-	printf("Thit = %f\n", params->T);
+	printf("Thit = %f\n", params->T);*/
 
-	for (int i = 0; i < racket->Nmax; i++) {
-		for (int j = 0; j < NCART; j++) {
-			printf("pos[%d,%d] = %f\n", j, i, racket->pos[j][i]);
-			printf("vel[%d,%d] = %f\n", j, i, racket->vel[j][i]);
-			printf("normal[%d,%d] = %f\n", j, i, racket->normal[j][i]);
-		}
-	}
+	print_mat_size("pos = ", racket->pos, NCART, 5);
+	print_mat_size("vel = ", racket->vel, NCART, 5);
+	print_mat_size("normal = ", racket->normal, NCART, 5);
 
 }
 

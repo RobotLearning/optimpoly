@@ -25,7 +25,6 @@
 #include "tabletennis.h"
 #include "kalman.h"
 
-using namespace std;
 using namespace arma;
 
 /*
@@ -43,13 +42,14 @@ inline void init_right_posture(vec7 & q0) {
 }
 
 /*
- * TODO:
+ * Testing launch of table tennis trajectory optimization
  */
 BOOST_AUTO_TEST_CASE(test_player) {
 
-	cout << "Testing Robot optim launch..." << endl;
+	std::cout << "Testing Robot optim launch..." << std::endl;
 
 	TableTennis tt = TableTennis();
+	arma_rng::set_seed(5);
 	tt.set_ball_state(0.2);
 
 	vec7 q0;
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE( test_touch_ground ) {
  */
 BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 
-	cout << endl << "Running EKF table tennis estimator..." << endl;
+	std::cout << std::endl << "Running EKF table tennis estimator..." << std::endl;
 	// initialize TableTennis and Filter classes
 	TableTennis tt = TableTennis();
 	double std = 0.001;
@@ -143,7 +143,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
  */
 BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
-	cout << endl << "Testing Player class's Filtering performance" << endl;
+	std::cout << std::endl << "Testing Player class's Filtering performance" << std::endl;
 	TableTennis tt = TableTennis();
 	EKF filter = init_filter();
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
@@ -174,8 +174,8 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 		usleep(10e3);
 
 	}
-	cout << "Error of state estimate"; //<< endl << err.t() << endl;
+	std::cout << "Error of state estimate"; //<< endl << err.t() << endl;
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.1));
-	cout << " decreases." << endl;
+	std::cout << " decreases." << std::endl;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
 }

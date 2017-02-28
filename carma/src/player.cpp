@@ -15,6 +15,7 @@
 #include "player.hpp"
 #include "kinematics.h"
 #include <thread>
+#include <future>
 #include "stdlib.h"
 
 using namespace arma;

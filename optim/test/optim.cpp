@@ -10,13 +10,14 @@
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
+#include <thread>
+#include <future>
 #include "constants.h"
 #include "kinematics.h"
 #include "optimpoly.h"
 #include "lookup.h"
 #include "player.hpp"
 
-using namespace std;
 using namespace arma;
 
 /*
@@ -62,24 +63,10 @@ inline void init_right_posture(vec7 & q0) {
 	q0(6) = 0.3;
 }
 
-//BOOST_AUTO_TEST_CASE(test_predict_path) {
-//
-//	cout << "Testing Robot racket calculations..." << endl;
-//	static double pos[NCART] = {1.0, -2.0, -0.5};
-//	static double vel[NCART] = {3.0, 5.0, 4.0};
-//	EKF filter = init_filter();
-//	vec3 ballpos(pos);
-//	vec3 ballvel(vel);
-//	mat66 P; P.eye();
-//	filter.set_prior(join_vert(ballpos,ballvel),P);
-//	mat balls_pred = filter.predict_path(dt,10);
-//	//cout << "Balls predicted:" << endl << balls_pred << endl;
-//
-//}
-
+/*
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
-	cout << "Testing NLOPT Optimization" << endl;
+	std::cout << "Testing NLOPT Optimization" << std::endl;
 	double *q0dot = (double*)calloc(NDOF,sizeof(double));
 	double *q0 = (double*)calloc(NDOF,sizeof(double));
 	// initial guess for optim //
@@ -89,11 +76,13 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	double Tmax = 1.0;
 
 	// update initial parameters from lookup table
-	cout << "Looking up a random entry..." << endl;
-	arma_rng::set_seed_random();
+	std::cout << "Looking up a random entry..." << std::endl;
+	arma_rng::set_seed(2);
+	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
+	//std::cout << ball_state << std::endl;
 
 	vec7 init_joint_state;
 	init_right_posture(init_joint_state);
@@ -120,8 +109,11 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	optim opt_params = {q0, q0dot, 0.5, false};
 
 	// run NLOPT opt algorithm here //
+//	auto future = std::async(nlopt_optim_poly_run,
+//			&coparams,&racket_params,&opt_params);
+//	double max_violation = future.get();
 	double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);
 
 	// test to see if kinematics constraints are violated
 	BOOST_TEST(max_violation < 0.01);
-}
+}*/

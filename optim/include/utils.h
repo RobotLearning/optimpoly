@@ -39,6 +39,7 @@ void vec_plus(double *a1, const double *a2);
 double inner_prod(const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
 void print_optim_vec(const double *x);
+void print_mat_size(const char *comm, Matrix a, int nr, int nc);
 double max_abs_array(const double *x, const int length);
 double max_array(const double *x, const int length);
 

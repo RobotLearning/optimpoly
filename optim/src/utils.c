@@ -31,6 +31,40 @@ void print_optim_vec(const double *x) {
 	printf("T = %.2f\n", x[2*NDOF]);
 }
 
+
+/*!*****************************************************************************
+ *******************************************************************************
+ \note  print_mat_size
+ \date  August 17, 92
+
+ \remarks
+
+ just prints the given matrix with limits
+
+ *******************************************************************************
+ Parameters:  (i/o = input/output)
+
+ \param[in]     com   : comment
+ \param[in]     a     : the matrix to be printed
+ \param[in]     nr    : number of rows
+ \param[in]     nc    : number of columns
+
+ ******************************************************************************/
+void print_mat_size(const char *comm, Matrix a, int nr, int nc) {
+
+	printf("Matrix %s :\n",comm);
+
+	for (int i = 0; i < nr; i++) {
+		printf("          ");
+		for (int j = 0; j < nc; j++) {
+			printf("% 8.4f ",a[i][j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+
+}
+
 /*
  * Return the maximum absolute value of an array with length size
  */
