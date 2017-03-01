@@ -32,6 +32,7 @@ private:
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	bool moving; // robot is moving or not
+	bool launch_thread; // thread is launched or not
 
 	void estimate_ball_state(const vec3 & obs);
 	void estimate_prior(const mat & observations, const vec & times);
@@ -39,11 +40,9 @@ private:
 	void predict_ball(mat & balls_pred);
 	racketdes calc_racket_strategy(const mat & balls_predicted);
 	void calc_next_state(const joint & qact, joint & qdes);
-	void generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) const;
 
 public:
 
-	Player();
 	Player(const vec7 & q0, const EKF & filter);
 
 	// auxiliary function, public interface for filter test performance
@@ -54,9 +53,16 @@ public:
 
 	// main function
 	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);
+
+	// cheat function for simulation (with exact knowledge of ball state)
+	void cheat(const joint & qact, const vec6 & ballstate, joint & qdes);
+
 };
 
 EKF init_filter(); // init filter for ball estimation
+void generate_strike(const optim & params, const joint & qact,
+		             const vec7 & q_rest_des, const double time2return,
+		            mat & Q, mat & Qd, mat & Qdd);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void calc_des_ball_out_vel(const vec2 & ball_land_des,

@@ -4,7 +4,6 @@
 #include "tabletennis.h"
 #include <cmath>
 #include <sys/time.h>
-#include "carma.h"
 
 using namespace arma;
 
@@ -37,6 +36,8 @@ typedef struct { /*!< Vision Blob */
   SL_Cstate  blob;
 } SL_VisionBlob;
 
+#include "carma.h"
+
 /*
  *
  * Interface to the PLAYER class that generates desired hitting trajectories.
@@ -52,14 +53,16 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static vec3 ball_obs;
 	static joint qact;
 	static joint qdes;
-	static Player cp; // centered player
+	static Player *cp; // centered player
 
 	if (firsttime) {
 		for (int i = 0; i < NDOF; i++) {
-			q0(i) = joint_state[i+1].th;
+			qdes.q(i) = q0(i) = joint_state[i+1].th;
+			qdes.qd(i) = 0.0;
+			qdes.qdd(i) = 0.0;
 		}
 		EKF filter = init_filter();
-		cp = Player(q0,filter);
+		cp = new Player(q0,filter);
 		firsttime = false;
 	}
 	else {
@@ -70,14 +73,65 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		for (int i = 0; i < NCART; i++)
 			ball_obs(i) = blobs[1].blob.x[i+1];
-		cp.play(qact,ball_obs,qdes);
+		cp->play(qact,ball_obs,qdes);
 	}
 
 	// update desired joint state
 	for (int i = 0; i < NDOF; i++) {
-		joint_des_state[i].th = qdes.q(i);
-		joint_des_state[i].thd = qdes.qd(i);
-		joint_des_state[i].thdd = qdes.qdd(i);
+		joint_des_state[i+1].th = qdes.q(i);
+		joint_des_state[i+1].thd = qdes.qd(i);
+		joint_des_state[i+1].thdd = qdes.qdd(i);
+	}
+
+}
+
+/*
+ *
+ * CHEAT with exact knowledge of ball dynamics
+ *
+ * Interface to the PLAYER class that generates desired hitting trajectories.
+ * First initializes the player and then starts calling cheat() interface function.
+ *
+ */
+void cheat(const SL_Jstate joint_state[NDOF+1],
+		  const SL_Cstate sim_ball_state,
+		  SL_DJstate joint_des_state[NDOF+1]) {
+
+	static bool firsttime = true;
+	static vec7 q0;
+	static vec6 ball_state;
+	static joint qact;
+	static joint qdes;
+	static Player *cp; // centered player
+
+	if (firsttime) {
+		for (int i = 0; i < NDOF; i++) {
+			qdes.q(i) = q0(i) = joint_state[i+1].th;
+			qdes.qd(i) = 0.0;
+			qdes.qdd(i) = 0.0;
+		}
+		EKF filter = init_filter();
+		cp = new Player(q0,filter);
+		firsttime = false;
+	}
+	else {
+		for (int i = 0; i < NDOF; i++) {
+			qact.q(i) = joint_state[i+1].th;
+			qact.qd(i) = joint_state[i+1].thd;
+			qact.qdd(i) = joint_state[i+1].thdd;
+		}
+		for (int i = 0; i < NCART; i++) {
+			ball_state(i) = sim_ball_state.x[i+1];
+			ball_state(i+NCART) = sim_ball_state.xd[i+1];
+		}
+		cp->cheat(qact,ball_state,qdes);
+	}
+
+	// update desired joint state
+	for (int i = 0; i < NDOF; i++) {
+		joint_des_state[i+1].th = qdes.q(i);
+		joint_des_state[i+1].thd = qdes.qd(i);
+		joint_des_state[i+1].thdd = qdes.qdd(i);
 	}
 
 }

@@ -20,17 +20,6 @@
 
 using namespace arma;
 
-Player::Player() : filter(init_filter()) {
-
-	time_land_des = 0.8;
-	time2return = 1.0;
-
-	ball_land_des(X) = 0.0;
-	ball_land_des(Y) = dist_to_table - 3*table_length/4;
-	q_rest_des = zeros<vec>(NDOF);
-	moving = false;
-}
-
 /*
  * Initialize Centred Table Tennis Player (CP)
  *
@@ -39,6 +28,7 @@ Player::Player() : filter(init_filter()) {
  */
 Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 
+	launch_thread = false;
 	time_land_des = 0.8;
 	time2return = 1.0;
 
@@ -198,6 +188,21 @@ void Player::play(const joint & qact,
 }
 
 /*
+ * Cheat Table Tennis by getting the exact ball state in simulation
+ * Useful for debugging filter
+ *
+ */
+void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
+
+
+	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
+
+	calc_optim_param(qact);
+	// generate movement or calculate next desired step
+	calc_next_state(qact, qdes);
+}
+
+/*
  * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
  *
@@ -207,7 +212,6 @@ void Player::play(const joint & qact,
  */
 void Player::calc_optim_param(const joint & qact) {
 
-	static bool firsttime = true;
 	vec6 state_est;
 	mat balls_pred;
 	try {
@@ -215,19 +219,20 @@ void Player::calc_optim_param(const joint & qact) {
 
 		// if ball is fast enough and robot is not moving consider optimization
 		if (!moving && state_est(Y) > (dist_to_table - table_length/2)
-				&& state_est(DY) > 1.0 && firsttime) {
+				&& state_est(DY) > 1.0 && !launch_thread) {
 			predict_ball(balls_pred);
 			if (check_legal_ball(balls_pred)) { // ball is legal
-				firsttime = false;
 				calc_racket_strategy(balls_pred);
-				/*for (int i = 0; i < NDOF; i++) {
+				for (int i = 0; i < NDOF; i++) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
-				}*/
+				}
+				std::cout << balls_pred.cols(90,100-1) << std::endl;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_poly_run,
 						&coparams,&racket_params,&optim_params);
 				t.detach();
+				launch_thread = true;
 			}
 		}
 	}
@@ -271,7 +276,8 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	if (optim_params.update) {
 		moving = true;
 		optim_params.update = false;
-		generate_strike(qact,Q_des,Qd_des,Qdd_des);
+		launch_thread = false;
+		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
 	}
 
@@ -294,41 +300,6 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 }
 
 /*
- * Create batch hitting and returning joint state 3rd degree polynomials
- *
- */
-void Player::generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) const {
-
-	// first create hitting polynomials
-	vec7 a2, a3;
-	vec7 b2, b3; // for returning
-	double T = optim_params.T;
-	vec7 qf(optim_params.qf);
-	vec7 qfdot(optim_params.qfdot);
-	vec7 qnow = qact.q;
-	vec7 qdnow = qact.qd;
-	a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + qdnow) / T;
-	b3 = 2.0 * (qf - q_rest_des) / pow(T,3) + (qfdot) / pow(T,2);
-	b2 = 3.0 * (q_rest_des - qf) / pow(T,2) - (qfdot) / T;
-
-	int N_hit = T/dt;
-	rowvec times_hit = linspace<rowvec>(dt,T,N_hit);
-	int N_return = time2return/dt;
-	rowvec times_ret = linspace<rowvec>(dt,time2return,N_return);
-
-	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
-	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
-	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
-
-	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
-	gen_3rd_poly(times_ret,a3,a2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
-	Q = join_horiz(Q_hit,Q_ret);
-	Qd = join_horiz(Qd_hit,Qd_ret);
-	Qdd = join_horiz(Qdd_hit,Qdd_ret);
-}
-
-/*
  * Function that calculates a racket strategy : positions, velocities and racket normal
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
@@ -348,12 +319,49 @@ racketdes Player::calc_racket_strategy(const mat & balls_predicted) {
 
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < NCART; j++) {
-			racket_params.pos[j][i] = balls_predicted.rows(X,Z)(j,i);
+			racket_params.pos[j][i] = balls_predicted(j,i);
 			racket_params.vel[j][i] = racket_des_vel(j,i);
 			racket_params.normal[j][i] = racket_des_normal(j,i);
 		}
 	}
 	return racket_params;
+}
+
+/*
+ * Create batch hitting and returning joint state 3rd degree polynomials
+ *
+ */
+void generate_strike(const optim & params, const joint & qact,
+		             const vec7 & q_rest_des, const double time2return,
+		            mat & Q, mat & Qd, mat & Qdd) {
+
+	// first create hitting polynomials
+	vec7 a2, a3;
+	vec7 b2, b3; // for returning
+	double T = params.T;
+	vec7 qf(params.qf);
+	vec7 qfdot(params.qfdot);
+	vec7 qnow = qact.q;
+	vec7 qdnow = qact.qd;
+	a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+	a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+	b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+	b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+
+	int N_hit = T/dt;
+	rowvec times_hit = linspace<rowvec>(dt,T,N_hit);
+	int N_return = time2return/dt;
+	rowvec times_ret = linspace<rowvec>(dt,time2return,N_return);
+
+	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
+	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
+	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
+
+	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
+	gen_3rd_poly(times_ret,b3,b2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
+	Q = join_horiz(Q_hit,Q_ret);
+	Qd = join_horiz(Qd_hit,Qd_ret);
+	Qdd = join_horiz(Qdd_hit,Qdd_ret);
 }
 
 /*

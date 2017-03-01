@@ -11,6 +11,10 @@ extern void play(const SL_Jstate joint_state[],
 		         const SL_VisionBlob blobs[],
 				 SL_DJstate joint_des_state[]);
 
+void cheat(const SL_Jstate joint_state[],
+		  const SL_Cstate sim_ball_state,
+		  SL_DJstate joint_des_state[]);
+
 // kf function for SL
 extern void ekf(double x[], double y[], double racket_pos[], double racket_orient[], int *reset);
 

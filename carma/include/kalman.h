@@ -79,7 +79,7 @@ private:
 	vec (*f)(const vec &,double);
 
 	// linearize function to get Ad matrix
-	mat linearize(double dt) const;
+	mat linearize(double dt, double h) const;
 
 public:
 

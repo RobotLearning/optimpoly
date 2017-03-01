@@ -61,26 +61,17 @@ double nlopt_optim_poly_run(coptim *coparams,
 						  optim *params) {
 
 	//print_input_structs(coparams, racketdata, params);
-
-	static const double tol_scalar = 1e-2;
-	static double x[OPTIM_DIM];
-	static double tol[EQ_CONSTR_DIM];
-	static int firsttime = TRUE;
-	static nlopt_opt opt;
-
-	if (firsttime) {
-		firsttime = FALSE;
-		const_vec(EQ_CONSTR_DIM,tol_scalar,tol);
-		opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
-		nlopt_set_xtol_rel(opt, 1e-2);
-	}
-
-	//print_input_structs(coparams,racket,params);
-
-	init_soln(params,x); //parameters are the initial joint positions q0
+	nlopt_opt opt;
+	const double tol_scalar = 1e-2;
+	double x[OPTIM_DIM];
+	double tol[EQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,tol_scalar,tol);
+	init_soln(params,x); //parameters are the initial joint positions q0*/
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, coparams->lb);
 	nlopt_set_upper_bounds(opt, coparams->ub);
 	nlopt_set_min_objective(opt, costfunc, coparams);
@@ -111,7 +102,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 	}
 	check_optim_result(res);
 	//nlopt_destroy(opt);
-	return max_violation;
+	return 0.0; //max_violation;
 }
 
 static void print_input_structs(coptim *coparams,

@@ -45,10 +45,10 @@ EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(C
  * Using 'TWO-SIDED-SECANT' to do a stable linearization
  *
  */
-mat EKF::linearize(double dt) const {
+mat EKF::linearize(double dt, double h) const {
 
 	int dimx = x.n_elem;
-	static mat delta = dt * eye<mat>(dimx,dimx);
+	static mat delta = h * eye<mat>(dimx,dimx);
 	static mat dfdx = zeros<mat>(dimx,dimx);
 	static mat fPlus = zeros<mat>(dimx,dimx);
 	static mat fMinus = zeros<mat>(dimx,dimx);
@@ -67,7 +67,7 @@ mat EKF::linearize(double dt) const {
  */
 void EKF::predict(double dt) {
 
-	mat A = linearize(dt);
+	mat A = linearize(dt,0.01);
 	x = this->f(x,dt);
 	P = A * P * A.t() + Q;
 }
@@ -80,7 +80,7 @@ void EKF::predict(double dt) {
 mat EKF::predict_path(double dt, int N) {
 
 	int dimx = x.n_elem;
-	mat X(dimx,N,fill::zeros);
+	mat X(dimx,N);
 
 	// save mean and covariance
 	vec x0 = x;
