@@ -8,8 +8,10 @@ TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 
 carma:
-	$(CC) $(INSTALLFLAGS) carma/src/player.cpp \
+	$(CC) $(INSTALLFLAGS) carma/src/carma.cpp \
+	                      carma/src/player.cpp \
 					      carma/src/kalman.cpp \
+					      carma/src/kinematics.cpp \
 	                      carma/src/extkalman.cpp \
 	                      carma/src/table_tennis.cpp \
 	                      carma/src/lookup.cpp \

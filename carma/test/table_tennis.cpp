@@ -23,6 +23,7 @@
 #include "player.hpp"
 #include "constants.h"
 #include "tabletennis.h"
+#include "kinematics.hpp"
 #include "kalman.h"
 
 using namespace arma;
@@ -42,13 +43,13 @@ inline void init_right_posture(vec7 & q0) {
 }
 
 /*
- * Testing launch of table tennis trajectory optimization
+ * Testing whether the ball can be returned to the opponents court
  */
 BOOST_AUTO_TEST_CASE(test_player) {
 
 	std::cout << "Testing Robot optim launch..." << std::endl;
 
-	TableTennis tt = TableTennis();
+	TableTennis tt = TableTennis(false,true);
 	arma_rng::set_seed(5);
 	tt.set_ball_state(0.2);
 
@@ -59,14 +60,18 @@ BOOST_AUTO_TEST_CASE(test_player) {
 
 	Player robot = Player(q0,filter);
 
-	int N = 500;
+	int N = 2000;
+	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+	racket robot_racket;
 	for (int i = 0; i < N; i++) {
-		tt.integrate_ball_state(dt);
-		robot.play(qact, tt.get_ball_position());
+		robot.play(qact, tt.get_ball_position(), qdes);
+		calc_racket_state(qdes,robot_racket);
+		//tt.integrate_ball_state(dt);
+		tt.integrate_ball_state(robot_racket,dt);
 		usleep(2e3);
 	}
 
-	//cout << "Balls predicted:" << endl << balls_pred << endl;
+	BOOST_TEST(tt.has_landed());
 
 }
 
@@ -175,7 +180,7 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	}
 	std::cout << "Error of state estimate"; //<< endl << err.t() << endl;
-	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.1));
+	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
 	std::cout << " decreases." << std::endl;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
 }

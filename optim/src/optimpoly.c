@@ -16,7 +16,7 @@
 #include "math.h"
 
 // termination
-static double test_optim(const double *x, coptim *params, racket *racket, int info);
+static double test_optim(const double *x, coptim *params, racketdes *racketdata, int info);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
 static int check_optim_result(const int res);
 
@@ -41,10 +41,10 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 							  double *joint_max_cand, double *joint_min_cand);
 static void init_soln(const optim * params, double x[OPTIM_DIM]);
 
-static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
+static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 static void print_input_structs(coptim *coparams,
-	      	  	  	  	  	   racket *racket,
+	      	  	  	  	  	   racketdes *racket,
 							   optim * params);
 
 /*
@@ -57,11 +57,12 @@ static void print_input_structs(coptim *coparams,
  *
  */
 double nlopt_optim_poly_run(coptim *coparams,
-					      racket *racket,
+					      racketdes *racketdata,
 						  optim *params) {
 
-	print_input_structs(coparams, racket, params);
+	//print_input_structs(coparams, racketdata, params);
 
+	static const double tol_scalar = 1e-2;
 	static double x[OPTIM_DIM];
 	static double tol[EQ_CONSTR_DIM];
 	static int firsttime = TRUE;
@@ -69,7 +70,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 
 	if (firsttime) {
 		firsttime = FALSE;
-		const_vec(EQ_CONSTR_DIM,1e-2,tol);
+		const_vec(EQ_CONSTR_DIM,tol_scalar,tol);
 		opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 		nlopt_set_xtol_rel(opt, 1e-2);
 	}
@@ -86,7 +87,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
 			                         coparams, tol);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         racket, tol);
+			                         racketdata, tol);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -97,15 +98,16 @@ double nlopt_optim_poly_run(coptim *coparams,
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 	    printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = test_optim(x,coparams,racket,TRUE);
+	    max_violation = test_optim(x,coparams,racketdata,TRUE);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", past_time);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,coparams,racket,TRUE);
-	    finalize_soln(x,params,past_time);
+	    max_violation = test_optim(x,coparams,racketdata,TRUE);
+	    if (max_violation < tol_scalar)
+	    	finalize_soln(x,params,past_time);
 	}
 	check_optim_result(res);
 	//nlopt_destroy(opt);
@@ -113,10 +115,10 @@ double nlopt_optim_poly_run(coptim *coparams,
 }
 
 static void print_input_structs(coptim *coparams,
-	      	  	  	  	  	   racket *racket,
+	      	  	  	  	  	   racketdes *racketdata,
 							   optim * params) {
 
-	/*for (int i = 0; i < NDOF; i++) {
+	for (int i = 0; i < NDOF; i++) {
 		printf("q0[%d] = %f\n", i, coparams->q0[i]);
 		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
 		printf("lb[%d] = %f\n", i, coparams->lb[i]);
@@ -127,11 +129,11 @@ static void print_input_structs(coptim *coparams,
 		printf("qf[%d] = %f\n", i, params->qf[i]);
 		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
 	}
-	printf("Thit = %f\n", params->T);*/
+	printf("Thit = %f\n", params->T);
 
-	print_mat_size("pos = ", racket->pos, NCART, 5);
-	print_mat_size("vel = ", racket->vel, NCART, 5);
-	print_mat_size("normal = ", racket->normal, NCART, 5);
+	print_mat_size("pos = ", racketdata->pos, NCART, 5);
+	print_mat_size("vel = ", racketdata->vel, NCART, 5);
+	print_mat_size("normal = ", racketdata->normal, NCART, 5);
 
 }
 
@@ -199,14 +201,14 @@ static int check_optim_result(const int res) {
  */
 static double test_optim(const double *x,
 		          coptim * coparams,
-				  racket * racket, int info) {
+				  racketdes * racketdata, int info) {
 
 	// give info on constraint violation
 	double *grad = FALSE;
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             OPTIM_DIM, x, grad, racket);
+			             OPTIM_DIM, x, grad, racketdata);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
 			                 OPTIM_DIM, x, grad, coparams);
 	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
@@ -349,13 +351,13 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double normal[NCART];
 	static int firsttime = TRUE;
 	static double q[NDOF];
-	static racket* racket_data;
+	static racketdes* racket_data;
 	double T = x[2*NDOF];
 
 	/* initialization of static variables */
 	if (firsttime) {
 		firsttime = FALSE;
-		racket_data = (racket*) my_function_data;
+		racket_data = (racketdes*) my_function_data;
 	}
 
 	// interpolate at time T to get the desired racket parameters
@@ -387,7 +389,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const racket* racket, const double T, double racket_pos[NCART],
+static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	const double deltat = 0.02;
@@ -395,29 +397,29 @@ static void first_order_hold(const racket* racket, const double T, double racket
 		printf("Warning: T value is nan!\n");
 
 		for(int i = 0; i < NCART; i++) {
-			racket_pos[i] = racket->pos[i][0];
-			racket_vel[i] = racket->vel[i][0];
-			racket_n[i] = racket->normal[i][0];
+			racket_pos[i] = racketdata->pos[i][0];
+			racket_vel[i] = racketdata->vel[i][0];
+			racket_n[i] = racketdata->normal[i][0];
 		}
 	}
 	else {
 		int N = (int) (T/deltat);
 		double Tdiff = T - N*deltat;
-		int Nmax = racket->Nmax;
+		int Nmax = racketdata->Nmax;
 
 		for (int i = 0; i < NCART; i++) {
 			if (N < Nmax) {
-				racket_pos[i] = racket->pos[i][N] +
-						(Tdiff/deltat) * (racket->pos[i][N+1] - racket->pos[i][N]);
-				racket_vel[i] = racket->vel[i][N] +
-						(Tdiff/deltat) * (racket->vel[i][N+1] - racket->vel[i][N]);
-				racket_n[i] = racket->normal[i][N] +
-						(Tdiff/deltat) * (racket->normal[i][N+1] - racket->normal[i][N]);
+				racket_pos[i] = racketdata->pos[i][N] +
+						(Tdiff/deltat) * (racketdata->pos[i][N+1] - racketdata->pos[i][N]);
+				racket_vel[i] = racketdata->vel[i][N] +
+						(Tdiff/deltat) * (racketdata->vel[i][N+1] - racketdata->vel[i][N]);
+				racket_n[i] = racketdata->normal[i][N] +
+						(Tdiff/deltat) * (racketdata->normal[i][N+1] - racketdata->normal[i][N]);
 			}
 			else {
-				racket_pos[i] = racket->pos[i][N];
-				racket_vel[i] = racket->vel[i][N];
-				racket_n[i] = racket->normal[i][N];
+				racket_pos[i] = racketdata->pos[i][N];
+				racket_vel[i] = racketdata->vel[i][N];
+				racket_n[i] = racketdata->normal[i][N];
 			}
 		}
 	}

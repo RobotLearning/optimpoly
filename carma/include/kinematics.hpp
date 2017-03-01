@@ -8,6 +8,9 @@
 #ifndef _KINEMATICS_HPP_
 #define _KINEMATICS_HPP_
 
+#include "player.hpp"
+#include "tabletennis.h"
+
 /*! defines for the preference and config files */
 #define CONFIG   "config/"
 #define PREFS    "prefs/"
@@ -36,14 +39,13 @@ typedef struct {
 } pose; // used for base pose of the robot
 
 
-bool read_joint_limits(double *lb, double *ub);
-bool find_keyword(FILE *fp, char *name);
-void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac);
-void calc_racket_state(const vec7 & q, const vec7 & qdot, vec3 & x, vec3 & xdot, vec3 & n);
+void calc_racket_state(const joint & robot_joint,
+		               racket & robot_racket);
 void calc_racket_orient(vec4 & quat);
 void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3);
 void rotate_to_quat(const mat33 & R, vec4 & quat);
 void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col);
 void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats);
+void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac);
 
 #endif /* _KINEMATICS_HPP_ */

@@ -11,114 +11,18 @@
 #include <armadillo>
 #include "constants.h"
 #include "kinematics.hpp"
+#include "player.hpp"
+#include "tabletennis.h"
 
 using namespace arma;
-using namespace std;
-
-/*
- * Copied from SL_common.
- *
- * Reads joint limits from file.
- *
- */
-bool read_joint_limits(double *lb, double *ub) {
-
-	char joint_names[][20] = {
-			{"R_SFE"},
-			{"R_SAA"},
-			{"R_HR"},
-			{"R_EB"},
-			{"R_WR"},
-			{"R_WFE"},
-			{"R_WAA"}
-	};
-	char fname[] = "SensorOffset.cf";
-
-	/* find all joint variables and read them into the appropriate array */
-
-	char string[100];
-	FILE *in;
-
-	/* get the max, min of the position sensors */
-
-	sprintf(string,"%s/robolab/barrett/%s%s",getenv("HOME"),CONFIG,fname);
-	in = fopen(string,"r");
-	if (in == NULL) {
-		printf("ERROR: Cannot open file >%s<!\n",string);
-		return false;
-	}
-
-	/* find all joint variables and read them into the appropriate array */
-
-	for (int i = 0; i < NDOF; i++) {
-		if (!find_keyword(in, &(joint_names[i][0]))) {
-			printf("ERROR: Cannot find offset for %s!\n",joint_names[i]);
-			fclose(in);
-			return false;
-		}
-		fscanf(in,"%lf %lf", &lb[i], &ub[i]);
-	}
-	fclose(in);
-
-	return true;
-
-}
-
-/*
- * If string is found, returns true
- * Gets file pointer to the end of the found string (I think!)
- */
-bool find_keyword(FILE *fp, char *name) {
-
-	int  i,j,c;
-	int  rc = 1;
-	char string[strlen(name)*2];
-	int  l;
-	char sep[]={' ','\n',':',',',';','=','\t','\0'};
-
-	rewind(fp);
-	l  = strlen(name);
-	i  = 0;
-
-	while (rc != EOF) {
-
-		rc=fgetc(fp);
-		if ( rc != EOF ) {
-
-			string[i++] = rc;
-			string[i]   = '\0';
-
-			if ( strstr(string,name) != NULL) {
-				// wait for one more character to judge whether this string
-				// has the correct end delimiters
-				if (strchr(sep,string[i-1]) != NULL) {
-					// now check for preceeding delimiter
-
-					if (i-l-2 < 0) // this means "name" was the first string in file
-						return true;
-					else if (strchr(sep,string[i-l-2]) != NULL) //otherwise check delim
-						return true;
-				}
-			}
-
-			if (i >= 2*l-1) {
-				strcpy(string,&(string[i-l]));
-				i = strlen(string);
-			}
-
-		}
-
-	}
-
-	return false;
-}
 
 /*
  * Calculates cartesian racket pos, vel and normal
  * given joint positions and velocities
  *
  */
-void calc_racket_state(const vec7 & q, const vec7 & qdot, vec3 & x, vec3 & xdot, vec3 & n) {
+void calc_racket_state(const joint & robot_joint,
+		               racket & robot_racket) {
 
 	static mat::fixed<3,7> origin = zeros<mat>(3,7);
 	static mat::fixed<3,7> axis = zeros<mat>(3,7);
@@ -126,13 +30,13 @@ void calc_racket_state(const vec7 & q, const vec7 & qdot, vec3 & x, vec3 & xdot,
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	static cube::fixed<4,4,7> amats = zeros<cube>(4,4,7);
 
-	kinematics(q,link,origin,axis,amats);
+	kinematics(robot_joint.q,link,origin,axis,amats);
 	//rotate_to_quat(amats.slice(PALM)(span(X,Z),span(X,Z)),quat);
 	//calc_racket_orient(quat);
 	jacobian(link,origin,axis,jac);
-	x = link.col(PALM);
-	xdot = jac.rows(X,Z) * qdot;
-	n = amats.slice(PALM).col(1).head(3);
+	robot_racket.pos = link.col(PALM);
+	robot_racket.vel = jac.rows(X,Z) * robot_joint.qd;
+	robot_racket.normal = amats.slice(PALM).col(1).head(3);
 }
 
 /*
@@ -215,9 +119,8 @@ void rotate_to_quat(const mat33 & R, vec4 & quat) {
  */
 void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac) {
 
-	int i,j;
 	vec6 col;
-	for (i = 0; i < NDOF; ++i) {
+	for (int i = 0; i < NDOF; ++i) {
 		revolute_jac_col(lp.col(PALM), jop.col(i), jap.col(i), col);
 		jac.col(i) = col;
 	}

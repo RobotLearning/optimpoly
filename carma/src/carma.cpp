@@ -1,12 +1,86 @@
 #include <armadillo>
 #include "kalman.h"
+#include "player.hpp"
 #include "tabletennis.h"
 #include <cmath>
 #include <sys/time.h>
 #include "carma.h"
 
-using namespace std;
 using namespace arma;
+
+/* The data structures */
+typedef struct { /*!< joint space state for each DOF */
+  double   th;   /*!< theta */
+  double   thd;  /*!< theta-dot */
+  double   thdd; /*!< theta-dot-dot */
+  double   ufb;  /*!< feedback portion of command */
+  double   u;    /*!< torque command */
+  double   load; /*!< sensed torque */
+} SL_Jstate;
+
+typedef struct { /*!< desired values for controller */
+  double   th;   /*!< theta */
+  double   thd;  /*!< theta-dot */
+  double   thdd; /*!< theta-dot-dot */
+  double   uff;  /*!< feedforward torque command */
+  double   uex;  /*!< externally imposed torque */
+} SL_DJstate;
+
+typedef struct { /*!< Cartesian state */
+  double   x[NCART+1];    /*!< Position [x,y,z] */
+  double   xd[NCART+1];   /*!< Velocity */
+  double   xdd[NCART+1];  /*!< Acceleration */
+} SL_Cstate;
+
+typedef struct { /*!< Vision Blob */
+  char       status;
+  SL_Cstate  blob;
+} SL_VisionBlob;
+
+/*
+ *
+ * Interface to the PLAYER class that generates desired hitting trajectories.
+ * First initializes the player and then starts calling play() interface function.
+ *
+ */
+void play(const SL_Jstate joint_state[NDOF+1],
+		  const SL_VisionBlob blobs[4],
+		  SL_DJstate joint_des_state[NDOF+1]) {
+
+	static bool firsttime = true;
+	static vec7 q0;
+	static vec3 ball_obs;
+	static joint qact;
+	static joint qdes;
+	static Player cp; // centered player
+
+	if (firsttime) {
+		for (int i = 0; i < NDOF; i++) {
+			q0(i) = joint_state[i+1].th;
+		}
+		EKF filter = init_filter();
+		cp = Player(q0,filter);
+		firsttime = false;
+	}
+	else {
+		for (int i = 0; i < NDOF; i++) {
+			qact.q(i) = joint_state[i+1].th;
+			qact.qd(i) = joint_state[i+1].thd;
+			qact.qdd(i) = joint_state[i+1].thdd;
+		}
+		for (int i = 0; i < NCART; i++)
+			ball_obs(i) = blobs[1].blob.x[i+1];
+		cp.play(qact,ball_obs,qdes);
+	}
+
+	// update desired joint state
+	for (int i = 0; i < NDOF; i++) {
+		joint_des_state[i].th = qdes.q(i);
+		joint_des_state[i].thd = qdes.qd(i);
+		joint_des_state[i].thdd = qdes.qdd(i);
+	}
+
+}
 
 /*
  * Filter the blob information with a kalman Filter and save the result in filtState.
@@ -46,7 +120,7 @@ void ekf(double x[], double y[], double racket_pos[], double racket_orient[], in
 	}
 
 	obs << y[0] << endr << y[1] << endr << y[2] << endr;
-	bool new_ball = check_new_obs(obs);
+	bool new_ball = check_new_carma_obs(obs);
 
 	if (num_obs < min_obs) {
 		if (new_ball) {
@@ -129,9 +203,9 @@ void estimate_prior(const mat & observations, const vec & times,
 		M(i,2) = times(i) * times(i);
 	}
 	// solving for the parameters
-	cout << "Data matrix:" << endl << M << endl;
+	std::cout << "Data matrix:" << std::endl << M << std::endl;
 	mat Beta = solve(M,observations.t());
-	cout << "Parameters:" << endl << Beta << endl;
+	std::cout << "Parameters:" << endl << Beta << std::endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
 	P *= 0.1;
@@ -143,7 +217,7 @@ void estimate_prior(const mat & observations, const vec & times,
  * The blobs need to be at least tol = 1e-3 apart from each other in distance
  *
  */
-bool check_new_obs(const vec3 & obs) {
+bool check_new_carma_obs(const vec3 & obs) {
 
 	static vec3 last_obs = zeros<vec>(3);
 	static const double tol = 1e-3;

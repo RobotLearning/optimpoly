@@ -20,6 +20,17 @@
 
 using namespace arma;
 
+Player::Player() : filter(init_filter()) {
+
+	time_land_des = 0.8;
+	time2return = 1.0;
+
+	ball_land_des(X) = 0.0;
+	ball_land_des(Y) = dist_to_table - 3*table_length/4;
+	q_rest_des = zeros<vec>(NDOF);
+	moving = false;
+}
+
 /*
  * Initialize Centred Table Tennis Player (CP)
  *
@@ -172,19 +183,17 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 /*
  * Play Table Tennis
  */
-joint Player::play(const joint & qact, const vec3 & obs) {
+void Player::play(const joint & qact,
+		           const vec3 & ball_obs,
+				   joint & qdes) {
 
-	joint qdes = {q_rest_des, zeros<vec>(NDOF), zeros<vec>(NDOF)};
-
-	estimate_ball_state(obs);
+	estimate_ball_state(ball_obs);
 
 	// initialize optimization and get the hitting parameters
 	calc_optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
-
-	return qdes;
 
 }
 
@@ -325,7 +334,7 @@ void Player::generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) c
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
  */
-racket Player::calc_racket_strategy(const mat & balls_predicted) {
+racketdes Player::calc_racket_strategy(const mat & balls_predicted) {
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
@@ -489,7 +498,7 @@ bool check_new_obs(const vec3 & obs) {
  * Friend function that exposes Player's racket strategy
  *
  */
-racket send_racket_strategy(Player & robot) {
+racketdes send_racket_strategy(Player & robot) {
 
 	mat balls_pred;
 	robot.predict_ball(balls_pred);

@@ -63,7 +63,7 @@ inline void init_right_posture(vec7 & q0) {
 	q0(6) = 0.3;
 }
 
-/*
+
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
 	std::cout << "Testing NLOPT Optimization" << std::endl;
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	Player robot = Player(init_joint_state,filter);
-	racket racket_params = send_racket_strategy(robot);
+	racketdes racket_params = send_racket_strategy(robot);
 	vec3 normal_example;
 	int example = 5;
 	for (int i = 0; i < NCART; i++) {
@@ -109,11 +109,11 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	optim opt_params = {q0, q0dot, 0.5, false};
 
 	// run NLOPT opt algorithm here //
-//	auto future = std::async(nlopt_optim_poly_run,
-//			&coparams,&racket_params,&opt_params);
-//	double max_violation = future.get();
+	//auto future = std::async(nlopt_optim_poly_run,
+	//		&coparams,&racket_params,&opt_params);
+    //double max_violation = future.get();
 	double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);
 
 	// test to see if kinematics constraints are violated
 	BOOST_TEST(max_violation < 0.01);
-}*/
+}

@@ -27,7 +27,7 @@ private:
 	vec2 ball_land_des; // desired landing position
 	double time_land_des; // desired landing time
 	double time2return; // fixed return time for robot
-	racket racket_params;
+	racketdes racket_params;
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
@@ -37,22 +37,23 @@ private:
 	void estimate_prior(const mat & observations, const vec & times);
 	void calc_optim_param(const joint & qact); // run optimizer
 	void predict_ball(mat & balls_pred);
-	racket calc_racket_strategy(const mat & balls_predicted);
+	racketdes calc_racket_strategy(const mat & balls_predicted);
 	void calc_next_state(const joint & qact, joint & qdes);
 	void generate_strike(const joint & qact, mat & Q, mat & Qd, mat & Qdd) const;
 
 public:
 
+	Player();
 	Player(const vec7 & q0, const EKF & filter);
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
 
 	// friend function to test racket strategy
-	friend racket send_racket_strategy(Player & robot);
+	friend racketdes send_racket_strategy(Player & robot);
 
 	// main function
-	joint play(const joint & qact, const vec3 & obs);
+	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);
 };
 
 EKF init_filter(); // init filter for ball estimation
@@ -66,7 +67,7 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal);
 bool check_legal_ball(const mat & balls_predicted);
 bool check_new_obs(const vec3 & obs);
-racket send_racket_strategy(const vec7 & qinit, const vec6 & ball_state,
+racketdes send_racket_strategy(const vec7 & qinit, const vec6 & ball_state,
 		                    const double T);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 double** my_matrix(int nrl, int nrh, int ncl, int nch);

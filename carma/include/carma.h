@@ -6,6 +6,11 @@
 extern "C" {
 #endif
 
+// Interface for Player
+extern void play(const SL_Jstate joint_state[],
+		         const SL_VisionBlob blobs[],
+				 SL_DJstate joint_des_state[]);
+
 // kf function for SL
 extern void ekf(double x[], double y[], double racket_pos[], double racket_orient[], int *reset);
 
@@ -21,8 +26,7 @@ extern void pinv_matrix(double** matc, int nrows, int ncols, double** out);
 
 #ifdef __cplusplus
 // internal c++ functions
-void ekf(double x[], double y[], double racket_pos[], double racket_orient[], int *reset);
-bool check_new_obs(const vec3 & obs);
+bool check_new_carma_obs(const vec3 & obs);
 EKF* init_ball_filter(const mat & obss, const vec & times);
 void pass_mean_estimate(double x[], EKF * filter);
 void estimate_prior(const mat & observations, const vec & times,

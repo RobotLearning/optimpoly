@@ -27,7 +27,7 @@ typedef struct {
 	double** vel;
 	double** normal;
 	int Nmax; // max column length
-} racket;
+} racketdes;
 
 typedef struct {
 	double* q0;
@@ -46,6 +46,8 @@ typedef struct {
 } optim; // optimization variables
 
 // interface
-double nlopt_optim_poly_run(coptim * coparams, racket * racket, optim * params);
+double nlopt_optim_poly_run(coptim * coparams,
+		                    racketdes * racketdata,
+							optim * params);
 
 #endif /* OPTIMPOLY_H_ */

@@ -26,12 +26,11 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 
 	SPIN_MODE = spin_flag;
 	VERBOSE = verbosity;
+	LAND = false;
+	HIT = false;
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	racket_pos = datum::inf * ones<vec>(3);
-	racket_vel = datum::inf * ones<vec>(3);
-	racket_orient = datum::inf * ones<vec>(4);
 
 	//init_topspin();
 }
@@ -45,12 +44,11 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 
 	SPIN_MODE = spin_flag;
 	VERBOSE = verbosity;
+	LAND = false;
+	HIT = false;
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
-	racket_pos = datum::inf * ones<vec>(3);
-	racket_vel = datum::inf * ones<vec>(3);
-	racket_orient = datum::inf * ones<vec>(4);
 
 	//init_topspin();
 }
@@ -92,6 +90,8 @@ void TableTennis::set_ball_state(double std) {
 	this->ball_pos = rand_ball_pos;
 	this->ball_vel = rand_ball_vel;
 	this->ball_spin = zeros<vec>(3);
+	this->LAND = false;
+	this->HIT = false;
 }
 
 /*
@@ -111,14 +111,38 @@ vec3 TableTennis::get_ball_velocity() const {
 }
 
 /*
- * Date	: August 2007
- * Modified: July-August 2016
+ * Modified: February 2017
  *
  * Integrate the ball state dt seconds later.
  * Checking contacts with environment, i.e. racket, net, table, ground.
  * TODO: implementing Symplectic Euler, implement RK4 also!
  *
  * Takes around 1mu sec to run
+ *
+ */
+void TableTennis::integrate_ball_state(const racket & robot_racket,
+		                               const double dt) {
+
+	// Symplectic Euler for No-Contact-Situation (Flight model)
+	vec3 ball_acc = flight_model();
+	vec3 ball_cand_pos, ball_cand_vel;
+	symplectic_euler(ball_acc, ball_cand_pos, ball_cand_vel, dt);
+
+	if (CHECK_CONTACTS) {
+		check_contact(robot_racket,ball_cand_pos,ball_cand_vel);
+	}
+
+	// Pass the computed ball variables to ball pos and vel
+	ball_pos = ball_cand_pos;
+	ball_vel = ball_cand_vel;
+}
+
+/*
+ * Modified: July-August 2016
+ *
+ * Integrate the ball state dt seconds later.
+ * Checking contacts with environment, i.e. net, table, ground.
+ * Does not check the racket!!
  *
  */
 void TableTennis::integrate_ball_state(double dt) {
@@ -128,8 +152,11 @@ void TableTennis::integrate_ball_state(double dt) {
 	vec3 ball_cand_pos, ball_cand_vel;
 	symplectic_euler(ball_acc, ball_cand_pos, ball_cand_vel, dt);
 
-	if (CHECK_CONTACTS)
-		check_contact(ball_cand_pos,ball_cand_vel);
+	if (CHECK_CONTACTS) {
+		check_ball_table_contact(ball_cand_pos,ball_cand_vel);
+		check_ball_net_contact(ball_cand_pos,ball_cand_vel);
+		check_ball_ground_contact(ball_cand_pos,ball_cand_vel);
+	}
 
 	// Pass the computed ball variables to ball pos and vel
 	ball_pos = ball_cand_pos;
@@ -180,7 +207,7 @@ vec3 TableTennis::drag_flight_model() const {
  *
  */
 void TableTennis::symplectic_euler(const vec3 & ball_acc,
-		vec3 & ball_next_pos, vec3 & ball_next_vel, double dt) const {
+		vec3 & ball_next_pos, vec3 & ball_next_vel, const double dt) const {
 
 	// ball candidate velocities
 	ball_next_vel(X) = ball_vel(X) + ball_acc(X) * dt;
@@ -200,14 +227,16 @@ void TableTennis::symplectic_euler(const vec3 & ball_acc,
  * a simulated human opponent!
  *
  */
-void TableTennis::check_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
+void TableTennis::check_contact(const racket & robot_racket,
+		                        vec3 & ball_cand_pos,
+		                        vec3 & ball_cand_vel) {
 
 	// Check contact to table
 	check_ball_table_contact(ball_cand_pos,ball_cand_vel);
 	// Check contact with net
 	check_ball_net_contact(ball_cand_pos,ball_cand_vel);
 	// Check contact with racket
-	check_ball_racket_contact(ball_cand_pos,ball_cand_vel);
+	check_ball_racket_contact(robot_racket,ball_cand_pos,ball_cand_vel);
 	// Check if it hits the ground...
 	check_ball_ground_contact(ball_cand_pos,ball_cand_vel);
 }
@@ -216,6 +245,8 @@ void TableTennis::check_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
  * Condition to determine if ball hits the table
  * Useful for prediction including a rebound model
  * Useful also in KF/EKF filtering.
+ *
+ *
  */
 void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
 
@@ -227,8 +258,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 			(fabs(ball_cand_pos(X) - table_center) <= table_width/2.0)) {
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
-			if (VERBOSE)
-				cout << "Bounces on table!" << endl;
+			LAND = check_landing(ball_cand_pos(Y),HIT,VERBOSE);
 			table_contact_model(ball_spin,ball_cand_vel,SPIN_MODE);
 		}
 	}
@@ -257,14 +287,14 @@ void TableTennis::check_ball_net_contact(vec3 & ball_cand_pos, vec3 & ball_cand_
 		// apply super simplistic model for contact with net
 		if (dist_state_net >= 0.0 && dist_cand_net < 0.0) {
 			if (VERBOSE)
-				cout << "Touches the net!" << endl;
+				std::cout << "Touches the net!" << std::endl;
 			// Reflect to Front
 			ball_cand_vel(Y) *= -net_restitution;
 			ball_cand_pos(Y) = net_dist_robot + (0.5 * net_thickness + ball_radius);
 		}
 		else if (dist_state_net < 0.0 && dist_cand_net >= 0.0){
 			if (VERBOSE)
-				cout << "Touches the net!" << endl;
+				std::cout << "Touches the net!" << std::endl;
 			// Reflect to Back
 			ball_cand_vel(Y) *= -net_restitution;
 			ball_cand_pos(Y) = net_dist_robot - (0.5 * net_thickness + ball_radius);
@@ -278,30 +308,25 @@ void TableTennis::check_ball_net_contact(vec3 & ball_cand_pos, vec3 & ball_cand_
  * If racket is going to hit the ball, static hit variable is set to TRUE so that
  * we do not hit it the next time.
  *
- * FIXME: hit variable not added from SL code
  *
  */
-void TableTennis::check_ball_racket_contact(const vec3 & ball_cand_pos, vec3 & ball_cand_vel) const {
+void TableTennis::check_ball_racket_contact(const racket & robot_racket,
+		                                    const vec3 & ball_cand_pos,
+		                                    vec3 & ball_cand_vel) {
 
-	vec3 Zdir; Zdir(Z) = 1.0;
-	mat33 Rmat = quat2mat(racket_orient);
-	// calculate the normal of the racket
-	vec3 racket_normal = Rmat * Zdir;
-	vec3 racket2ball = racket_pos - ball_cand_pos;
-	double normal_dist_ball2racket = dot(racket_normal,racket2ball);
+	vec3 racket2ball = robot_racket.pos - ball_cand_pos;
+	double normal_dist_ball2racket = dot(robot_racket.normal,racket2ball);
 	double parallel_dist_ball2racket = sqrt(fabs(dot(racket2ball,racket2ball)
 							- normal_dist_ball2racket*normal_dist_ball2racket));
 
-	// represent vector in local coordinates
-	racket2ball = Rmat.t() * racket2ball;
-
 	// check for contact with racket
 	if ((parallel_dist_ball2racket < racket_radius) &&
-			(fabs(normal_dist_ball2racket) < ball_radius)) {
+			(fabs(normal_dist_ball2racket) < ball_radius) && !HIT) {
+		HIT = true;
 		if (VERBOSE)
-			cout << "Contact with racket!" << endl;
+			std::cout << "Contact with racket!" << std::endl;
 		// Reflect to back
-		racket_contact_model(racket_vel, racket_normal, ball_cand_vel);
+		racket_contact_model(robot_racket.vel, robot_racket.normal, ball_cand_vel);
 	}
 }
 
@@ -315,13 +340,53 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
 	static double ball_last_z_pos;
 	if (ball_cand_pos(Z) <= floor_level) {
 		if (VERBOSE && (ball_pos(Z) != ball_last_z_pos)) // we dont want to print all the time
-			cout << "Contact with ground Zeroing the velocities!" << endl;
+			std::cout << "Contact with ground Zeroing the velocities!" << std::endl;
 		// zero the velocities
 		ball_cand_vel = zeros<vec>(3);
 		ball_cand_pos(Z) = floor_level;
 	}
 	ball_last_z_pos = ball_pos(Z);
 
+}
+
+/*
+ * Returns TRUE if ball has landed legally
+ *
+ */
+bool TableTennis::has_landed() const {
+
+	return this->LAND;
+}
+
+/*
+ * Checks for legal landing on the opponents court
+ * if there was already a hit then the bounce location is checked.
+ *
+ */
+bool check_landing(const double ball_y, const bool hit, const bool verbose) {
+
+	bool land = false;
+	if (verbose) {
+		if (ball_y < dist_to_table - table_length/2.0)
+			std::cout << "Bounces on opponents court!" << std::endl;
+		else
+			std::cout << "Bounces on robot court!" << std::endl;
+	}
+	if (hit) {
+		if (ball_y < dist_to_table - table_length/2.0) {
+			land = true;
+			if (verbose) {
+				std::cout << "Legal land!" << std::endl;
+			}
+		}
+		else {
+			land = false;
+			if (verbose) {
+				std::cout << "Illegal ball! Lost a point..." << std::endl;
+			}
+		}
+	}
+	return land;
 }
 
 /*
@@ -356,7 +421,7 @@ mat33 quat2mat(const vec4 & q) {
  * TODO: add a spinning contact model
  *
  */
-void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal, vec3 ball_vel) {
+void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal, vec3 & ball_vel) {
 
 	double speed = (1 + CRR) * dot(racket_normal, racket_vel - ball_vel);
 	ball_vel += speed * racket_normal;
@@ -391,7 +456,7 @@ void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
 
 /*
  * Friend function that exposes table tennis ball integration function
- * to an outside filter (e.g. EKF)
+ * to an outside filter (e.g. EKF) except for racket contact
  *
  * Warning: spin is turned off!
  *
@@ -403,6 +468,26 @@ vec calc_next_ball(const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(xnow);
 	tennis.integrate_ball_state(dt);
+	static vec6 out = zeros<vec>(6);
+	out(span(X,Z)) = tennis.ball_pos;
+	out(span(DX,DZ)) = tennis.ball_vel;
+	return out;
+}
+
+/*
+ * Friend function that exposes table tennis ball integration function
+ * to an outside filter (e.g. EKF) including potential racket contact
+ *
+ * Warning: spin is turned off!
+ *
+ * xnow consists of current ball position and velocity
+ *
+ *
+ */
+vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
+
+	TableTennis tennis = TableTennis(xnow);
+	tennis.integrate_ball_state(robot,dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
 	out(span(DX,DZ)) = tennis.ball_vel;
