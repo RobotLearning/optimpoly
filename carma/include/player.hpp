@@ -31,7 +31,7 @@ private:
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
-	bool launch_optim; // robot is moving or not
+	bool moving; // robot is moving or not
 
 	void estimate_ball_state(const vec3 & obs);
 	void estimate_prior(const mat & observations, const vec & times);

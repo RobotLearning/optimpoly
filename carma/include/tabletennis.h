@@ -27,7 +27,7 @@ static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
 // functions outside of Table Tennis class
 mat33 quat2mat(const vec4 & q);
-bool check_landing(const double ball_y, const bool hit, const bool verbose);
+void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
 void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
 void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
 		                 vec3 & ball_vel);

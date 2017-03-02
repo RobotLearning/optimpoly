@@ -58,7 +58,7 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 
 	optim_params = {qzero, qzerodot, 0.5, false, false};
 	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return};
-	launch_optim = false;
+	moving = false;
 
 }
 
@@ -210,14 +210,14 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::calc_optim_param(const joint & qact) {
 
-
 	vec6 state_est;
 	mat balls_pred;
 	try {
 		state_est = filter.get_mean();
 
 		// if ball is fast enough and robot is not moving consider optimization
-		if (!launch_optim && !optim_params.running && state_est(Y) > (dist_to_table - table_length/2) &&
+		if (!moving && !optim_params.update && !optim_params.running
+				&& state_est(Y) > (dist_to_table - table_length/2) &&
 				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
 			predict_ball(balls_pred);
 			if (check_legal_ball(balls_pred)) { // ball is legal
@@ -226,7 +226,6 @@ void Player::calc_optim_param(const joint & qact) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
-				launch_optim = true;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_poly_run,
 						&coparams,&racket_params,&optim_params);
@@ -267,28 +266,25 @@ void Player::predict_ball(mat & balls_pred) {
  */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
-	static bool update_next_state = false;
 	static unsigned idx = 0;
 	static mat Q_des, Qd_des, Qdd_des;
 
 	// this should be only for MPC?
 	if (optim_params.update) {
-		optim_params.update = false;
-		update_next_state = true;
+		moving = true;
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
 	}
 
 	// make sure we update after optim finished
-	if (launch_optim && update_next_state) {
+	if (moving) {
 		qdes.q = Q_des.col(idx);
 		qdes.qd = Qd_des.col(idx);
 		qdes.qdd = Qdd_des.col(idx);
 		idx++;
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
-			launch_optim = false;
-			update_next_state = false;
+			moving = false;
 			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(7);
 			qdes.qdd = zeros<vec>(7);

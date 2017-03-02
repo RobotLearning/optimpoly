@@ -12,10 +12,10 @@
 #include <armadillo>
 #include <thread>
 #include <future>
-#include "constants.h"
 #include "kinematics.h"
 #include "optimpoly.h"
 #include "lookup.h"
+#include "tabletennis.h"
 #include "player.hpp"
 
 using namespace arma;
@@ -64,13 +64,58 @@ inline void init_right_posture(vec7 & q0) {
 }
 
 /*
+ * 	Lookup a lot of balls
+ *	Run robot optimization for each by calling cheat function
+ *	which should call optimizer and update optim parameters
+ *	which then updates the desired joint angles
+ */
+/*BOOST_AUTO_TEST_CASE(test_joint_limits) {
+
+	std::cout << "******************** Testing joint limits ****************" << std::endl;
+	int num_balls = 1;
+	int iter = 1000;
+	arma_rng::set_seed_random();
+	vec::fixed<15> strike_params;
+	vec6 ball_state;
+
+	double Tmax = 1.0;
+	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	set_bounds(lb,ub,0.01,Tmax);
+	vec7 lbvec(lb);
+	vec7 ubvec(ub);
+	TableTennis *tt;
+	Player *robot;
+	EKF filter = init_filter();
+	vec7 q0;
+	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+	init_right_posture(q0);
+	mat Qdes = zeros<mat>(NDOF,iter);
+
+	for (int i = 0; i < num_balls; i++) {
+		lookup_random_entry(ball_state,strike_params);
+		tt = new TableTennis(ball_state,false,true);
+		robot = new Player(q0,filter);
+		for (int j = 0; j < iter; j++) {
+			robot->cheat(qact, join_vert(tt->get_ball_position(),tt->get_ball_velocity()), qdes);
+			tt->integrate_ball_state(dt);
+			Qdes.col(j) = qdes.q;
+		}
+		BOOST_TEST(!(any(max(Qdes,1) < ubvec)));
+		BOOST_TEST(!(any(min(Qdes,1) > lbvec)));
+	}
+	std::cout << "***************************************" << std::endl;
+}*/
+
+/*
  * TODO: optimization after optimization thread launched at Player class
  *       causes Segmentation Fault!
  */
-/*
+
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
-	std::cout << "Testing NLOPT Optimization" << std::endl;
+	std::cout << "**************Testing NLOPT Optimization***********" << std::endl;
 	double *q0dot = (double*)calloc(NDOF,sizeof(double));
 	double *q0 = (double*)calloc(NDOF,sizeof(double));
 	// initial guess for optim //
@@ -123,11 +168,16 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	optim opt_params = {q0, q0dot, 0.5, false};
 
 	// run NLOPT opt algorithm here //
-	//auto future = std::async(nlopt_optim_poly_run,
-	//		&coparams,&racket_params,&opt_params);
-    //double max_violation = future.get();
-	double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);
+	std::thread t(&nlopt_optim_poly_run,
+			&coparams,&racket_params,&opt_params);
+	t.join();
+	std::cout << "***************************************" << std::endl;
+
+	/*auto future = std::async(nlopt_optim_poly_run,
+			&coparams,&racket_params,&opt_params);
+    double max_violation = future.get();*/
+	//double max_violation = nlopt_optim_poly_run(&coparams,&racket_params,&opt_params);
 
 	// test to see if kinematics constraints are violated
-	BOOST_TEST(max_violation < 0.01);
-}*/
+	//BOOST_TEST(max_violation < 0.01);
+}

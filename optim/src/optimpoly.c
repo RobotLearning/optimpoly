@@ -60,8 +60,9 @@ double nlopt_optim_poly_run(coptim *coparams,
 					      racketdes *racketdata,
 						  optim *params) {
 
-	params->running = TRUE;
 	//print_input_structs(coparams, racketdata, params);
+	params->update = FALSE;
+	params->running = TRUE;
 	nlopt_opt opt;
 	const double tol_scalar = 1e-2;
 	double x[OPTIM_DIM];

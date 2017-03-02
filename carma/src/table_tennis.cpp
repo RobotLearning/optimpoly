@@ -257,7 +257,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 			(fabs(ball_cand_pos(X) - table_center) <= table_width/2.0)) {
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
-			LAND = check_landing(ball_cand_pos(Y),HIT,VERBOSE);
+			check_landing(ball_cand_pos(Y),HIT,VERBOSE,LAND);
 			table_contact_model(ball_spin,ball_cand_vel,SPIN_MODE);
 		}
 	}
@@ -362,16 +362,15 @@ bool TableTennis::has_landed() const {
  * if there was already a hit then the bounce location is checked.
  *
  */
-bool check_landing(const double ball_y, const bool hit, const bool verbose) {
+void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land) {
 
-	bool land = false;
 	if (verbose) {
 		if (ball_y < dist_to_table - table_length/2.0)
 			std::cout << "Bounces on opponents court!" << std::endl;
 		else
 			std::cout << "Bounces on robot court!" << std::endl;
 	}
-	if (hit) {
+	if (hit && !land) {
 		if (ball_y < dist_to_table - table_length/2.0) {
 			land = true;
 			if (verbose) {
@@ -385,7 +384,6 @@ bool check_landing(const double ball_y, const bool hit, const bool verbose) {
 			}
 		}
 	}
-	return land;
 }
 
 /*
