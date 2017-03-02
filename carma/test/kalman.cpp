@@ -14,6 +14,7 @@
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
+#include "tabletennis.h"
 
 using namespace std;
 using namespace arma;
@@ -176,8 +177,6 @@ BOOST_AUTO_TEST_CASE( test_update_predict ) {
  */
 BOOST_AUTO_TEST_CASE( test_ekf ) {
 
-	#include "tabletennis.h"
-
 	int dimx = 6;
 	int dimy = 3;
 	double eps = 0.01;
@@ -201,4 +200,39 @@ BOOST_AUTO_TEST_CASE( test_ekf ) {
 	//cout << "P1" << endl << filter.get_covar() << endl;
 
 	//BOOST_TEST(true);
+}
+
+/*
+ * Test predict path function of EKF with table tennis
+ */
+BOOST_AUTO_TEST_CASE( test_predict_path ) {
+
+	TableTennis tt = TableTennis();
+	arma_rng::set_seed(5);
+
+	// initialize a filter to predict
+	mat C(3,6,fill::zeros);
+	C.cols(1,3) = eye<mat>(3,3);
+	// diagonal covariances
+	mat Q(6,6,fill::zeros);
+	mat R(3,3,fill::eye);
+	R *= 0.001;
+	EKF filter = EKF(calc_next_ball,C,Q,R);
+
+	int N = 50;
+	double dt = 0.01;
+	tt.set_ball_state(0.2);
+
+	vec6 ball_state = join_vert(tt.get_ball_position(),tt.get_ball_velocity());
+	filter.set_prior(ball_state,0.01 * eye<mat>(6,6));
+
+	mat M = zeros<mat>(6,N);
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(dt);
+		M.col(i) = join_vert(tt.get_ball_position(),tt.get_ball_velocity());
+	}
+	mat Mfilt = filter.predict_path(dt,N);
+
+	BOOST_TEST(approx_equal(M, Mfilt, "absdiff", 0.002));
+
 }

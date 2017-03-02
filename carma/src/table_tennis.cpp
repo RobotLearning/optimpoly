@@ -19,7 +19,6 @@
  * Initialize ball pos and velocity to input vector of size 6
  * and initialize ball spin to zero
  *
- * TODO: initialized racket variables to inf!
  *
  */
 TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity) {

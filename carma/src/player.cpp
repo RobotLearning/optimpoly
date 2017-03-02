@@ -218,8 +218,8 @@ void Player::calc_optim_param(const joint & qact) {
 		state_est = filter.get_mean();
 
 		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && state_est(Y) > (dist_to_table - table_length/2)
-				&& state_est(DY) > 1.0 && !launch_thread) {
+		if (!moving && state_est(Y) > (dist_to_table - table_length/2) &&
+				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
 			predict_ball(balls_pred);
 			if (check_legal_ball(balls_pred)) { // ball is legal
 				calc_racket_strategy(balls_pred);
@@ -227,12 +227,10 @@ void Player::calc_optim_param(const joint & qact) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
-				std::cout << balls_pred.cols(90,100-1) << std::endl;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_poly_run,
 						&coparams,&racket_params,&optim_params);
 				t.detach();
-				launch_thread = true;
 			}
 		}
 	}
