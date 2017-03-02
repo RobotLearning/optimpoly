@@ -42,6 +42,7 @@ typedef struct {
 	double* qf;
 	double* qfdot;
 	double T;
+	int running;
 	int update;
 } optim; // optimization variables
 

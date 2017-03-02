@@ -60,6 +60,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 					      racketdes *racketdata,
 						  optim *params) {
 
+	params->running = TRUE;
 	//print_input_structs(coparams, racketdata, params);
 	nlopt_opt opt;
 	const double tol_scalar = 1e-2;
@@ -100,9 +101,10 @@ double nlopt_optim_poly_run(coptim *coparams,
 	    if (max_violation < tol_scalar)
 	    	finalize_soln(x,params,past_time);
 	}
+	params->running = FALSE;
 	check_optim_result(res);
 	//nlopt_destroy(opt);
-	return 0.0; //max_violation;
+	return max_violation;
 }
 
 static void print_input_structs(coptim *coparams,

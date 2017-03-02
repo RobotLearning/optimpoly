@@ -28,7 +28,6 @@ using namespace arma;
  */
 Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 
-	launch_thread = false;
 	time_land_des = 0.8;
 	time2return = 1.0;
 
@@ -57,10 +56,9 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 		qinit[i] = qrest[i] = qzero[i] = q0(i);
 	}
 
-	optim_params = {qzero, qzerodot, 0.5, false};
+	optim_params = {qzero, qzerodot, 0.5, false, false};
 	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return};
-
-	moving = false;
+	launch_optim = false;
 
 }
 
@@ -212,21 +210,23 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::calc_optim_param(const joint & qact) {
 
+
 	vec6 state_est;
 	mat balls_pred;
 	try {
 		state_est = filter.get_mean();
 
 		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && state_est(Y) > (dist_to_table - table_length/2) &&
+		if (!launch_optim && !optim_params.running && state_est(Y) > (dist_to_table - table_length/2) &&
 				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
 			predict_ball(balls_pred);
 			if (check_legal_ball(balls_pred)) { // ball is legal
-				calc_racket_strategy(balls_pred);
+				calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 				for (int i = 0; i < NDOF; i++) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
+				launch_optim = true;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_poly_run,
 						&coparams,&racket_params,&optim_params);
@@ -267,27 +267,28 @@ void Player::predict_ball(mat & balls_pred) {
  */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
+	static bool update_next_state = false;
 	static unsigned idx = 0;
 	static mat Q_des, Qd_des, Qdd_des;
 
 	// this should be only for MPC?
 	if (optim_params.update) {
-		moving = true;
 		optim_params.update = false;
-		launch_thread = false;
+		update_next_state = true;
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
 	}
 
 	// make sure we update after optim finished
-	if (moving) {
+	if (launch_optim && update_next_state) {
 		qdes.q = Q_des.col(idx);
 		qdes.qd = Qd_des.col(idx);
 		qdes.qdd = Qdd_des.col(idx);
 		idx++;
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
-			moving = false;
+			launch_optim = false;
+			update_next_state = false;
 			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(7);
 			qdes.qdd = zeros<vec>(7);
@@ -303,7 +304,9 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
  */
-racketdes Player::calc_racket_strategy(const mat & balls_predicted) {
+racketdes calc_racket_strategy(const mat & balls_predicted,
+		                       const vec2 & ball_land_des, const double time_land_des,
+							   racketdes & racket_params) {
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
@@ -421,7 +424,7 @@ void calc_des_ball_out_vel(const vec2 & ball_land_des,
 	// elementwise division
 	balls_out_vel.row(X) = (ball_land_des(X) - balls_predicted.row(X)) / time_land_des;
 	balls_out_vel.row(Y) = (ball_land_des(Y) - balls_predicted.row(Y)) / time_land_des;
-	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) +
+	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) -
 			                0.5 * gravity * pow(time_land_des,2)) / time_land_des;
 
 	//TODO: consider air drag, hack for now
@@ -444,7 +447,7 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 
 	int N = vel_ball_in.n_cols;
 	for (int i = 0; i < N; i++) {
-		racket_vel.col(i) = dot((vel_ball_out.col(i) + CRR * vel_ball_in.col(i) / (1 + CRR)),
+		racket_vel.col(i) = dot(((vel_ball_out.col(i) + CRR * vel_ball_in.col(i)) / (1 + CRR)),
 								racket_normal.col(i)) * racket_normal.col(i);
 	}
 }
@@ -498,19 +501,6 @@ bool check_new_obs(const vec3 & obs) {
 		return true;
 	}
 	return false;
-}
-
-/*
- * Friend function that exposes Player's racket strategy
- *
- */
-racketdes send_racket_strategy(Player & robot) {
-
-	mat balls_pred;
-	robot.predict_ball(balls_pred);
-
-	//cout << filter.get_mean() << endl;
-	return robot.calc_racket_strategy(balls_pred);
 }
 
 /*

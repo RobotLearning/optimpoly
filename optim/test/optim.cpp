@@ -95,12 +95,22 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	// predict for T_pred seconds
 	set_bounds(lb,ub,SLACK,Tmax);
 
+	int N = 100;
+	double** pos = my_matrix(0,NCART,0,N);
+	double** vel = my_matrix(0,NCART,0,N);
+	double** normal = my_matrix(0,NCART,0,N);
+	racketdes racket_params = {pos, vel, normal, N};
+
 	double time2return = 1.0;
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-	Player robot = Player(init_joint_state,filter);
-	racketdes racket_params = send_racket_strategy(robot);
+	mat balls_pred = filter.predict_path(0.02,100);
+	double time_land_des = 0.8;
+	vec2 ball_land_des;
+	ball_land_des(X) = 0.0;
+	ball_land_des(Y) = dist_to_table - 3*table_length/4;
+	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 	vec3 normal_example;
 	int example = 5;
 	for (int i = 0; i < NCART; i++) {
