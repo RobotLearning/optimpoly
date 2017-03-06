@@ -36,8 +36,8 @@ typedef struct { /*!< Vision Blob */
 	SL_Cstate  blob;
 } SL_VisionBlob;
 
-algo alg = FIXED;
-bool reset = true;
+static algo alg = FIXED;
+static bool reset = true;
 
 #include "carma.h"
 
