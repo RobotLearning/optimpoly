@@ -19,6 +19,8 @@
 
 #define BOOST_TEST_MODULE test_table_tennis
 #include <boost/test/unit_test.hpp>
+#include <boost/test/data/test_case.hpp>
+#include <boost/test/data/monomorphic.hpp>
 #include <armadillo>
 #include "player.hpp"
 #include "constants.h"
@@ -27,6 +29,9 @@
 #include "kalman.h"
 
 using namespace arma;
+namespace data = boost::unit_test::data;
+
+algo algs[] = {VHP,FIXED};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -45,7 +50,8 @@ inline void init_right_posture(vec7 & q0) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-BOOST_AUTO_TEST_CASE(test_land) {
+BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+//BOOST_AUTO_TEST_CASE(test_land) {
 
 	std::cout << "*************** Testing Robot Ball Landing ************" << std::endl;
 
@@ -63,7 +69,7 @@ BOOST_AUTO_TEST_CASE(test_land) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	init_right_posture(q0);
 	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter);
+	Player *robot = new Player(q0,filter,alg);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
@@ -82,6 +88,7 @@ BOOST_AUTO_TEST_CASE(test_land) {
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
 	BOOST_TEST(all(min(Qdes,1) > lbvec));
 	BOOST_TEST(tt.has_landed());
+	delete(robot);
 	std::cout << "******************************************************" << std::endl;
 }
 

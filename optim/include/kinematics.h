@@ -87,6 +87,5 @@ void set_endeffector(double endeff_pos[NCART]);
 
 // loading joint limits from SL config files
 int read_joint_limits(double *lb, double *ub);
-int read_sensor_offsets(char *fname);
 
 #endif /* KINEMATICS_H_ */

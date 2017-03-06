@@ -7,37 +7,19 @@
  *      Author: okoc
  */
 
+#include "../include/optim.h"
+
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
 #include <thread>
-#include <future>
+#include "utils.h"
 #include "kinematics.h"
-#include "optimpoly.h"
 #include "lookup.h"
 #include "tabletennis.h"
 #include "player.hpp"
 
 using namespace arma;
-
-/*
- * Set upper and lower bounds on the optimization.
- * First loads the joint limits and then
- */
-inline void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
-
-	read_joint_limits(lb,ub);
-	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < NDOF; i++) {
-		ub[i] -= SLACK;
-		lb[i] += SLACK;
-		ub[i+NDOF] = MAX_VEL;
-		lb[i+NDOF] = -MAX_VEL;
-	}
-	// constraints on final time
-	ub[2*NDOF] = Tmax;
-	lb[2*NDOF] = 0.0;
-}
 
 /*
  * Sending to C optimization routine the right data
@@ -109,10 +91,10 @@ inline void init_right_posture(vec7 & q0) {
 }*/
 
 /*
- * TODO: optimization after optimization thread launched at Player class
- *       causes Segmentation Fault!
+ *
+ * Here testing NLOPT optimization for FIXED player
+ *
  */
-
 BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
 	std::cout << "**************Testing NLOPT Optimization***********" << std::endl;
@@ -144,7 +126,7 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racketdes racket_params = {pos, vel, normal, N};
+	racketdes racket_params = {pos, vel, normal, dt, N};
 
 	double time2return = 1.0;
 	EKF filter = init_filter();

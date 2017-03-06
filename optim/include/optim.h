@@ -26,6 +26,7 @@ typedef struct {
 	double** pos;
 	double** vel;
 	double** normal;
+	double dt;
 	int Nmax; // max column length
 } racketdes;
 
@@ -46,9 +47,14 @@ typedef struct {
 	int update;
 } optim; // optimization variables
 
-// interface
+// interface for FIXED player
 double nlopt_optim_poly_run(coptim * coparams,
 		                    racketdes * racketdata,
 							optim * params);
+
+// interface for VHP player
+double nlopt_vhp_run(coptim *coparams,
+					 racketdes *racketdata,
+					 optim *params);
 
 #endif /* OPTIMPOLY_H_ */

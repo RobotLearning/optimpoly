@@ -73,8 +73,8 @@ KF::KF(mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
 	check_spd(Rin);
 
 	int dimx = Ain.n_rows;
-	int dimu = Bin.n_cols;
-	int dimy = Cin.n_rows;
+	//int dimu = Bin.n_cols;
+	//int dimy = Cin.n_rows;
 
 	// initialize state mean and covariance
 	this->x = datum::inf * ones<vec>(dimx);

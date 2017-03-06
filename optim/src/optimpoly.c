@@ -9,11 +9,11 @@
  */
 
 #include "constants.h"
-#include "optimpoly.h"
 #include "utils.h"
 #include "kinematics.h"
 #include "stdlib.h"
 #include "math.h"
+#include "optim.h"
 
 // termination
 static double test_optim(const double *x, coptim *params, racketdes *racketdata, int info);
@@ -22,7 +22,6 @@ static int check_optim_result(const int res);
 
 // optimization related methods
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
-static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) ;
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
 static void joint_limits_ineq_constr(unsigned m, double *result,
@@ -64,10 +63,11 @@ double nlopt_optim_poly_run(coptim *coparams,
 	params->update = FALSE;
 	params->running = TRUE;
 	nlopt_opt opt;
-	const double tol_scalar = 1e-2;
 	double x[OPTIM_DIM];
-	double tol[EQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,tol_scalar,tol);
+	double tol_eq[EQ_CONSTR_DIM];
+	double tol_ineq[INEQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
+	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	init_soln(params,x); //parameters are the initial joint positions q0*/
 	// set tolerances equal to second argument //
 
@@ -78,9 +78,9 @@ double nlopt_optim_poly_run(coptim *coparams,
 	nlopt_set_upper_bounds(opt, coparams->ub);
 	nlopt_set_min_objective(opt, costfunc, coparams);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         coparams, tol);
+			                         coparams, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         racketdata, tol);
+			                         racketdata, tol_eq);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -99,7 +99,7 @@ double nlopt_optim_poly_run(coptim *coparams,
 		printf("NLOPT took %f ms\n", past_time);
 	    printf("Found minimum at f = %0.10g\n", minf);
 	    max_violation = test_optim(x,coparams,racketdata,TRUE);
-	    if (max_violation < tol_scalar)
+	    if (max_violation < 1e-2)
 	    	finalize_soln(x,params,past_time);
 	}
 	params->running = FALSE;
@@ -243,15 +243,6 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
-static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
-
-	return 1.0;
-}
-
-/*
- * Calculates the cost function for table tennis trajectory generation optimization
- * to find spline (3rd order strike+return) polynomials
- */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	double a1[NDOF];
@@ -386,7 +377,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
-	const double deltat = 0.02;
+	static double deltat = racketdata->dt;
 	if (isnan(T)) {
 		printf("Warning: T value is nan!\n");
 

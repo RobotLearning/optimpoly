@@ -9,34 +9,63 @@ using namespace arma;
 
 /* The data structures */
 typedef struct { /*!< joint space state for each DOF */
-  double   th;   /*!< theta */
-  double   thd;  /*!< theta-dot */
-  double   thdd; /*!< theta-dot-dot */
-  double   ufb;  /*!< feedback portion of command */
-  double   u;    /*!< torque command */
-  double   load; /*!< sensed torque */
+	double   th;   /*!< theta */
+	double   thd;  /*!< theta-dot */
+	double   thdd; /*!< theta-dot-dot */
+	double   ufb;  /*!< feedback portion of command */
+	double   u;    /*!< torque command */
+	double   load; /*!< sensed torque */
 } SL_Jstate;
 
 typedef struct { /*!< desired values for controller */
-  double   th;   /*!< theta */
-  double   thd;  /*!< theta-dot */
-  double   thdd; /*!< theta-dot-dot */
-  double   uff;  /*!< feedforward torque command */
-  double   uex;  /*!< externally imposed torque */
+	double   th;   /*!< theta */
+	double   thd;  /*!< theta-dot */
+	double   thdd; /*!< theta-dot-dot */
+	double   uff;  /*!< feedforward torque command */
+	double   uex;  /*!< externally imposed torque */
 } SL_DJstate;
 
 typedef struct { /*!< Cartesian state */
-  double   x[NCART+1];    /*!< Position [x,y,z] */
-  double   xd[NCART+1];   /*!< Velocity */
-  double   xdd[NCART+1];  /*!< Acceleration */
+	double   x[NCART+1];    /*!< Position [x,y,z] */
+	double   xd[NCART+1];   /*!< Velocity */
+	double   xdd[NCART+1];  /*!< Acceleration */
 } SL_Cstate;
 
 typedef struct { /*!< Vision Blob */
-  char       status;
-  SL_Cstate  blob;
+	char       status;
+	SL_Cstate  blob;
 } SL_VisionBlob;
 
+algo alg = FIXED;
+bool reset = true;
+
 #include "carma.h"
+
+/*
+ * Set algorithm to initialize Player with.
+ * VHP/FIXED
+ *
+ */
+void set_algorithm(int num) {
+
+	switch (num) {
+		case 0:
+			std::cout << "Setting to VHP player..." << std::endl;
+			alg = VHP;
+			reset = true;
+			break;
+		case 1:
+			std::cout << "Setting to FIXED player..." << std::endl;
+			alg = FIXED;
+			reset = true;
+			break;
+		case 2:
+			std::cout << "NOT understood!\n";
+			throw "Not Implemented!\n";
+		default:
+			alg = FIXED;
+	}
+}
 
 /*
  *
@@ -48,22 +77,21 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		  const SL_VisionBlob blobs[4],
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
-	static bool firsttime = true;
 	static vec7 q0;
 	static vec3 ball_obs;
 	static joint qact;
 	static joint qdes;
 	static Player *cp; // centered player
 
-	if (firsttime) {
+	if (reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
 		EKF filter = init_filter();
-		cp = new Player(q0,filter);
-		firsttime = false;
+		cp = new Player(q0,filter,alg);
+		reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -97,22 +125,21 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 		  const SL_Cstate sim_ball_state,
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
-	static bool firsttime = true;
 	static vec7 q0;
 	static vec6 ball_state;
 	static joint qact;
 	static joint qdes;
 	static Player *cp; // centered player
 
-	if (firsttime) {
+	if (reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
 		EKF filter = init_filter();
-		cp = new Player(q0,filter);
-		firsttime = false;
+		cp = new Player(q0,filter,alg);
+		reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -225,7 +252,7 @@ EKF* init_ball_filter(const mat & obs, const vec & times) {
 	filter->update(obs.col(0));
 
 	double dt;
-	for (int i = 1; i < times.n_elem; i++) {
+	for (unsigned i = 1; i < times.n_elem; i++) {
 		dt = times(i) - times(i-1);
 		filter->predict(dt);
 		filter->update(obs.col(i));

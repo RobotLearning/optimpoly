@@ -8,10 +8,16 @@
 #ifndef PLAYER_HPP_
 #define PLAYER_HPP_
 
+#include "optim.h"
 #include "kalman.h"
-#include "optimpoly.h"
 
 using namespace arma;
+
+enum algo {
+	VHP,
+	FIXED,
+	RELAXED,
+};
 
 typedef struct {
 	vec7 q;
@@ -32,16 +38,19 @@ private:
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	bool moving; // robot is moving or not
+	algo alg; // algorithm (fixed player, vhp, etc.)
 
 	void estimate_ball_state(const vec3 & obs);
 	void estimate_prior(const mat & observations, const vec & times);
-	void calc_optim_param(const joint & qact); // run optimizer
+	void calc_optim_param(const joint & qact); // run optimizer for FIXED player
+	void calc_vhp_param(const joint & qact); // run VHP player
+	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void predict_ball(mat & balls_pred);
 	void calc_next_state(const joint & qact, joint & qdes);
 
 public:
 
-	Player(const vec7 & q0, const EKF & filter);
+	Player(const vec7 & q0, const EKF & filter, algo alg = FIXED);
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
@@ -62,7 +71,6 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 		     mat & Q, mat & Qd, mat & Qdd);
 bool check_new_obs(const vec3 & obs);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
-double** my_matrix(int nrl, int nrh, int ncl, int nch);
 
 // racket calculations
 racketdes calc_racket_strategy(const mat & balls_predicted,
@@ -75,6 +83,5 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 		                 const mat & racket_normal, mat & racket_vel);
 void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal);
 bool check_legal_ball(const mat & balls_predicted);
-
 
 #endif /* PLAYER_HPP_ */

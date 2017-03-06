@@ -11,12 +11,12 @@
 #include "constants.h"
 #include "tabletennis.h"
 #include "kalman.h"
-#include "optimpoly.h"
 #include "player.hpp"
 #include "kinematics.h"
 #include <thread>
-#include <future>
+#include "utils.h"
 #include "stdlib.h"
+#include "optim.h"
 
 using namespace arma;
 
@@ -26,7 +26,8 @@ using namespace arma;
  * Tries to return the ball to the centre of the opponents court
  *
  */
-Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
+Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
+               : filter(filter_), alg(alg_) {
 
 	time_land_des = 0.8;
 	time2return = 1.0;
@@ -35,11 +36,12 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
 	q_rest_des = q0;
 
-	int N = 100;
+	int N = 1000;
+
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racket_params = {pos, vel, normal, N};
+	racket_params = {pos, vel, normal, 0.002, N};
 
 	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
 	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
@@ -49,7 +51,7 @@ Player::Player(const vec7 & q0, const EKF & filter) : filter(filter) {
 	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double SLACK = 0.01;
-	double Tmax = 1.0;
+	double Tmax = 2.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	for (int i = 0; i < NDOF; i++) {
@@ -178,7 +180,10 @@ void Player::play(const joint & qact,
 	estimate_ball_state(ball_obs);
 
 	// initialize optimization and get the hitting parameters
-	calc_optim_param(qact);
+	if (alg == FIXED)
+		calc_optim_param(qact);
+	else if (alg == VHP)
+		calc_vhp_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -195,9 +200,55 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	calc_optim_param(qact);
+	if (alg == FIXED)
+		calc_optim_param(qact);
+	else if (alg == VHP)
+		calc_vhp_param(qact);
+
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
+}
+
+/*
+ * Calculate hitting parameters qf, qfdot
+ * on the Virtual Hitting Plane (VHP) by running Inverse Kinematics
+ *
+ * The inverse kinematics routine runs an optimization to minimize
+ * the distance to a rest posture
+ *
+ *
+ */
+void Player::calc_vhp_param(const joint & qact) {
+
+	double time_pred;
+	vec6 state_est;
+	vec6 balls_pred;
+	try {
+		state_est = filter.get_mean();
+
+		// if ball is fast enough and robot is not moving consider optimization
+		if (!moving && !optim_params.update && !optim_params.running
+				&& state_est(Y) > (dist_to_table - table_length/2) &&
+				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
+			if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
+				calc_racket_strategy(balls_pred,ball_land_des,
+						             time_land_des,racket_params);
+				for (int i = 0; i < NDOF; i++) {
+					coparams.q0[i] = qact.q(i);
+					coparams.q0dot[i] = qact.qd(i);
+				}
+				optim_params.T = time_pred;
+				// run optimization in another thread
+				std::thread t(&nlopt_vhp_run,
+						&coparams,&racket_params,&optim_params);
+				t.detach();
+			}
+		}
+	}
+	catch (const char * not_init_error) {
+		return; // dont do anything
+	}
+
 }
 
 /*
@@ -249,10 +300,9 @@ void Player::calc_optim_param(const joint & qact) {
  */
 void Player::predict_ball(mat & balls_pred) {
 
-	static const double dt = 0.02;
 	static int N = racket_params.Nmax;
 
-	balls_pred = filter.predict_path(dt,N);
+	balls_pred = filter.predict_path(racket_params.dt,N);
 }
 
 /*
@@ -272,6 +322,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	// this should be only for MPC?
 	if (optim_params.update) {
 		moving = true;
+		optim_params.update = false;
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
 	}
@@ -292,6 +343,33 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		}
 	}
 
+}
+
+/*
+ * Predict hitting point on the Virtual Hitting Plane (VHP)
+ *
+ * The location of the VHP is defined as a constant (constants.h)
+ *
+ */
+bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
+
+	bool valid_hp = false;
+	mat balls_path;
+	predict_ball(balls_path);
+	uvec vhp_index;
+	unsigned idx;
+
+	if (check_legal_ball(balls_path)) {
+		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
+		if (vhp_index.n_elem == 1) {
+			idx = as_scalar(vhp_index);
+			ball_pred = balls_path.col(idx);
+			time_pred = racket_params.dt * (idx + 1);
+			valid_hp = true;
+		}
+	}
+
+	return valid_hp;
 }
 
 /*
@@ -469,12 +547,12 @@ bool check_legal_ball(const mat & balls_predicted) {
 
 	// multiple bounces are predicted
 	if (num_bounces > 1) {
-		std::cout << "Multiple bounces predicted. Not moving" << endl;
+		//std::cout << "Multiple bounces predicted. Not moving" << endl;
 		return false;
 	}
 	// no bounce is predicted
 	if (num_bounces == 0) {
-		std::cout << "No bounce predicted. Not moving\n" << endl;
+		//std::cout << "No bounce predicted. Not moving\n" << endl;
 		return false;
 	}
 
@@ -516,45 +594,4 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
 	lb[2*NDOF] = 0.0;
-}
-
-/*
- * Allocate memory for a simple double array structure
- * in one chunk.
- *
- * Puts some info about matrix size into (0,0) and (0,1) entries
- *
- * From numerical recipes.
- */
-double** my_matrix(int nrl, int nrh, int ncl, int nch) {
-
-	static const int NR = 0;
-	static const int NC = 1;
-	static const int N_MAT_INFO = 3;
-
-	double *chunk;
-	int info = 0;
-
-	if (nrl == 1 && ncl == 1) {
-		info = 1;
-	}
-
-	double **m = (double **) calloc((size_t) (nrh-nrl+1+info), sizeof(double*));
-
-	if (info) {
-		m[0] = (double *) calloc((size_t) N_MAT_INFO, sizeof(double));
-		m[0][NR] = nrh-nrl+1;
-		m[0][NC] = nch-ncl+1;
-	}
-	else {
-		m -= nrl;
-	}
-
-	chunk = (double *) calloc( (size_t) (nrh-nrl+1) * (nch-ncl+1), sizeof(double));
-
-	for(int i = nrl ; i <= nrh; i++) {
-		m[i] = (double *) &(chunk[(i-nrl)*(nch-ncl+1)]);
-		m[i] -= ncl;
-	}
-	return m;
 }
