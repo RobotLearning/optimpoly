@@ -47,8 +47,13 @@ typedef struct {
 	int update;
 } optim; // optimization variables
 
+// interface for LAZY player
+double nlopt_optim_lazy_run(coptim * coparams,
+		                    racketdes * racketdata,
+							optim * params);
+
 // interface for FIXED player
-double nlopt_optim_poly_run(coptim * coparams,
+double nlopt_optim_fixed_run(coptim * coparams,
 		                    racketdes * racketdata,
 							optim * params);
 

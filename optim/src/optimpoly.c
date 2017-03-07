@@ -47,6 +47,8 @@ static void print_input_structs(coptim *coparams,
 							   optim * params);
 
 /*
+ * FIXED PLAYER
+ *
  * NLOPT optimization routine for table tennis trajectory generation
  *
  * Returns the maximum of violations
@@ -55,7 +57,7 @@ static void print_input_structs(coptim *coparams,
  * 2. joint limit violations throughout trajectory
  *
  */
-double nlopt_optim_poly_run(coptim *coparams,
+double nlopt_optim_fixed_run(coptim *coparams,
 					      racketdes *racketdata,
 						  optim *params) {
 

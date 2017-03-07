@@ -79,7 +79,7 @@ void* mthread_nlopt_optim(void *arg) {
 	printf("Running NLOPT\n");
 	initTimeOpt = get_time();
 	double hitTimeThreadSafe = data->hitTime;
-	nlopt_optim_poly_run(data->target,&hitTimeThreadSafe);
+	nlopt_optim_fixed_run(data->target,&hitTimeThreadSafe);
 	printf("Optim count: %d\n", (++count));
 	printf("==========================================\n");
 	data->hitTime = hitTimeThreadSafe;
@@ -94,7 +94,7 @@ void* mthread_nlopt_optim(void *arg) {
  *
  * If constraints are violated, it will not modify the lookup values (input)
  */
-void nlopt_optim_poly_run(SL_DJstate target[], double* hitTime) {
+void nlopt_optim_fixed_run(SL_DJstate target[], double* hitTime) {
 
 	static double tol_eq[EQ_CONSTR_DIM] = {1e-4};
 	static double tol_ineq[INEQ_CONSTR_DIM] = {1e-4};

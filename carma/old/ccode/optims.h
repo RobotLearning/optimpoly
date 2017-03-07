@@ -80,7 +80,7 @@ int mthread_sync_optim(nlopt_thread_data data, SL_DJstate target[], double *hitT
 int check_thread_termination(nlopt_thread_data data, SL_DJstate target[], double hitTime);
 
 /* Optimization functions */
-void nlopt_optim_poly_run(SL_DJstate target[], double* hitTime);
+void nlopt_optim_fixed_run(SL_DJstate target[], double* hitTime);
 double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 void kinematics_eq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad, void *data);
