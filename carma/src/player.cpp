@@ -50,7 +50,7 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 	double* qrest = (double*)calloc(NDOF, sizeof(double));
 	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double SLACK = 0.01;
+	double SLACK = 0.02;
 	double Tmax = 2.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 

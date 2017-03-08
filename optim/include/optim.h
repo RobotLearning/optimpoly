@@ -47,15 +47,24 @@ typedef struct {
 	int update;
 } optim; // optimization variables
 
+typedef struct {
+	double * R_strike;
+	double * R_return;
+	double * R_wait;
+	double * R_hit;
+	double * R_land;
+	double R_net;
+} weights; // weights for optimization penalties
+
 // interface for LAZY player
-double nlopt_optim_lazy_run(coptim * coparams,
-		                    racketdes * racketdata,
-							optim * params);
+double optim_lazy_run(coptim * coparams,
+		              racketdes * racketdata,
+				      optim * params);
 
 // interface for FIXED player
 double nlopt_optim_fixed_run(coptim * coparams,
-		                    racketdes * racketdata,
-							optim * params);
+		                     racketdes * racketdata,
+							 optim * params);
 
 // interface for VHP player
 double nlopt_vhp_run(coptim *coparams,

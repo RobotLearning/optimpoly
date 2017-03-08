@@ -5,6 +5,7 @@
  *      Author: okoc
  */
 
+#include "constants.h"
 #include "utils.h"
 #include "stdlib.h"
 #include "stdio.h"
@@ -178,6 +179,32 @@ double inner_prod(const double *a1, const double *a2) {
 		val += a1[i]*a2[i];
 	}
 
+	return val;
+}
+
+/*
+ * Returns the weighted inner product between two vectors of size given in last argument
+ */
+double inner_w_prod(double *a1, double *a2, double *w, int size) {
+
+	int i;
+	double val = 0.0;
+	for (i = 0; i < size; i++) {
+		val += a1[i]*w[i]*a2[i];
+	}
+	return val;
+}
+
+/*
+ * Returns the inverse weighted inner product between two vectors of size given in last argument
+ */
+double inner_winv_prod(double *a1, double *a2, double *w, int size) {
+
+	int i;
+	double val = 0.0;
+	for (i = 0; i < size; i++) {
+		val += a1[i]*a2[i]/w[i];
+	}
 	return val;
 }
 

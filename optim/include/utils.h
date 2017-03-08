@@ -22,14 +22,6 @@
 typedef double* Vector;
 typedef double** Matrix;
 
-#ifndef NDOF
-#define NDOF 7
-#endif
-
-#ifndef NCART
-#define NCART 3
-#endif
-
 double sign(double expr);
 
 // utility methods, zero indexed
