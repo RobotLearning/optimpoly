@@ -22,6 +22,7 @@ carma:
 
 optim:
 	$(CC) $(OPTIMFLAGS) optim/src/optimpoly.c \
+						optim/src/lazyoptim.c \
 						optim/src/invkin.c \
 					optim/src/kinematics.c \
 					optim/src/utils.c \

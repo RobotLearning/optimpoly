@@ -26,9 +26,11 @@ double sign(double expr);
 
 // utility methods, zero indexed
 long get_time();
-void vec_minus(double *a1, const double *a2);
-void vec_plus(double *a1, const double *a2);
-double inner_prod(const double *a1, const double *a2);
+void vec_minus(const int n, const double *a2, double *a1);
+void vec_plus(const int n, const double *a2, double *a1);
+double inner_prod(const int size, const double *a1, const double *a2);
+double inner_w_prod(const int size, const double *w, const double *a1, const double *a2);
+double inner_winv_prod(const int size, const double *w, const double *a1, const double *a2);
 void const_vec(const int n, const double val, double * vec);
 void print_optim_vec(const double *x);
 void print_mat_size(const char *comm, Matrix a, int nr, int nc);
@@ -37,16 +39,8 @@ double max_array(const double *x, const int length);
 
 // utility methods, one indexed
 Vector my_vector(int nl, int nh);
-double vec_mult_inner(Vector a, Vector b);
-void vec_mult_scalar(Vector a, double scalar, Vector c);
-int vec_sub(Vector a, Vector b, Vector c);
-int vec_add(Vector a, Vector b, Vector c);
 Matrix my_matrix(int nrl, int nrh, int ncl, int nch);
-int mat_vec_mult(Matrix a, Vector b, Vector c);
 void my_free_vector(Vector vec, int nl, int nh);
-int vec_equal(Vector a, Vector c);
-int mat_mult(Matrix a, Matrix b, Matrix c);
-int mat_equal(Matrix a, Matrix c);
 void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch);
 
 // io method from SL, one indexed

@@ -264,8 +264,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
 
-	return T * (3*T*T*inner_prod(a1,a1) +
-			3*T*inner_prod(a1,a2) + inner_prod(a2,a2));
+	return T * (3*T*T*inner_prod(NDOF,a1,a1) +
+			3*T*inner_prod(NDOF,a1,a2) + inner_prod(NDOF,a2,a2));
 }
 
 /*
@@ -337,7 +337,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double vel[NCART];
 	static double normal[NCART];
 	static int firsttime = TRUE;
-	static double q[NDOF];
+	static double qf[NDOF];
 	static racketdes* racket_data;
 	double T = x[2*NDOF];
 
@@ -352,12 +352,12 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF; i++) {
-		q[i] = x[i];
+		qf[i] = x[i];
 		qfdot[i] = x[i+NDOF];
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_racket_state(q,qfdot,pos,vel,normal);
+	calc_racket_state(qf,qfdot,pos,vel,normal);
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {

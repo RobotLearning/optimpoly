@@ -48,6 +48,14 @@ typedef struct {
 } optim; // optimization variables
 
 typedef struct {
+	racketdes *racketdata;
+	coptim * coparams;
+	double **ballpred;
+	double dt;
+	int Nmax;
+} ball_data;
+
+typedef struct {
 	double * R_strike;
 	double * R_return;
 	double * R_wait;
@@ -57,9 +65,7 @@ typedef struct {
 } weights; // weights for optimization penalties
 
 // interface for LAZY player
-double optim_lazy_run(coptim * coparams,
-		              racketdes * racketdata,
-				      optim * params);
+double optim_lazy_run(ball_data *data, optim *params);
 
 // interface for FIXED player
 double nlopt_optim_fixed_run(coptim * coparams,

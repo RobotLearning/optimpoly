@@ -31,7 +31,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {VHP,FIXED};
+algo algs[] = {VHP,FIXED,LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot

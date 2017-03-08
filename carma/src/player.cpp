@@ -180,10 +180,19 @@ void Player::play(const joint & qact,
 	estimate_ball_state(ball_obs);
 
 	// initialize optimization and get the hitting parameters
-	if (alg == FIXED)
-		calc_optim_param(qact);
-	else if (alg == VHP)
-		calc_vhp_param(qact);
+	switch (alg) {
+		case FIXED:
+			optim_fixed_player_param(qact);
+			break;
+		case VHP:
+			optim_vhp_param(qact);
+			break;
+		case LAZY:
+			optim_lazy_param(qact);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -200,10 +209,19 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	if (alg == FIXED)
-		calc_optim_param(qact);
-	else if (alg == VHP)
-		calc_vhp_param(qact);
+	switch (alg) {
+		case FIXED:
+			optim_fixed_player_param(qact);
+			break;
+		case VHP:
+			optim_vhp_param(qact);
+			break;
+		case LAZY:
+			optim_lazy_param(qact);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -218,7 +236,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  *
  *
  */
-void Player::calc_vhp_param(const joint & qact) {
+void Player::optim_vhp_param(const joint & qact) {
 
 	double time_pred;
 	vec6 state_est;
@@ -252,6 +270,8 @@ void Player::calc_vhp_param(const joint & qact) {
 }
 
 /*
+ * FIXED PLAYER
+ *
  * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
  *
@@ -259,7 +279,7 @@ void Player::calc_vhp_param(const joint & qact) {
  * assuming T_return and q0 are fixed
  *
  */
-void Player::calc_optim_param(const joint & qact) {
+void Player::optim_fixed_player_param(const joint & qact) {
 
 	vec6 state_est;
 	mat balls_pred;
@@ -278,7 +298,7 @@ void Player::calc_optim_param(const joint & qact) {
 					coparams.q0dot[i] = qact.qd(i);
 				}
 				// run optimization in another thread
-				std::thread t(&nlopt_optim_poly_run,
+				std::thread t(&nlopt_optim_fixed_run,
 						&coparams,&racket_params,&optim_params);
 				t.detach();
 			}
@@ -287,8 +307,54 @@ void Player::calc_optim_param(const joint & qact) {
 	catch (const char * not_init_error) {
 		return; // dont do anything
 	}
+}
 
+/*
+ * LAZY PLAYER
+ *
+ * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
+ * in another thread
+ *
+ * The optimized parameters are: qf, qf_dot, T
+ * assuming T_return and q0 are fixed
+ *
+ */
+void Player::optim_lazy_param(const joint & qact) {
 
+	static ball_data data = {&racket_params, &coparams, my_matrix(0,2*NCART,0,racket_params.Nmax),
+			                 racket_params.dt, racket_params.Nmax};
+	vec6 state_est;
+	mat balls_pred;
+	try {
+		state_est = filter.get_mean();
+
+		// if ball is fast enough and robot is not moving consider optimization
+		if (!moving && !optim_params.update && !optim_params.running
+				&& state_est(Y) > (dist_to_table - table_length/2) &&
+				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
+			predict_ball(balls_pred);
+			if (check_legal_ball(balls_pred)) { // ball is legal
+				calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
+				for (int i = 0; i < NDOF; i++) {
+					coparams.q0[i] = qact.q(i);
+					coparams.q0dot[i] = qact.qd(i);
+				}
+				for (int i = 0; i < data.Nmax; i++) {
+					for (int j = 0; j < 2*NCART; j++) {
+						data.ballpred[j][i] = balls_pred(j,i);
+					}
+				}
+				data.coparams = &coparams;
+				data.racketdata = &racket_params;
+				// run optimization in another thread
+				std::thread t(&optim_lazy_run,&data,&optim_params);
+				t.detach();
+			}
+		}
+	}
+	catch (const char * not_init_error) {
+		return; // dont do anything
+	}
 }
 
 /*

@@ -150,7 +150,7 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	optim opt_params = {q0, q0dot, 0.5, false};
 
 	// run NLOPT opt algorithm here //
-	std::thread t(&nlopt_optim_poly_run,
+	std::thread t(&nlopt_optim_fixed_run,
 			&coparams,&racket_params,&opt_params);
 	t.join();
 	std::cout << "***************************************" << std::endl;

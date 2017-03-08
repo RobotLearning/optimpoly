@@ -169,13 +169,13 @@ void const_vec(const int n, const double val, double * vec) {
 }
 
 /*
- * Returns the inner product between two vectors of size DOF
+ * Returns the inner product between two vectors of size n
  */
-double inner_prod(const double *a1, const double *a2) {
+double inner_prod(const int n, const double *a1, const double *a2) {
 
 	int i;
 	double val = 0.0;
-	for (i = 0; i < NDOF; i++) {
+	for (i = 0; i < n; i++) {
 		val += a1[i]*a2[i];
 	}
 
@@ -185,7 +185,7 @@ double inner_prod(const double *a1, const double *a2) {
 /*
  * Returns the weighted inner product between two vectors of size given in last argument
  */
-double inner_w_prod(double *a1, double *a2, double *w, int size) {
+double inner_w_prod(const int size, const double *w, const double *a1, const double *a2) {
 
 	int i;
 	double val = 0.0;
@@ -198,7 +198,7 @@ double inner_w_prod(double *a1, double *a2, double *w, int size) {
 /*
  * Returns the inverse weighted inner product between two vectors of size given in last argument
  */
-double inner_winv_prod(double *a1, double *a2, double *w, int size) {
+double inner_winv_prod(const int size, const double *w, const double *a1, const double *a2) {
 
 	int i;
 	double val = 0.0;
@@ -209,24 +209,24 @@ double inner_winv_prod(double *a1, double *a2, double *w, int size) {
 }
 
 /*
- * Returns a1 + a2 vector into a1, assuming both have dof = 7 length
+ * Returns a1 + a2 vector into a1, assuming both have the same length n
  */
-void vec_plus(double *a1, const double *a2) {
+void vec_plus(const int n, const double *a2, double *a1) {
 
 	int i;
-	for (i = 0; i < NDOF; i++) {
-		a1[i] = a1[i] + a2[i];
+	for (i = 0; i < n; i++) {
+		a1[i] += a2[i];
 	}
 }
 
 /*
- * Returns a1 - a2 vector into a1, assuming both have dof = 7 length
+ * Returns a1 - a2 vector into a1, assuming both have the same length n
  */
-void vec_minus(double *a1, const double *a2) {
+void vec_minus(const int n, const double *a2, double *a1) {
 
 	int i;
-	for (i = 0; i < NDOF; i++) {
-		a1[i] = a1[i] - a2[i];
+	for (i = 0; i < n; i++) {
+		a1[i] -= a2[i];
 	}
 }
 
@@ -251,7 +251,7 @@ Vector my_vector(int nl, int nh) {
 	if (nl == 1) {
 
 		v = (double *) calloc((size_t) (nh-nl+1+1),sizeof(double));
-		if (v==NULL)
+		if (v == NULL)
 			printf("allocation failure in vector()");
 		v[0] = nh-nl+1;
 		return v;
@@ -259,136 +259,11 @@ Vector my_vector(int nl, int nh) {
 	} else {
 
 		v = (double *) calloc((size_t) (nh-nl+1),sizeof(double));
-		if (v==NULL)
+		if (v == NULL)
 			printf("allocation failure in vector()");
 		return v-nl;
 
 	}
-
-}
-
-/*!*****************************************************************************
- *******************************************************************************
- \note  vec_mult_inner
- \date  August 17, 92
-
- \remarks
-
- inner product a' * b, return result
-vector indices start at "1".
-
- *******************************************************************************
-Parameters:  (i/o = input/output)
-
- \param[in]     a		 : vector a
- \param[in]     b		 : vector b
-
- ******************************************************************************/
-double
-vec_mult_inner(Vector a, Vector b) {
-
-	double aux = 0;
-	int i;
-
-	if (a[NR] != b[NR]) {
-		printf("Incompatible vectors in vec_mult_inner\n");
-		return 0.0;
-	}
-
-	for (i=1; i<=a[NR]; ++i) aux += a[i] * b[i];
-
-	return aux;
-
-}
-
-/*!*****************************************************************************
- *******************************************************************************
-\note  vec_mult_scalar
-\date  August 17, 92
-
-\remarks
-
-product of vector a  * scalar = c
-vector indices start at "1".
-
- *******************************************************************************
-Parameters:  (i/o = input/output)
-
- \param[in]     a		 : vector a
- \param[in]     scalar           : value by which a is to be multiplied with
- \param[out]    c		 : vector c (result)
-
- ******************************************************************************/
-void vec_mult_scalar(Vector a, double scalar, Vector c) {
-
-	for (int i = 1; i <= a[NR]; ++i)
-		c[i] = a[i] * scalar;
-
-}
-
-/*!*****************************************************************************
- *******************************************************************************
- \note  vec_sub
- \date  August 17, 92
-
- \remarks
-
- subtracts two arbitrary (compatible) vectors a - b, assuming the
- vector indices start at "1".
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : vector a
- \param[in]     b		 : vector b
- \param[out]    c		 : result of addition
-
- ******************************************************************************/
-int vec_sub(Vector a, Vector b, Vector c) {
-
-	if (a[NR] != b[NR] || a[NR] != c[NR]) {
-		printf("Incompatible vectors in vec_sub\n");
-		return FALSE;
-	}
-
-	for (int i = 1; i <= a[NR]; ++i) {
-		c[i] = a[i] - b[i];
-	}
-
-	return TRUE;
-
-}
-
-/*!*****************************************************************************
- *******************************************************************************
- \note  vec_add
- \date  August 17, 92
-
- \remarks
-
- adds two arbitrary (compatible) vectors a + b, assuming the
- vector indices start at "1".
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : vector a
- \param[in]     b		 : vector b
- \param[out]    c		 : result of addition
-
- ******************************************************************************/
-int vec_add(Vector a, Vector b, Vector c) {
-
-	if (a[NR] != b[NR] || a[NR] != c[NR]) {
-		printf("Incompatible vectors in vec_add\n");
-		return FALSE;
-	}
-
-	for (int i = 1; i <= a[NR]; ++i) {
-		c[i] = a[i] + b[i];
-	}
-
-	return TRUE;
 
 }
 
@@ -434,69 +309,6 @@ Matrix my_matrix(int nrl, int nrh, int ncl, int nch) {
 
 }
 
-/*!*****************************************************************************
- *******************************************************************************
- \note  mat_vec_mult
- \date  August 17, 92
-
- \remarks
-
- multiplies a matrix with a vector: a * b, assuming indices
- start at "1".
- Note: The program can also cope with passing the same vector as
- factor and result.
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : matrix a
- \param[in]     b		 : vector b
- \param[out]    c		 : result of multipliciation
-
- ******************************************************************************/
-int
-mat_vec_mult(Matrix a, Vector b, Vector c) {
-
-	Vector  temp;
-	int     ac,ar,br,cr;
-
-	ac = a[0][NC];
-	ar = a[0][NR];
-	br = b[NR];
-	cr = c[NR];
-
-	if (ac != br) {
-		printf("Matrix and vector are incompatible.\n");
-		return FALSE;
-	}
-
-	if (cr != ar) {
-		printf("Input and output vector are incompatible.\n");
-		return FALSE;
-	}
-
-	if (b == c) {
-		temp = my_vector(1,ar);
-	} else {
-		temp = c;
-	}
-
-	for (int i = 1; i <= ar; ++i) {
-		temp[i] = 0;
-		for (int j = 1; j <= br; ++j){
-			temp[i] += a[i][j] * b[j];
-		}
-	}
-
-	if (b == c) {
-		vec_equal(temp,c);
-		my_free_vector(temp,1,ar);
-	}
-
-	return TRUE;
-
-}
-
 void my_free_vector(Vector vec, int nl, int nh) {
 	if (nl == 1) {
 		free((char*) (vec));
@@ -505,89 +317,6 @@ void my_free_vector(Vector vec, int nl, int nh) {
 	}
 }
 
-/*!*****************************************************************************
- *******************************************************************************
- \note  vec_equal
- \date  August 17, 92
-
- \remarks
-
- set vector c = a
- vector indices start at "1".
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : vector a
- \param[out]    c		 : result of assignment
-
- ******************************************************************************/
-int vec_equal(Vector a, Vector c) {
-	int i;
-
-	if (a[NR] != c[NR]) {
-		printf("Incompatible vectors in vec_equal\n");
-		return FALSE;
-	}
-
-	for (i=1; i<=a[NR]; ++i) c[i] = a[i];
-
-	return TRUE;
-}
-
-/*!*****************************************************************************
- *******************************************************************************
- \note  mat_mult
- \date  August 17, 92
-
- \remarks
-
- multiplies two arbitrary (compatible) matrices a * b
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : matrix a
- \param[in]     b		 : matrix b
- \param[out]    c		 : result of multipliciation
-
- ******************************************************************************/
-int mat_mult(Matrix a, Matrix b, Matrix c) {
-
-	Matrix   temp;
-	int      ar, br, bc;
-
-	ar = a[0][NR];
-	br = b[0][NR];
-	bc = b[0][NC];
-
-
-	/* check whether input and output matrices are different */
-
-	if (a == c || b == c) {
-		temp = my_matrix(1,ar,1,bc);
-	}
-	else {
-		temp = c;
-	}
-
-	for (int i = 1; i <= ar; ++i) {
-		for (int j = 1; j <= bc; ++j) {
-			temp[i][j] = 0;
-			for (int m = 1; m <= br; ++m) {
-				temp[i][j] += a[i][m] * b[m][j];
-			}
-		}
-	}
-
-	if (a == c || b == c) {
-		mat_equal(temp,c);
-		my_free_matrix(temp,1,ar,1,bc);
-	}
-
-	return TRUE;
-
-}
 
 /*****************************************************************************
   utility program my_free_matrix; adjusted to my special matrix() program
@@ -602,37 +331,6 @@ void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch) {
 		free((char*) (mat+nrl));
 	}
 
-}
-
-/*!*****************************************************************************
- *******************************************************************************
- \note  mat_equal
- \date  August 17, 92
-
- \remarks
-
- set matrix c = a
- matrix indices start at "1".
- Note: if a vector is passed, it must be the pointer to the vector;
- everything is handled as a matrix!
-
- *******************************************************************************
- Parameters:  (i/o = input/output)
-
- \param[in]     a		 : matrix a
- \param[out]    c		 : result of addition
-
- ******************************************************************************/
-int mat_equal(Matrix a, Matrix c) {
-	int i,j;
-
-	for (i=1; i <= a[0][NR]; ++i) {
-		for (j=1; j <= a[0][NC]; ++j){
-			c[i][j] = a[i][j];
-		}
-	}
-
-	return TRUE;
 }
 
 /*!*****************************************************************************

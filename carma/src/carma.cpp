@@ -60,8 +60,9 @@ void set_algorithm(int num) {
 			reset = true;
 			break;
 		case 2:
-			std::cout << "NOT understood!\n";
-			throw "Not Implemented!\n";
+			std::cout << "Setting to LAZY player..." << std::endl;
+			alg = LAZY;
+			break;
 		default:
 			alg = FIXED;
 	}

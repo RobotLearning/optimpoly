@@ -16,7 +16,7 @@ using namespace arma;
 enum algo {
 	VHP,
 	FIXED,
-	RELAXED,
+	LAZY,
 };
 
 typedef struct {
@@ -40,10 +40,15 @@ private:
 	bool moving; // robot is moving or not
 	algo alg; // algorithm (fixed player, vhp, etc.)
 
+	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
 	void estimate_prior(const mat & observations, const vec & times);
-	void calc_optim_param(const joint & qact); // run optimizer for FIXED player
-	void calc_vhp_param(const joint & qact); // run VHP player
+
+	// optimization for different players
+	void optim_fixed_player_param(const joint & qact); // run optimizer for FIXED player
+	void optim_lazy_param(const joint & qact);
+	void optim_vhp_param(const joint & qact); // run VHP player
+
 	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void predict_ball(mat & balls_pred);
 	void calc_next_state(const joint & qact, joint & qdes);
