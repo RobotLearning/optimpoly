@@ -45,7 +45,7 @@ private:
 	void estimate_prior(const mat & observations, const vec & times);
 
 	// optimization for different players
-	void optim_fixed_player_param(const joint & qact); // run optimizer for FIXED player
+	void optim_fixedp_param(const joint & qact); // run optimizer for FIXED player
 	void optim_lazy_param(const joint & qact);
 	void optim_vhp_param(const joint & qact); // run VHP player
 

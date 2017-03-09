@@ -182,7 +182,7 @@ void Player::play(const joint & qact,
 	// initialize optimization and get the hitting parameters
 	switch (alg) {
 		case FIXED:
-			optim_fixed_player_param(qact);
+			optim_fixedp_param(qact);
 			break;
 		case VHP:
 			optim_vhp_param(qact);
@@ -211,7 +211,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	switch (alg) {
 		case FIXED:
-			optim_fixed_player_param(qact);
+			optim_fixedp_param(qact);
 			break;
 		case VHP:
 			optim_vhp_param(qact);
@@ -279,7 +279,7 @@ void Player::optim_vhp_param(const joint & qact) {
  * assuming T_return and q0 are fixed
  *
  */
-void Player::optim_fixed_player_param(const joint & qact) {
+void Player::optim_fixedp_param(const joint & qact) {
 
 	vec6 state_est;
 	mat balls_pred;
@@ -321,7 +321,8 @@ void Player::optim_fixed_player_param(const joint & qact) {
  */
 void Player::optim_lazy_param(const joint & qact) {
 
-	static ball_data data = {&racket_params, &coparams, my_matrix(0,2*NCART,0,racket_params.Nmax),
+	static ball_data data = {&racket_params, &coparams,
+			                 my_matrix(0,2*NCART,0,racket_params.Nmax),
 			                 racket_params.dt, racket_params.Nmax};
 	vec6 state_est;
 	mat balls_pred;
