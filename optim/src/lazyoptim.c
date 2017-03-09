@@ -120,6 +120,9 @@ static void print_input_structs(ball_data* data, optim* params) {
  * NLOPT optimization routine for table tennis LAZY PLAYER (LP)
  *
  * If constraints are violated, it will not modify the lookup values (input)
+ *
+ * TODO: try different optimization routines
+ *
  */
 static double nlopt_optim_lazy(ball_data *data, optim *params) {
 
@@ -321,6 +324,9 @@ static double punish_land_robot(const ball_data * data,
 
 /*
  * Punish the deviations of resting joints (as a function of optim params) from a chosen init_joint_state
+ *
+ * FIXME: this should be broken!
+ *
  */
 static double punish_wait_robot(const ball_data* data,
 		                        const double *x,
@@ -484,6 +490,9 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 /*
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
+ *
+ * TODO: aren't we adding weights here?
+ *
  */
 static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2) {
@@ -501,6 +510,9 @@ static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const 
  * Calculate the returning polynomial coefficients from the optimized variables qf,qfdot
  * and time to return constant T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
+ *
+ * TODO: is this correct?
+ *
  */
 static void calc_return_poly_coeff(const double *q0,
 		                           const double *x, const double T,
@@ -566,6 +578,8 @@ static void calc_return_extrema_cand(double *a1, double *a2, const double *x, do
  * the constraint violation of the solution vector x
  *
  * Returns FALSE if joint inequality constraints are violated!
+ *
+ * TODO: can return the landing time!
  *
  */
 static double test_optim(double *x, ball_data* data, int verbose) {
@@ -674,6 +688,8 @@ static void calc_times(const ball_data* data, const double *x, double *netTime, 
 
 /*
  * Finalize the solution and update target SL structure and hitTime value
+ *
+ * TODO: update also the landing time = desired return time
  */
 static void finalize_soln(const double* x, optim * params, double time_elapsed) {
 
