@@ -7,8 +7,6 @@
  *      Author: okoc
  */
 
-#include "../include/optim.h"
-
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
@@ -18,6 +16,7 @@
 #include "lookup.h"
 #include "tabletennis.h"
 #include "player.hpp"
+#include "optim.h"
 
 using namespace arma;
 

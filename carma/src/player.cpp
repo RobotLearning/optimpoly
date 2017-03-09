@@ -321,9 +321,7 @@ void Player::optim_fixedp_param(const joint & qact) {
  */
 void Player::optim_lazy_param(const joint & qact) {
 
-	static ball_data data = {&racket_params, &coparams,
-			                 my_matrix(0,2*NCART,0,racket_params.Nmax),
-			                 racket_params.dt, racket_params.Nmax};
+	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
 	vec6 state_est;
 	mat balls_pred;
 	try {
@@ -340,15 +338,13 @@ void Player::optim_lazy_param(const joint & qact) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
-				for (int i = 0; i < data.Nmax; i++) {
+				for (int i = 0; i < racket_params.Nmax; i++) {
 					for (int j = 0; j < 2*NCART; j++) {
-						data.ballpred[j][i] = balls_pred(j,i);
+						ballpred[j][i] = balls_pred(j,i);
 					}
 				}
-				data.coparams = &coparams;
-				data.racketdata = &racket_params;
 				// run optimization in another thread
-				std::thread t(&optim_lazy_run,&data,&optim_params);
+				std::thread t(&optim_lazy_run,ballpred,&coparams,&racket_params,&optim_params);
 				t.detach();
 			}
 		}

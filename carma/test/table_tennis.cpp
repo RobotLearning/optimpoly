@@ -31,7 +31,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {LAZY};
+algo algs[] = {VHP,FIXED,LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -66,8 +66,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	tt.set_ball_state(0.2);
 
 	vec7 q0;
-	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	init_right_posture(q0);
+	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	EKF filter = init_filter();
 	Player *robot = new Player(q0,filter,alg);
 
