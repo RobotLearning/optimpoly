@@ -158,6 +158,20 @@ int find_keyword(FILE *fp, char *name) {
 }
 
 /*
+ * Compare elements of both arrays of same length n
+ * and return TRUE if they are all the same
+ */
+int vec_is_equal(const int n, const double *x1, const double *x2) {
+
+	for (int i = 0; i < n; i++) {
+		if (x1[i] != x2[i]) {
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+/*
  * Returns constant vector of val value from 1 to n
  */
 void const_vec(const int n, const double val, double * vec) {
@@ -209,12 +223,21 @@ double inner_winv_prod(const int size, const double *w, const double *a1, const 
 }
 
 /*
+ * Makes a2 array equal to a1
+ *
+ */
+void make_equal(const int n, const double *a1, double *a2) {
+
+	for (int i = 0; i < n; i++)
+		a2[i] = a1[i];
+}
+
+/*
  * Returns a1 + a2 vector into a1, assuming both have the same length n
  */
 void vec_plus(const int n, const double *a2, double *a1) {
 
-	int i;
-	for (i = 0; i < n; i++) {
+	for (int i = 0; i < n; i++) {
 		a1[i] += a2[i];
 	}
 }
@@ -224,8 +247,7 @@ void vec_plus(const int n, const double *a2, double *a1) {
  */
 void vec_minus(const int n, const double *a2, double *a1) {
 
-	int i;
-	for (i = 0; i < n; i++) {
+	for (int i = 0; i < n; i++) {
 		a1[i] -= a2[i];
 	}
 }

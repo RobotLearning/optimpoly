@@ -28,6 +28,8 @@ double sign(double expr);
 long get_time();
 void vec_minus(const int n, const double *a2, double *a1);
 void vec_plus(const int n, const double *a2, double *a1);
+void make_equal(const int n, const double *a1, double *a2);
+int vec_is_equal(const int n, const double *x1, const double *x2);
 double inner_prod(const int size, const double *a1, const double *a2);
 double inner_w_prod(const int size, const double *w, const double *a1, const double *a2);
 double inner_winv_prod(const int size, const double *w, const double *a1, const double *a2);

@@ -62,7 +62,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
-	arma_rng::set_seed_random();
+	//arma_rng::set_seed_random();
+	arma_rng::set_seed(2);
 	tt.set_ball_state(0.2);
 
 	vec7 q0;

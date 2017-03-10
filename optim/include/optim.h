@@ -65,7 +65,7 @@ typedef struct {
 } weights; // weights for optimization penalties
 
 // interface for LAZY player
-double optim_lazy_run(double** ballpred,
+double nlopt_optim_lazy_run(double** ballpred,
 		              coptim *coparams,
 	                  racketdes *racketdata,
 		              optim *params);

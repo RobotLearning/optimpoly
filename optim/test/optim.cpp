@@ -45,51 +45,6 @@ inline void init_right_posture(vec7 & q0) {
 }
 
 /*
- * 	Lookup a lot of balls
- *	Run robot optimization for each by calling cheat function
- *	which should call optimizer and update optim parameters
- *	which then updates the desired joint angles
- */
-/*BOOST_AUTO_TEST_CASE(test_joint_limits) {
-
-	std::cout << "******************** Testing joint limits ****************" << std::endl;
-	int num_balls = 1;
-	int iter = 1000;
-	arma_rng::set_seed_random();
-	vec::fixed<15> strike_params;
-	vec6 ball_state;
-
-	double Tmax = 1.0;
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
-	set_bounds(lb,ub,0.01,Tmax);
-	vec7 lbvec(lb);
-	vec7 ubvec(ub);
-	TableTennis *tt;
-	Player *robot;
-	EKF filter = init_filter();
-	vec7 q0;
-	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
-	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
-	init_right_posture(q0);
-	mat Qdes = zeros<mat>(NDOF,iter);
-
-	for (int i = 0; i < num_balls; i++) {
-		lookup_random_entry(ball_state,strike_params);
-		tt = new TableTennis(ball_state,false,true);
-		robot = new Player(q0,filter);
-		for (int j = 0; j < iter; j++) {
-			robot->cheat(qact, join_vert(tt->get_ball_position(),tt->get_ball_velocity()), qdes);
-			tt->integrate_ball_state(dt);
-			Qdes.col(j) = qdes.q;
-		}
-		BOOST_TEST(!(any(max(Qdes,1) < ubvec)));
-		BOOST_TEST(!(any(min(Qdes,1) > lbvec)));
-	}
-	std::cout << "***************************************" << std::endl;
-}*/
-
-/*
  *
  * Here testing NLOPT optimization for FIXED player
  *
