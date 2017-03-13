@@ -166,12 +166,12 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	std::cout << std::endl << "Testing Player class's Filtering performance" << std::endl;
 	TableTennis tt = TableTennis();
+	tt.set_ball_state(0.2);
 	EKF filter = init_filter();
-	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
-	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);
 	mat66 P0;
 	P0.eye(6,6);
-	vec6 x0 = join_vert(init_pos,init_vel);
+	vec6 x0 = join_vert(tt.get_ball_position() + 0.5 * randu<vec>(3),
+			            tt.get_ball_velocity() + 0.2 * randu<vec>(3));
 	filter.set_prior(x0,P0);
 	vec7 q0 = zeros<vec>(NDOF);
 	Player cp = Player(q0,filter);

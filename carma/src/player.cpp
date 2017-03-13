@@ -97,10 +97,9 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	double dt = timer.toc();
 	t_cum += dt;
 
-	if (check_reset_filter(obs,filter.get_mean())) {
+	if (check_reset_filter(obs,filter,true)) {
 		num_obs = 0;
 		t_cum = 0.0; // t_cumulative
-		filter = init_filter();
 	}
 
 	newball = check_new_obs(obs);
@@ -663,21 +662,32 @@ void estimate_prior(const mat & observations,
  * we need to be able to recover from that.
  *
  */
-bool check_reset_filter(const vec3 & obs, const vec6 & est) {
+bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
-	static bool reset = false;
-	static bool ball_appears_opp_court = false;
-	static bool old_ball_is_out_range = false;
 	static double ymax = -0.2;
 	static double ynet = dist_to_table - table_length/2;
 	static double zmin = floor_level + 0.2;
 	static double ymin = dist_to_table - table_length - 0.2;
+	bool ball_appears_opp_court = false;
+	bool old_ball_is_out_range = false;
+	bool reset = false;
 
 	ball_appears_opp_court = (obs(Y) < ynet);
-	old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+	vec6 est;
+	try {
+		est = filter.get_mean();
+		old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+	}
+	catch (const char * exception) {
+		// exception caught due to uninitialized filter
+	}
 
-	if (ball_appears_opp_court && old_ball_is_out_range)
+	if (ball_appears_opp_court && old_ball_is_out_range) {
 		reset = true;
+		if (verbose)
+			std::cout << "Resetting filter!" << std::endl;
+		filter = init_filter();
+	}
 
 	return reset;
 }

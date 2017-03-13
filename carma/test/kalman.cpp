@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
 	double time_data = 0.0;
-	vec3 blob1, blob3, obs;
+	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
 	std::string home = std::getenv("HOME");
 	try {
@@ -279,16 +279,16 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
 		fuse_blobs(blob1,blob3,status1,status3,obs);
-		usleep(real_ball_data(i,10) - time_data);
+		//usleep(1e3 * (real_ball_data(i,10) - time_data));
 		time_data = real_ball_data(i,10);
 		try {
 			ball_states.row(i) = cp.filt_ball_state(obs).t();
 		}
 		catch (const char * exception) {
-			ball_states.row(i) = join_horiz(obs.t(),zeros<rowvec>(3));
+			ball_states.row(i) = join_horiz(blob1.t(),zeros<rowvec>(3));
 		}
 	}
-	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt");
+	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt",arma_ascii);
 }
 
 /*
@@ -332,7 +332,7 @@ static bool check_blob_validity(const vec3 & blob, const bool & status) {
 	static double yMin = dist_to_table - table_length - 0.5;
 	static double yCenter = dist_to_table - table_length/2.0;
 
-	if (status == false) {
+	if (!status) {
 		valid = false;
 	}
 	else if (blob(Z) > zMax) {
