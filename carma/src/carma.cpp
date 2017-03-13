@@ -70,6 +70,84 @@ void set_algorithm(int num) {
 
 /*
  *
+ * Checks for the validity of blob ball data using obvious table tennis checks.
+ * Returns TRUE if valid.
+ *
+ * Does not use uncertainty estimates to assess validity
+ * so do not rely on it as the sole source of outlier detection!
+ *
+ */
+static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
+
+	static bool valid = true;
+	static double zMax = 0.5;
+	static double zMin = floor_level - table_height;
+	static double xMax = table_width/2.0;
+	static double yMax = 0.5;
+	static double yMin = dist_to_table - table_length - 0.5;
+	static double yCenter = dist_to_table - table_length/2.0;
+
+	if (blob.status == false) {
+		if (verbose)
+			printf("Ball status is false!\n");
+		valid = false;
+	}
+	else if (blob.blob.x[3] > zMax) {
+		if (verbose)
+			printf("Ball is above zMax = 0.5!\n");
+		valid = false;
+	}
+	else if (blob.blob.x[2] > yMax || blob.blob.x[2] < yMin) {
+		if (verbose)
+			printf("Ball is outside y-limits!\n");
+		valid = false;
+	}
+	// between the table if ball appears outside the x limits
+	else if (fabs(blob.blob.x[2] - yCenter) < table_length/2.0 &&
+			fabs(blob.blob.x[1]) > xMax) {
+		if (verbose)
+			printf("Ball is outside the table!\n");
+		valid = false;
+	}
+	// on the table blob should not appear under the table
+	else if (fabs(blob.blob.x[1]) < xMax && fabs(blob.blob.x[2] - yCenter) < table_length/2.0
+			&& blob.blob.x[3] < zMin) {
+		if (verbose)
+			printf("Ball appears under the table!\n");
+		valid = false;
+	}
+	return valid;
+}
+
+/*
+ *
+ * Fusing the blobs
+ * If both blobs are valid blob3 is preferred
+ * Only updates if the blobs are valid, i.e. not obvious outliers
+ *
+ */
+static bool fuse_blobs(const SL_VisionBlob blobs[], vec3 & obs) {
+
+	static bool status = false;
+
+	// if ball is detected reliably
+	// Here we hope to avoid outliers and prefer the blob3 over blob1
+	if (check_blob_validity(blobs[3],0) || check_blob_validity(blobs[1],0)) {
+		status = true;
+		if (blobs[3].status) {
+			for (int i = X; i <= Z; i++)
+				obs(i) = blobs[3].blob.x[i+1];
+		}
+		else {
+			for (int i = X; i <= Z; i++)
+				obs(i) = blobs[1].blob.x[i+1];
+		}
+	}
+	return status;
+}
+
+/*
+ *
  * Interface to the PLAYER class that generates desired hitting trajectories.
  * First initializes the player and then starts calling play() interface function.
  *
@@ -100,8 +178,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qact.qd(i) = joint_state[i+1].thd;
 			qact.qdd(i) = joint_state[i+1].thdd;
 		}
-		for (int i = 0; i < NCART; i++)
-			ball_obs(i) = blobs[1].blob.x[i+1];
+
+		fuse_blobs(blobs,ball_obs);
 		cp->play(qact,ball_obs,qdes);
 	}
 
@@ -161,154 +239,6 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 		joint_des_state[i+1].thd = qdes.qd(i);
 		joint_des_state[i+1].thdd = qdes.qdd(i);
 	}
-
-}
-
-/*
- * Filter the blob information with a kalman Filter and save the result in filtState.
- * KF is only used in simulation mode.
- *
- * Returns the bounce variable.
- * It will be reset to FALSE when filter is re-initialized.
- * Bounce variable is used for legal ball detection
- *
- */
-void ekf(double x[], double y[], double racket_pos[], double racket_orient[], int *reset) {
-
-	static wall_clock timer;
-	static bool firsttime = true;
-	static const int min_obs = 5;
-	static int num_obs = 0;
-	// observation matrix
-	static mat OBS = zeros<mat>(3,min_obs);
-	static vec TIMES = zeros<vec>(min_obs);
-	static vec3 obs;
-	static double t_cum;
-	static EKF* filter;
-
-	if (firsttime) {
-		firsttime = false;
-		timer.tic();
-	}
-
-	// get elapsed time
-	double dt = timer.toc();
-	t_cum += dt;
-
-	if (*reset) {
-		num_obs = 0;
-		*reset = false;
-		t_cum = 0.0; // t_cumulative
-	}
-
-	obs << y[0] << endr << y[1] << endr << y[2] << endr;
-	bool new_ball = check_new_carma_obs(obs);
-
-	if (num_obs < min_obs) {
-		if (new_ball) {
-			TIMES(num_obs) = t_cum;
-			OBS.col(num_obs) = obs;
-			num_obs++;
-			x[0] = obs(0); x[1] = obs(1); x[2] = obs(2);
-			if (num_obs == min_obs) {
-				filter = init_ball_filter(OBS,TIMES);
-				pass_mean_estimate(x,filter);
-			}
-		}
-	}
-	else { // comes here if there are enough balls to start filter
-		filter->predict(dt);
-		if (new_ball)
-			filter->update(obs);
-		pass_mean_estimate(x,filter);
-	}
-	timer.tic();
-}
-
-/*
- * Pass mean estimate in case filter is initialized
- */
-void pass_mean_estimate(double x[], EKF * filter) {
-
-	vec6 est = filter->get_mean();
-	for (int i = 0; i < 6; i++) {
-		x[i] = est(i);
-	}
-}
-
-/*
- * Initialize filter (only once!)
- */
-EKF* init_ball_filter(const mat & obs, const vec & times) {
-
-	double std = 0.01;
-	mat C = eye<mat>(3,6);
-	mat66 Q = zeros<mat>(6,6);
-	mat33 R = std * eye<mat>(3,3);
-
-	vec6 x; mat66 P;
-	estimate_prior(obs,times,x,P);
-	EKF* filter = new EKF(calc_next_ball,C,Q,R);
-	filter->set_prior(x,P);
-	filter->update(obs.col(0));
-
-	double dt;
-	for (unsigned i = 1; i < times.n_elem; i++) {
-		dt = times(i) - times(i-1);
-		filter->predict(dt);
-		filter->update(obs.col(i));
-	}
-
-	return filter;
-}
-
-/*
- * Empirical Bayes procedure to estimate prior given
- * matrix of observations Y of column length N, each row
- * corresponding to one
- *
- * If observations arrive as column vectors then we take
- * transpose of it.
- *
- *
- */
-void estimate_prior(const mat & observations, const vec & times,
-		            vec & x, mat & P) {
-
-	int num_samples = times.n_elem;
-	mat M = zeros<mat>(num_samples,3);
-
-	// and create the data matrix
-	for (int i = 0; i < num_samples; i++) {
-		M(i,0) = 1.0;
-		M(i,1) = times(i);
-		M(i,2) = times(i) * times(i);
-	}
-	// solving for the parameters
-	std::cout << "Data matrix:" << std::endl << M << std::endl;
-	mat Beta = solve(M,observations.t());
-	std::cout << "Parameters:" << endl << Beta << std::endl;
-	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
-	P.eye(6,6);
-	P *= 0.1;
-}
-
-/*
- * Checks to see if the observation is new (updated)
- *
- * The blobs need to be at least tol = 1e-3 apart from each other in distance
- *
- */
-bool check_new_carma_obs(const vec3 & obs) {
-
-	static vec3 last_obs = zeros<vec>(3);
-	static const double tol = 1e-3;
-
-	if (norm(obs - last_obs) > tol) {
-		last_obs = obs;
-		return true;
-	}
-	return false;
 }
 
 /*

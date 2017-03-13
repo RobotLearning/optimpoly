@@ -95,4 +95,26 @@ mat EKF::predict_path(double dt, int N) {
 	return X;
 }
 
+/*
+ * Checks to see if the ball observation could be an
+ * outlier.
+ *
+ * Using the covariance matrix estimate to detect such an outlier
+ * that possibly escaped the elimination from check_blob_validity function
+ *
+ * The new obs has to be located a certain standard deviations away from last obs
+ *
+ */
+bool EKF::check_outlier(const vec & y) const {
 
+	static bool outlier = true;
+	static double std_dev_mult = 2.0;
+	vec threshold = std_dev_mult * sqrt(P.diag());
+	vec inno = y - C * x;
+
+	if (all(inno < threshold)) {
+		outlier = false;
+	}
+
+	return outlier;
+}

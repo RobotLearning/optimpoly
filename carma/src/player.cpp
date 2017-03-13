@@ -65,46 +65,6 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 }
 
 /*
- * Empirical Bayes procedure to estimate prior given
- * matrix of observations Y of column length N, each row
- * corresponding to one
- *
- * If observations arrive as column vectors then we take
- * transpose of it.
- *
- *
- */
-void Player::estimate_prior(const mat & observations, const vec & times) {
-
-	vec6 x; mat66 P;
-	int num_samples = times.n_elem;
-	mat M = zeros<mat>(num_samples,3);
-
-	// and create the data matrix
-	for (int i = 0; i < num_samples; i++) {
-		M(i,0) = 1.0;
-		M(i,1) = times(i);
-		M(i,2) = times(i) * times(i);
-	}
-	// solving for the parameters
-	//cout << "Data matrix:" << endl << M << endl;
-	mat Beta = solve(M,observations.t());
-	//cout << "Parameters:" << endl << Beta << endl;
-	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
-	P.eye(6,6);
-	P *= 0.1;
-	filter.set_prior(x,P);
-	filter.update(observations.col(0));
-
-	double dt;
-	for (unsigned i = 1; i < times.n_elem; i++) {
-		dt = times(i) - times(i-1);
-		filter.predict(dt);
-		filter.update(observations.col(i));
-	}
-}
-
-/*
  * Filter the blob information with a kalman Filter and save the result in filtState.
  * KF is only used in simulation mode.
  *
@@ -118,7 +78,9 @@ void Player::estimate_prior(const mat & observations, const vec & times) {
 void Player::estimate_ball_state(const vec3 & obs) {
 
 	static wall_clock timer;
+	//static bool sudden_strange_appearance = false; // suddenly appearing on robot side
 	static bool firsttime = true;
+	static bool newball = true;
 	static const int min_obs = 5;
 	static int num_obs = 0;
 	// observation matrix
@@ -135,26 +97,28 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	double dt = timer.toc();
 	t_cum += dt;
 
-	/*if (*reset) {
+	if (check_reset_filter(obs,filter.get_mean())) {
 		num_obs = 0;
-		*reset = false;
 		t_cum = 0.0; // t_cumulative
-	}*/
+		filter = init_filter();
+	}
 
-	bool new_ball = check_new_obs(obs);
+	newball = check_new_obs(obs);
+	//sudden_strange_appearance = ((filter.get_mean()(Z) <= floor_level) &&
+	//		                 (obs(Y) > dist_to_table - table_length/2));
 	if (num_obs < min_obs) {
-		if (new_ball) {
+		if (newball) {
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				estimate_prior(OBS,TIMES);
+				estimate_prior(OBS,TIMES,filter);
 			}
 		}
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(dt);
-		if (new_ball)
+		if (newball && !filter.check_outlier(obs))
 			filter.update(obs);
 	}
 	timer.tic();
@@ -344,7 +308,8 @@ void Player::optim_lazy_param(const joint & qact) {
 					}
 				}
 				// run optimization in another thread
-				std::thread t(&optim_lazy_run,ballpred,&coparams,&racket_params,&optim_params);
+				std::thread t(&nlopt_optim_lazy_run,
+						ballpred,&coparams,&racket_params,&optim_params);
 				t.detach();
 			}
 		}
@@ -386,6 +351,10 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	if (optim_params.update) {
 		moving = true;
 		optim_params.update = false;
+		if (alg == LAZY) {
+			for (int i = 0; i < NDOF; i++)
+				q_rest_des(i)= coparams.qrest[i];
+		}
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
 	}
@@ -638,6 +607,79 @@ bool check_new_obs(const vec3 & obs) {
 		return true;
 	}
 	return false;
+}
+
+/*
+ * Empirical Bayes procedure to estimate prior given
+ * matrix of observations Y of column length N, each row
+ * corresponding to one
+ *
+ * If observations arrive as column vectors then we take
+ * transpose of it.
+ *
+ *
+ */
+void estimate_prior(const mat & observations,
+		            const vec & times,
+					EKF & filter) {
+
+	vec6 x; mat66 P;
+	int num_samples = times.n_elem;
+	mat M = zeros<mat>(num_samples,3);
+
+	// and create the data matrix
+	for (int i = 0; i < num_samples; i++) {
+		M(i,0) = 1.0;
+		M(i,1) = times(i);
+		M(i,2) = times(i) * times(i);
+	}
+	// solving for the parameters
+	//cout << "Data matrix:" << endl << M << endl;
+	mat Beta = solve(M,observations.t());
+	//cout << "Parameters:" << endl << Beta << endl;
+	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
+	P.eye(6,6);
+	P *= 0.1;
+	filter.set_prior(x,P);
+	filter.update(observations.col(0));
+
+	double dt;
+	for (unsigned i = 1; i < times.n_elem; i++) {
+		dt = times(i) - times(i-1);
+		filter.predict(dt);
+		filter.update(observations.col(i));
+	}
+}
+
+/*
+ * Check to see if we want to reset the filter.
+ *
+ * Basically if the old ball data shows on robot court and
+ * the new ball appears on opponent's court we should consider
+ * resetting the Kalman Filter means and variances.
+ *
+ * However note that this is not the ultimate test for resetting.
+ * It is possible for instance, that the ball ends up near the net, and
+ * we need to be able to recover from that.
+ *
+ */
+bool check_reset_filter(const vec3 & obs, const vec6 & est) {
+
+	static bool reset = false;
+	static bool ball_appears_opp_court = false;
+	static bool old_ball_is_out_range = false;
+	static double ymax = -0.2;
+	static double ynet = dist_to_table - table_length/2;
+	static double zmin = floor_level + 0.2;
+	static double ymin = dist_to_table - table_length - 0.2;
+
+	ball_appears_opp_court = (obs(Y) < ynet);
+	old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+
+	if (ball_appears_opp_court && old_ball_is_out_range)
+		reset = true;
+
+	return reset;
 }
 
 /*

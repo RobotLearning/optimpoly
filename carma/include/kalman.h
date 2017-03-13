@@ -91,6 +91,9 @@ public:
 
 	// predict future path
 	mat predict_path(double dt, int N);
+
+	// check observation for outlier (used after prediction)
+	bool check_outlier(const vec & obs) const;
 };
 
 

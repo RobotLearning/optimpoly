@@ -20,17 +20,16 @@
 #define INEQ_LAND_CONSTR_DIM 11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
-static double nlopt_optim_lazy(ball_data *data, optim *params);
-static void print_input_structs(ball_data* data, optim* params);
+static double nlopt_optim_lazy(lazy_data *data, optim *params);
+static void print_input_structs(lazy_data* data, optim* params);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 static double punish_land_robot(const double *xland,
 								const double xnet,
 								const double *Rland,
 								const double Rnet);
-static double punish_wait_robot(const ball_data* data,
-		                        const double *x,
-		                        const double *Rwait,
-								double landTime);
+static double punish_wait_robot(const lazy_data* data,
+								double *Rwait,
+								double *qrest);
 static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params);
 static void joint_limits_ineq_constr(unsigned m, double *result,
@@ -46,9 +45,9 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 		                      double *joint_max_cand, double *joint_min_cand);
 static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
 		                     double *joint_max_cand, double *joint_min_cand);
-static double test_optim(double *x, ball_data* data, int verbose);
+static double test_optim(double *x, lazy_data* data, int verbose);
 static void modify_ball_outgoing_vel(double* ballVel);
-static void calc_times(const ball_data* data,
+static void calc_times(const lazy_data* data,
 		               const double *x,
 					   double *netTime,
 					   double *landTime,
@@ -56,13 +55,22 @@ static void calc_times(const ball_data* data,
 					   double *xland,
 					   double *ball_norm, // ball to racket normal distance
 					   double *ball_proj);
-static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static void calc_rest_robot(const lazy_data* data,
+		                        const double *x,
+		                        const double *Rret,
+								const double *a3,
+								const double *a2,
+								const double landTime,
+								double *qrest);
+static void finalize_soln(const double* x,
+		lazy_data* data, optim * params, double time_elapsed);
 static void set_penalty_matrices(weights * pen);
 static void racket_contact_model(double* racketVel, double* racketNormal, double* ballVel);
 static void interp_ball(double** ballpred, const double T,
 		                const double dt, const int Nmax,
 						double *ballpos, double *ballvel);
 static void init_soln(const optim * params, double x[OPTIM_DIM]);
+static void init_right_posture(double* qwait);
 
 
 /*
@@ -73,13 +81,16 @@ double nlopt_optim_lazy_run(double** ballpred,
 	                  racketdes *racketdata,
 		              optim *params) {
 
-	ball_data data = {racketdata,coparams,ballpred,racketdata->dt,racketdata->Nmax};
+	static double qwait[NDOF];
+	init_right_posture(qwait);
+	lazy_data data = {racketdata,coparams,ballpred,qwait,
+			          racketdata->dt,racketdata->Nmax};
 	static int count = 0;
 	printf("==========================================\n");
 	printf("Running NLOPT\n");
 	//initTime = get_time();
-	//print_input_structs(data,params);
-	//nlopt_optim_fixed_run(data.coparams,data.racketdata,params);
+	//print_input_structs(&data,params);
+	nlopt_optim_fixed_run(data.coparams,data.racketdata,params);
 	/*double x[OPTIM_DIM];
 	for (int i = 0; i < NDOF; i++) {
 		x[i] = params->qf[i];
@@ -98,9 +109,10 @@ double nlopt_optim_lazy_run(double** ballpred,
  * For debugging purposes useful
  *
  */
-static void print_input_structs(ball_data* data, optim* params) {
+static void print_input_structs(lazy_data* data, optim* params) {
 
 	for (int i = 0; i < NDOF; i++) {
+		printf("qwait[%d] = %f\n", i, data->qwait[i]);
 		printf("q0[%d] = %f\n", i, data->coparams->q0[i]);
 		printf("q0dot[%d] = %f\n", i, data->coparams->q0dot[i]);
 		printf("lb[%d] = %f\n", i, data->coparams->lb[i]);
@@ -128,7 +140,7 @@ static void print_input_structs(ball_data* data, optim* params) {
  * TODO: try different optimization routines
  *
  */
-static double nlopt_optim_lazy(ball_data *data, optim *params) {
+static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 
 	//print_input_structs(coparams, racketdata, params);
 	params->update = FALSE;
@@ -155,7 +167,7 @@ static double nlopt_optim_lazy(ball_data *data, optim *params) {
 
 	double init_time = get_time();
 	double past_time = 0.0;
-	double minf; // the minimum objective value, upon return //
+	double minf; // the minimum objective value, upon return
 	int res; // error code
 	double max_violation;
 
@@ -171,7 +183,7 @@ static double nlopt_optim_lazy(ball_data *data, optim *params) {
 	    printf("Found minimum at f = %0.10g\n", minf);
 	    max_violation = test_optim(x,data,TRUE);
 	    if (max_violation < 1e-2)
-	    	finalize_soln(x,params,past_time);
+	    	finalize_soln(x,data,params,past_time);
 	}
 	params->running = FALSE;
 	//nlopt_destroy(opt);
@@ -186,10 +198,11 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 
 	static double balldist;
 	static double ballproj[NCART];
+	static double qrest[NDOF];
 	static double *q0dot; // initial joint velocity
 	static double *q0; // initial joint pos
 	static int firsttime = TRUE;
-	static ball_data * data;
+	static lazy_data * data;
 	static weights *w = (weights*)malloc(sizeof(weights));
 	static double J1, J2, Jhit, Jland, Jwait;
 	static double a1[NDOF], a2[NDOF], b1[NDOF], b2[NDOF];
@@ -200,7 +213,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	if (firsttime) {
 		firsttime = FALSE;
 		set_penalty_matrices(w);
-		data = (ball_data*)my_func_params;
+		data = (lazy_data*)my_func_params;
 		q0 = data->coparams->q0;
 		q0dot = data->coparams->q0dot;
 	}
@@ -214,6 +227,9 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	// calculate the follow up coeffs which are added to the cost
 	calc_return_poly_coeff(q0,x,landTime,w->R_wait,b1,b2);
 
+	// calculate resting state
+	calc_rest_robot(data,x,w->R_return,b1,b2,landTime,qrest);
+
 	J1 = T * (3*T*T*inner_winv_prod(NDOF,w->R_strike,a1,a1) +
 			3*T*inner_winv_prod(NDOF,w->R_strike,a1,a2) +
 			inner_winv_prod(NDOF,w->R_strike,a2,a2));
@@ -225,7 +241,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 
 	Jhit = inner_w_prod(NCART,w->R_hit,ballproj,ballproj);
 	Jland = punish_land_robot(xland,xnet,w->R_land, w->R_net);
-	Jwait = punish_wait_robot(data,x,w->R_wait,landTime);
+	Jwait = punish_wait_robot(data,w->R_wait,qrest);
 
 	return J1 + J2 + Jhit + Jland + Jwait;
 }
@@ -253,29 +269,37 @@ static double punish_land_robot(const double *xland,
 /*
  * Punish the deviations of resting joints (as a function of optim params) from a chosen init_joint_state
  *
- * FIXME: this should be broken!
  *
  */
-static double punish_wait_robot(const ball_data* data,
-		                        const double *x,
-		                        const double *Rwait,
-								double landTime) {
-	static int firsttime = TRUE;
-	static double* qwait;
+static double punish_wait_robot(const lazy_data* data,
+								double *Rwait,
+								double *qrest) {
 	static double qdiff[NDOF];
-	static double qrest[NDOF];
-
-	if (firsttime) {
-		firsttime = FALSE;
-		qwait = data->coparams->qrest;
-	}
 
 	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = x[i] + x[i+NDOF] * landTime/2;
-		qdiff[i] = qrest[i] - qwait[i];
+		qdiff[i] = qrest[i] - data->qwait[i];
 	}
-
 	return inner_w_prod(NDOF,Rwait,qdiff,qdiff);
+}
+
+/*
+ * Punish the deviations of resting joints (as a function of optim params) from a chosen init_joint_state
+ *
+ *
+ */
+static void calc_rest_robot(const lazy_data* data,
+		                        const double *x,
+		                        const double *Rret,
+								const double *a3,
+								const double *a2,
+								const double landTime,
+								double *qrest) {
+
+	for (int i = 0; i < NDOF; i++) {
+		qrest[i] = (x[i] + x[i+NDOF] * landTime +
+				    a2[i] * pow(landTime,2) +
+					a3[i] * pow(landTime,3)) / (2*Rret[i]);
+	}
 }
 
 /*
@@ -286,7 +310,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 		                     void *my_func_params) {
 
 	static int firsttime = TRUE;
-	static ball_data *data;
+	static lazy_data *data;
 	static double xnet;
 	static double xland[2];
 	static double balldist;
@@ -302,7 +326,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	/* initialization of static variables */
 	if (firsttime) {
 		firsttime = FALSE;
-		data = (ball_data*)my_func_params;
+		data = (lazy_data*)my_func_params;
 	}
 
 	calc_times(data, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
@@ -324,43 +348,33 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
  * This is the inequality constraint that makes sure we never exceed the
  * joint limits during the striking and returning motion
  *
- * FIXME: this is broken!
  *
  */
 static void joint_limits_ineq_constr(unsigned m, double *result,
 		unsigned n, const double *x, double *grad, void *my_func_params) {
 
 	static int firsttime = TRUE;
-	static ball_data* data;
+	static lazy_data* data;
 	static weights *w = (weights *)malloc(sizeof(weights));
-	static double a1[NDOF];
-	static double a2[NDOF];
-	static double a1ret[NDOF]; // coefficients for the returning polynomials
-	static double a2ret[NDOF];
+	static double a1[NDOF], a2[NDOF], a1ret[NDOF], a2ret[NDOF]; // coefficients for the polynomials
 	static double joint_strike_max_cand[NDOF];
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
-	static double *q0;
-	static double *q0dot;
-	static double *qrest;
-	static double *ub;
-	static double *lb;
-	static double Tret;
-	static double xnet;
-	static double xland[2];
+	static double *q0, *q0dot, *qwait;
+	static double *ub, *lb;
+	static double xnet, xland[2];
 	static double balldist;
 	static double ballproj[NCART];
-	static double netTime;
-	static double landTime;
+	static double netTime, landTime;
 
 	if (firsttime) {
 		firsttime = FALSE;
 		set_penalty_matrices(w);
-		data = (ball_data*)my_func_params;
+		data = (lazy_data*)my_func_params;
 		q0 = data->coparams->q0;
 		q0dot = data->coparams->q0dot;
-		qrest = data->coparams->qrest;
+		qwait = data->qwait;
 		ub = data->coparams->ub;
 		lb = data->coparams->lb;
 	}
@@ -369,11 +383,11 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-	calc_return_poly_coeff(qrest,x,landTime,w->R_wait,a1ret,a2ret);
+	calc_return_poly_coeff(qwait,x,landTime,w->R_wait,a1ret,a2ret);
 	// calculate the candidate extrema both for strike and return
 	calc_strike_extrema_cand(a1,a2,x[2*NDOF],q0,q0dot,
 			joint_strike_max_cand,joint_strike_min_cand);
-	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
+	calc_return_extrema_cand(a1ret,a2ret,x,landTime,joint_return_max_cand,joint_return_min_cand);
 
 	/* deviations from joint min and max */
 	for (int i = 0; i < NDOF; i++) {
@@ -390,7 +404,6 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  *
- * TODO: aren't we adding weights here?
  *
  */
 static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
@@ -413,14 +426,14 @@ static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const 
  * TODO: is this correct?
  *
  */
-static void calc_return_poly_coeff(const double *q0,
+static void calc_return_poly_coeff(const double *qwait,
 		                           const double *x, const double T,
 		                           const double *Rwait,
 								   double *a1, double *a2) {
 	double weights[NDOF];
 	for (int i = 0; i < NDOF; i++) {
-		weights[i] = Rwait[i] / (6 + pow(T,3)*Rwait[i]);
-		a1[i] = weights[i] * (x[i+NDOF]*T + 2*x[i] - 2*q0[i]);
+		weights[i] = Rwait[i] / (6 + pow(T,3)*Rwait[i]/2);
+		a1[i] = weights[i] * (x[i+NDOF]*T + 2*x[i] - 2*qwait[i]);
 		a2[i] = -x[i+NDOF]/(2*T) - (3/2)*T*a1[i];
 	}
 }
@@ -473,75 +486,6 @@ static void calc_return_extrema_cand(double *a1, double *a2, const double *x, do
 }
 
 /*
- * Debug by testing the cost function value and
- * the constraint violation of the solution vector x
- *
- * Returns FALSE if joint inequality constraints are violated!
- *
- * TODO: can return the landing time!
- *
- */
-static double test_optim(double *x, ball_data* data, int verbose) {
-
-	// give info on constraint violation
-	double *grad = FALSE;
-	static double land_violation[INEQ_LAND_CONSTR_DIM];
-	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
-	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, data);
-	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, OPTIM_DIM, x, grad, data);
-	double cost = costfunc(OPTIM_DIM, x, grad, data);
-
-	if (verbose) {
-		// give info on solution vector
-		print_optim_vec(x);
-		printf("f = %.2f\n",cost);
-		printf("Constraint info:\n");
-		printf("Ball to racket normal distance: %.2f\n",land_violation[0]);
-		printf("Ball distance projected to racket: %.2f\n", land_violation[2]);
-		printf("netTime: %f\n", -land_violation[3]);
-	    printf("landTime - netTime: %f\n", -land_violation[6]);
-		printf("wall_z - zNet: %f\n", -land_violation[4]);
-		printf("zNet - net_z: %f\n", -land_violation[5]);
-		printf("table_xmax - xLand: %f\n", -land_violation[6]);
-		printf("table_xmax + xLand: %f\n", -land_violation[8]);
-		printf("net_y - yLand: %f\n", -land_violation[9]);
-	    printf("yLand - table_ymax: %f\n", -land_violation[10]);
-	}
-
-	for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
-		if (lim_violation[i] > 0.0) {
-			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
-		}
-	}
-
-	return fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),
-			max_array(land_violation,INEQ_LAND_CONSTR_DIM));
-}
-
-/*
- * Modify ball outgoing velocity by multiplying with a constant vector (less than one)
- *
- * Necessary since the landing and net hitting locations are calculated using projectile motion
- *
- */
-static void modify_ball_outgoing_vel(double* ballVel) {
-
-	static double multiplier_x, multiplier_y, multiplier_z;
-	static int firsttime = TRUE;
-
-	if (firsttime) {
-		firsttime = FALSE;
-		multiplier_x = 0.9;
-		multiplier_y = 0.8;
-		multiplier_z = 0.83;
-	}
-
-	ballVel[X] *= multiplier_x;
-	ballVel[Y] *= multiplier_y;
-	ballVel[Z] *= multiplier_z;
-}
-
-/*
  * Calculate the net hitting time and the landing time
  * Assuming that there was an interaction (hitting) between racket and ball.
  *
@@ -550,8 +494,10 @@ static void modify_ball_outgoing_vel(double* ballVel) {
  * landTime and netTime variables and return these when the optimization
  * variable is the same (meaning optimization algorithm did not update it yet).
  *
+ * TODO: simplify code! If landtime is not real, should we set it to 1.0?
+ *
  */
-static void calc_times(const ball_data* data,
+static void calc_times(const lazy_data* data,
 		               const double *x,
 					   double *netTime,
 					   double *landTime,
@@ -630,20 +576,71 @@ static void calc_times(const ball_data* data,
 }
 
 /*
- * Finalize the solution and update target optimization
- * parameter structure and hitTime values
+ * Debug by testing the cost function value and
+ * the constraint violation of the solution vector x
  *
- * TODO: update also the landing time = desired return time
+ * Returns FALSE if joint inequality constraints are violated!
+ *
+ *
  */
-static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+static double test_optim(double *x, lazy_data* data, int verbose) {
 
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		params->qf[i] = x[i];
-		params->qfdot[i] = x[i+NDOF];
+	// give info on constraint violation
+	double *grad = FALSE;
+	static double land_violation[INEQ_LAND_CONSTR_DIM];
+	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
+	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, data);
+	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, OPTIM_DIM, x, grad, data);
+	double cost = costfunc(OPTIM_DIM, x, grad, data);
+
+	if (verbose) {
+		// give info on solution vector
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Constraint info:\n");
+		printf("Ball to racket normal distance: %.2f\n",land_violation[0]);
+		printf("Ball distance projected to racket: %.2f\n", land_violation[2]);
+		printf("netTime: %f\n", -land_violation[3]);
+	    printf("landTime - netTime: %f\n", -land_violation[6]);
+		printf("wall_z - zNet: %f\n", -land_violation[4]);
+		printf("zNet - net_z: %f\n", -land_violation[5]);
+		printf("table_xmax - xLand: %f\n", -land_violation[6]);
+		printf("table_xmax + xLand: %f\n", -land_violation[8]);
+		printf("net_y - yLand: %f\n", -land_violation[9]);
+	    printf("yLand - table_ymax: %f\n", -land_violation[10]);
 	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
-	params->update = TRUE;
+
+	for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
+		if (lim_violation[i] > 0.0) {
+			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
+	}
+
+	return fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),
+			max_array(land_violation,INEQ_LAND_CONSTR_DIM));
+}
+
+/*
+ * Modify ball outgoing velocity by multiplying with a constant vector (less than one)
+ *
+ * Necessary since the landing and net hitting locations are calculated using projectile motion
+ *
+ */
+static void modify_ball_outgoing_vel(double* ballVel) {
+
+	static double multiplier_x, multiplier_y, multiplier_z;
+	static int firsttime = TRUE;
+
+	if (firsttime) {
+		firsttime = FALSE;
+		multiplier_x = 0.9;
+		multiplier_y = 0.8;
+		multiplier_z = 0.83;
+	}
+
+	ballVel[X] *= multiplier_x;
+	ballVel[Y] *= multiplier_y;
+	ballVel[Z] *= multiplier_z;
 }
 
 /*
@@ -661,7 +658,7 @@ static void set_penalty_matrices(weights * pen) {
 	double* Rland = (double*)calloc(2,sizeof(double));
 	double Rnet = 1.0;
 
-	const_vec(NDOF,10.0,R1);
+	const_vec(NDOF,1.0,R1);
 	const_vec(NDOF,1.0,R2);
 	const_vec(NDOF,1.0,Rwait);
 	const_vec(NCART,1.0,Rhit);
@@ -745,4 +742,49 @@ static void init_soln(const optim * params, double x[OPTIM_DIM]) {
 		x[i+NDOF] = params->qfdot[i];
 	}
 	x[2*NDOF] = params->T;
+}
+
+/*
+ * Initialize robot posture on the right size of the robot
+ */
+static void init_right_posture(double* qwait) {
+
+	qwait[0] = 1.0;
+	qwait[1] = -0.2;
+	qwait[2] = -0.1;
+	qwait[3] = 1.8;
+	qwait[4] = -1.57;
+	qwait[5] = 0.1;
+	qwait[6] = 0.3;
+}
+
+/*
+ * Finalize the solution and update target optimization
+ * parameter structure and hitTime values
+ *
+ *
+ */
+static void finalize_soln(const double* x,
+		lazy_data* data, optim * params, double time_elapsed) {
+
+	static weights *w = (weights*)malloc(sizeof(weights));
+	static double netTime, landTime, xnet, balldist, xland[2], ballproj[3];
+	static double *qrest = (double*)calloc(NDOF,sizeof(double));
+	static double b1[NDOF], b2[NDOF];
+
+	set_penalty_matrices(w);
+	calc_times(data, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
+
+	calc_return_poly_coeff(data->qwait,x,landTime,w->R_wait,b1,b2);
+	calc_rest_robot(data,x,w->R_wait,b1,b2,landTime,qrest);
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		params->qf[i] = x[i];
+		params->qfdot[i] = x[i+NDOF];
+	}
+	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	data->coparams->time2return = landTime;
+	data->coparams->qrest = qrest;
+	params->update = TRUE;
 }

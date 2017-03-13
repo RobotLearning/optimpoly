@@ -17,9 +17,6 @@ extern void cheat(const SL_Jstate joint_state[],
 
 extern void set_algorithm(int num);
 
-// kf function for SL
-extern void ekf(double x[], double y[], double racket_pos[], double racket_orient[], int *reset);
-
 // inverts a given matrix and overwriting contents with inverse
 extern void invert_matrix(double** mat, int nrows, double** out);
 // pseudoinverse of given matrix matc
@@ -32,11 +29,9 @@ extern void pinv_matrix(double** matc, int nrows, int ncols, double** out);
 
 #ifdef __cplusplus
 // internal c++ functions
-bool check_new_carma_obs(const vec3 & obs);
-EKF* init_ball_filter(const mat & obss, const vec & times);
-void pass_mean_estimate(double x[], EKF * filter);
-void estimate_prior(const mat & observations, const vec & times,
-		            vec & x, mat & P);
+static bool fuse_blobs(const SL_VisionBlob blobs[], vec3 & obs);
+static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose);
+
 #endif
 
 #endif /* CARMA_H */

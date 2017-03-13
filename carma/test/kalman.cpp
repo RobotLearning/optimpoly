@@ -15,15 +15,20 @@
 #include <armadillo>
 #include "kalman.h"
 #include "tabletennis.h"
+#include "player.hpp"
 
 using namespace std;
 using namespace arma;
+
+static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
+		               const bool & status1, const bool & status3, vec3 & obs);
+static bool check_blob_validity(const vec3 & blob, const bool & status);
 
 /*
  * Test for successful initialization
  * Check if uninitialized filter sends an exception
  */
-inline bool test_uninit_exception(KF filter) {
+inline bool test_uninit_exception(const KF & filter) {
 
 	bool flag = false;
 	try {
@@ -204,6 +209,7 @@ BOOST_AUTO_TEST_CASE( test_ekf ) {
 
 /*
  * Test predict path function of EKF with table tennis
+ *
  */
 BOOST_AUTO_TEST_CASE( test_predict_path ) {
 
@@ -235,4 +241,115 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 
 	BOOST_TEST(approx_equal(M, Mfilt, "absdiff", 0.002));
 
+}
+
+/*
+ * Test outlier prediction with Extended Kalman Filter
+ *
+ * Here we want to test/debug the Kalman Filter
+ * that is to be used realtime with our vision system
+ * for ball tracking
+ *
+ * Things to watch out for:
+ * 1. It should reset correctly everytime ball is launched from ball gun
+ * 2. Outliers should be cleaned properly
+ * 3. New balls should be updated
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
+
+	std::cout << "Testing filtering on REAL BALL DATA!\n";
+	bool status1, status3;
+	double time_data = 0.0;
+	vec3 blob1, blob3, obs;
+	mat real_ball_data;
+	std::string home = std::getenv("HOME");
+	try {
+		real_ball_data.load(home + "/Dropbox/data/realBallData_030516.txt");
+	}
+	catch (const char * exception) {
+		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
+	}
+	mat ball_states = zeros<mat>(real_ball_data.n_rows,6);
+
+	Player cp = Player(zeros<vec>(7),init_filter());
+	for (int i = 0; i < real_ball_data.n_rows; i++) {
+		status1 = real_ball_data(i,1);
+		blob1 = real_ball_data(i,span(2,4)).t();
+		status3 = real_ball_data(i,6);
+		blob3 = real_ball_data(i,span(7,9)).t();
+		fuse_blobs(blob1,blob3,status1,status3,obs);
+		usleep(real_ball_data(i,10) - time_data);
+		time_data = real_ball_data(i,10);
+		try {
+			ball_states.row(i) = cp.filt_ball_state(obs).t();
+		}
+		catch (const char * exception) {
+			ball_states.row(i) = join_horiz(obs.t(),zeros<rowvec>(3));
+		}
+	}
+	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt");
+}
+
+/*
+ *
+ * Fusing the blobs
+ * If both blobs are valid blob3 is preferred
+ * Only updates if the blobs are valid, i.e. not obvious outliers
+ *
+ */
+static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
+		               const bool & status1, const bool & status3, vec3 & obs) {
+
+	static bool status = false;
+
+	// if ball is detected reliably
+	// Here we hope to avoid outliers and prefer the blob3 over blob1
+	if (check_blob_validity(blob3,status3) ||
+			check_blob_validity(blob1,status1)) {
+		status = true;
+		obs = (status3) ? blob3 : blob1;
+	}
+	return status;
+}
+
+/*
+ *
+ * Checks for the validity of blob ball data using obvious table tennis checks.
+ * Returns TRUE if valid.
+ *
+ * Does not use uncertainty estimates to assess validity
+ * so do not rely on it as the sole source of outlier detection!
+ *
+ */
+static bool check_blob_validity(const vec3 & blob, const bool & status) {
+
+	static bool valid = true;
+	static double zMax = 0.5;
+	static double zMin = floor_level - table_height;
+	static double xMax = table_width/2.0;
+	static double yMax = 0.5;
+	static double yMin = dist_to_table - table_length - 0.5;
+	static double yCenter = dist_to_table - table_length/2.0;
+
+	if (status == false) {
+		valid = false;
+	}
+	else if (blob(Z) > zMax) {
+		valid = false;
+	}
+	else if (blob(Y) > yMax || blob(Y) < yMin) {
+		valid = false;
+	}
+	// between the table if ball appears outside the x limits
+	else if (fabs(blob(Y) - yCenter) < table_length/2.0 &&
+			fabs(blob(X)) > xMax) {
+		valid = false;
+	}
+	// on the table blob should not appear under the table
+	else if (fabs(blob(X)) < xMax && fabs(blob(Y) - yCenter) < table_length/2.0
+			&& blob(Z) < zMin) {
+		valid = false;
+	}
+	return valid;
 }

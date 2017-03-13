@@ -31,7 +31,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {LAZY};
+algo algs[] = {VHP,FIXED,LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -51,7 +51,6 @@ inline void init_right_posture(vec7 & q0) {
  * Testing whether the ball can be returned to the opponents court
  */
 BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
-//BOOST_AUTO_TEST_CASE(test_land) {
 
 	std::cout << "*************** Testing Robot Ball Landing ************" << std::endl;
 

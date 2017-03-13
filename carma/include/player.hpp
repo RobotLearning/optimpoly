@@ -42,7 +42,6 @@ private:
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
-	void estimate_prior(const mat & observations, const vec & times);
 
 	// optimization for different players
 	void optim_fixedp_param(const joint & qact); // run optimizer for FIXED player
@@ -68,13 +67,20 @@ public:
 
 };
 
-EKF init_filter(); // init filter for ball estimation
+// ball estimation and filter constructor/state initialization
+EKF init_filter();
+void estimate_prior(const mat & observations,
+		            const vec & times,
+					EKF & filter);
+bool check_new_obs(const vec3 & obs);
+bool check_reset_filter(const vec3 & obs, const vec6 & est);
+
+// movement generation
 void generate_strike(const optim & params, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
-bool check_new_obs(const vec3 & obs);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 // racket calculations
