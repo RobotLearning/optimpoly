@@ -10,7 +10,8 @@
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include <string>
-#include "kinematics.hpp"
+
+#include "../../player/include/kinematics.hpp"
 
 using namespace std;
 using namespace arma;

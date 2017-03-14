@@ -31,7 +31,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {VHP,FIXED,LAZY};
+algo algs[] = {VHP,FIXED};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -54,12 +54,9 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "*************** Testing Robot Ball Landing ************" << std::endl;
 
-	double Tmax = 1.0;
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.01,Tmax);
-	vec7 lbvec(lb);
-	vec7 ubvec(ub);
+	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
 	//arma_rng::set_seed_random();
 	arma_rng::set_seed(2);
@@ -76,13 +73,13 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
-		//robot->play(qact, tt.get_ball_position(), qdes);
-		robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+		robot->play(qact, tt.get_ball_position(), qdes);
+		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//tt.integrate_ball_state(dt);
 		tt.integrate_ball_state(robot_racket,dt);
-		usleep(2e3);
+		usleep(dt*1e6);
 	}
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));

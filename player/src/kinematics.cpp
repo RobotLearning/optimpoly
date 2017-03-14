@@ -9,8 +9,8 @@
 
 #include <iostream>
 #include <armadillo>
-#include "constants.h"
 #include "kinematics.hpp"
+#include "constants.h"
 #include "player.hpp"
 #include "tabletennis.h"
 

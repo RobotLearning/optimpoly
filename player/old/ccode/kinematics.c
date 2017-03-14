@@ -7,12 +7,13 @@
  *      Author: okoc
  */
 
+#include "../../../player/old/ccode/kinematics.h"
+
 #include "stdio.h"
 #include "stdlib.h"
-#include "SL0.h"
 #include "stdio.h"
-#include "kinematics.h"
 #include "string.h"
+#include "../../../player/old/ccode/SL0.h"
 
 /*!*****************************************************************************
  *******************************************************************************

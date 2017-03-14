@@ -9,13 +9,14 @@
  *      Author: okan
  */
 
-#include "SL0.h"
 #include "stdio.h"
 #include "string.h"
 #include "sys/time.h"
-#include "optims.h"
-#include "kinematics.h"
-#include "utils.h"
+
+#include "../../../player/old/ccode/kinematics.h"
+#include "../../../player/old/ccode/optims.h"
+#include "../../../player/old/ccode/SL0.h"
+#include "../../../player/old/ccode/utils.h"
 
 /*
  * Global variables used in lp_task

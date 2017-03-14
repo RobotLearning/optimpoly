@@ -11,8 +11,8 @@
 #ifndef TABLETENNIS_H_
 #define TABLETENNIS_H_
 
-#include "table.h"
 #include "constants.h"
+#include "table.h"
 
 using namespace arma;
 

@@ -5,7 +5,8 @@
  *      Author: okoc
  */
 
-#include "utils.h"
+#include "../../../player/old/ccode/utils.h"
+
 #include "stdlib.h"
 #include "stdio.h"
 

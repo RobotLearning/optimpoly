@@ -8,15 +8,17 @@
  *      Author: okoc
  */
 
-#include "SL0.h"
-#include "optims.h"
-#include "player.h"
-#include "constants.h"
-#include "table.h"
+#include "../../../player/old/ccode/player.h"
+
 #include "stdio.h"
 #include "math.h"
 #include "stdlib.h"
-#include "utils.h"
+
+#include "../../../player/include/constants.h"
+#include "../../../player/include/table.h"
+#include "../../../player/old/ccode/optims.h"
+#include "../../../player/old/ccode/SL0.h"
+#include "../../../player/old/ccode/utils.h"
 
 /*
  * Static global variable

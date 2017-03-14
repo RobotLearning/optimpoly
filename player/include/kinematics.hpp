@@ -8,8 +8,8 @@
 #ifndef _KINEMATICS_HPP_
 #define _KINEMATICS_HPP_
 
-#include "player.hpp"
-#include "tabletennis.h"
+#include "../../player/include/player.hpp"
+#include "../../player/include/tabletennis.h"
 
 /*! defines for the preference and config files */
 #define CONFIG   "config/"

@@ -8,8 +8,8 @@
 #ifndef PLAYER_HPP_
 #define PLAYER_HPP_
 
+#include "../../player/include/kalman.h"
 #include "optim.h"
-#include "kalman.h"
 
 using namespace arma;
 
@@ -55,6 +55,7 @@ private:
 public:
 
 	Player(const vec7 & q0, const EKF & filter, algo alg = FIXED);
+	~Player();
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
@@ -72,7 +73,7 @@ EKF init_filter();
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter);
-bool check_new_obs(const vec3 & obs);
+bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose);
 
 // movement generation

@@ -8,8 +8,8 @@
  */
 
 #include <armadillo>
-#include "constants.h"
 #include "lookup.h"
+#include "constants.h"
 
 using namespace arma;
 using namespace std;

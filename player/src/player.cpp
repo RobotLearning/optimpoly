@@ -8,14 +8,14 @@
  */
 
 #include <armadillo>
-#include "constants.h"
-#include "tabletennis.h"
-#include "kalman.h"
-#include "player.hpp"
-#include "kinematics.h"
 #include <thread>
-#include "utils.h"
 #include "stdlib.h"
+#include "player.hpp"
+#include "constants.h"
+#include "kalman.h"
+#include "tabletennis.h"
+#include "kinematics.h"
+#include "utils.h"
 #include "optim.h"
 
 using namespace arma;
@@ -65,6 +65,27 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 }
 
 /*
+ *
+ * Deconstructor for the Player class.
+ * Frees the memory using free() as in C-sytle
+ * since calloc() was called.
+ *
+ */
+Player::~Player() {
+
+	free(optim_params.qf);
+	free(optim_params.qfdot);
+	free(coparams.lb);
+	free(coparams.ub);
+	free(coparams.q0dot);
+	free(coparams.qrest);
+	free(coparams.q0);
+	my_free_matrix(racket_params.normal,0,NCART,0,racket_params.Nmax);
+	my_free_matrix(racket_params.pos,0,NCART,0,racket_params.Nmax);
+	my_free_matrix(racket_params.vel,0,NCART,0,racket_params.Nmax);
+}
+
+/*
  * Filter the blob information with a kalman Filter and save the result in filtState.
  * KF is only used in simulation mode.
  *
@@ -87,40 +108,45 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
 	static double t_cum;
+	double dt;
 
 	if (firsttime) {
 		firsttime = false;
 		timer.tic();
 	}
-
-	// get elapsed time
-	double dt = timer.toc();
-	t_cum += dt;
-
 	if (check_reset_filter(obs,filter,true)) {
 		num_obs = 0;
 		t_cum = 0.0; // t_cumulative
 	}
 
-	newball = check_new_obs(obs);
+	newball = check_new_obs(obs,0.0);
+
 	//sudden_strange_appearance = ((filter.get_mean()(Z) <= floor_level) &&
 	//		                 (obs(Y) > dist_to_table - table_length/2));
 	if (num_obs < min_obs) {
 		if (newball) {
+			dt = timer.toc();
+			t_cum += dt;
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
+				/*cout << "Matrix:\n" << OBS << endl;
+				cout << "Times:\n" << TIMES << endl;
+				cout << "Estimating initial ball state\n";*/
 				estimate_prior(OBS,TIMES,filter);
+				//cout << "Initial estimate: \n" << filter.get_mean() << endl;
 			}
+			timer.tic();
 		}
 	}
 	else { // comes here if there are enough balls to start filter
+		dt = timer.toc();
+		timer.tic();
 		filter.predict(dt);
 		if (newball && !filter.check_outlier(obs))
 			filter.update(obs);
 	}
-	timer.tic();
 }
 
 /*
@@ -596,10 +622,9 @@ bool check_legal_ball(const mat & balls_predicted) {
  * The blobs need to be at least tol = 1e-3 apart from each other in distance
  *
  */
-bool check_new_obs(const vec3 & obs) {
+bool check_new_obs(const vec3 & obs, double tol) {
 
 	static vec3 last_obs = zeros<vec>(3);
-	static const double tol = 1e-3;
 
 	if (norm(obs - last_obs) > tol) {
 		last_obs = obs;
@@ -671,21 +696,25 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 	bool ball_appears_opp_court = false;
 	bool old_ball_is_out_range = false;
 	bool reset = false;
+	static int reset_cnt = 0;
 
 	ball_appears_opp_court = (obs(Y) < ynet);
 	vec6 est;
 	try {
 		est = filter.get_mean();
-		old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+		old_ball_is_out_range = est(Y) > ymax;
+				//(est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
 	}
 	catch (const char * exception) {
+		//cout << "Exception caught!\n";
 		// exception caught due to uninitialized filter
 	}
 
 	if (ball_appears_opp_court && old_ball_is_out_range) {
 		reset = true;
-		if (verbose)
-			std::cout << "Resetting filter!" << std::endl;
+		if (verbose) {
+			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
+		}
 		filter = init_filter();
 	}
 

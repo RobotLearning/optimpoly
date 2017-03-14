@@ -14,8 +14,8 @@
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
-#include "tabletennis.h"
 #include "player.hpp"
+#include "tabletennis.h"
 
 using namespace std;
 using namespace arma;
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
 		fuse_blobs(blob1,blob3,status1,status3,obs);
-		//usleep(1e3 * (real_ball_data(i,10) - time_data));
+		usleep(1e3 * (real_ball_data(i,10) - time_data));
 		time_data = real_ball_data(i,10);
 		try {
 			ball_states.row(i) = cp.filt_ball_state(obs).t();
@@ -324,7 +324,7 @@ static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
  */
 static bool check_blob_validity(const vec3 & blob, const bool & status) {
 
-	static bool valid = true;
+	bool valid;
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -350,6 +350,9 @@ static bool check_blob_validity(const vec3 & blob, const bool & status) {
 	else if (fabs(blob(X)) < xMax && fabs(blob(Y) - yCenter) < table_length/2.0
 			&& blob(Z) < zMin) {
 		valid = false;
+	}
+	else {
+		valid = true;
 	}
 	return valid;
 }

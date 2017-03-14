@@ -11,8 +11,8 @@
 #define KINEMATICS_H_
 
 #include <math.h>
-#include "SL0.h"
 #include "stdio.h"
+#include "../../../player/old/ccode/SL0.h"
 
 #define DOF 7
 #define CART 3

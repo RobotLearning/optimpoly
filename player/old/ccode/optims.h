@@ -12,7 +12,8 @@
 #include <nlopt.h>
 #include <pthread.h>
 #include "string.h"
-#include "kinematics.h"
+
+#include "../../../player/old/ccode/kinematics.h"
 
 /* DEFINES */
 

@@ -1,9 +1,9 @@
 #include <armadillo>
-#include "kalman.h"
-#include "player.hpp"
-#include "tabletennis.h"
 #include <cmath>
 #include <sys/time.h>
+#include "../../player/include/kalman.h"
+#include "../../player/include/player.hpp"
+#include "../../player/include/tabletennis.h"
 
 using namespace arma;
 
@@ -39,7 +39,7 @@ typedef struct { /*!< Vision Blob */
 static algo alg = FIXED;
 static bool reset = true;
 
-#include "carma.h"
+#include "../../player/include/carma.h"
 
 /*
  * Set algorithm to initialize Player with.
@@ -79,7 +79,7 @@ void set_algorithm(int num) {
  */
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 
-	static bool valid = true;
+	bool valid;
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -116,6 +116,9 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 			printf("Ball appears under the table!\n");
 		valid = false;
 	}
+	else {
+		valid = true;
+	}
 	return valid;
 }
 
@@ -126,13 +129,13 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
  * Only updates if the blobs are valid, i.e. not obvious outliers
  *
  */
-static bool fuse_blobs(const SL_VisionBlob blobs[], vec3 & obs) {
+static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	static bool status = false;
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],0) || check_blob_validity(blobs[1],0)) {
+	if (check_blob_validity(blobs[3],true) || check_blob_validity(blobs[1],true)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)
@@ -160,7 +163,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static vec3 ball_obs;
 	static joint qact;
 	static joint qdes;
-	static Player *cp; // centered player
+	static Player *robot = nullptr; // centered player
 
 	if (reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -169,7 +172,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qdes.qdd(i) = 0.0;
 		}
 		EKF filter = init_filter();
-		cp = new Player(q0,filter,alg);
+		delete robot;
+		robot = new Player(q0,filter,alg);
 		reset = false;
 	}
 	else {
@@ -178,9 +182,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qact.qd(i) = joint_state[i+1].thd;
 			qact.qdd(i) = joint_state[i+1].thdd;
 		}
-
 		fuse_blobs(blobs,ball_obs);
-		cp->play(qact,ball_obs,qdes);
+		robot->play(qact,ball_obs,qdes);
 	}
 
 	// update desired joint state

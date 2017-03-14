@@ -1,44 +1,49 @@
 DIR=$(HOME)/polyoptim
-HEADER1=$(DIR)/carma/include
+HEADER1=$(DIR)/player/include
 HEADER2=$(DIR)/optim/include
 CC=g++
 LIBS=-larmadillo -lm
-INSTALLFLAGS=-fPIC -Wall -g -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O
+INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O0
 TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 
-carma:
-	$(CC) $(INSTALLFLAGS) carma/src/carma.cpp \
-	                      carma/src/player.cpp \
-					      carma/src/kalman.cpp \
-					      carma/src/kinematics.cpp \
-	                      carma/src/extkalman.cpp \
-	                      carma/src/table_tennis.cpp \
-	                      carma/src/lookup.cpp \
-	                      $(LIBS) -o libcarma.so
-	#gcc -c -I$(HEADER) src/carma.c -o carma.o
-	#g++ -Wall -c -I$(HEADER) src/carma.cpp $(LIBS) -o carma.o
-	#ar rcs libcarma.a carma.o
+tabletennis:
+	$(CC) $(INSTALLFLAGS) player/src/table_tennis.cpp $(LIBS) -o libtennis.so
+
+kinematics:
+	$(CC) $(INSTALLFLAGS) player/src/kinematics.cpp $(LIBS) -o libkin.so
+
+lookup:
+	$(CC) $(INSTALLFLAGS) player/src/lookup.cpp $(LIBS) -o liblookup.so
+	
+filter:
+	$(CC) $(INSTALLFLAGS) player/src/kalman.cpp player/src/extkalman.cpp $(LIBS) -o libfilter.so				  
+						  
+player:
+	$(CC) $(INSTALLFLAGS) player/src/player.cpp $(LIBS) -o libplayer.so
+
+interface:
+	$(CC) $(INSTALLFLAGS) player/src/carma.cpp $(LIBS) -o libcarma.so \
+	                      ./libplayer.so ./libfilter.so ./libtennis.so ./liboptim.so
 
 optim:
-	$(CC) $(OPTIMFLAGS) optim/src/optimpoly.c \
-						optim/src/lazyoptim.c \
-						optim/src/invkin.c \
-					optim/src/kinematics.c \
-					optim/src/utils.c \
-	      -lm -o liboptim.so
-
+	$(CC) $(OPTIMFLAGS) optim/src/optimpoly.cpp \
+						optim/src/lazyoptim.cpp \
+						optim/src/invkin.cpp \
+					    optim/src/kinematics.cpp \
+					    optim/src/utils.c \
+	                    -lm -o liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) carma/test/table_tennis.cpp \
-	                 carma/test/kalman.cpp \
-	                 optim/test/optim.cpp \
-	                 optim/test/kinematics.cpp \
+	$(CC) $(TESTFLAGS) player/test/table_tennis.cpp \
 	                  -o unit_tests.o -lm -larmadillo \
 	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
-	                   /usr/local/lib/libboost_unit_test_framework.a ./liboptim.so -lnlopt ./libcarma.so            
-
+	                   /usr/local/lib/libboost_unit_test_framework.a \
+	                   ./liblookup.so ./libfilter.so ./libplayer.so ./libtennis.so ./libkin.so ./liboptim.so -lnlopt
+						#optim/test/kinematics.cpp \
+					    #optim/test/optim.cpp \
+					    
 clean:
 	rm -rf *.a *.o *.so
 
-.PHONY: all test clean carma optim
+.PHONY: all test clean player optim
