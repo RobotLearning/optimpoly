@@ -24,7 +24,6 @@ player:
 
 interface:
 	$(CC) $(INSTALLFLAGS) player/src/carma.cpp $(LIBS) -o libcarma.so \
-	                      ./libplayer.so ./libfilter.so ./libtennis.so ./liboptim.so
 
 optim:
 	$(CC) $(OPTIMFLAGS) optim/src/optimpoly.cpp \

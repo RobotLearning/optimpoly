@@ -131,10 +131,11 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				/*cout << "Matrix:\n" << OBS << endl;
-				cout << "Times:\n" << TIMES << endl;
-				cout << "Estimating initial ball state\n";*/
+				//cout << "Matrix:\n" << OBS << endl;
+				//cout << "Times:\n" << TIMES << endl;
+				cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
+				//cout << filter.get_mean() << endl;
 				//cout << "Initial estimate: \n" << filter.get_mean() << endl;
 			}
 			timer.tic();
@@ -702,8 +703,7 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 	vec6 est;
 	try {
 		est = filter.get_mean();
-		old_ball_is_out_range = est(Y) > ymax;
-				//(est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+		old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
 	}
 	catch (const char * exception) {
 		//cout << "Exception caught!\n";
