@@ -52,8 +52,8 @@ private:
 
 	vec3 flight_model() const;
 	vec3 drag_flight_model() const;
-	void symplectic_euler(const vec3 & ball_acc,
-			              vec3 & ball_cand_pos, vec3 & ball_cand_vel, double dt) const;
+	void symplectic_euler(const double dt, const vec3 & ball_acc,
+			              vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
 
 	// contact models
 	void check_contact(const racket & robot_racket,
@@ -83,13 +83,13 @@ public:
 	void set_ball_state(double std);
 
 	// ball prediction functions
-	void integrate_ball_state(double dt);
-	void integrate_ball_state(const racket & robot, double dt);
+	void integrate_ball_state(const double dt);
+	void integrate_ball_state(const racket & robot, const double dt);
 
 	// used as an interface for the ball prediction
-	friend vec calc_next_ball(const vec & xnow, double dt);
+	friend vec calc_next_ball(const vec & xnow, const double dt);
 	friend vec calc_next_ball(const racket & robot,
-			const vec & xnow, double dt);
+			const vec & xnow, const double dt);
 };
 
 #endif /* end of TABLETENNIS_H_ */

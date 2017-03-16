@@ -7,6 +7,12 @@ INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++1
 TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 
+# for compiling everything 
+all: install interface lookup kinematics 
+
+# for compiling only necessary stuff to play table tennis (in test mode)
+install: player filter tabletennis optim
+
 tabletennis:
 	$(CC) $(INSTALLFLAGS) player/src/table_tennis.cpp $(LIBS) -o libtennis.so
 
@@ -23,7 +29,7 @@ player:
 	$(CC) $(INSTALLFLAGS) player/src/player.cpp $(LIBS) -o libplayer.so
 
 interface:
-	$(CC) $(INSTALLFLAGS) player/src/carma.cpp $(LIBS) -o libcarma.so \
+	$(CC) $(INSTALLFLAGS) player/src/carma.cpp $(LIBS) -o libcarma.so
 
 optim:
 	$(CC) $(OPTIMFLAGS) optim/src/optimpoly.cpp \
@@ -34,13 +40,14 @@ optim:
 	                    -lm -o liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) player/test/table_tennis.cpp \
+	$(CC) $(TESTFLAGS) player/test/kalman.cpp \
 	                  -o unit_tests.o -lm -larmadillo \
 	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
 	                   /usr/local/lib/libboost_unit_test_framework.a \
 	                   ./liblookup.so ./libfilter.so ./libplayer.so ./libtennis.so ./libkin.so ./liboptim.so -lnlopt
 						#optim/test/kinematics.cpp \
 					    #optim/test/optim.cpp \
+					    #player/test/table_tennis.cpp \
 					    
 clean:
 	rm -rf *.a *.o *.so

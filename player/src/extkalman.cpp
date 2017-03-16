@@ -109,7 +109,7 @@ bool EKF::check_outlier(const vec & y) const {
 
 	static bool outlier = true;
 	static int dim_y = y.n_elem;
-	static double std_dev_mult = 2.0;
+	static double std_dev_mult = 3.0;
 	vec threshold = std_dev_mult * sqrt(P.diag());
 	vec inno = y - C * x;
 

@@ -80,12 +80,12 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racketdes racket_params = {pos, vel, normal, dt, N};
+	racketdes racket_params = {pos, vel, normal, DT, N};
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-	mat balls_pred = filter.predict_path(dt,N);
+	mat balls_pred = filter.predict_path(DT,N);
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	racket_params = calc_racket_strategy(balls_pred,ball_land_des,0.8,racket_params);
 	vec3 normal_example;

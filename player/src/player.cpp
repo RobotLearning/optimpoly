@@ -119,23 +119,23 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		t_cum = 0.0; // t_cumulative
 	}
 
-	newball = check_new_obs(obs,0.0);
+	newball = check_new_obs(obs,1e-3);
 
 	//sudden_strange_appearance = ((filter.get_mean()(Z) <= floor_level) &&
 	//		                 (obs(Y) > dist_to_table - table_length/2));
 	if (num_obs < min_obs) {
 		if (newball) {
 			dt = timer.toc();
-			t_cum += dt;
+			t_cum += DT; //dt;
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				//cout << "Matrix:\n" << OBS << endl;
-				//cout << "Times:\n" << TIMES << endl;
+				cout << "Matrix:\n" << OBS << endl;
+				cout << "Times:\n" << TIMES << endl;
 				cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
-				//cout << filter.get_mean() << endl;
+				cout << filter.get_mean() << endl;
 				//cout << "Initial estimate: \n" << filter.get_mean() << endl;
 			}
 			timer.tic();
@@ -144,9 +144,10 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	else { // comes here if there are enough balls to start filter
 		dt = timer.toc();
 		timer.tic();
-		filter.predict(dt);
-		if (newball && !filter.check_outlier(obs))
+		filter.predict(DT); //dt);
+		if (newball && !filter.check_outlier(obs)) {
 			filter.update(obs);
+		}
 	}
 }
 
@@ -287,6 +288,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
+				cout << state_est << endl;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_fixed_run,
 						&coparams,&racket_params,&optim_params);
@@ -306,7 +308,6 @@ void Player::optim_fixedp_param(const joint & qact) {
  * in another thread
  *
  * The optimized parameters are: qf, qf_dot, T
- * assuming T_return and q0 are fixed
  *
  */
 void Player::optim_lazy_param(const joint & qact) {
@@ -481,10 +482,10 @@ void generate_strike(const optim & params, const joint & qact,
 	b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
 	b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 
-	int N_hit = T/dt;
-	rowvec times_hit = linspace<rowvec>(dt,T,N_hit);
-	int N_return = time2return/dt;
-	rowvec times_ret = linspace<rowvec>(dt,time2return,N_return);
+	int N_hit = T/DT;
+	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
+	int N_return = time2return/DT;
+	rowvec times_ret = linspace<rowvec>(DT,time2return,N_return);
 
 	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
 	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
@@ -642,6 +643,9 @@ bool check_new_obs(const vec3 & obs, double tol) {
  * If observations arrive as column vectors then we take
  * transpose of it.
  *
+ * Velocity estimation is biased, we multiply velocities by 1.1
+ * since they often underestimate actual velocities.
+ *
  *
  */
 void estimate_prior(const mat & observations,
@@ -651,6 +655,7 @@ void estimate_prior(const mat & observations,
 	vec6 x; mat66 P;
 	int num_samples = times.n_elem;
 	mat M = zeros<mat>(num_samples,3);
+	vec3 vel_multiplier = {1.1, 1.1, 1.1};
 
 	// and create the data matrix
 	for (int i = 0; i < num_samples; i++) {
@@ -664,7 +669,7 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	P *= 0.1;
+	//P *= 0.001;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
@@ -674,6 +679,9 @@ void estimate_prior(const mat & observations,
 		filter.predict(dt);
 		filter.update(observations.col(i));
 	}
+	//x = filter.get_mean();
+	//x(span(DX,DZ)) = x(span(DX,DZ)) % vel_multiplier;
+	//filter.set_prior(x,P);
 }
 
 /*
@@ -690,17 +698,17 @@ void estimate_prior(const mat & observations,
  */
 bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
+	static int reset_cnt = 0;
 	static double ymax = -0.2;
-	static double ynet = dist_to_table - table_length/2;
+	static double ynet = dist_to_table - table_length/2.0;
 	static double zmin = floor_level + 0.2;
 	static double ymin = dist_to_table - table_length - 0.2;
 	bool ball_appears_opp_court = false;
 	bool old_ball_is_out_range = false;
 	bool reset = false;
-	static int reset_cnt = 0;
+	vec6 est;
 
 	ball_appears_opp_court = (obs(Y) < ynet);
-	vec6 est;
 	try {
 		est = filter.get_mean();
 		old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);

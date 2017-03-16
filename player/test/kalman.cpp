@@ -11,6 +11,7 @@
  *      Author: okoc
  */
 
+#define BOOST_TEST_MODULE test_table_tennis
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
@@ -217,13 +218,7 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 	arma_rng::set_seed(5);
 
 	// initialize a filter to predict
-	mat C(3,6,fill::zeros);
-	C.cols(1,3) = eye<mat>(3,3);
-	// diagonal covariances
-	mat Q(6,6,fill::zeros);
-	mat R(3,3,fill::eye);
-	R *= 0.001;
-	EKF filter = EKF(calc_next_ball,C,Q,R);
+	EKF filter = init_filter();
 
 	int N = 50;
 	double dt = 0.01;
@@ -244,6 +239,35 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 }
 
 /*
+ * Compare SL simulation with table tennis prediction models here
+ * by loading SL's saved ball states
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_sl_predict_path ) {
+
+	mat slmat, ball_sl;
+	vec times_sl;
+	slmat.load("ball_traj_sl.txt");
+	times_sl = slmat.col(0);
+	ball_sl = slmat.cols(1,6);
+	vec6 xinit = ball_sl.row(0).t();
+	TableTennis tt = TableTennis(xinit,false,false);
+	int N = ball_sl.n_rows;
+	mat M = zeros<mat>(N,6);
+	M.row(0) = xinit.t();
+	double dt;
+	for (int i = 1; i < N; i++) {
+		dt = times_sl(i) - times_sl(i-1);
+		tt.integrate_ball_state(dt);
+		M.row(i) = join_horiz(tt.get_ball_position().t(),tt.get_ball_velocity().t());
+	}
+	N = 50;
+	cout << M.row(N-1) << ball_sl.row(N-1) << endl;
+	BOOST_TEST(approx_equal(M, ball_sl, "absdiff", 0.002));
+
+}
+
+/*
  * Test outlier prediction with Extended Kalman Filter
  *
  * Here we want to test/debug the Kalman Filter
@@ -256,7 +280,7 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
  * 3. New balls should be updated
  *
  */
-BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
+/*BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
@@ -289,7 +313,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		}
 	}
 	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt",arma_ascii);
-}
+}*/
 
 /*
  *

@@ -1,9 +1,9 @@
 #include <armadillo>
 #include <cmath>
 #include <sys/time.h>
-#include "../../player/include/kalman.h"
-#include "../../player/include/player.hpp"
-#include "../../player/include/tabletennis.h"
+#include "kalman.h"
+#include "player.hpp"
+#include "tabletennis.h"
 
 using namespace arma;
 
@@ -39,7 +39,7 @@ typedef struct { /*!< Vision Blob */
 static algo alg = FIXED;
 static bool reset = true;
 
-#include "../../player/include/carma.h"
+#include "carma.h"
 
 /*
  * Set algorithm to initialize Player with.
@@ -135,7 +135,7 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],true) || check_blob_validity(blobs[1],true)) {
+	if (check_blob_validity(blobs[3],false) || check_blob_validity(blobs[1],false)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)

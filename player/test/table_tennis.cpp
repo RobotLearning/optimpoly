@@ -78,8 +78,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//tt.integrate_ball_state(dt);
-		tt.integrate_ball_state(robot_racket,dt);
-		usleep(dt*1e6);
+		tt.integrate_ball_state(robot_racket,DT);
+		usleep(DT*1e6);
 	}
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));

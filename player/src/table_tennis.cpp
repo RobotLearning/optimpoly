@@ -30,8 +30,7 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-
-	//init_topspin();
+	init_topspin();
 }
 
 /*
@@ -49,7 +48,7 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
 
-	//init_topspin();
+	init_topspin();
 }
 
 /*
@@ -125,7 +124,7 @@ void TableTennis::integrate_ball_state(const racket & robot_racket,
 	// Symplectic Euler for No-Contact-Situation (Flight model)
 	vec3 ball_acc = flight_model();
 	vec3 ball_cand_pos, ball_cand_vel;
-	symplectic_euler(ball_acc, ball_cand_pos, ball_cand_vel, dt);
+	symplectic_euler(dt,ball_acc, ball_cand_pos, ball_cand_vel);
 
 	if (CHECK_CONTACTS) {
 		check_contact(robot_racket,ball_cand_pos,ball_cand_vel);
@@ -144,12 +143,12 @@ void TableTennis::integrate_ball_state(const racket & robot_racket,
  * Does not check the racket!!
  *
  */
-void TableTennis::integrate_ball_state(double dt) {
+void TableTennis::integrate_ball_state(const double dt) {
 
 	// Symplectic Euler for No-Contact-Situation (Flight model)
 	vec3 ball_acc = flight_model();
 	vec3 ball_cand_pos, ball_cand_vel;
-	symplectic_euler(ball_acc, ball_cand_pos, ball_cand_vel, dt);
+	symplectic_euler(dt, ball_acc, ball_cand_pos, ball_cand_vel);
 
 	if (CHECK_CONTACTS) {
 		check_ball_table_contact(ball_cand_pos,ball_cand_vel);
@@ -173,12 +172,12 @@ vec3 TableTennis::flight_model() const {
 
 	vec3 ball_acc = drag_flight_model();
 	// add Magnus force
-	vec3 magnus = cross(ball_spin,ball_vel); // acceleration due to magnus force
-
-	magnus *= Clift;
-	ball_acc += magnus;
+	if (SPIN_MODE) {
+		vec3 magnus = cross(ball_spin,ball_vel); // acceleration due to magnus force
+		magnus *= Clift;
+		ball_acc += magnus;
+	}
 	return ball_acc;
-
 }
 
 /*
@@ -205,8 +204,8 @@ vec3 TableTennis::drag_flight_model() const {
  * in between.
  *
  */
-void TableTennis::symplectic_euler(const vec3 & ball_acc,
-		vec3 & ball_next_pos, vec3 & ball_next_vel, const double dt) const {
+void TableTennis::symplectic_euler(const double dt, const vec3 & ball_acc,
+		vec3 & ball_next_pos, vec3 & ball_next_vel) const {
 
 	// ball candidate velocities
 	ball_next_vel(X) = ball_vel(X) + ball_acc(X) * dt;

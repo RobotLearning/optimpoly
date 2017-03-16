@@ -20,7 +20,7 @@
 #define NDOF 7
 
 static const double VHPY = -0.3; // in front of the robot
-static const double dt = 0.002; // 500 Hz robot operation
+static const double DT = 0.002; // 500 Hz robot operation
 
 /************************************* constants  ***********************/
 
