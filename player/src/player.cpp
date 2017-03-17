@@ -93,7 +93,7 @@ Player::~Player() {
  * It will be reset to FALSE when filter is re-initialized.
  * Bounce variable is used for legal ball detection
  *
- * FIXME: Add automatic resetting!
+ * TODO: we fix dt = DT = 0.002 seconds!
  *
  */
 void Player::estimate_ball_state(const vec3 & obs) {
@@ -131,11 +131,11 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				cout << "Matrix:\n" << OBS << endl;
-				cout << "Times:\n" << TIMES << endl;
+				//cout << "Matrix:\n" << OBS << endl;
+				//cout << "Times:\n" << TIMES << endl;
 				cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
-				cout << filter.get_mean() << endl;
+				//cout << filter.get_mean() << endl;
 				//cout << "Initial estimate: \n" << filter.get_mean() << endl;
 			}
 			timer.tic();
@@ -288,7 +288,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 					coparams.q0[i] = qact.q(i);
 					coparams.q0dot[i] = qact.qd(i);
 				}
-				cout << state_est << endl;
+				//cout << state_est << endl;
 				// run optimization in another thread
 				std::thread t(&nlopt_optim_fixed_run,
 						&coparams,&racket_params,&optim_params);
@@ -355,7 +355,7 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 void Player::predict_ball(mat & balls_pred) {
 
-	static int N = racket_params.Nmax;
+	int N = racket_params.Nmax;
 
 	balls_pred = filter.predict_path(racket_params.dt,N);
 }
@@ -699,33 +699,36 @@ void estimate_prior(const mat & observations,
 bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
 	static int reset_cnt = 0;
+	static vec3 last_obs;
+	static double threshold = 0.3;
 	static double ymax = -0.2;
 	static double ynet = dist_to_table - table_length/2.0;
 	static double zmin = floor_level + 0.2;
 	static double ymin = dist_to_table - table_length - 0.2;
-	bool ball_appears_opp_court = false;
+	bool ball_appears_incoming = false;
 	bool old_ball_is_out_range = false;
 	bool reset = false;
-	vec6 est;
+	vec3 est;
 
-	ball_appears_opp_court = (obs(Y) < ynet);
+	ball_appears_incoming = (obs(Y) > last_obs(Y));
 	try {
-		est = filter.get_mean();
-		old_ball_is_out_range = (est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+		est = filter.get_mean().head(NCART);
+		old_ball_is_out_range = (norm(est - obs) > threshold);
+				//(est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
 	}
 	catch (const char * exception) {
 		//cout << "Exception caught!\n";
 		// exception caught due to uninitialized filter
 	}
 
-	if (ball_appears_opp_court && old_ball_is_out_range) {
+	if (ball_appears_incoming && old_ball_is_out_range) {
 		reset = true;
 		if (verbose) {
 			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
 		}
 		filter = init_filter();
 	}
-
+	last_obs = obs;
 	return reset;
 }
 

@@ -15,6 +15,22 @@
 #include "math.h"
 #include "optim.h"
 
+class InvKin {
+
+private:
+
+public:
+
+	coptim * coparams;
+	racketdes * racketdata;
+	optim *params;
+	nlopt_opt opt;
+
+	InvKin(coptim* coparams, racketdes * racketdata, optim * params);
+	double run();
+
+};
+
 static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
 static double const_costfunc(unsigned n, const double *x,
@@ -41,6 +57,59 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
+
+InvKin::InvKin(coptim *coparams_,
+		       racketdes *racketdata_,
+		       optim *params_) : coparams(coparams_), racketdata(racketdata_), params(params_) {
+
+	params->update = FALSE;
+	params->running = TRUE;
+
+	double x[2*NDOF];
+	double tol_eq[EQ_CONSTR_DIM];
+	//double tol_ineq[INEQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
+	//const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
+	init_invkin_soln(params,x); //parameters are the initial joint positions q0*/
+	// set tolerances equal to second argument //
+
+	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
+	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_lower_bounds(opt, coparams->lb);
+	nlopt_set_upper_bounds(opt, coparams->ub);
+	nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
+	//nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
+	//		                         coparams, tol_ineq);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
+}
+
+double InvKin::run () {
+
+	double init_time = get_time();
+	double past_time = 0.0;
+	double minf; // the minimum objective value, upon return //
+	int res; // error code
+	double max_violation;
+
+	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+		printf("NLOPT failed with exit code %d!\n", res);
+		past_time = (get_time() - init_time)/1e3;
+		max_violation = 100.0;
+	}
+	else {
+		past_time = (get_time() - init_time)/1e3;
+		printf("NLOPT success with exit code %d!\n", res);
+		printf("NLOPT took %f ms\n", past_time);
+		printf("Found minimum at f = %0.10g\n", minf);
+		max_violation = test_optim(x,params->T,coparams,racketdata,TRUE);
+		if (max_violation < 1e-2)
+			finalize_soln(x,params,past_time);
+	}
+	params->running = FALSE;
+	//nlopt_destroy(opt);
+	return max_violation;
+}
 
 /*
  * NLOPT inverse kinematics for table tennis trajectory generation
