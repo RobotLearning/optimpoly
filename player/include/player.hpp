@@ -39,6 +39,7 @@ private:
 	vec7 q_rest_des; // desired resting joint state
 	bool moving; // robot is moving or not
 	algo alg; // algorithm (fixed player, vhp, etc.)
+	int num_obs; // number of observations received
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);

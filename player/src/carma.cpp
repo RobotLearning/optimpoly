@@ -62,9 +62,11 @@ void set_algorithm(int num) {
 		case 2:
 			std::cout << "Setting to LAZY player..." << std::endl;
 			alg = LAZY;
+			reset = true;
 			break;
 		default:
 			alg = FIXED;
+			reset = true;
 	}
 }
 
@@ -84,7 +86,7 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
 	static double yMax = 0.5;
-	static double yMin = dist_to_table - table_length - 0.5;
+	static double yMin = dist_to_table - table_length - 1.0;
 	static double yCenter = dist_to_table - table_length/2.0;
 
 	if (blob.status == false) {
@@ -135,7 +137,7 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],false) || check_blob_validity(blobs[1],false)) {
+	if (check_blob_validity(blobs[3],true) || check_blob_validity(blobs[1],true)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)

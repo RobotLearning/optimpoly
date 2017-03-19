@@ -7,6 +7,10 @@
  *      Author: okoc
  */
 
+#ifndef BOOST_TEST_MODULE
+#define BOOST_TEST_MODULE test_table_tennis
+#endif
+
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>

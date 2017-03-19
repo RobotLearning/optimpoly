@@ -20,6 +20,8 @@
 #define INEQ_LAND_CONSTR_DIM 11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
+static bool firsttime[3];
+
 static double nlopt_optim_lazy(lazy_data *data, optim *params);
 static void print_input_structs(lazy_data* data, optim* params);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
@@ -142,6 +144,9 @@ static void print_input_structs(lazy_data* data, optim* params) {
  */
 static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 
+	// firsttime checking
+	firsttime[0] = firsttime[1] = firsttime[2] = true;
+
 	//print_input_structs(coparams, racketdata, params);
 	params->update = FALSE;
 	params->running = TRUE;
@@ -201,7 +206,6 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	static double qrest[NDOF];
 	static double *q0dot; // initial joint velocity
 	static double *q0; // initial joint pos
-	static int firsttime = TRUE;
 	static lazy_data * data;
 	static weights *w = (weights*)malloc(sizeof(weights));
 	static double J1, J2, Jhit, Jland, Jwait;
@@ -210,8 +214,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	static double xland[2];
 	double T = x[2*NDOF];
 
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[0]) {
+		firsttime[0] = false;
 		set_penalty_matrices(w);
 		data = (lazy_data*)my_func_params;
 		q0 = data->coparams->q0;
@@ -309,7 +313,6 @@ static void calc_rest_robot(const lazy_data* data,
 static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params) {
 
-	static int firsttime = TRUE;
 	static lazy_data *data;
 	static double xnet;
 	static double xland[2];
@@ -324,8 +327,8 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	static double net_z = floor_level - table_height + net_height;
 
 	/* initialization of static variables */
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[1]) {
+		firsttime[1] = false;
 		data = (lazy_data*)my_func_params;
 	}
 
@@ -353,7 +356,6 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 static void joint_limits_ineq_constr(unsigned m, double *result,
 		unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static int firsttime = TRUE;
 	static lazy_data* data;
 	static weights *w = (weights *)malloc(sizeof(weights));
 	static double a1[NDOF], a2[NDOF], a1ret[NDOF], a2ret[NDOF]; // coefficients for the polynomials
@@ -368,8 +370,8 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double ballproj[NCART];
 	static double netTime, landTime;
 
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[2]) {
+		firsttime[2] = false;
 		set_penalty_matrices(w);
 		data = (lazy_data*)my_func_params;
 		q0 = data->coparams->q0;

@@ -31,13 +31,13 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 
 	time_land_des = 0.8;
 	time2return = 1.0;
+	num_obs = 0;
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
 	q_rest_des = q0;
 
 	int N = 1000;
-
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
@@ -67,8 +67,7 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 /*
  *
  * Deconstructor for the Player class.
- * Frees the memory using free() as in C-sytle
- * since calloc() was called.
+ * Frees the memory using free() as in C-style since calloc() was called.
  *
  */
 Player::~Player() {
@@ -98,53 +97,39 @@ Player::~Player() {
  */
 void Player::estimate_ball_state(const vec3 & obs) {
 
-	static wall_clock timer;
-	//static bool sudden_strange_appearance = false; // suddenly appearing on robot side
-	static bool firsttime = true;
-	static bool newball = true;
-	static const int min_obs = 5;
-	static int num_obs = 0;
 	// observation matrix
+	static wall_clock timer;
+	static const int min_obs = 5;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
 	static double t_cum;
 	double dt;
+	bool newball = check_new_obs(obs,1e-3);
 
-	if (firsttime) {
-		firsttime = false;
-		timer.tic();
-	}
-	if (check_reset_filter(obs,filter,true)) {
+	if (num_obs == 0 || check_reset_filter(obs,filter,true)) {
 		num_obs = 0;
 		t_cum = 0.0; // t_cumulative
+		timer.tic();
 	}
 
-	newball = check_new_obs(obs,1e-3);
-
-	//sudden_strange_appearance = ((filter.get_mean()(Z) <= floor_level) &&
-	//		                 (obs(Y) > dist_to_table - table_length/2));
 	if (num_obs < min_obs) {
 		if (newball) {
-			dt = timer.toc();
+			//dt = timer.toc();
 			t_cum += DT; //dt;
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				//cout << "Matrix:\n" << OBS << endl;
-				//cout << "Times:\n" << TIMES << endl;
 				cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
-				//cout << filter.get_mean() << endl;
-				//cout << "Initial estimate: \n" << filter.get_mean() << endl;
 			}
 			timer.tic();
 		}
 	}
 	else { // comes here if there are enough balls to start filter
-		dt = timer.toc();
+		//dt = timer.toc();
 		timer.tic();
-		filter.predict(DT); //dt);
+		filter.predict(DT);
 		if (newball && !filter.check_outlier(obs)) {
 			filter.update(obs);
 		}
@@ -158,7 +143,12 @@ void Player::estimate_ball_state(const vec3 & obs) {
 vec6 Player::filt_ball_state(const vec3 & obs) {
 
 	estimate_ball_state(obs);
-	return filter.get_mean();
+	try {
+		return filter.get_mean();
+	}
+	catch (const char * exception) {
+		return join_vert(obs,zeros<vec>(3));
+	}
 }
 
 /*
@@ -294,6 +284,9 @@ void Player::optim_fixedp_param(const joint & qact) {
 						&coparams,&racket_params,&optim_params);
 				t.detach();
 			}
+			else {
+				cout << "ball is not legal!" << endl;
+			}
 		}
 	}
 	catch (const char * not_init_error) {
@@ -355,9 +348,11 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 void Player::predict_ball(mat & balls_pred) {
 
+	//static wall_clock timer;
+	//timer.tic();
 	int N = racket_params.Nmax;
-
 	balls_pred = filter.predict_path(racket_params.dt,N);
+	//cout << timer.toc() << endl;
 }
 
 /*

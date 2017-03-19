@@ -60,21 +60,27 @@ mat EKF::linearize(double dt, double h) const {
 }
 
 /*
- * Predict dt seconds for mean x and variance P.
+ * Predict dt seconds for mean x and (if flag is true) variance P.
+ *
+ * If the linearization flag is TRUE
  * Linearizes the nonlinear function around current x
  * to make the covariance update
  *
  */
-void EKF::predict(double dt) {
+void EKF::predict(double dt, bool lin_flag) {
 
-	mat A = linearize(dt,0.01);
 	x = this->f(x,dt);
-	P = A * P * A.t() + Q;
+	if (lin_flag) {
+		mat A = linearize(dt,0.01);
+		P = A * P * A.t() + Q;
+	}
 }
 
 /*
  * Predict future path of the estimated object
  * up to a horizon size N
+ *
+ * Does not update covariances!
  *
  */
 mat EKF::predict_path(double dt, int N) {
@@ -87,7 +93,7 @@ mat EKF::predict_path(double dt, int N) {
 	mat P0 = P;
 
 	for (int i = 0; i < N; i++) {
-		predict(dt);
+		predict(dt,false);
 		X.col(i) = x;
 	}
 	// load mean and variance

@@ -87,7 +87,7 @@ public:
 	EKF(vec (*fp)(const vec &,double), mat & Cin, mat & Qin, mat & Rin);
 
 	// overriding predict() of KF superclass
-	void predict(double dt);
+	void predict(double dt, bool lin_flag = true);
 
 	// predict future path
 	mat predict_path(double dt, int N);

@@ -15,6 +15,9 @@
 #include "math.h"
 #include "optim.h"
 
+// firsttime checking
+static bool firsttime[3]; // TODO: remove this global var!
+
 // termination
 static double test_optim(const double *x, coptim *params, racketdes *racketdata, int info);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
@@ -60,6 +63,10 @@ static void print_input_structs(coptim *coparams,
 double nlopt_optim_fixed_run(coptim *coparams,
 					      racketdes *racketdata,
 						  optim *params) {
+
+	firsttime[0] = true;
+	firsttime[1] = true;
+	firsttime[2] = true;
 
 	//print_input_structs(coparams, racketdata, params);
 	params->update = FALSE;
@@ -251,11 +258,10 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	double a2[NDOF];
 	static double *q0dot; // initial joint velocity
 	static double *q0; // initial joint pos
-	static int firsttime = TRUE;
 	double T = x[2*NDOF];
 
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[0]) {
+		firsttime[0] = false;
 		coptim* optim_data = (coptim*)my_func_params;
 		q0 = optim_data->q0;
 		q0dot = optim_data->q0dot;
@@ -291,10 +297,9 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double *ub;
 	static double *lb;
 	static double Tret;
-	static int firsttime = TRUE;
 
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[1]) {
+		firsttime[1] = false;
 		coptim* optim_data = (coptim*)my_func_params;
 		q0 = optim_data->q0;
 		q0dot = optim_data->q0dot;
@@ -336,14 +341,13 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double qfdot[NDOF];
 	static double vel[NCART];
 	static double normal[NCART];
-	static int firsttime = TRUE;
 	static double qf[NDOF];
 	static racketdes* racket_data;
 	double T = x[2*NDOF];
 
 	/* initialization of static variables */
-	if (firsttime) {
-		firsttime = FALSE;
+	if (firsttime[2]) {
+		firsttime[2] = false;
 		racket_data = (racketdes*) my_function_data;
 	}
 
@@ -379,7 +383,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
-	static double deltat = racketdata->dt;
+	double deltat = racketdata->dt;
 	if (isnan(T)) {
 		printf("Warning: T value is nan!\n");
 

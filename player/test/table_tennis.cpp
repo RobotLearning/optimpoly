@@ -17,7 +17,10 @@
  *      Author: okoc
  */
 
+#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE test_table_tennis
+#endif
+
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/data/monomorphic.hpp>
@@ -31,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {VHP,FIXED};
+algo algs[] = {VHP,FIXED,LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -79,7 +82,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 		calc_racket_state(qdes,robot_racket);
 		//tt.integrate_ball_state(dt);
 		tt.integrate_ball_state(robot_racket,DT);
-		usleep(DT*1e6);
+		//usleep(DT*1e6);
 	}
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
@@ -162,35 +165,22 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	std::cout << std::endl << "Testing Player class's Filtering performance" << std::endl;
-	TableTennis tt = TableTennis();
-	tt.set_ball_state(0.2);
-	EKF filter = init_filter();
-	mat66 P0;
-	P0.eye(6,6);
-	vec6 x0 = join_vert(tt.get_ball_position() + 0.5 * randu<vec>(3),
-			            tt.get_ball_velocity() + 0.2 * randu<vec>(3));
-	filter.set_prior(x0,P0);
-	vec7 q0 = zeros<vec>(NDOF);
-	Player cp = Player(q0,filter);
 
-	int N = 20;
-	double dt = 0.01;
-	tt.set_ball_state(0.2);
+	int N = 50;
 	vec6 ball_state;
-	double racket_pos[3] = {0.0};
-	double racket_orient[4] = {0.0};
-	double filter_est[6] = {0.0};
 	vec3 obs;
 	vec err = zeros<vec>(N);
-	int reset = 0;
+	TableTennis tt = TableTennis();
+	Player cp = Player(zeros<vec>(NDOF),init_filter());
+
+	tt.set_ball_state(0.2);
 
 	for (int i = 0; i < N; i++) {
-		tt.integrate_ball_state(dt);
+		tt.integrate_ball_state(DT);
 		ball_state = join_vert(tt.get_ball_position(),tt.get_ball_velocity());
-		obs = ball_state(span(X,Z)); // TODO: add noise!
+		obs = tt.get_ball_position(); // TODO: add noise!
 		err(i) = norm(ball_state - cp.filt_ball_state(obs),2);
-		usleep(10e3);
-
+		//usleep(10e3);
 	}
 	std::cout << "Error of state estimate"; //<< endl << err.t() << endl;
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
