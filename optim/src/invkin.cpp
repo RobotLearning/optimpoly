@@ -22,7 +22,8 @@ static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
 static double const_costfunc(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
-static void init_invkin_soln(const optim * params, double x[2*NDOF]);
+static void init_last_soln(const optim * params, double x[2*NDOF]);
+static void init_rest_soln(const coptim * params, double x[2*NDOF]);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
 static double test_optim(const double *x, const double T,
@@ -70,7 +71,8 @@ double nlopt_vhp_run(coptim *coparams,
 	//double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	//const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	init_invkin_soln(params,x); //parameters are the initial joint positions q0*/
+	//init_last_soln(params,x);
+	init_rest_soln(coparams,x);
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -149,17 +151,31 @@ static double const_costfunc(unsigned n, const double *x, double *grad, void *my
 }
 
 /*
- * Estimate an initial solution for NLOPT optimizer based
- * 2*NDOF dimensional inverse kinematics
+ * Initialize solution for NLOPT optimizer based
+ * 2*NDOF dimensional inverse kinematics using last solution found
  *
- * The closer to the optimum it is the faster alg should converge
  */
-static void init_invkin_soln(const optim * params, double x[2*NDOF]) {
+static void init_last_soln(const optim * params, double x[2*NDOF]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
 		x[i] = params->qf[i];
 		x[i+NDOF] = params->qfdot[i];
+	}
+}
+
+/*
+ * Initialize solution for NLOPT optimizer based
+ * 2*NDOF dimensional inverse kinematics using rest posture
+ *
+ * The closer to the optimum it is the faster alg should converge
+ */
+static void init_rest_soln(const coptim * params, double x[2*NDOF]) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = params->qrest[i];
+		x[i+NDOF] = 0.0;
 	}
 }
 

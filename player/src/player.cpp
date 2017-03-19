@@ -37,7 +37,7 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
 	q_rest_des = q0;
 
-	int N = 1000;
+	int N = 500;
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
@@ -51,7 +51,7 @@ Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
 	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
 	double SLACK = 0.02;
-	double Tmax = 2.0;
+	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	for (int i = 0; i < NDOF; i++) {
@@ -103,19 +103,23 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
 	static double t_cum;
-	double dt;
 	bool newball = check_new_obs(obs,1e-3);
 
-	if (num_obs == 0 || check_reset_filter(obs,filter,true)) {
-		num_obs = 0;
+	if (num_obs == 0) { // firsttime
 		t_cum = 0.0; // t_cumulative
 		timer.tic();
 	}
 
+	if (newball) { // resetting
+		if (check_reset_filter(obs,filter,true)) {
+			num_obs = 0;
+			t_cum = 0.0; // t_cumulative
+		}
+	}
+
 	if (num_obs < min_obs) {
 		if (newball) {
-			//dt = timer.toc();
-			t_cum += DT; //dt;
+			t_cum += timer.toc();
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
@@ -127,8 +131,6 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 	}
 	else { // comes here if there are enough balls to start filter
-		//dt = timer.toc();
-		timer.tic();
 		filter.predict(DT);
 		if (newball && !filter.check_outlier(obs)) {
 			filter.update(obs);
@@ -436,6 +438,9 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
 							   racketdes & racket_params) {
 
+	//static wall_clock timer;
+	//timer.tic();
+
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
 	mat racket_des_normal = zeros<mat>(3,N);
@@ -453,6 +458,7 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 			racket_params.normal[j][i] = racket_des_normal(j,i);
 		}
 	}
+	//cout << timer.toc() << endl;
 	return racket_params;
 }
 
@@ -695,21 +701,24 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
 	static vec6 est;
 	static int reset_cnt = 0;
+	static vec3 last_last_obs;
 	static vec3 last_obs;
 	static double threshold = 0.3;
-	bool ball_appears_incoming = false;
-	bool old_ball_is_out_range = false;
+	bool ball_appears_incoming;
+	bool old_ball_is_out_range;
 	bool reset = false;
 
 	ball_appears_incoming = (obs(Y) > last_obs(Y));
+	old_ball_is_out_range = (norm(last_obs - last_last_obs) > threshold);
+
 	try {
 		est = filter.get_mean();
-		old_ball_is_out_range = (norm(est.head(3) - obs) > threshold);
 	}
 	catch (const char * exception) {
 		//cout << "Exception caught!\n";
 		// exception caught due to uninitialized filter
-		filter.set_prior(join_vert(obs,zeros<vec>(3)),0.01*eye<mat>(6,6));
+		est = join_vert(obs,zeros<vec>(3));
+		filter.set_prior(est,eye<mat>(6,6));
 	}
 
 	if (ball_appears_incoming && old_ball_is_out_range) {
@@ -717,8 +726,10 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 		if (verbose) {
 			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
 		}
-		filter.set_prior(join_vert(obs,zeros<vec>(3)),0.01*eye<mat>(6,6));
+		est = join_vert(obs,zeros<vec>(3));
+		filter.set_prior(est,eye<mat>(6,6));
 	}
+	last_last_obs = last_obs;
 	last_obs = obs;
 	return reset;
 }

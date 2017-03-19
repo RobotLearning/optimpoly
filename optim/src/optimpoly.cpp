@@ -41,8 +41,8 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void init_soln(const optim * params, double x[OPTIM_DIM]);
-
+static void init_last_soln(const optim * params, double x[OPTIM_DIM]);
+static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]);
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 static void print_input_structs(coptim *coparams,
@@ -77,7 +77,8 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	init_soln(params,x); //parameters are the initial joint positions q0*/
+	init_rest_soln(coparams,x); //parameters are the initial joint positions q0
+	//init_last_soln(params,x);
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -494,12 +495,12 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 }
 
 /*
- * Estimate an initial solution for NLOPT
+ * Initialize solution for NLOPT using last solution of
  * 2*dof + 1 dimensional problem
  *
  * The closer to the optimum it is the faster alg should converge
  */
-static void init_soln(const optim * params, double x[OPTIM_DIM]) {
+static void init_last_soln(const optim * params, double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
@@ -507,4 +508,22 @@ static void init_soln(const optim * params, double x[OPTIM_DIM]) {
 		x[i+NDOF] = params->qfdot[i];
 	}
 	x[2*NDOF] = params->T;
+}
+
+/*
+ * Initialize solution for NLOPT using rest posture
+ * 2*dof + 1 dimensional problem
+ *
+ * Sets T to 0.5
+ *
+ * The closer to the optimum it is the faster alg should converge
+ */
+static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = params->qrest[i];
+		x[i+NDOF] = 0.0;
+	}
+	x[2*NDOF] = 0.5;
 }
