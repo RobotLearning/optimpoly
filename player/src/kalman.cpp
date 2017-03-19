@@ -246,7 +246,7 @@ mat KF::smoothen(const mat & observations) {
 vec KF::get_mean() const {
 
 	// quick and dirty check for initialization
-	if (x(0) == datum::inf) {
+	if (!x.is_finite()) {
 		throw "KF not initialized! Please set prior!";
 	}
 

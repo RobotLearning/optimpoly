@@ -693,27 +693,23 @@ void estimate_prior(const mat & observations,
  */
 bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
+	static vec6 est;
 	static int reset_cnt = 0;
 	static vec3 last_obs;
 	static double threshold = 0.3;
-	static double ymax = -0.2;
-	static double ynet = dist_to_table - table_length/2.0;
-	static double zmin = floor_level + 0.2;
-	static double ymin = dist_to_table - table_length - 0.2;
 	bool ball_appears_incoming = false;
 	bool old_ball_is_out_range = false;
 	bool reset = false;
-	vec3 est;
 
 	ball_appears_incoming = (obs(Y) > last_obs(Y));
 	try {
-		est = filter.get_mean().head(NCART);
-		old_ball_is_out_range = (norm(est - obs) > threshold);
-				//(est(Y) > ymax || est(Y) < ymin || est(Z) < zmin);
+		est = filter.get_mean();
+		old_ball_is_out_range = (norm(est.head(3) - obs) > threshold);
 	}
 	catch (const char * exception) {
 		//cout << "Exception caught!\n";
 		// exception caught due to uninitialized filter
+		filter.set_prior(join_vert(obs,zeros<vec>(3)),0.01*eye<mat>(6,6));
 	}
 
 	if (ball_appears_incoming && old_ball_is_out_range) {
@@ -721,7 +717,7 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 		if (verbose) {
 			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
 		}
-		filter = init_filter();
+		filter.set_prior(join_vert(obs,zeros<vec>(3)),0.01*eye<mat>(6,6));
 	}
 	last_obs = obs;
 	return reset;
