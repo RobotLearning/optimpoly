@@ -9,6 +9,7 @@
 
 #include <armadillo>
 #include <thread>
+#include <string>
 #include "stdlib.h"
 #include "player.hpp"
 #include "constants.h"
@@ -26,7 +27,7 @@ using namespace arma;
  * Tries to return the ball to the centre of the opponents court
  *
  */
-Player::Player(const vec7 & q0, const EKF & filter_, algo alg_)
+Player::Player(const vec7 & q0, EKF & filter_, algo alg_)
                : filter(filter_), alg(alg_) {
 
 	time_land_des = 0.8;

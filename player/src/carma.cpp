@@ -1,3 +1,5 @@
+#include <iostream>
+#include <fstream>
 #include <armadillo>
 #include <cmath>
 #include <sys/time.h>
@@ -166,6 +168,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // centered player
+	static EKF filter = init_filter();
 
 	if (reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -173,7 +176,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		EKF filter = init_filter();
+		filter = init_filter();
 		delete robot;
 		robot = new Player(q0,filter,alg);
 		reset = false;
@@ -186,6 +189,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
+		save_data(qact,qdes,blobs,ball_obs,filter);
 	}
 
 	// update desired joint state
@@ -199,7 +203,52 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 /*
  *
- * CHEAT with exact knowledge of ball dynamics
+ * Saves actual and desired joints to one file
+ * and the ball observations and estimated ball state one another
+ *
+ */
+void save_data(const joint & qact, const joint & qdes,
+		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter) {
+
+	static rowvec ball_full;
+	static std::string home = std::getenv("HOME");
+	static std::string joint_file = home + "/polyoptim/joints.txt";
+	static std::string ball_file = home + "/polyoptim/balls.txt";
+	static std::ofstream stream_joints;
+	static std::ofstream stream_balls;
+	static vec6 ball_est = zeros<vec>(6);
+
+	try {
+		ball_est = filter.get_mean();
+	}
+	catch (const char * exception) {
+		// do nothing
+	}
+
+	/*rowvec qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
+	rowvec qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
+	rowvec q_full = join_horiz(qdes_full, qact_full);
+	stream_joints.open(joint_file,ios::out | ios::app);
+	if (stream_joints.is_open()) {
+		stream_joints << q_full;
+	}*/
+
+	stream_balls.open(ball_file,ios::out | ios::app);
+	ball_full << 1 << ((int)blobs[1].status)
+			  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
+			  << 3 << ((int)blobs[3].status)
+			  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
+	ball_full = join_horiz(join_horiz(ball_full,ball_obs.t()),ball_est.t());
+	if (stream_balls.is_open()) {
+		stream_balls << ball_full;
+	}
+	//stream_joints.close();
+	stream_balls.close();
+}
+
+/*
+ *
+ * CHEAT with exact knowledge of ball state
  *
  * Interface to the PLAYER class that generates desired hitting trajectories.
  * First initializes the player and then starts calling cheat() interface function.
@@ -214,6 +263,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *cp; // centered player
+	static EKF filter = init_filter();
 
 	if (reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -221,7 +271,6 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		EKF filter = init_filter();
 		cp = new Player(q0,filter,alg);
 		reset = false;
 	}

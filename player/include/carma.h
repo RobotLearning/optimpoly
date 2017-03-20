@@ -31,6 +31,8 @@ extern void pinv_matrix(double** matc, int nrows, int ncols, double** out);
 // internal c++ functions
 static bool fuse_blobs(const SL_VisionBlob blobs[], vec3 & obs);
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose);
+static void save_data(const joint & qact, const joint & qdes,
+		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter);
 
 #endif
 

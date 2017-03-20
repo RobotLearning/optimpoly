@@ -29,7 +29,7 @@ class Player { // Table Tennis Player
 
 private:
 
-	EKF filter; // filter for the ball estimation
+	EKF & filter; // filter for the ball estimation
 	vec2 ball_land_des; // desired landing position
 	double time_land_des; // desired landing time
 	double time2return; // fixed return time for robot
@@ -55,7 +55,7 @@ private:
 
 public:
 
-	Player(const vec7 & q0, const EKF & filter, algo alg = FIXED);
+	Player(const vec7 & q0, EKF & filter, algo alg = FIXED);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance
