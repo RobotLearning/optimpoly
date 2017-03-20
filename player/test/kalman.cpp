@@ -11,7 +11,6 @@
  *      Author: okoc
  */
 
-#define BOOST_TEST_MODULE test_table_tennis
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
@@ -239,35 +238,6 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 }
 
 /*
- * Compare SL simulation with table tennis prediction models here
- * by loading SL's saved ball states
- *
- */
-BOOST_AUTO_TEST_CASE( test_sl_predict_path ) {
-
-	mat slmat, ball_sl;
-	vec times_sl;
-	slmat.load("ball_traj_sl.txt");
-	times_sl = slmat.col(0);
-	ball_sl = slmat.cols(1,6);
-	vec6 xinit = ball_sl.row(0).t();
-	TableTennis tt = TableTennis(xinit,false,false);
-	int N = ball_sl.n_rows;
-	mat M = zeros<mat>(N,6);
-	M.row(0) = xinit.t();
-	double dt;
-	for (int i = 1; i < N; i++) {
-		dt = times_sl(i) - times_sl(i-1);
-		tt.integrate_ball_state(dt);
-		M.row(i) = join_horiz(tt.get_ball_position().t(),tt.get_ball_velocity().t());
-	}
-	N = 50;
-	cout << M.row(N-1) << ball_sl.row(N-1) << endl;
-	BOOST_TEST(approx_equal(M, ball_sl, "absdiff", 0.002));
-
-}
-
-/*
  * Test outlier prediction with Extended Kalman Filter
  *
  * Here we want to test/debug the Kalman Filter
@@ -280,11 +250,14 @@ BOOST_AUTO_TEST_CASE( test_sl_predict_path ) {
  * 3. New balls should be updated
  *
  */
-/*BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
+BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 
+	std::cout << "**************************************\n";
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
 	double time_data = 0.0;
+	int head = 3300;
+	int N = 4000; //real_ball_data.n_rows;
 	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
 	std::string home = std::getenv("HOME");
@@ -294,26 +267,20 @@ BOOST_AUTO_TEST_CASE( test_sl_predict_path ) {
 	catch (const char * exception) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
-	mat ball_states = zeros<mat>(real_ball_data.n_rows,6);
+	mat ball_states = zeros<mat>(N-head,6);
 
 	Player cp = Player(zeros<vec>(7),init_filter());
-	for (int i = 0; i < real_ball_data.n_rows; i++) {
+	for (int i = head; i < N; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
 		fuse_blobs(blob1,blob3,status1,status3,obs);
-		usleep(1e3 * (real_ball_data(i,10) - time_data));
 		time_data = real_ball_data(i,10);
-		try {
-			ball_states.row(i) = cp.filt_ball_state(obs).t();
-		}
-		catch (const char * exception) {
-			ball_states.row(i) = join_horiz(blob1.t(),zeros<rowvec>(3));
-		}
+		ball_states.row(i-head) = cp.filt_ball_state(obs).t();
 	}
-	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt",arma_ascii);
-}*/
+	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt",raw_ascii);
+}
 
 /*
  *

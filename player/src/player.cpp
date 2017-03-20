@@ -98,7 +98,6 @@ Player::~Player() {
 void Player::estimate_ball_state(const vec3 & obs) {
 
 	// observation matrix
-	static wall_clock timer;
 	static const int min_obs = 5;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
@@ -107,7 +106,6 @@ void Player::estimate_ball_state(const vec3 & obs) {
 
 	if (num_obs == 0) { // firsttime
 		t_cum = 0.0; // t_cumulative
-		timer.tic();
 	}
 
 	if (newball) { // resetting
@@ -119,23 +117,24 @@ void Player::estimate_ball_state(const vec3 & obs) {
 
 	if (num_obs < min_obs) {
 		if (newball) {
-			t_cum += timer.toc();
 			TIMES(num_obs) = t_cum;
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
 				cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
+				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
-			timer.tic();
 		}
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT);
 		if (newball && !filter.check_outlier(obs)) {
 			filter.update(obs);
+			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
 		}
 	}
+	t_cum += DT;
 }
 
 /*
@@ -506,10 +505,11 @@ void generate_strike(const optim & params, const joint & qact,
  */
 EKF init_filter() {
 
-	double std = 0.001;
+	double std_model = 0.3;
+	double std_noise = 0.1;
 	mat C = eye<mat>(3,6);
-	mat66 Q = zeros<mat>(6,6);
-	mat33 R = std * eye<mat>(3,3);
+	mat66 Q = std_model * eye<mat>(6,6);
+	mat33 R = std_noise * eye<mat>(3,3);
 	return EKF(calc_next_ball,C,Q,R);
 }
 
@@ -670,7 +670,7 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	//P *= 0.001;
+	//P *= 0.1;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
@@ -701,35 +701,37 @@ bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
 
 	static vec6 est;
 	static int reset_cnt = 0;
-	static vec3 last_last_obs;
 	static vec3 last_obs;
-	static double threshold = 0.3;
+	static const double threshold = 1.0;
 	bool ball_appears_incoming;
-	bool old_ball_is_out_range;
+	bool ball_appears_hit = false;
+	bool old_ball_is_out_range = false;
 	bool reset = false;
 
 	ball_appears_incoming = (obs(Y) > last_obs(Y));
-	old_ball_is_out_range = (norm(last_obs - last_last_obs) > threshold);
 
 	try {
 		est = filter.get_mean();
+		old_ball_is_out_range = (norm(obs - est.head(3)) > threshold);
+		ball_appears_hit = (est(DY) > 0.0 && obs(Y) < last_obs(Y) &&
+				            obs(Z) > last_obs(Z) && norm(obs - est.head(3)) < 0.1);
 	}
 	catch (const char * exception) {
 		//cout << "Exception caught!\n";
 		// exception caught due to uninitialized filter
 		est = join_vert(obs,zeros<vec>(3));
-		filter.set_prior(est,eye<mat>(6,6));
+		filter.set_prior(est,0.1*eye<mat>(6,6));
 	}
 
-	if (ball_appears_incoming && old_ball_is_out_range) {
+	if ((ball_appears_incoming && old_ball_is_out_range) || ball_appears_hit) {
 		reset = true;
 		if (verbose) {
 			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
+			//cout << "Obs and Est\n" << obs << est.head(3) << endl;
 		}
 		est = join_vert(obs,zeros<vec>(3));
-		filter.set_prior(est,eye<mat>(6,6));
+		filter.set_prior(est,0.1*eye<mat>(6,6));
 	}
-	last_last_obs = last_obs;
 	last_obs = obs;
 	return reset;
 }

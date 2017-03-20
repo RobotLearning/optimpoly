@@ -17,9 +17,7 @@
  *      Author: okoc
  */
 
-#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE test_table_tennis
-#endif
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
@@ -71,7 +69,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	EKF filter = init_filter();
 	Player *robot = new Player(q0,filter,alg);
 
-	int N = 2000;
+	int N = 1000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
