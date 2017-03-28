@@ -37,8 +37,9 @@ private:
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
-	bool moving; // robot is moving or not
 	algo alg; // algorithm (fixed player, vhp, etc.)
+	bool moving; // robot is moving or not
+	bool mpc; // apply corrections
 	int num_obs; // number of observations received
 
 	// ball estimation
@@ -49,13 +50,14 @@ private:
 	void optim_lazy_param(const joint & qact);
 	void optim_vhp_param(const joint & qact); // run VHP player
 
+	bool check_update() const; // flag for (re)running optimization
 	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void predict_ball(mat & balls_pred);
 	void calc_next_state(const joint & qact, joint & qdes);
 
 public:
 
-	Player(const vec7 & q0, EKF & filter, algo alg = FIXED);
+	Player(const vec7 & q0, EKF & filter, algo alg = FIXED, bool mpc = false);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance

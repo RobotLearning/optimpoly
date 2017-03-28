@@ -22,13 +22,15 @@
 using namespace arma;
 
 /*
- * Initialize Centred Table Tennis Player (CP)
+ * Initialize Table Tennis Player
  *
- * Tries to return the ball to the centre of the opponents court
+ * Incorporates 3 different algorithms
+ * VHP and FP try to return the ball to the centre of the opponents court
+ * LP tries to just return the ball to the opponents court
  *
  */
-Player::Player(const vec7 & q0, EKF & filter_, algo alg_)
-               : filter(filter_), alg(alg_) {
+Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_)
+               : filter(filter_), alg(alg_), mpc(mpc_) {
 
 	time_land_des = 0.8;
 	time2return = 1.0;
@@ -222,32 +224,23 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 void Player::optim_vhp_param(const joint & qact) {
 
 	double time_pred;
-	vec6 state_est;
 	vec6 balls_pred;
-	try {
-		state_est = filter.get_mean();
 
-		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && !optim_params.update && !optim_params.running
-				&& state_est(Y) > (dist_to_table - table_length/2) &&
-				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
-			if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
-				calc_racket_strategy(balls_pred,ball_land_des,
-						             time_land_des,racket_params);
-				for (int i = 0; i < NDOF; i++) {
-					coparams.q0[i] = qact.q(i);
-					coparams.q0dot[i] = qact.qd(i);
-				}
-				optim_params.T = time_pred;
-				// run optimization in another thread
-				std::thread t(&nlopt_vhp_run,
-						&coparams,&racket_params,&optim_params);
-				t.detach();
+	// if ball is fast enough and robot is not moving consider optimization
+	if (check_update()) {
+		if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
+			calc_racket_strategy(balls_pred,ball_land_des,
+					time_land_des,racket_params);
+			for (int i = 0; i < NDOF; i++) {
+				coparams.q0[i] = qact.q(i);
+				coparams.q0dot[i] = qact.qd(i);
 			}
+			optim_params.T = time_pred;
+			// run optimization in another thread
+			std::thread t(&nlopt_vhp_run,
+					&coparams,&racket_params,&optim_params);
+			t.detach();
 		}
-	}
-	catch (const char * not_init_error) {
-		return; // dont do anything
 	}
 
 }
@@ -264,35 +257,26 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
-	vec6 state_est;
 	mat balls_pred;
-	try {
-		state_est = filter.get_mean();
 
-		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && !optim_params.update && !optim_params.running
-				&& state_est(Y) > (dist_to_table - table_length/2) &&
-				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
-			predict_ball(balls_pred);
-			if (check_legal_ball(balls_pred)) { // ball is legal
-				calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-				for (int i = 0; i < NDOF; i++) {
-					coparams.q0[i] = qact.q(i);
-					coparams.q0dot[i] = qact.qd(i);
-				}
-				//cout << state_est << endl;
-				// run optimization in another thread
-				std::thread t(&nlopt_optim_fixed_run,
-						&coparams,&racket_params,&optim_params);
-				t.detach();
+	// if ball is fast enough and robot is not moving consider optimization
+	if (check_update()) {
+		predict_ball(balls_pred);
+		if (check_legal_ball(balls_pred)) { // ball is legal
+			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
+			for (int i = 0; i < NDOF; i++) {
+				coparams.q0[i] = qact.q(i);
+				coparams.q0dot[i] = qact.qd(i);
 			}
-			else {
-				cout << "ball is not legal!" << endl;
-			}
+			//cout << state_est << endl;
+			// run optimization in another thread
+			std::thread t(&nlopt_optim_fixed_run,
+					&coparams,&racket_params,&optim_params);
+			t.detach();
 		}
-	}
-	catch (const char * not_init_error) {
-		return; // dont do anything
+		else {
+			cout << "ball is not legal!" << endl;
+		}
 	}
 }
 
@@ -304,41 +288,59 @@ void Player::optim_fixedp_param(const joint & qact) {
  *
  * The optimized parameters are: qf, qf_dot, T
  *
+ * TODO: delete ballpred in destructor?
+ *
  */
 void Player::optim_lazy_param(const joint & qact) {
 
 	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
-	vec6 state_est;
 	mat balls_pred;
-	try {
-		state_est = filter.get_mean();
 
-		// if ball is fast enough and robot is not moving consider optimization
-		if (!moving && !optim_params.update && !optim_params.running
-				&& state_est(Y) > (dist_to_table - table_length/2) &&
-				state_est(Y) < dist_to_table && state_est(DY) > 1.0) {
-			predict_ball(balls_pred);
-			if (check_legal_ball(balls_pred)) { // ball is legal
-				calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-				for (int i = 0; i < NDOF; i++) {
-					coparams.q0[i] = qact.q(i);
-					coparams.q0dot[i] = qact.qd(i);
-				}
-				for (int i = 0; i < racket_params.Nmax; i++) {
-					for (int j = 0; j < 2*NCART; j++) {
-						ballpred[j][i] = balls_pred(j,i);
-					}
-				}
-				// run optimization in another thread
-				std::thread t(&nlopt_optim_lazy_run,
-						ballpred,&coparams,&racket_params,&optim_params);
-				t.detach();
+	// if ball is fast enough and robot is not moving consider optimization
+	if (check_update()) {
+		predict_ball(balls_pred);
+		if (check_legal_ball(balls_pred)) { // ball is legal
+			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
+			for (int i = 0; i < NDOF; i++) {
+				coparams.q0[i] = qact.q(i);
+				coparams.q0dot[i] = qact.qd(i);
 			}
+			for (int i = 0; i < racket_params.Nmax; i++) {
+				for (int j = 0; j < 2*NCART; j++) {
+					ballpred[j][i] = balls_pred(j,i);
+				}
+			}
+			// run optimization in another thread
+			std::thread t(&nlopt_optim_lazy_run,
+					ballpred,&coparams,&racket_params,&optim_params);
+			t.detach();
 		}
 	}
-	catch (const char * not_init_error) {
-		return; // dont do anything
+
+
+}
+
+/*
+ * Check MPC flag and update if possible
+ *
+ * if ball is fast enough and robot is not moving consider optimization
+ *
+ */
+bool Player::check_update() const {
+
+	vec6 state_est;
+	bool update;
+
+	try {
+		state_est = filter.get_mean();
+		update = !moving && !optim_params.update && !optim_params.running
+						&& state_est(Y) > (dist_to_table - table_length/2) &&
+						state_est(Y) < dist_to_table && state_est(DY) > 1.0;
 	}
+	catch (const char * not_init_error) {
+		update = false;
+	}
+	return update;
 }
 
 /*
@@ -696,6 +698,9 @@ void estimate_prior(const mat & observations,
  * However note that this is not the ultimate test for resetting.
  * It is possible for instance, that the ball ends up near the net, and
  * we need to be able to recover from that.
+ *
+ * TODO: check if we can improve this!
+ *
  *
  */
 bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
