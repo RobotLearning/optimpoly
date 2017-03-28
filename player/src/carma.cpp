@@ -185,7 +185,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter();
 		delete robot;
-		robot = new Player(q0,filter,player_flags.alg);
+		robot = new Player(q0,filter,player_flags.alg,player_flags.mpc);
 		player_flags.reset = false;
 	}
 	else {
@@ -212,6 +212,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
  *
  * Saves actual and desired joints to one file if save flag is set to TRUE
  * and the ball observations and estimated ball state one another
+ *
+ * TODO: no need to open close each time!
  *
  */
 void save_data(const joint & qact, const joint & qdes,

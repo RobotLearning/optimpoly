@@ -28,6 +28,8 @@ using namespace arma;
  * VHP and FP try to return the ball to the centre of the opponents court
  * LP tries to just return the ball to the opponents court
  *
+ * TODO: remove callocs and replace with new!
+ *
  */
 Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_)
                : filter(filter_), alg(alg_), mpc(mpc_) {
@@ -35,6 +37,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_)
 	time_land_des = 0.8;
 	time2return = 1.0;
 	num_obs = 0;
+	validball = false;
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
@@ -88,14 +91,16 @@ Player::~Player() {
 }
 
 /*
- * Filter the blob information with a kalman Filter and save the result in filtState.
- * KF is only used in simulation mode.
+ * Filter the blob information with a Kalman Filter.
+ * (Extended) KF is used both in simulation mode and for real robot.
  *
- * Returns the bounce variable.
- * It will be reset to FALSE when filter is re-initialized.
- * Bounce variable is used for legal ball detection
+ * Checking for new ball that is at least 1 mm away from last observation
+ * Checking for also outliers.
+ * Resets if the ball suddenly appears on the opponent's court.
  *
- * TODO: we fix dt = DT = 0.002 seconds!
+ * Returns the valid ball flag.
+ *
+ * TODO: we're assuming that time elasped dt = DT = 0.002 seconds every time!
  *
  */
 void Player::estimate_ball_state(const vec3 & obs) {
@@ -133,6 +138,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT);
 		if (newball && !filter.check_outlier(obs)) {
+			validball = true;
 			filter.update(obs);
 			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
 		}
@@ -323,22 +329,44 @@ void Player::optim_lazy_param(const joint & qact) {
 /*
  * Check MPC flag and update if possible
  *
+ * IF MPC IS TURNED OFF
  * if ball is fast enough and robot is not moving consider optimization
+ *
+ * IF MPC IS TURNED ON
+ * then additionally consider (after running initially optimization)
+ * relaunching optimization if ball is valid (new ball and not an outlier)
+ * the frequency of updates is respected, and the ball has not passed the y-limit
  *
  */
 bool Player::check_update() const {
 
 	vec6 state_est;
 	bool update;
+	//static int num_updates;
+	static const double FREQ_MPC = 10.0;
+	static wall_clock timer;
+	bool activate, passed_lim = false;
 
 	try {
 		state_est = filter.get_mean();
-		update = !moving && !optim_params.update && !optim_params.running
-						&& state_est(Y) > (dist_to_table - table_length/2) &&
-						state_est(Y) < dist_to_table && state_est(DY) > 1.0;
+		update = !optim_params.update && !optim_params.running
+				  && state_est(Y) > (dist_to_table - table_length/2) &&
+				     state_est(Y) < dist_to_table && state_est(DY) > 1.0;
+		if (mpc && moving) {
+			activate = (timer.toc() > (1.0/FREQ_MPC));
+			passed_lim = state_est(Y) > -0.2; //cart_state(Y);
+			update = update && validball && activate && !passed_lim;
+		}
+		else {
+			update = update && !moving;
+		}
 	}
 	catch (const char * not_init_error) {
 		update = false;
+	}
+	if (update) {
+		//cout << num_updates++ << endl;
+		timer.tic();
 	}
 	return update;
 }
@@ -350,7 +378,7 @@ bool Player::check_update() const {
  * parameters
  *
  */
-void Player::predict_ball(mat & balls_pred) {
+void Player::predict_ball(mat & balls_pred) const {
 
 	//static wall_clock timer;
 	//timer.tic();
@@ -376,10 +404,11 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	// this should be only for MPC?
 	if (optim_params.update) {
 		moving = true;
+		idx = 0;
 		optim_params.update = false;
 		if (alg == LAZY) {
 			for (int i = 0; i < NDOF; i++)
-				q_rest_des(i)= coparams.qrest[i];
+				q_rest_des(i) = coparams.qrest[i];
 		}
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		// call polynomial generation
@@ -409,7 +438,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
  * The location of the VHP is defined as a constant (constants.h)
  *
  */
-bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
+bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) const {
 
 	bool valid_hp = false;
 	mat balls_path;

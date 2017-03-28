@@ -40,6 +40,7 @@ private:
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	bool moving; // robot is moving or not
 	bool mpc; // apply corrections
+	bool validball; // ball observed is valid (new ball and not an outlier)
 	int num_obs; // number of observations received
 
 	// ball estimation
@@ -51,8 +52,8 @@ private:
 	void optim_vhp_param(const joint & qact); // run VHP player
 
 	bool check_update() const; // flag for (re)running optimization
-	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
-	void predict_ball(mat & balls_pred);
+	bool predict_hitting_point(vec6 & ball_pred, double & time_pred) const;
+	void predict_ball(mat & balls_pred) const;
 	void calc_next_state(const joint & qact, joint & qdes);
 
 public:
