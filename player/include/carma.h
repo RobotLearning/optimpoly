@@ -15,13 +15,7 @@ extern void cheat(const SL_Jstate joint_state[],
 		  const SL_Cstate sim_ball_state,
 		  SL_DJstate joint_des_state[]);
 
-extern void set_algorithm(int num);
-
-// inverts a given matrix and overwriting contents with inverse
-extern void invert_matrix(double** mat, int nrows, double** out);
-// pseudoinverse of given matrix matc
-extern void pinv_matrix(double** matc, int nrows, int ncols, double** out);
-
+extern void set_algorithm(const int alg_num, const int mpc_flag, const int save_flag);
 
 #ifdef __cplusplus
 } // extern "C"

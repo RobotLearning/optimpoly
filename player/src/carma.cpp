@@ -9,37 +9,44 @@
 
 using namespace arma;
 
-/* The data structures */
-typedef struct { /*!< joint space state for each DOF */
+/* The data structures from SL */
+struct SL_Jstate { /*!< joint space state for each DOF */
 	double   th;   /*!< theta */
 	double   thd;  /*!< theta-dot */
 	double   thdd; /*!< theta-dot-dot */
 	double   ufb;  /*!< feedback portion of command */
 	double   u;    /*!< torque command */
 	double   load; /*!< sensed torque */
-} SL_Jstate;
+};
 
-typedef struct { /*!< desired values for controller */
+struct SL_DJstate { /*!< desired values for controller */
 	double   th;   /*!< theta */
 	double   thd;  /*!< theta-dot */
 	double   thdd; /*!< theta-dot-dot */
 	double   uff;  /*!< feedforward torque command */
 	double   uex;  /*!< externally imposed torque */
-} SL_DJstate;
+};
 
-typedef struct { /*!< Cartesian state */
+struct SL_Cstate { /*!< Cartesian state */
 	double   x[NCART+1];    /*!< Position [x,y,z] */
 	double   xd[NCART+1];   /*!< Velocity */
 	double   xdd[NCART+1];  /*!< Acceleration */
-} SL_Cstate;
+};
 
-typedef struct { /*!< Vision Blob */
+struct SL_VisionBlob { /*!< Vision Blob */
 	char       status;
 	SL_Cstate  blob;
-} SL_VisionBlob;
+};
 
-static algo alg = FIXED;
-static bool reset = true;
+/* Our own data structures */
+struct pflags { // player flags
+	bool reset = true; // reinitializing player class
+	bool save = false; // saving ball/robot data
+	bool mpc = false;
+	algo alg = FIXED;
+};
+
+pflags player_flags;
 
 #include "carma.h"
 
@@ -48,28 +55,28 @@ static bool reset = true;
  * VHP/FIXED
  *
  */
-void set_algorithm(int num) {
+void set_algorithm(const int alg_num, const int mpc_flag, const int save_flag) {
 
-	switch (num) {
+	player_flags.reset = true;
+	switch (alg_num) {
 		case 0:
 			std::cout << "Setting to VHP player..." << std::endl;
-			alg = VHP;
-			reset = true;
+			player_flags.alg = VHP;
 			break;
 		case 1:
 			std::cout << "Setting to FIXED player..." << std::endl;
-			alg = FIXED;
-			reset = true;
+			player_flags.alg = FIXED;
 			break;
 		case 2:
 			std::cout << "Setting to LAZY player..." << std::endl;
-			alg = LAZY;
-			reset = true;
+			player_flags.alg = LAZY;
 			break;
 		default:
-			alg = FIXED;
-			reset = true;
+			player_flags.alg = FIXED;
 	}
+	mpc_flag ? player_flags.mpc = true : player_flags.mpc = false;
+	save_flag ? player_flags.save = true : player_flags.save = false;
+
 }
 
 /*
@@ -170,7 +177,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static Player *robot = nullptr; // centered player
 	static EKF filter = init_filter();
 
-	if (reset) {
+	if (player_flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
@@ -178,8 +185,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter();
 		delete robot;
-		robot = new Player(q0,filter,alg);
-		reset = false;
+		robot = new Player(q0,filter,player_flags.alg);
+		player_flags.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -203,7 +210,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 /*
  *
- * Saves actual and desired joints to one file
+ * Saves actual and desired joints to one file if save flag is set to TRUE
  * and the ball observations and estimated ball state one another
  *
  */
@@ -218,32 +225,34 @@ void save_data(const joint & qact, const joint & qdes,
 	static std::ofstream stream_balls;
 	static vec6 ball_est = zeros<vec>(6);
 
-	try {
-		ball_est = filter.get_mean();
-	}
-	catch (const char * exception) {
-		// do nothing
-	}
+	if (player_flags.save) {
+		try {
+			ball_est = filter.get_mean();
+		}
+		catch (const char * exception) {
+			// do nothing
+		}
 
-	/*rowvec qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
-	rowvec qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
-	rowvec q_full = join_horiz(qdes_full, qact_full);
-	stream_joints.open(joint_file,ios::out | ios::app);
-	if (stream_joints.is_open()) {
-		stream_joints << q_full;
-	}*/
+		/*rowvec qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
+		rowvec qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
+		rowvec q_full = join_horiz(qdes_full, qact_full);
+		stream_joints.open(joint_file,ios::out | ios::app);
+		if (stream_joints.is_open()) {
+			stream_joints << q_full;
+		}*/
 
-	stream_balls.open(ball_file,ios::out | ios::app);
-	ball_full << 1 << ((int)blobs[1].status)
-			  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
-			  << 3 << ((int)blobs[3].status)
-			  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
-	ball_full = join_horiz(join_horiz(ball_full,ball_obs.t()),ball_est.t());
-	if (stream_balls.is_open()) {
-		stream_balls << ball_full;
+		stream_balls.open(ball_file,ios::out | ios::app);
+		ball_full << 1 << ((int)blobs[1].status)
+				  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
+				  << 3 << ((int)blobs[3].status)
+				  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
+		ball_full = join_horiz(join_horiz(ball_full,ball_obs.t()),ball_est.t());
+		if (stream_balls.is_open()) {
+			stream_balls << ball_full;
+		}
+		//stream_joints.close();
+		stream_balls.close();
 	}
-	//stream_joints.close();
-	stream_balls.close();
 }
 
 /*
@@ -265,14 +274,14 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	static Player *cp; // centered player
 	static EKF filter = init_filter();
 
-	if (reset) {
+	if (player_flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		cp = new Player(q0,filter,alg);
-		reset = false;
+		cp = new Player(q0,filter,player_flags.alg);
+		player_flags.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -295,66 +304,66 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	}
 }
 
-/*
- * Inverts the given SL matrix matc [with indices starting from 1]
- * by initializing ARMADILLO equivalent and inverting it
- *
- * After inversion the matrix contents are overwritten to the SL input matrix (double**)
- * Memory for output matrix needs to be allocated before in SL (e.g. my_matrix()).
- *
- */
-void invert_matrix(double** matc, int nrows, double** out) {
-
-	double* bowels = new double[nrows*nrows];
-
-	// fill the bowels
-	int i,j;
-	for(i = 1; i <= nrows; i++) {
-		for(j = 1; j <= nrows; j++) {
-			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
-		}
-	}
-
-	// initialize ARMA mat
-	mat A(bowels,nrows,nrows);
-	mat B = inv(A);
-
-	for(i = 1; i <= nrows; i++) {
-		for(j = 1; j <= nrows; j++) {
-			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
-		}
-	}
-
-}
-
-/*
- * Taking pseudoinverse with default tolerance using ARMADILLO
- *
- * Output matrix must be the transpose of the input matrix (so make sure
- * you initialize properly!).
- *
- *
- */
-void pinv_matrix(double** matc, int nrows, int ncols, double** out) {
-
-	double* bowels = new double[nrows*ncols];
-
-	// fill the bowels
-	int i,j;
-	for(i = 1; i <= nrows; i++) {
-		for(j = 1; j <= ncols; j++) {
-			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
-		}
-	}
-
-	// initialize ARMA mat
-	mat A(bowels,nrows,ncols);
-	mat B = pinv(A);
-
-	for(i = 1; i <= ncols; i++) {
-		for(j = 1; j <= nrows; j++) {
-			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
-		}
-	}
-}
+///*
+// * Inverts the given SL matrix matc [with indices starting from 1]
+// * by initializing ARMADILLO equivalent and inverting it
+// *
+// * After inversion the matrix contents are overwritten to the SL input matrix (double**)
+// * Memory for output matrix needs to be allocated before in SL (e.g. my_matrix()).
+// *
+// */
+//void invert_matrix(double** matc, int nrows, double** out) {
+//
+//	double* bowels = new double[nrows*nrows];
+//
+//	// fill the bowels
+//	int i,j;
+//	for(i = 1; i <= nrows; i++) {
+//		for(j = 1; j <= nrows; j++) {
+//			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
+//		}
+//	}
+//
+//	// initialize ARMA mat
+//	mat A(bowels,nrows,nrows);
+//	mat B = inv(A);
+//
+//	for(i = 1; i <= nrows; i++) {
+//		for(j = 1; j <= nrows; j++) {
+//			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
+//		}
+//	}
+//
+//}
+//
+///*
+// * Taking pseudoinverse with default tolerance using ARMADILLO
+// *
+// * Output matrix must be the transpose of the input matrix (so make sure
+// * you initialize properly!).
+// *
+// *
+// */
+//void pinv_matrix(double** matc, int nrows, int ncols, double** out) {
+//
+//	double* bowels = new double[nrows*ncols];
+//
+//	// fill the bowels
+//	int i,j;
+//	for(i = 1; i <= nrows; i++) {
+//		for(j = 1; j <= ncols; j++) {
+//			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
+//		}
+//	}
+//
+//	// initialize ARMA mat
+//	mat A(bowels,nrows,ncols);
+//	mat B = pinv(A);
+//
+//	for(i = 1; i <= ncols; i++) {
+//		for(j = 1; j <= nrows; j++) {
+//			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
+//		}
+//	}
+//}
 
