@@ -15,7 +15,8 @@ extern void cheat(const SL_Jstate joint_state[],
 		  const SL_Cstate sim_ball_state,
 		  SL_DJstate joint_des_state[]);
 
-extern void set_algorithm(const int alg_num, const int mpc_flag, const int save_flag);
+extern void set_algorithm(const int alg_num, const int mpc_flag,
+		                  const int save_flag, const int verbosity);
 
 #ifdef __cplusplus
 } // extern "C"

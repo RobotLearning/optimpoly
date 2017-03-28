@@ -41,6 +41,7 @@ private:
 	bool moving; // robot is moving or not
 	bool mpc; // apply corrections
 	bool validball; // ball observed is valid (new ball and not an outlier)
+	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
 
 	// ball estimation
@@ -58,7 +59,7 @@ private:
 
 public:
 
-	Player(const vec7 & q0, EKF & filter, algo alg = FIXED, bool mpc = false);
+	Player(const vec7 & q0, EKF & filter, algo alg = FIXED, bool mpc = false, int verbose = 0);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance
@@ -78,7 +79,7 @@ void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter);
 bool check_new_obs(const vec3 & obs, double tol);
-bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose);
+bool check_reset_filter(const vec3 & obs, EKF & filter, int verbose);
 
 // movement generation
 void generate_strike(const optim & params, const joint & qact,

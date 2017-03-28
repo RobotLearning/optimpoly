@@ -39,7 +39,8 @@ struct SL_VisionBlob { /*!< Vision Blob */
 };
 
 /* Our own data structures */
-struct pflags { // player flags
+struct pflags { // player flags]
+	int verbosity = 0; // OFF, LOW, HIGH
 	bool reset = true; // reinitializing player class
 	bool save = false; // saving ball/robot data
 	bool mpc = false;
@@ -55,7 +56,8 @@ pflags player_flags;
  * VHP/FIXED
  *
  */
-void set_algorithm(const int alg_num, const int mpc_flag, const int save_flag) {
+void set_algorithm(const int alg_num, const int mpc_flag,
+		           const int save_flag, const int verbose_flag) {
 
 	player_flags.reset = true;
 	switch (alg_num) {
@@ -76,6 +78,8 @@ void set_algorithm(const int alg_num, const int mpc_flag, const int save_flag) {
 	}
 	mpc_flag ? player_flags.mpc = true : player_flags.mpc = false;
 	save_flag ? player_flags.save = true : player_flags.save = false;
+	player_flags.verbosity = verbose_flag;
+
 
 }
 
@@ -185,7 +189,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter();
 		delete robot;
-		robot = new Player(q0,filter,player_flags.alg,player_flags.mpc);
+		robot = new Player(q0,filter,player_flags.alg,player_flags.mpc,player_flags.verbosity);
 		player_flags.reset = false;
 	}
 	else {

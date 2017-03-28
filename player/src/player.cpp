@@ -31,8 +31,8 @@ using namespace arma;
  * TODO: remove callocs and replace with new!
  *
  */
-Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_)
-               : filter(filter_), alg(alg_), mpc(mpc_) {
+Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_)
+               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_) {
 
 	time_land_des = 0.8;
 	time2return = 1.0;
@@ -117,7 +117,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	}
 
 	if (newball) { // resetting
-		if (check_reset_filter(obs,filter,true)) {
+		if (check_reset_filter(obs,filter,verbose)) {
 			num_obs = 0;
 			t_cum = 0.0; // t_cumulative
 		}
@@ -129,7 +129,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				cout << "Estimating initial ball state\n";
+				if (verbose >= 1)
+					cout << "Estimating initial ball state\n";
 				estimate_prior(OBS,TIMES,filter);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
@@ -281,7 +282,8 @@ void Player::optim_fixedp_param(const joint & qact) {
 			t.detach();
 		}
 		else {
-			cout << "ball is not legal!" << endl;
+			if (verbose > 1)
+				cout << "ball is not legal!" << endl;
 		}
 	}
 }
@@ -732,7 +734,7 @@ void estimate_prior(const mat & observations,
  *
  *
  */
-bool check_reset_filter(const vec3 & obs, EKF & filter, bool verbose) {
+bool check_reset_filter(const vec3 & obs, EKF & filter, int verbose) {
 
 	static vec6 est;
 	static int reset_cnt = 0;
