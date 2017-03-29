@@ -82,7 +82,7 @@ void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter);
 bool check_new_obs(const vec3 & obs, double tol);
-bool check_reset_filter(const vec3 & obs, EKF & filter, int verbose);
+bool check_reset_filter(const bool newball, const int verbose, EKF & filter);
 
 // movement generation
 void generate_strike(const optim & params, const joint & qact,

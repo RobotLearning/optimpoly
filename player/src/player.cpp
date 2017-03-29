@@ -111,16 +111,15 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	static vec TIMES = zeros<vec>(min_obs);
 	static double t_cum;
 	bool newball = check_new_obs(obs,1e-3);
+	validball = false;
 
 	if (num_obs == 0) { // firsttime
 		t_cum = 0.0; // t_cumulative
 	}
 
-	if (newball) { // resetting
-		if (check_reset_filter(obs,filter,verbose)) {
-			num_obs = 0;
-			t_cum = 0.0; // t_cumulative
-		}
+	if (check_reset_filter(newball,verbose,filter)) {
+		num_obs = 0;
+		t_cum = 0.0; // t_cumulative
 	}
 
 	if (num_obs < min_obs) {
@@ -722,54 +721,36 @@ void estimate_prior(const mat & observations,
 /*
  * Check to see if we want to reset the filter.
  *
- * Basically if the old ball data shows on robot court and
- * the new ball appears on opponent's court we should consider
- * resetting the Kalman Filter means and variances.
+ * Basically if a new ball appears 300 ms later than the last new ball
+ * we reset the filter.
  *
- * However note that this is not the ultimate test for resetting.
- * It is possible for instance, that the ball ends up near the net, and
- * we need to be able to recover from that.
- *
- * TODO: check if we can improve this!
- *
+ * TODO: check if it works on real ball data!
  *
  */
-bool check_reset_filter(const vec3 & obs, EKF & filter, int verbose) {
+bool check_reset_filter(const bool newball, const int verbose, EKF & filter) {
 
-	static vec6 est;
-	static int reset_cnt = 0;
-	static vec3 last_obs;
-	static const double threshold = 1.0;
-	bool ball_appears_incoming;
-	bool ball_appears_hit = false;
-	bool old_ball_is_out_range = false;
 	bool reset = false;
+	static int reset_cnt = 0;
+	static double threshold = 0.3; // 300 miliseconds
+	static bool firsttime = true;
+	static wall_clock timer;
 
-	ball_appears_incoming = (obs(Y) > last_obs(Y));
-
-	try {
-		est = filter.get_mean();
-		old_ball_is_out_range = (norm(obs - est.head(3)) > threshold);
-		ball_appears_hit = (est(DY) > 0.0 && obs(Y) < last_obs(Y) &&
-				            obs(Z) > last_obs(Z) && norm(obs - est.head(3)) < 0.1);
-	}
-	catch (const char * exception) {
-		//cout << "Exception caught!\n";
-		// exception caught due to uninitialized filter
-		est = join_vert(obs,zeros<vec>(3));
-		filter.set_prior(est,0.1*eye<mat>(6,6));
+	if (firsttime) {
+		firsttime = false;
+		timer.tic();
 	}
 
-	if ((ball_appears_incoming && old_ball_is_out_range) || ball_appears_hit) {
-		reset = true;
-		if (verbose) {
-			std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
-			//cout << "Obs and Est\n" << obs << est.head(3) << endl;
+	if (newball) {
+		if (timer.toc() > threshold) {
+			reset = true;
+			if (verbose > 0) {
+				std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
+			}
+			filter = init_filter();
 		}
-		est = join_vert(obs,zeros<vec>(3));
-		filter.set_prior(est,0.1*eye<mat>(6,6));
+		timer.tic();
 	}
-	last_obs = obs;
+
 	return reset;
 }
 
