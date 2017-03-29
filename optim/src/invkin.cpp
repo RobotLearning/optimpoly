@@ -71,8 +71,8 @@ double nlopt_vhp_run(coptim *coparams,
 	//double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	//const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	//init_last_soln(params,x);
-	init_rest_soln(coparams,x);
+	init_last_soln(params,x);
+	//init_rest_soln(coparams,x);
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -93,15 +93,18 @@ double nlopt_vhp_run(coptim *coparams,
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-	    printf("NLOPT failed with exit code %d!\n", res);
+		if (params->verbose)
+			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
 	    max_violation = 100.0;
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", past_time);
-	    printf("Found minimum at f = %0.10g\n", minf);
+		if (params->verbose) {
+			printf("NLOPT success with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
 	    max_violation = test_optim(x,params->T,coparams,racketdata,params->verbose);
 	    if (max_violation < 1e-2)
 	    	finalize_soln(x,params,past_time);

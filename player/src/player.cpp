@@ -37,7 +37,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	time_land_des = 0.8;
 	time2return = 1.0;
 	num_obs = 0;
-	validball = false;
+	validball = true;
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
@@ -344,18 +344,17 @@ bool Player::check_update() const {
 	vec6 state_est;
 	bool update;
 	//static int num_updates;
-	static const double FREQ_MPC = 10.0;
+	static const double FREQ_MPC = 20.0;
 	static wall_clock timer;
 	bool activate, passed_lim = false;
 
 	try {
 		state_est = filter.get_mean();
 		update = !optim_params.update && !optim_params.running
-				  && state_est(Y) > (dist_to_table - table_length/2) &&
-				     state_est(Y) < dist_to_table && state_est(DY) > 1.0;
+				&& state_est(Y) > (dist_to_table - table_length/2) ;
 		if (mpc && moving) {
 			activate = (timer.toc() > (1.0/FREQ_MPC));
-			passed_lim = state_est(Y) > -0.2; //cart_state(Y);
+			//passed_lim = state_est(Y) > -0.2; //cart_state(Y);
 			update = update && validball && activate && !passed_lim;
 		}
 		else {
@@ -404,7 +403,12 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
 	if (optim_params.update) {
-		std::cout << "Launching/updating strike" << std::endl;
+		if (verbose > 0) {
+			std::cout << "Launching/updating strike" << std::endl;
+			//for (int i = 0; i < 7; i++)
+			//	std::cout << optim_params.qf[i] << "\t" << optim_params.qfdot[i] << "\t";
+			//std::cout << optim_params.T << std::endl;
+		}
 		moving = true;
 		idx = 0;
 		optim_params.update = false;

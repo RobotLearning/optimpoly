@@ -285,7 +285,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		cp = new Player(q0,filter,player_flags.alg);
+		cp = new Player(q0,filter,player_flags.alg,player_flags.mpc,player_flags.verbosity);
 		player_flags.reset = false;
 	}
 	else {
