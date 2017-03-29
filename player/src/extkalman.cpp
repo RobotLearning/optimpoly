@@ -112,11 +112,11 @@ mat EKF::predict_path(double dt, int N) {
  * The new obs has to be located a certain standard deviations away from last obs
  *
  */
-bool EKF::check_outlier(const vec & y) const {
+bool EKF::check_outlier(const vec & y, const bool verbose) const {
 
 	static bool outlier = true;
 	static int dim_y = y.n_elem;
-	static double std_dev_mult = 2.0;
+	static double std_dev_mult = 3.0;
 	vec threshold = std_dev_mult * arma::sqrt(P.diag());
 	vec inno = y - C * x;
 
@@ -124,8 +124,10 @@ bool EKF::check_outlier(const vec & y) const {
 		outlier = false;
 	}
 	else {
-		std::cout << "Outlier detected!\n";
-		//cout << "Inno vs. Thresh" << inno << threshold << endl;
+		if (verbose) {
+			std::cout << "Outlier detected!" << std::endl
+			          << "Inno vs. Thresh" << inno << threshold << std::endl;
+		}
 	}
 
 	return outlier;

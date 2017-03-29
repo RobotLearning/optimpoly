@@ -137,7 +137,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT);
-		if (newball && !filter.check_outlier(obs)) {
+		if (newball) { // && !filter.check_outlier(obs,verbose > 0)) {
 			validball = true;
 			filter.update(obs);
 			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
@@ -404,6 +404,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
 	if (optim_params.update) {
+		std::cout << "Launching/updating strike" << std::endl;
 		moving = true;
 		idx = 0;
 		optim_params.update = false;
