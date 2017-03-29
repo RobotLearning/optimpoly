@@ -64,7 +64,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 		qinit[i] = qrest[i] = qzero[i] = q0(i);
 	}
 
-	optim_params = {qzero, qzerodot, 0.5, false, false};
+	optim_params = {qzero, qzerodot, 0.5, false, false, verbose > 1};
 	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return};
 	moving = false;
 

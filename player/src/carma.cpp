@@ -80,7 +80,6 @@ void set_algorithm(const int alg_num, const int mpc_flag,
 	save_flag ? player_flags.save = true : player_flags.save = false;
 	player_flags.verbosity = verbose_flag;
 
-
 }
 
 /*

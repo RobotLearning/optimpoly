@@ -19,9 +19,9 @@
 static bool firsttime[3]; // TODO: remove this global var!
 
 // termination
-static double test_optim(const double *x, coptim *params, racketdes *racketdata, int info);
+static double test_optim(const double *x, coptim *params, racketdes *racketdata, bool info);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
-static int check_optim_result(const int res);
+static bool check_optim_result(const int res);
 
 // optimization related methods
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
@@ -64,13 +64,11 @@ double nlopt_optim_fixed_run(coptim *coparams,
 					      racketdes *racketdata,
 						  optim *params) {
 
-	firsttime[0] = true;
-	firsttime[1] = true;
-	firsttime[2] = true;
+	firsttime[0] = firsttime[1] = firsttime[2] = true;
 
 	//print_input_structs(coparams, racketdata, params);
-	params->update = FALSE;
-	params->running = TRUE;
+	params->update = false;
+	params->running = true;
 	nlopt_opt opt;
 	double x[OPTIM_DIM];
 	double tol_eq[EQ_CONSTR_DIM];
@@ -99,21 +97,25 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-	    printf("NLOPT failed with exit code %d!\n", res);
+		if (params->verbose)
+			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = test_optim(x,coparams,racketdata,TRUE);
+	    max_violation = test_optim(x,coparams,racketdata,params->verbose);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", past_time);
-	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,coparams,racketdata,TRUE);
+		if (params->verbose) {
+			printf("NLOPT success with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
+	    max_violation = test_optim(x,coparams,racketdata,params->verbose);
 	    if (max_violation < 1e-2)
 	    	finalize_soln(x,params,past_time);
 	}
-	params->running = FALSE;
-	check_optim_result(res);
+	params->running = false;
+	if (params->verbose)
+		check_optim_result(res);
 	//nlopt_destroy(opt);
 	return max_violation;
 }
@@ -145,33 +147,33 @@ static void print_input_structs(coptim *coparams,
  * Give info about the optimization after termination
  *
  */
-static int check_optim_result(const int res) {
+static bool check_optim_result(const int res) {
 
-	int flag = FALSE;
+	bool flag = false;
 	switch (res) {
 	case NLOPT_SUCCESS:
 		printf("Success!\n");
-		flag = TRUE;
+		flag = true;
 		break;
 	case NLOPT_STOPVAL_REACHED:
 		printf("Optimization stopped because stopval (above) was reached.\n");
-		flag = TRUE;
+		flag = true;
 		break;
 	case NLOPT_FTOL_REACHED:
 		printf("Optimization stopped because ftol_rel "
 				"or ftol_abs (above) was reached.\n");
-		flag = TRUE;
+		flag = true;
 		break;
 	case NLOPT_XTOL_REACHED:
-		flag = TRUE;
+		flag = true;
 		printf("Optimization stopped because xtol_rel or xtol_abs (above) was reached.\n");
 		break;
 	case NLOPT_MAXEVAL_REACHED:
-		flag = TRUE;
+		flag = true;
 		printf("Optimization stopped because maxeval (above) was reached.\n");
 		break;
 	case NLOPT_MAXTIME_REACHED:
-		flag = TRUE;
+		flag = true;
 		printf("Optimization stopped because maxtime (above) was reached.\n");
 		break;
 	case NLOPT_FAILURE:
@@ -203,12 +205,10 @@ static int check_optim_result(const int res) {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-static double test_optim(const double *x,
-		          coptim * coparams,
-				  racketdes * racketdata, int info) {
+static double test_optim(const double *x, coptim * coparams, racketdes * racketdata, bool info) {
 
 	// give info on constraint violation
-	double *grad = FALSE;
+	double *grad = 0;
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
@@ -224,11 +224,10 @@ static double test_optim(const double *x,
 		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
 		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
 		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
-	}
-
-	for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-		if (lim_violation[i] > 0.0)
-			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
 	}
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
@@ -246,7 +245,7 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
 		params->qfdot[i] = x[i+NDOF];
 	}
 	params->T = x[2*NDOF] - (time_elapsed/1e3);
-	params->update = TRUE;
+	params->update = true;
 }
 
 /*

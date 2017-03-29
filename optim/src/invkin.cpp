@@ -29,7 +29,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static double test_optim(const double *x, const double T,
 		          coptim * coparams,
 				  racketdes * racketdata,
-				  int info);
+				  bool info);
 static void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
@@ -63,8 +63,8 @@ double nlopt_vhp_run(coptim *coparams,
 	firsttime[1] = true;
 
 	//print_input_structs(coparams, racketdata, params);
-	params->update = FALSE;
-	params->running = TRUE;
+	params->update = false;
+	params->running = true;
 	nlopt_opt opt;
 	double x[2*NDOF];
 	double tol_eq[EQ_CONSTR_DIM];
@@ -102,11 +102,11 @@ double nlopt_vhp_run(coptim *coparams,
 		printf("NLOPT success with exit code %d!\n", res);
 		printf("NLOPT took %f ms\n", past_time);
 	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,params->T,coparams,racketdata,TRUE);
+	    max_violation = test_optim(x,params->T,coparams,racketdata,params->verbose);
 	    if (max_violation < 1e-2)
 	    	finalize_soln(x,params,past_time);
 	}
-	params->running = FALSE;
+	params->running = false;
 	//nlopt_destroy(opt);
 	return max_violation;
 }
@@ -223,7 +223,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static double test_optim(const double *x, const double T,
 		          coptim * coparams,
 				  racketdes * racketdata,
-				  int info) {
+				  bool info) {
 
 	double x_[2*NDOF+1];
 	for (int i = 0; i < 2*NDOF; i++)
@@ -231,7 +231,7 @@ static double test_optim(const double *x, const double T,
 	x_[2*NDOF] = T;
 
 	// give info on constraint violation
-	double *grad = FALSE;
+	double *grad = 0;
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
@@ -247,11 +247,10 @@ static double test_optim(const double *x, const double T,
 		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
 		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
 		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
-	}
-
-	for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-		if (lim_violation[i] > 0.0)
-			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
 	}
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
@@ -281,10 +280,10 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double *ub;
 	static double *lb;
 	static double Tret;
-	static int firsttime = TRUE;
+	static bool firsttime = true;
 
 	if (firsttime) {
-		firsttime = FALSE;
+		firsttime = false;
 		coptim* optim_data = (coptim*)my_func_params;
 		q0 = optim_data->q0;
 		q0dot = optim_data->q0dot;
@@ -401,5 +400,5 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
 		params->qfdot[i] = x[i+NDOF];
 	}
 	params->T = params->T - (time_elapsed/1e3);
-	params->update = TRUE;
+	params->update = true;
 }

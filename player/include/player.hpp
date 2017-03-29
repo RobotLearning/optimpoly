@@ -29,6 +29,7 @@ class Player { // Table Tennis Player
 
 private:
 
+	// data fields
 	EKF & filter; // filter for the ball estimation
 	vec2 ball_land_des; // desired landing position
 	double time_land_des; // desired landing time
@@ -37,6 +38,8 @@ private:
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
+
+	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	bool moving; // robot is moving or not
 	bool mpc; // apply corrections

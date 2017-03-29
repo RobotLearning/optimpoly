@@ -47,7 +47,7 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 		                      double *joint_max_cand, double *joint_min_cand);
 static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
 		                     double *joint_max_cand, double *joint_min_cand);
-static double test_optim(double *x, lazy_data* data, int verbose);
+static double test_optim(double *x, lazy_data* data, bool verbose);
 static void modify_ball_outgoing_vel(double* ballVel);
 static void calc_times(const lazy_data* data,
 		               const double *x,
@@ -99,7 +99,7 @@ double nlopt_optim_lazy_run(double** ballpred,
 		x[i+NDOF] = params->qfdot[i];
 	}
 	x[2*NDOF] = params->T;
-	double maxviol = test_optim(x,&data,TRUE);*/
+	double maxviol = test_optim(x,&data,true);*/
 	double maxviol = nlopt_optim_lazy(&data,params);
 	printf("Optim count: %d\n", (++count));
 	printf("==========================================\n");
@@ -148,8 +148,8 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	firsttime[0] = firsttime[1] = firsttime[2] = true;
 
 	//print_input_structs(coparams, racketdata, params);
-	params->update = FALSE;
-	params->running = TRUE;
+	params->update = false;
+	params->running = true;
 	nlopt_opt opt;
 	double x[OPTIM_DIM];
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
@@ -177,20 +177,23 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-	    printf("NLOPT failed with exit code %d!\n", res);
+		if (params->verbose)
+			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = test_optim(x,data,TRUE);
+	    max_violation = test_optim(x,data,params->update);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", past_time);
-	    printf("Found minimum at f = %0.10g\n", minf);
-	    max_violation = test_optim(x,data,TRUE);
+		if (params->verbose) {
+			printf("NLOPT success with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
+	    max_violation = test_optim(x,data,params->update);
 	    if (max_violation < 1e-2)
 	    	finalize_soln(x,data,params,past_time);
 	}
-	params->running = FALSE;
+	params->running = false;
 	//nlopt_destroy(opt);
 	return max_violation;
 }
@@ -585,10 +588,10 @@ static void calc_times(const lazy_data* data,
  *
  *
  */
-static double test_optim(double *x, lazy_data* data, int verbose) {
+static double test_optim(double *x, lazy_data* data, bool verbose) {
 
 	// give info on constraint violation
-	double *grad = FALSE;
+	double *grad = 0;
 	static double land_violation[INEQ_LAND_CONSTR_DIM];
 	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
 	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, data);
@@ -610,11 +613,10 @@ static double test_optim(double *x, lazy_data* data, int verbose) {
 		printf("table_xmax + xLand: %f\n", -land_violation[8]);
 		printf("net_y - yLand: %f\n", -land_violation[9]);
 	    printf("yLand - table_ymax: %f\n", -land_violation[10]);
-	}
-
-	for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
-		if (lim_violation[i] > 0.0) {
-			printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0) {
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+			}
 		}
 	}
 
@@ -631,10 +633,10 @@ static double test_optim(double *x, lazy_data* data, int verbose) {
 static void modify_ball_outgoing_vel(double* ballVel) {
 
 	static double multiplier_x, multiplier_y, multiplier_z;
-	static int firsttime = TRUE;
+	static bool firsttime = true;
 
 	if (firsttime) {
-		firsttime = FALSE;
+		firsttime = false;
 		multiplier_x = 0.9;
 		multiplier_y = 0.8;
 		multiplier_z = 0.83;
@@ -788,5 +790,5 @@ static void finalize_soln(const double* x,
 	params->T = x[2*NDOF] - (time_elapsed/1e3);
 	data->coparams->time2return = landTime;
 	data->coparams->qrest = qrest;
-	params->update = TRUE;
+	params->update = true;
 }
