@@ -19,6 +19,13 @@ enum algo {
 	LAZY,
 };
 
+enum game { //trial state
+	AWAITING,
+	ILLEGAL,
+	LEGAL,
+	HIT,
+};
+
 typedef struct {
 	vec7 q;
 	vec7 qd;
@@ -41,9 +48,10 @@ private:
 
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
+	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool moving; // robot is moving or not
 	bool mpc; // apply corrections
-	bool validball; // ball observed is valid (new ball and not an outlier)
+	bool valid_obs; // ball observed is valid (new ball and not an outlier)
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
 
@@ -56,7 +64,7 @@ private:
 	void optim_vhp_param(const joint & qact); // run VHP player
 
 	bool check_update() const; // flag for (re)running optimization
-	bool predict_hitting_point(vec6 & ball_pred, double & time_pred) const;
+	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void predict_ball(mat & balls_pred) const;
 	void calc_next_state(const joint & qact, joint & qdes);
 
@@ -102,6 +110,7 @@ void calc_des_ball_out_vel(const vec2 & ball_land_des,
 void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 		                 const mat & racket_normal, mat & racket_vel);
 void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal);
-bool check_legal_ball(const mat & balls_predicted);
+bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
+void check_legal_bounce(const vec6 & ball_est, game & game_state);
 
 #endif /* PLAYER_HPP_ */

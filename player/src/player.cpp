@@ -37,7 +37,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	time_land_des = 0.8;
 	time2return = 1.0;
 	num_obs = 0;
-	validball = true;
+	valid_obs = true;
+	game_state = AWAITING;
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
@@ -109,16 +110,13 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	static const int min_obs = 5;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
-	static double t_cum;
+	static double t_cum = 0.0;
 	bool newball = check_new_obs(obs,1e-3);
-	validball = false;
-
-	if (num_obs == 0) { // firsttime
-		t_cum = 0.0; // t_cumulative
-	}
+	valid_obs = false;
 
 	if (check_reset_filter(newball,verbose,filter)) {
 		num_obs = 0;
+		game_state = AWAITING;
 		t_cum = 0.0; // t_cumulative
 	}
 
@@ -138,10 +136,11 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT);
 		if (newball) { // && !filter.check_outlier(obs,verbose > 0)) {
-			validball = true;
+			valid_obs = true;
 			filter.update(obs);
 			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
 		}
+
 	}
 	t_cum += DT;
 }
@@ -197,7 +196,9 @@ void Player::play(const joint & qact,
  */
 void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
-
+	// resetting legal ball detecting to AWAITING state
+	if (ballstate(Y) < (dist_to_table - table_length) && ballstate(DY) > 2.0)
+		game_state = AWAITING;
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
 	switch (alg) {
@@ -268,7 +269,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update()) {
 		predict_ball(balls_pred);
-		if (check_legal_ball(balls_pred)) { // ball is legal
+		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
 				coparams.q0[i] = qact.q(i);
@@ -306,7 +307,7 @@ void Player::optim_lazy_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update()) {
 		predict_ball(balls_pred);
-		if (check_legal_ball(balls_pred)) { // ball is legal
+		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
 				coparams.q0[i] = qact.q(i);
@@ -344,18 +345,18 @@ bool Player::check_update() const {
 	vec6 state_est;
 	bool update;
 	//static int num_updates;
-	static const double FREQ_MPC = 20.0;
+	static const double FREQ_MPC = 10.0;
 	static wall_clock timer;
 	bool activate, passed_lim = false;
 
 	try {
 		state_est = filter.get_mean();
 		update = !optim_params.update && !optim_params.running
-				&& state_est(Y) > (dist_to_table - table_length/2) ;
+				&& state_est(DY) > 0.0; // ball is incoming
 		if (mpc && moving) {
 			activate = (timer.toc() > (1.0/FREQ_MPC));
-			//passed_lim = state_est(Y) > -0.2; //cart_state(Y);
-			update = update && validball && activate && !passed_lim;
+			passed_lim = state_est(Y) > -0.2; //cart_state(Y);
+			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {
 			update = update && !moving;
@@ -440,11 +441,12 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 /*
  * Predict hitting point on the Virtual Hitting Plane (VHP)
+ * if the ball is legal (legal detected bounce or legal predicted bounce)
  *
  * The location of the VHP is defined as a constant (constants.h)
  *
  */
-bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) const {
+bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 
 	bool valid_hp = false;
 	mat balls_path;
@@ -452,7 +454,7 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) const {
 	uvec vhp_index;
 	unsigned idx;
 
-	if (check_legal_ball(balls_path)) {
+	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
 		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
 		if (vhp_index.n_elem == 1) {
 			idx = as_scalar(vhp_index);
@@ -625,16 +627,54 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 }
 
 /*
- * Check if there is a bounce among the predicted ball states
- * If it is exactly one ball will be legal!
+ *
+ * Checks for legal bounce
+ * If an incoming ball has bounced before or bounces on opponents' court
+ * it is declared ILLEGAL (legal_bounce as DATA MEMBER of player class)
+ *
+ * Bounce variable is static variable of estimate_ball_state method of player class
+ * which is reset each time an incoming ball from ball gun is detected.
+ *
+ */
+void check_legal_bounce(const vec6 & ball_est, game & game_state) {
+
+
+	static double last_z_vel = 0.0;
+	bool ball_is_incoming = ball_est(DY) > 0.0;
+	bool on_opp_court = (ball_est(Y) < (dist_to_table - (table_length/2.0)));
+
+	if (last_z_vel < 0.0 && ball_est(DZ) > 0.0) { // bounce must have occurred
+		if (ball_is_incoming) {
+			if (game_state == LEGAL || on_opp_court) {
+				game_state = ILLEGAL;
+			}
+			else {
+				//cout << "Legal bounce occurred!" << endl;
+				game_state = LEGAL;
+			}
+		}
+	}
+
+	last_z_vel = ball_est(DZ);
+}
+
+/*
+ * Check if the table tennis trial is LEGAL (hence motion planning can be started).
+ *
+ * If it is exactly one ball when in awaiting mode
+ * (before an actual legal bounce was detected) trial will be legal!
+ *
+ * If ball has bounced legally bounce, then there should be no more bounces.
  *
  * TODO: no need to check after ball passes table
  *
  */
-bool check_legal_ball(const mat & balls_predicted) {
+bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
 
 	int num_bounces = 0;
 	int N = balls_predicted.n_cols;
+
+	check_legal_bounce(ball_est, game_state);
 
 	// if sign of z-velocity changes then the ball bounces
 	for (int i = 0; i < N-1; i++) {
@@ -643,18 +683,16 @@ bool check_legal_ball(const mat & balls_predicted) {
 		}
 	}
 
-	// multiple bounces are predicted
-	if (num_bounces > 1) {
-		//std::cout << "Multiple bounces predicted. Not moving" << endl;
-		return false;
+	// one bounce is predicted before an actual bounce has happened
+	if (game_state == AWAITING && num_bounces == 1) {
+		return true;
 	}
 	// no bounce is predicted
-	if (num_bounces == 0) {
-		//std::cout << "No bounce predicted. Not moving\n" << endl;
-		return false;
+	if (game_state == LEGAL && num_bounces == 0) {
+		return true;
 	}
 
-	return true;
+	return false;
 }
 
 /*

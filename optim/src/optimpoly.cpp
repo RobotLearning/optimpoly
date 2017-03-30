@@ -75,8 +75,8 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	//init_rest_soln(coparams,x); //parameters are the initial joint positions q0
-	init_last_soln(params,x);
+	init_rest_soln(coparams,x); //parameters are the initial joint positions q0
+	//init_last_soln(params,x);
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -99,7 +99,6 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 		if (params->verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
-	    past_time = (get_time() - init_time)/1e3;
 	    max_violation = test_optim(x,coparams,racketdata,params->verbose);
 	}
 	else {
