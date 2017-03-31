@@ -93,7 +93,7 @@ void set_algorithm(const int alg_num, const int mpc_flag,
  */
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 
-	bool valid;
+	bool valid = true;
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -103,35 +103,32 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 
 	if (blob.status == false) {
 		if (verbose)
-			printf("Ball status is false!\n");
+			printf("BLOB NOT VALID! Ball status is false!\n");
 		valid = false;
 	}
 	else if (blob.blob.x[3] > zMax) {
 		if (verbose)
-			printf("Ball is above zMax = 0.5!\n");
+			printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
 		valid = false;
 	}
 	else if (blob.blob.x[2] > yMax || blob.blob.x[2] < yMin) {
 		if (verbose)
-			printf("Ball is outside y-limits!\n");
+			printf("BLOB NOT VALID! Ball is outside y-limits!\n");
 		valid = false;
 	}
 	// between the table if ball appears outside the x limits
 	else if (fabs(blob.blob.x[2] - yCenter) < table_length/2.0 &&
 			fabs(blob.blob.x[1]) > xMax) {
 		if (verbose)
-			printf("Ball is outside the table!\n");
+			printf("BLOB NOT VALID! Ball is outside the table!\n");
 		valid = false;
 	}
 	// on the table blob should not appear under the table
 	else if (fabs(blob.blob.x[1]) < xMax && fabs(blob.blob.x[2] - yCenter) < table_length/2.0
 			&& blob.blob.x[3] < zMin) {
 		if (verbose)
-			printf("Ball appears under the table!\n");
+			printf("BLOB NOT VALID! Ball appears under the table!\n");
 		valid = false;
-	}
-	else {
-		valid = true;
 	}
 	return valid;
 }
@@ -149,7 +146,8 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],false) || check_blob_validity(blobs[1],false)) {
+	if (check_blob_validity(blobs[3],player_flags.verbosity) ||
+			check_blob_validity(blobs[1],player_flags.verbosity)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)

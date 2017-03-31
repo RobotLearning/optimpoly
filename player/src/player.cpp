@@ -332,10 +332,10 @@ void Player::optim_lazy_param(const joint & qact) {
  * Check MPC flag and update if possible
  *
  * IF MPC IS TURNED OFF
- * if ball is fast enough and robot is not moving consider optimization
+ * if ball is incoming and robot is not moving consider optimization
  *
  * IF MPC IS TURNED ON
- * then additionally consider (after running initially optimization)
+ * then additionally consider (after running initial optimization)
  * relaunching optimization if ball is valid (new ball and not an outlier)
  * the frequency of updates is respected, and the ball has not passed the y-limit
  *
@@ -546,7 +546,7 @@ void generate_strike(const optim & params, const joint & qact,
 EKF init_filter() {
 
 	double std_model = 0.3;
-	double std_noise = 0.1;
+	double std_noise = 0.001;
 	mat C = eye<mat>(3,6);
 	mat66 Q = std_model * eye<mat>(6,6);
 	mat33 R = std_noise * eye<mat>(3,3);
@@ -634,6 +634,8 @@ void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
  *
  * Bounce variable is static variable of estimate_ball_state method of player class
  * which is reset each time an incoming ball from ball gun is detected.
+ *
+ * TODO: also consider detecting HIT by robot racket
  *
  */
 void check_legal_bounce(const vec6 & ball_est, game & game_state) {
