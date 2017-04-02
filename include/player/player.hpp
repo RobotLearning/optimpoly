@@ -8,7 +8,7 @@
 #ifndef PLAYER_HPP_
 #define PLAYER_HPP_
 
-#include "../../player/include/kalman.h"
+#include "kalman.h"
 #include "optim.h"
 
 using namespace arma;

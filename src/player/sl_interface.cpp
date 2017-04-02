@@ -49,7 +49,7 @@ struct pflags { // player flags]
 
 pflags player_flags;
 
-#include "carma.h"
+#include "sl_interface.h"
 
 /*
  * Set algorithm to initialize Player with.

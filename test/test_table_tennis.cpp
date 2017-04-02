@@ -169,7 +169,8 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 	vec3 obs;
 	vec err = zeros<vec>(N);
 	TableTennis tt = TableTennis();
-	Player cp = Player(zeros<vec>(NDOF),init_filter());
+	EKF filter = init_filter();
+	Player cp = Player(zeros<vec>(NDOF),filter);
 
 	tt.set_ball_state(0.2);
 
