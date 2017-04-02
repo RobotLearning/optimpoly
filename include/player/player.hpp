@@ -1,5 +1,7 @@
-/*
- * player.hpp
+/**
+ * @file player.hpp
+ *
+ * @brief Main class for playing Table Tennis declared here.
  *
  *  Created on: Feb 9, 2017
  *      Author: okoc
@@ -26,13 +28,24 @@ enum game { //trial state
 	HIT,
 };
 
+/**
+ * @brief Desired/actual joint positions, velocities, accelerations.
+ *
+ * output of main Player function play()
+ */
 typedef struct {
 	vec7 q;
 	vec7 qd;
 	vec7 qdd;
-} joint; // output of main Player function play()
+} joint;
 
-class Player { // Table Tennis Player
+/**
+ *
+ * @brief Table Tennis Player class for playing Table Tennis.
+ *
+ * The methods play() or cheat() must be called every DT milliseconds.
+ */
+class Player {
 
 private:
 

@@ -1,11 +1,9 @@
-/*
- ============================================================================
- Name        : optimpoly.c
- Author      : Okan
- Version     :
- Date        : 30/05/2016
- Description : Nonlinear optimization in C using the NLOPT library
- ============================================================================
+/**
+ * @file optimpoly.cpp
+ * @brief Nonlinear optimization in C using the NLOPT library
+ * @author Okan
+ * @date 30/05/2016
+ *
  */
 
 #include "constants.h"
@@ -16,7 +14,7 @@
 #include "optim.h"
 
 // firsttime checking
-static bool firsttime[3]; // TODO: remove this global var!
+static bool firsttime[3]; //! TODO: remove this global var!
 
 // termination
 static double test_optim(const double *x, coptim *params, racketdes *racketdata, bool info);
@@ -49,16 +47,19 @@ static void print_input_structs(coptim *coparams,
 	      	  	  	  	  	   racketdes *racket,
 							   optim * params);
 
-/*
- * FIXED PLAYER
+/**
+ * @brief Launch FIXED (also known as FOCUSED) PLAYER trajectory generation.
  *
- * NLOPT optimization routine for table tennis trajectory generation
+ * Multi-threading entry point for the NLOPT optimization.
+ * The optimization problem is solved online using COBYLA (see NLOPT).
  *
- * Returns the maximum of violations
- * Maximum of :
- * 1. kinematics equality constraint violations
- * 2. joint limit violations throughout trajectory
- *
+ * @param coparams Co-optimization parameters held fixed during optimization.
+ * @param racketdata Predicted racket position,velocity and normals.
+ * @param params Optimization parameters updated if the solution found is FEASIBLE.
+ * @return the maximum of violations
+ *         Maximum of :
+ * 		   1. kinematics equality constraint violations
+ *         2. joint limit violations throughout trajectory
  */
 double nlopt_optim_fixed_run(coptim *coparams,
 					      racketdes *racketdata,

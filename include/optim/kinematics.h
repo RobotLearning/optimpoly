@@ -1,7 +1,7 @@
-/*
- * kinematics.h
+/**
+ * @file kinematics.h
  *
- * Here we include the kinematics related functions taken from SL
+ * @brief Here we include the kinematics related functions taken from SL
  *
  *  Created on: Jun 22, 2016
  *      Author: okoc
@@ -70,20 +70,6 @@ void calc_racket_state(const double q[NDOF],
 					   double pos[NCART],
 					   double vel[NCART],
 					   double normal[NCART]);
-void get_cart_velocity(double jac[NCART+1][NDOF+1],
-		               const double qdot[NDOF],
-					   double vel[NCART]);
-
-void kinematics(const double state[NDOF],
-		        double Xlink[NLINK+1][4],
-				double Xorigin[NDOF+1][4],
-				double Xaxis[NDOF+1][4],
-		        double Ahmat[NDOF+1][5][5]);
-void jacobian(const double link[NLINK+1][4],
-		const double origin[NDOF+1][4],
-		const double axis[NDOF+1][4],
-		double jac[NCART+1][NDOF+1]);
-void set_endeffector(double endeff_pos[NCART]);
 
 // loading joint limits from SL config files
 int read_joint_limits(double *lb, double *ub);

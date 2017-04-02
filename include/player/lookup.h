@@ -1,5 +1,7 @@
-/*
- * lookup.h
+/**
+ * @file lookup.h
+ *
+ * @brief Lookup-table based functions are declared here.
  *
  *  Created on: Feb 22, 2017
  *      Author: okoc

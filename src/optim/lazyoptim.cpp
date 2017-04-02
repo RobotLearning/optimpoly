@@ -1,9 +1,9 @@
-/*
- * lazyoptim.c
+/**
+ * @file lazyoptim.cpp
  *
- * NLOPT polynomial optimization functions for LAZY PLAYER are stored here.
+ * @brief NLOPT polynomial optimization functions for LAZY PLAYER are stored here.
  *
- * Lazy Player make use of them to generate trajectories.
+ * Lazy Player makes use of FIXED PLAYER to seed good trajectories.
  *
  *  Created on: Sep 11, 2016
  *      Author: okan
@@ -20,7 +20,7 @@
 #define INEQ_LAND_CONSTR_DIM 11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
-static bool firsttime[3];
+static bool firsttime[3]; //! TODO: remove this global var!
 
 static double nlopt_optim_lazy(lazy_data *data, optim *params);
 static void print_input_structs(lazy_data* data, optim* params);
@@ -75,8 +75,19 @@ static void init_soln(const optim * params, double x[OPTIM_DIM]);
 static void init_right_posture(double* qwait);
 
 
-/*
- * Multi-threading entry point for the NLOPT optimization
+/**
+ * @brief Launch LAZY (also known as DEFENSIVE) PLAYER trajectory generation.
+ *
+ * Multi-threading entry point for the NLOPT optimization.
+ * The optimization problem is solved online using COBYLA (see NLOPT).
+ * As a trick, we first launch the FOCUSED PLAYER and then adapt the
+ * trajectories using LAZY PLAYER optimization (only inequalities here).
+ *
+ * @param ballpred Ball prediction matrix (as double pointer).
+ * @param coparams Co-optimization parameters held fixed during optimization.
+ * @param racketdata Predicted racket position,velocity and normals.
+ * @param params Optimization parameters updated if the solution found is FEASIBLE.
+ * @return maximum violations (Zero if feasible).
  */
 double nlopt_optim_lazy_run(double** ballpred,
 		              coptim *coparams,

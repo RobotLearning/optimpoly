@@ -1,8 +1,8 @@
-/*
- * invkin.c
+/**
+ * @file invkin.cpp
  *
- * Inverse Kinematics optimization to find qf, qfdot joint angles
- * and velocities at Virtual Hitting Plane (VHP)
+ * @brief Inverse Kinematics optimization to find qf, qfdot joint angles
+ * and velocities at Virtual Hitting Plane (VHP).
  *
  *  Created on: Mar 5, 2017
  *      Author: okoc
@@ -16,7 +16,7 @@
 #include "optim.h"
 
 // firsttime checking
-static bool firsttime[2]; // TODO: remove this global var!
+static bool firsttime[2]; //! TODO: remove this global var!
 
 static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
@@ -46,14 +46,24 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 							  double *joint_max_cand, double *joint_min_cand);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
 
-/*
- * NLOPT inverse kinematics for table tennis trajectory generation
+
+/**
+ * @brief inverse kinematics for table tennis trajectory generation
+ *        based on a fixed Virtual Hitting Plane (VHP).
  *
- * Returns the maximum of violations
- * Maximum of :
- * 1. kinematics equality constraint violations
- * 2. joint limit violations throughout trajectory
+ * Multi-threading entry point for the NLOPT optimization.
+ * The optimization problem is solved online using COBYLA (see NLOPT).
+ * Cost function in this case is the sum of squared distances from
+ * joint limits.
+ * VHP is held fixed at a constant (see constants.h) y-location.
  *
+ * @param coparams Co-optimization parameters held fixed during optimization.
+ * @param racketdata Predicted racket position,velocity and normals.
+ * @param params Optimization parameters updated if the solution found is FEASIBLE.
+ * @return the maximum of violations
+ *         Maximum of :
+ * 		   1. kinematics equality constraint violations
+ *         2. joint limit violations throughout trajectory
  */
 double nlopt_vhp_run(coptim *coparams,
 					 racketdes *racketdata,

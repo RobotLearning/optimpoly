@@ -1,7 +1,7 @@
-/*
- * lookup.cpp
+/**
+ * @file lookup.cpp
  *
- * All lookup related functions are located here.
+ * @brief All lookup table related functions are located here.
  *
  *  Created on: Feb 22, 2017
  *      Author: okoc
@@ -14,8 +14,12 @@
 using namespace arma;
 using namespace std;
 
-/*
- * Load the lookup table of coparameters and main parameters of interest
+/**
+ * @brief Load the lookup table of coparameters and main parameters of interest.
+ *
+ * Lookup table is located in the saveData/ folder of SL (robolab/barrett/).
+ *
+ * @param lookup Matrix used to load lookup table
  */
 void load_lookup_table(mat & lookup) {
 
@@ -29,9 +33,15 @@ void load_lookup_table(mat & lookup) {
 	//cout << lookup(span(0,5),span(0,5)) << endl;
 }
 
-/*
- * Lookup a random entry with optimization coparameters (b0,v0) and optimization
- * main parameters (qf,qfdot,T)
+/**
+ * @brief Lookup a random entry with optimization coparameters (b0,v0) and optimization
+ * main parameters (qf,qfdot,T).
+ *
+ * Random entry is uniformly distributed between 1 and lookup table size.
+ * Coparameters are 6-dimensional and main parameters are 15-dimensional.
+ *
+ * @param coparams 6-dimensional vector with stored ball positions and velocities.
+ * @param params 15-dimensional vector with (qf,qfdot,T) store optimization params.
  */
 void lookup_random_entry(vec & coparams, vec & params) {
 
@@ -44,18 +54,19 @@ void lookup_random_entry(vec & coparams, vec & params) {
 
 }
 
-/*
- *
- * K-nearest-neighbours method for looking up optimization values
+/**
+ * @brief K-nearest-neighbours method for looking up optimization values.
  *
  * Find the closest ball states in the lookup table
  * and lookup the corresponding qf,qfdot,T values
- * and average them
+ * and average them.
  *
- * INPUT:
+ * @param lookupt
+ * @param datapoint Ball position and velocity estimates
+ * @param val Optimization parameters to be loaded
+ * @param k Value of the K-nearest-neighbor
  *
- * 	Datapoint:     ball position and velocity estimates
- * 	Val      :     optimization parameters to be loaded
+ * TODO: hasnt been checked for correctness for k > 1!
  *
  */
 void knn(const mat & lookupt, const vec & datapoint, vec & val, int k) {

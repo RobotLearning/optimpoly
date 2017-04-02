@@ -35,7 +35,7 @@ optim:
 	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
 						src/optim/lazyoptim.cpp \
 						src/optim/invkin.cpp \
-					    src/optim/kinematics.cpp \
+					    src/optim/kinematics.c \
 					    src/optim/utils.c \
 	                    -lm -o bin/liboptim.so
 

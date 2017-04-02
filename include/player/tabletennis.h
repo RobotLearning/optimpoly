@@ -1,8 +1,9 @@
-/*
- * tabletennis.h
+/**
+ * @file tabletennis.h
  *
- * Header for table tennis ball prediction functions.
- * Mostly taken from table_tennis_common.h file residing in SL/barrett.
+ * @brief Header for table tennis ball prediction functions.
+ *
+ * Mostly taken from table_tennis_common.h file.
  *
  *  Created on: Feb 1, 2017
  *      Author: okoc
@@ -16,6 +17,10 @@
 
 using namespace arma;
 
+/**
+ * @brief Racket positions, velocities and normal
+ * used to predict racket contact.
+ */
 struct racket {
 	vec3 pos;
 	vec3 vel;
@@ -26,15 +31,22 @@ struct racket {
 static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
 // functions outside of Table Tennis class
-mat33 quat2mat(const vec4 & q);
-void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
-void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
-void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
+static mat33 quat2mat(const vec4 & q);
+static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
+static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
+static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
 		                 vec3 & ball_vel);
 vec calc_next_ball(const vec & xnow, double dt);
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
 
-class TableTennis { // Table Tennis ball prediction methods
+/**
+ * @brief Table Tennis ball prediction methods
+ *
+ * Spin and spinless ball flight models can be used the predict the
+ * next ball state. Checking for contact, moreover, enables to predict the
+ * future of the table tennis trial, given racket and the table.
+ */
+class TableTennis {
 
 private:
 

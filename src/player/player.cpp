@@ -1,10 +1,30 @@
-/*
- * player.cpp
+/*! \mainpage Optimal Control based Table Tennis Trajectory Generation
  *
- * Table Tennis Player Class
+ * \section intro_sec Introduction
+ *
+ * Documentation for the 'polyoptim' repository starts here.
+ *
+ *
+ * \section install_sec Installation
+ *
+ * After pulling run 'make install'.
+ * This will allow us to run the unit tests
+ * where we can validate the results found in the paper.
+ *
+ *
+ */
+
+
+/**
+ * @file player.cpp
+ *
+ * @brief Table Tennis player class and the functions it uses are stored here.
+ *
+ * Player class launches 3 different optimization algorithms
+ * for striking trajectory generation.
  *
  *  Created on: Feb 8, 2017
- *      Author: okoc
+ *  Author: okoc
  */
 
 #include <armadillo>
@@ -21,15 +41,21 @@
 
 using namespace arma;
 
-/*
- * Initialize Table Tennis Player
+/**
+ * @brief Initialize Table Tennis Player.
  *
- * Incorporates 3 different algorithms
- * VHP and FP try to return the ball to the centre of the opponents court
- * LP tries to just return the ball to the opponents court
+ * Table Tennis Player class that can run 3 different trajectory
+ * generation algorithms.
+ * VHP and FP try to return the ball to the centre of the opponents court,
+ * LP tries to just return the ball to the opponents court.
  *
  * TODO: remove callocs and replace with new!
- *
+
+ * @param q0 Initial joint positions.
+ * @param filter_ Reference to an input filter (must be initialized in a separate line).
+ * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
+ * @param mpc_ Flag for turning on/off model predictive control (i.e. corrections).
+ * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
  */
 Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_)
                : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_) {
@@ -145,9 +171,16 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	t_cum += DT;
 }
 
-/*
- * Public interface, suitable for testing
+/**
  *
+ * @brief Public interface for estimating ball state.
+ *
+ * This interface allows us to test/debug ball state estimation
+ * (which is private).
+ *
+ * @param obs Ball position observation as a 3-vector.
+ * @return Ball state as a 6-vector, if filter is not initialized,
+ * returns the observation as positions and zeroes as velocities.
  */
 vec6 Player::filt_ball_state(const vec3 & obs) {
 
@@ -160,8 +193,16 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 	}
 }
 
-/*
- * Play Table Tennis
+/**
+ * @brief Play Table Tennis.
+ *
+ * Main function for playing Table Tennis. Calls one of three different
+ * trajectory generation algorithms (depending on initialization) and
+ * updates the desired joint states when the optimization threads have finished.
+ *
+ * @param qact Actual joint positions, velocities, accelerations.
+ * @param ball_obs Ball observations (positions as 3-vector).
+ * @param qdes Desired joint positions, velocities, accelerations.
  */
 void Player::play(const joint & qact,
 		           const vec3 & ball_obs,
@@ -189,10 +230,16 @@ void Player::play(const joint & qact,
 
 }
 
-/*
- * Cheat Table Tennis by getting the exact ball state in simulation
- * Useful for debugging filter
+/**
+ * Cheat Table Tennis by getting the exact ball state in simulation.
  *
+ * Similar to play() method, this method receives from the simulator the
+ * exact ball states, which bypasses then the ball estimation method.
+ * Useful for debugging the internal filter used.
+ *
+ * @param qact Actual joint positions, velocities, accelerations.
+ * @param ball_obs Ball observations (positions as 3-vector).
+ * @param qdes Desired joint positions, velocities, accelerations.
  */
 void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 

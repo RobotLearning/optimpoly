@@ -1,9 +1,12 @@
-/*
- * kalman.cpp
+/**
+ * @file kalman.cpp
  *
- * (Discrete) Kalman filtering class in C++
+ * @brief (Discrete) Kalman filtering class KF in C++
  *
+ * Kalman Filter class for basic filtering in C++ using ARMADILLO linear
+ * algebra library.
  * Compatible with continuous models by using discretize() method.
+ * Can be extended easily (e.g. see EKF).
  *
  * TODO: add square-root form for stability!
  *
@@ -19,20 +22,21 @@
 using namespace std;
 using namespace arma;
 
-/*
+
+/**
+ * @brief Initialize the Kalman filter with given noise covariance
+ * matrices and const observation matrix C.
  *
- * Initialize the Kalman filter with given noise covariance
- * matrices and const observation matrix C
+ * Useful KF initialization in case model is time-varying and/or continuous
+ * so needs to be discretized to apply predict/update equations.
  *
  * Sets A and B to effectively to uninitialized
- * (inf in armadillo)
+ * (inf in armadillo). Leaves state vector x and covariance matrix P uninitialized
+ * by setting them Inf.
  *
- * Leaves state vector x and covariance matrix P uninitialized
- * by setting them Inf
- *
- * This is useful in scenarios where model is time-varying and/or continuous
- * so needs to be discretized to apply predict/update equations
- *
+ * @param Cin Observation matrix C
+ * @param Qin Process (model) covariance Q
+ * @param Rin Noise (observation) covariance R
  */
 KF::KF(mat & Cin, mat & Qin, mat & Rin) {
 
@@ -53,15 +57,21 @@ KF::KF(mat & Cin, mat & Qin, mat & Rin) {
 	this->R = Rin;
 }
 
-/*
- * Initialize the Kalman filter with given
- * discrete model and noise covariance matrices
+/**
+ * @brief Initialize the Kalman filter with given
+ * discrete model and noise covariance matrices.
  *
  * Model matrices must have the right size and
  * noise covariances must be symmetric positive definite!
  *
  * Leaves state vector x and covariance matrix P uninitialized
- * by setting them Inf
+ * by setting them Inf.
+ *
+ * @param Ain Drift matrix A
+ * @param Bin Control matrix B
+ * @param Cin Observation matrix C
+ * @param Qin Process (model) covariance Q
+ * @param Rin Noise (observation) covariance R
  *
  */
 KF::KF(mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
@@ -90,12 +100,20 @@ KF::KF(mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
 	this->R = Rin;
 }
 
-/*
- * Initialize the Kalman filter with given
+/**
+ * @brief Initialize the Kalman filter with given
  * discrete model and noise matrices
  *
- * Overloaded constructor with given
+ * Overloaded constructor for KF with additional given
  * initial state mean x0 and variance P0
+ *
+ * @param x0 Initial state
+ * @param P0 Initial state covariance
+ * @param Ain Drift matrix A
+ * @param Bin Control matrix B
+ * @param Cin Observation matrix C
+ * @param Qin Process (model) covariance Q
+ * @param Rin Noise (observation) covariance R
  *
  */
 KF::KF(vec & x0, mat & P0, mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
@@ -114,12 +132,15 @@ KF::KF(vec & x0, mat & P0, mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin
 	this->R = Rin;
 }
 
-KF::~KF() {
-	// dont do anything special
-}
-
-/*
- * Initialize the filter state and the covariance
+/**
+ * @brief Initialize the filter state and the covariance.
+ *
+ * This is very important function to call, as trying to get
+ * filter mean and/or variance before initializing throws an uninitialized
+ * error (as const char *)
+ *
+ * @param x0 initial mean.
+ * @param P0 initial covariance.
  *
  */
 void KF::set_prior(const vec & x0, const mat & P0) {
@@ -196,18 +217,25 @@ mat KF::chol_semi(const mat & M) const {
 
 }
 
-/*
- * Discretizing continuous model matrices
+/**
+ * @brief Discretizing continuous model matrices.
+ *
+ * In case we have a continuous linear(ized) model, we can call
+ * this function to first discretize the model.
+ *
+ * @param Ac continuous (instantaneous) drift model matrix.
+ * @param Bc continuous control matrix.
+ * @param dt discretize over dt horizon.
  *
  */
 void KF::discretize(const mat & Ac, const mat & Bc, double dt) {
 
-	// MATLAB code
-	//    % trick to get discrete time versions
-	//    Mat = [obj.A, obj.B; zeros(dimu, dimx + dimu)];
-	//    MD = expm(h * Mat);
-	//    Ad = MD(1:dimx,1:dimx);
-	//    Bd = MD(1:dimx,dimx+1:end);
+	/*! MATLAB code
+	    trick to get discrete time versions
+	    Mat = [obj.A, obj.B; zeros(dimu, dimx + dimu)];
+	    MD = expm(h * Mat);
+	    Ad = MD(1:dimx,1:dimx);
+	    Bd = MD(1:dimx,dimx+1:end); */
 
 	int dimu = Bc.n_cols;
 	int dimx = x.n_elem;
@@ -237,10 +265,11 @@ mat KF::smoothen(const mat & observations) {
 
 }
 
-/*
- * Get state mean
+/**
+ * @brief Get state mean.
  *
- * Throws error message if prior is not set
+ * @return State mean.
+ * @throw Error message if prior was not set before!
  *
  */
 vec KF::get_mean() const {
@@ -253,10 +282,11 @@ vec KF::get_mean() const {
 	return x;
 }
 
-/*
- * Get state covariance
+/**
+ * @brief Get state covariance.
  *
- * Throws error message if prior is not set
+ * @return State covariance.
+ * @throw Error message if prior was not set before!
  *
  */
 mat KF::get_covar() const {
@@ -269,12 +299,14 @@ mat KF::get_covar() const {
 	return P;
 }
 
-/*
+/**
  *
- * Get model matrices based on numeric input
- * 1 - A, 2 - B, 3 - C, 4 - D respectively.
+ * @brief Get model matrices based on numeric input
  *
- * Throws error if uninitialized (inf in ARMADILLO).
+ * @param idx 1 - A, 2 - B, 3 - C, 4 - D respectively.
+ * @return model matrix A to C, D is not implemented!
+ *
+ * @throw Error if uninitialized (inf in ARMADILLO).
  * D is not implemented!
  *
  */
@@ -301,8 +333,11 @@ mat KF::get_model(int idx) const {
 	return out;
 }
 
-/*
- * Predict next state mean and covariance
+/**
+ * @brief Predict next state mean and covariance.
+ *
+ * Does not use control matrix or control inputs. Useful
+ * for table tennis ball.
  *
  */
 void KF::predict() {
@@ -311,8 +346,10 @@ void KF::predict() {
 	P = A * P * A + Q;
 }
 
-/*
- * Predict next state mean and covariance
+/**
+ * @brief Predict next state mean and covariance.
+ *
+ * @param u Control inputs. Must have the same size as columns of B.
  *
  */
 void KF::predict(const vec & u) {
@@ -324,11 +361,13 @@ void KF::predict(const vec & u) {
 	P = A * P * A + Q;
 }
 
-/*
- * Update the mean and variance of the state
- * after making an observation
+/**
+ * @brief Update the mean and variance of the state
+ * after making an observation.
  *
- * Simple form without any control input (the usual case)
+ * Simple form without any control input (the usual case).
+ *
+ * @param y observations. Must have the same size as rows of C.
  *
  */
 void KF::update(const vec & y) {
@@ -348,8 +387,10 @@ void KF::update(const vec & y) {
 	x = x + K * z;
 }
 
-/*
- * Sample observations up to a horizon size N
+/**
+ * @brief Sample observations up to a horizon size N.
+ * @param N Horizon size.
+ * @return Sampled future observations.
  */
 mat KF::sample_observations(int N) const {
 

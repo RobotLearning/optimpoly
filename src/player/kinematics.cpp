@@ -1,7 +1,8 @@
-/*
- * kinematics.cpp
+/**
+ * @file kinematics.cpp
  *
- * Kinematics functions are stored here
+ * @brief Kinematics functions are stored here as C++ functions
+ * to be called from Player class.
  *
  *  Created on: Feb 12, 2017
  *      Author: okoc
@@ -16,10 +17,16 @@
 
 using namespace arma;
 
-/*
- * Calculates cartesian racket pos, vel and normal
- * given joint positions and velocities
+/**
+ * @brief Calculates cartesian racket pos, vel and normal
+ * given joint positions and velocities.
  *
+ * C++ version of the same C-code using ARMADILLO library.
+ * In the optimization we do not call this function, but stick to C version.
+ * Can be used to calculate racket positions in player().
+ *
+ * @param robot_joint Robot joint positions, velocities and accelerations.
+ * @param robot_racket Robot racket positions, velocities and normal.
  */
 void calc_racket_state(const joint & robot_joint,
 		               racket & robot_racket) {
@@ -39,10 +46,11 @@ void calc_racket_state(const joint & robot_joint,
 	robot_racket.normal = amats.slice(PALM).col(1).head(3);
 }
 
-/*
- * Rotate racket by 90 degrees to get
- * racket orientation from endeffector orientation
+/**
+ * @brief Rotate racket by 90 degrees to get
+ * racket orientation from endeffector orientation.
  *
+ * @param quat Endeffector orientation as a quaternion.
  */
 void calc_racket_orient(vec4 & quat) {
 
@@ -56,7 +64,7 @@ void calc_racket_orient(vec4 & quat) {
 /* Function to multiply two quaternions
  *
  */
-void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
+static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
 
 	q3(0) = q1(0)*q2(0) - q1(1)*q1(1) - q1(2)*q1(2) - q1(3)*q1(3);
 	q3(1) = q1(1)*q2(0) + q1(0)*q2(1) + q1(2)*q2(3) - q1(3)*q2(2);
@@ -69,7 +77,7 @@ void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
  * Form the quaternion out of the rotation matrix
  *
  */
-void rotate_to_quat(const mat33 & R, vec4 & quat) {
+static void rotate_to_quat(const mat33 & R, vec4 & quat) {
 
 	double T,S;
 	T = 1.0 + R(0,0) + R(1,1) + R(2,2);
@@ -117,7 +125,7 @@ void rotate_to_quat(const mat33 & R, vec4 & quat) {
  * \param[out]    Jac     : the jacobian
  *
  */
-void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac) {
+static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac) {
 
 	vec6 col;
 	for (int i = 0; i < NDOF; ++i) {
@@ -141,7 +149,7 @@ void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac) {
  * col  : column vector of Jacobian [out]
  *
  */
-void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col) {
+static void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col) {
 
 	col(span(X,Z)) = cross(zi, p-pi);
 	col(span(DX,DZ)) = zi;
@@ -161,7 +169,7 @@ void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & c
  * \param[out]    Amats   : homogeneous transformation matrices of each link
  *
  */
-void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats) {
+static void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats) {
 
 	 static double  ss0th;
 	 static double  cs0th;

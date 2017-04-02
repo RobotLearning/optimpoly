@@ -1,5 +1,11 @@
-/*
- * extkalman.cpp
+/**
+ * @file extkalman.cpp
+ *
+ * @brief (Discrete) Extended Kalman filtering class EKF in C++
+ *
+ * Kalman Filter class for basic filtering in C++ using ARMADILLO linear
+ * algebra library.
+ * Compatible with continuous models by using discretize() method.
  *
  *  Created on: Feb 2, 2017
  *      Author: okoc
@@ -10,9 +16,8 @@
 
 using namespace arma;
 
-/*
- *
- * Initialize the Discrete Extended Kalman filter with given noise covariance
+/**
+ * @brief Initialize the Discrete Extended Kalman filter with given noise covariance
  * matrices and const observation matrix C
  *
  * Function pointer is typically a function that integrates an (underlying hidden)
@@ -26,6 +31,10 @@ using namespace arma;
  *
  * TODO: not added pointers to functions with also control input dependence!
  *
+ * @param fp (Nonlinear) function pointer.
+ * @param Cin Observation matrix C.
+ * @param Qin Process noise covariance Q.
+ * @param Rin Observation noise covariance R.
  */
 EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(Cin,Qin,Rin) {
 
@@ -59,12 +68,12 @@ mat EKF::linearize(double dt, double h) const {
 	return (fPlus - fMinus) / (2*dt);
 }
 
-/*
- * Predict dt seconds for mean x and (if flag is true) variance P.
+/**
+ * @brief Predict dt seconds for mean x and (if flag is true) variance P.
  *
- * If the linearization flag is TRUE
- * Linearizes the nonlinear function around current x
- * to make the covariance update
+ * @param dt Prediction horizon.
+ * @param lin_flag If true, will linearize the nonlinear function
+ * around current x and make the covariance update
  *
  */
 void EKF::predict(double dt, bool lin_flag) {
@@ -77,11 +86,14 @@ void EKF::predict(double dt, bool lin_flag) {
 	}
 }
 
-/*
- * Predict future path of the estimated object
+/**
+ * @brief Predict future path of the estimated object
  * up to a horizon size N
  *
  * Does not update covariances!
+ * @param dt Prediction step
+ * @param N Number of (small) prediction steps.
+ * @return Matrix of ball mean and variances as columns.
  *
  */
 mat EKF::predict_path(double dt, int N) {
@@ -102,14 +114,18 @@ mat EKF::predict_path(double dt, int N) {
 	return X;
 }
 
-/*
- * Checks to see if the ball observation could be an
+/**
+ * @brief Checks to see if the ball observation could be an
  * outlier.
  *
  * Using the covariance matrix estimate to detect such an outlier
  * that possibly escaped the elimination from check_blob_validity function
  *
  * The new obs has to be located a certain standard deviations away from last obs
+ *
+ * @param y Observation to check.
+ * @param verbose If flag is TRUE, will print info when outlier is detected
+ * @param TRUE if outlier is detected
  *
  */
 bool EKF::check_outlier(const vec & y, const bool verbose) const {

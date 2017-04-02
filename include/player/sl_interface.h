@@ -1,4 +1,11 @@
-
+/**
+ * @file sl_interface.h
+ * @brief Interface to SL. Exposes play() and cheat() modes.
+ *
+ * Before starting play() mode, relevant options for the Player class
+ * must be set by calling set_algorithm().
+ *
+ */
 #ifndef CARMA_H
 #define CARMA_H
 

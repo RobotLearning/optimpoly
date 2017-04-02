@@ -1,3 +1,12 @@
+/**
+ *
+ * @file sl_interface.cpp
+ *
+ * @brief Interface of the Player class to the SL real-time simulator and to
+ * the robot.
+ *
+ */
+
 #include <iostream>
 #include <fstream>
 #include <armadillo>
@@ -10,7 +19,10 @@
 using namespace arma;
 
 /* The data structures from SL */
-struct SL_Jstate { /*!< joint space state for each DOF */
+/**
+ * @brief (actual) joint space state for each DOF
+ */
+struct SL_Jstate {
 	double   th;   /*!< theta */
 	double   thd;  /*!< theta-dot */
 	double   thdd; /*!< theta-dot-dot */
@@ -18,7 +30,9 @@ struct SL_Jstate { /*!< joint space state for each DOF */
 	double   u;    /*!< torque command */
 	double   load; /*!< sensed torque */
 };
-
+/**
+ * @brief (desired) joint space state commands for each DOF
+ */
 struct SL_DJstate { /*!< desired values for controller */
 	double   th;   /*!< theta */
 	double   thd;  /*!< theta-dot */
@@ -27,34 +41,48 @@ struct SL_DJstate { /*!< desired values for controller */
 	double   uex;  /*!< externally imposed torque */
 };
 
-struct SL_Cstate { /*!< Cartesian state */
+/**
+ * @brief (actual) Cartesian state
+ */
+struct SL_Cstate {
 	double   x[NCART+1];    /*!< Position [x,y,z] */
 	double   xd[NCART+1];   /*!< Velocity */
 	double   xdd[NCART+1];  /*!< Acceleration */
 };
 
-struct SL_VisionBlob { /*!< Vision Blob */
+/**
+ * @brief Vision blob coming from SL.
+ */
+struct SL_VisionBlob {
 	char       status;
 	SL_Cstate  blob;
 };
 
-/* Our own data structures */
-struct pflags { // player flags]
-	int verbosity = 0; // OFF, LOW, HIGH
-	bool reset = true; // reinitializing player class
-	bool save = false; // saving ball/robot data
-	bool mpc = false;
-	algo alg = FIXED;
+/**
+ * @brief Options passed to Player class (algorithm, saving, corrections).
+ */
+struct pflags { //! player flags
+	int verbosity = 0; //! OFF, LOW, HIGH
+	bool reset = true; //! reinitializing player class
+	bool save = false; //! saving ball/robot data
+	bool mpc = false; //! turn on/off corrections
+	algo alg = FIXED; //! algorithm for trajectory generation
 };
 
-pflags player_flags;
+pflags player_flags; //! global structure for setting Player options
 
 #include "sl_interface.h"
 
-/*
- * Set algorithm to initialize Player with.
- * VHP/FIXED
+/**
+ * @brief Set algorithm and options to initialize Player with.
  *
+ * The global variable player_flags is set here and
+ * the play() function will use it to initialize the Player class.
+ *
+ * @param alg_num Select between three algorithms: VHP/FIXED/LAZY.
+ * @param mpc_flag Turn on/off online corrections.
+ * @param save_flag Save ball observations if TRUE.
+ * @param verbose_flag Flag for (verbose) printing, 0 = OFF, 1 = LOW, 2 = HIGH.
  */
 void set_algorithm(const int alg_num, const int mpc_flag,
 		           const int save_flag, const int verbose_flag) {
@@ -87,9 +115,16 @@ void set_algorithm(const int alg_num, const int mpc_flag,
  * Checks for the validity of blob ball data using obvious table tennis checks.
  * Returns TRUE if valid.
  *
- * Does not use uncertainty estimates to assess validity
- * so do not rely on it as the sole source of outlier detection!
+ * Only checks for obvious outliers. Does not use uncertainty estimates
+ * to assess validity so do not rely on it as the sole source of outlier detection!
  *
+ *
+ * @param blob Blob structure from SL (one-indexed). Contains a status boolean
+ * variable and cartesian coordinates (indices one-to-three).
+ * @param verbose If verbose is TRUE, then detecting obvious outliers will
+ * print to standard output.
+ * @return valid If ball is valid (status is TRUE and not an obvious outlier)
+ * return true.
  */
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 
@@ -161,11 +196,16 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 	return status;
 }
 
-/*
+/**
+ * @brief Interface to the PLAYER class that generates desired hitting trajectories.
  *
- * Interface to the PLAYER class that generates desired hitting trajectories.
- * First initializes the player and then starts calling play() interface function.
+ * First initializes the player according to the pre-set options
+ * and then starts calling play() interface function. Must be called every DT ms.
  *
+ *
+ * @param joint_state Actual joint positions, velocities, accelerations.
+ * @param blobs Two ball 3d-positions from 4-cameras are stored in blobs[1] and blobs[3]
+ * @param joint_des_state Desired joint position, velocity and acceleration commands.
  */
 void play(const SL_Jstate joint_state[NDOF+1],
 		  const SL_VisionBlob blobs[4],
@@ -217,7 +257,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
  * TODO: no need to open close each time!
  *
  */
-void save_data(const joint & qact, const joint & qdes,
+static void save_data(const joint & qact, const joint & qdes,
 		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter) {
 
 	static rowvec ball_full;
@@ -258,13 +298,15 @@ void save_data(const joint & qact, const joint & qdes,
 	}
 }
 
-/*
- *
- * CHEAT with exact knowledge of ball state
+/**
+ * @brief  CHEAT with exact knowledge of ball state.
  *
  * Interface to the PLAYER class that generates desired hitting trajectories.
  * First initializes the player and then starts calling cheat() interface function.
  *
+ * @param joint_state Actual joint positions, velocities, accelerations.
+ * @param sim_ball_state Exact simulated ball state (positions and velocities).
+ * @param joint_des_state Desired joint position, velocity and acceleration commands.
  */
 void cheat(const SL_Jstate joint_state[NDOF+1],
 		  const SL_Cstate sim_ball_state,
@@ -307,7 +349,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	}
 }
 
-///*
+
 // * Inverts the given SL matrix matc [with indices starting from 1]
 // * by initializing ARMADILLO equivalent and inverting it
 // *
@@ -339,7 +381,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 //
 //}
 //
-///*
+
 // * Taking pseudoinverse with default tolerance using ARMADILLO
 // *
 // * Output matrix must be the transpose of the input matrix (so make sure

@@ -1,5 +1,8 @@
-/*
- * utils.h
+/**
+ * @file utils.h
+ *
+ * @brief All C-legacy utility methods that we are using for
+ * running NLOPT optimizations are stored here.
  *
  *  Created on: Feb 7, 2017
  *      Author: okoc

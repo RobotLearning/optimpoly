@@ -1,5 +1,7 @@
-/*
- * kalman.h
+/**
+ * @file kalman.h
+ *
+ * @brief Kalman Filter(s) declarations.
  *
  *  Created on: Jan 25, 2017
  *      Author: okoc
@@ -12,7 +14,11 @@
 
 using namespace arma;
 
-class KF { // Kalman filter class
+/**
+ *
+ * @brief Kalman filter class with some additional checks.
+ */
+class KF {
 
 private:
 
@@ -41,7 +47,6 @@ public:
 
 	// constructor for matrices and zero state
 	KF(mat & A, mat & B, mat & C, mat & Q, mat & R);
-	~KF();
 
 	// initialization for matrices and state
 	KF(vec & x0, mat & P0, mat & A, mat & B, mat & C, mat & Q, mat & R);
@@ -71,7 +76,16 @@ public:
 	mat smoothen(const mat & observations);
 };
 
-class EKF : public KF { // Extended Kalman Filter
+/**
+ * @brief Extended Kalman Filter.
+ *
+ * Inherits the usual update method, but uses its own prediction method
+ * based on the (nonlinear) function pointer data member.
+ * predict() calls linearize if linearization flag is TRUE.
+ * predict_path() does NOT call linearize!
+ *
+ */
+class EKF : public KF {
 
 private:
 
