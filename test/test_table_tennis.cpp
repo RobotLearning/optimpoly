@@ -17,7 +17,9 @@
  *      Author: okoc
  */
 
+#ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE test_table_tennis
+#endif
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
@@ -32,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {VHP,FIXED,LAZY};
+algo algs[] = {FIXED};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -67,15 +69,15 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter,alg);
+	Player *robot = new Player(q0,filter,alg,false,2);
 
 	int N = 1000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
-		robot->play(qact, tt.get_ball_position(), qdes);
-		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+		//robot->play(qact, tt.get_ball_position(), qdes);
+		robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//tt.integrate_ball_state(dt);
@@ -147,8 +149,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 		filter.update(ball_pos);
 		err(i) = norm(filter.get_mean() - join_vert(ball_pos,ball_vel),2);
 	}
-
-	//cout << "Error of state estimate" << endl << err << endl;
+	cout << "Error of state estimate" << endl << err << endl;
 	BOOST_TEST(err(N-1) <= err(0), boost::test_tools::tolerance(0.0001));
 }
 

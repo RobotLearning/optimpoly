@@ -11,6 +11,10 @@
  *      Author: okoc
  */
 
+#ifndef BOOST_TEST_MODULE
+#define BOOST_TEST_MODULE test_table_tennis
+#endif
+
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
@@ -26,7 +30,7 @@ static bool check_blob_validity(const vec3 & blob, const bool & status);
 
 /*
  * Test for successful initialization
- * Check if uninitialized filter sends an exception
+ * Check if uninitialized filter sends an exception.
  */
 inline bool test_uninit_exception(const KF & filter) {
 
@@ -268,8 +272,8 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
 	mat ball_states = zeros<mat>(N-head,6);
-
-	Player cp = Player(zeros<vec>(7),init_filter());
+	EKF filter = init_filter();
+	Player cp = Player(zeros<vec>(7),filter);
 	for (int i = head; i < N; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();

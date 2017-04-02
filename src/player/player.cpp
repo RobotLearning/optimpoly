@@ -231,7 +231,7 @@ void Player::play(const joint & qact,
 }
 
 /**
- * Cheat Table Tennis by getting the exact ball state in simulation.
+ * @brief Cheat Table Tennis by getting the exact ball state in simulation.
  *
  * Similar to play() method, this method receives from the simulator the
  * exact ball states, which bypasses then the ball estimation method.
