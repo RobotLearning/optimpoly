@@ -13,9 +13,9 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include "constants.h"
-#include "kinematics.h"
 #include "utils.h"
 #include "string.h"
+#include "kinematics.h"
 
 // internal functions used in calculating racket quantities
 static void get_cart_velocity(double jac[NCART+1][NDOF+1],

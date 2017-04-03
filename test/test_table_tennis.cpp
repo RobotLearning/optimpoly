@@ -71,18 +71,19 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	EKF filter = init_filter();
 	Player *robot = new Player(q0,filter,alg,false,2);
 
-	int N = 1000;
+	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
-		//robot->play(qact, tt.get_ball_position(), qdes);
-		robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+		robot->play(qact, tt.get_ball_position(), qdes);
+		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
+		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
 		//tt.integrate_ball_state(dt);
 		tt.integrate_ball_state(robot_racket,DT);
-		//usleep(DT*1e6);
+		usleep(DT*1e6);
 	}
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
@@ -131,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
 	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);
 	mat66 P0;
-	P0.eye(6,6);
+	P0.eye(6,6); P0 *= 100.0;
 	vec6 x0 = join_vert(init_pos,init_vel);
 	filter.set_prior(x0,P0);
 
@@ -149,8 +150,10 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 		filter.update(ball_pos);
 		err(i) = norm(filter.get_mean() - join_vert(ball_pos,ball_vel),2);
 	}
-	cout << "Error of state estimate" << endl << err << endl;
+	std::cout << "Error of state estimate";
+	//cout << "Error of state estimate" << endl << err << endl;
 	BOOST_TEST(err(N-1) <= err(0), boost::test_tools::tolerance(0.0001));
+	std::cout << " decreases." << std::endl;
 }
 
 

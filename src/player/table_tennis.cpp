@@ -508,6 +508,7 @@ static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
 		                 bool spin_flag) {
 
 	if (spin_flag) { // if spin mode is on ballvec is not a null pointer
+		//cout << "Using a spin model for bounce..." << endl;
 		// compute effect on spin
 		ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
 		ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
@@ -541,7 +542,7 @@ static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow);
+	TableTennis tennis = TableTennis(xnow,false,false);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;

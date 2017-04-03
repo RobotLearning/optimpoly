@@ -223,8 +223,8 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 	// initialize a filter to predict
 	EKF filter = init_filter();
 
-	int N = 50;
-	double dt = 0.01;
+	int N = 1000;
+	double dt = 0.002;
 	tt.set_ball_state(0.2);
 
 	vec6 ball_state = join_vert(tt.get_ball_position(),tt.get_ball_velocity());

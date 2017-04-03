@@ -12,9 +12,9 @@
 #include "constants.h"
 #include "table.h"
 #include "utils.h"
-#include "kinematics.h"
 #include "stdlib.h"
 #include "math.h"
+#include "kinematics.h"
 #include "optim.h"
 
 #define INEQ_LAND_CONSTR_DIM 11

@@ -11,8 +11,9 @@
 #include <iostream>
 #include <armadillo>
 #include <thread>
+
+#include "../old/ccode/kinematics_old.h"
 #include "utils.h"
-#include "kinematics.h"
 #include "optim.h"
 #include "lookup.h"
 #include "player.hpp"

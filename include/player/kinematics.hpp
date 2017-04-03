@@ -20,6 +20,7 @@
 #define PREFS    "prefs/"
 
 //! robot constants
+#ifndef KINEMATICS_H_
 static const double ZSFE = 0.346; //! z height of SAA axis above ground
 static const double ZHR = 0.505;  //! length of upper arm until 4.5cm before elbow link
 static const double YEB = 0.045;  //! elbow y offset
@@ -27,6 +28,7 @@ static const double ZEB = 0.045;  //! elbow z offset
 static const double YWR = -0.045; //! elbow y offset (back to forewarm)
 static const double ZWR = 0.045;  //! elbow z offset (back to forearm)
 static const double ZWFE = 0.255; //! forearm length (minus 4.5cm)
+#endif
 
 static const int PALM = 5; //! for kinematics
 

@@ -32,10 +32,11 @@
 #include <string>
 #include "stdlib.h"
 #include "player.hpp"
+
+#include "kinematics.h"
 #include "constants.h"
 #include "kalman.h"
 #include "tabletennis.h"
-#include "kinematics.h"
 #include "utils.h"
 #include "optim.h"
 
@@ -399,7 +400,8 @@ bool Player::check_update() const {
 	try {
 		state_est = filter.get_mean();
 		update = !optim_params.update && !optim_params.running
-				&& state_est(DY) > 0.0; // ball is incoming
+				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
+		// ball is incoming
 		if (mpc && moving) {
 			activate = (timer.toc() > (1.0/FREQ_MPC));
 			passed_lim = state_est(Y) > -0.2; //cart_state(Y);
@@ -431,6 +433,7 @@ void Player::predict_ball(mat & balls_pred) const {
 	//static wall_clock timer;
 	//timer.tic();
 	int N = racket_params.Nmax;
+	//cout << filter.get_mean() << endl;
 	balls_pred = filter.predict_path(racket_params.dt,N);
 	//cout << timer.toc() << endl;
 }
@@ -453,7 +456,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	if (optim_params.update) {
 		if (verbose > 0) {
 			std::cout << "Launching/updating strike" << std::endl;
-			//for (int i = 0; i < 7; i++)
+			//for (int i = 0; i < NDOF; i++)
 			//	std::cout << optim_params.qf[i] << "\t" << optim_params.qfdot[i] << "\t";
 			//std::cout << optim_params.T << std::endl;
 		}
@@ -478,8 +481,8 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 			// hitting process will finish
 			moving = false;
 			qdes.q = q_rest_des;
-			qdes.qd = zeros<vec>(7);
-			qdes.qdd = zeros<vec>(7);
+			qdes.qd = zeros<vec>(NDOF);
+			qdes.qdd = zeros<vec>(NDOF);
 			idx = 0;
 		}
 	}

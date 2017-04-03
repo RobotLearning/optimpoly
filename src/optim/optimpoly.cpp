@@ -8,9 +8,9 @@
 
 #include "constants.h"
 #include "utils.h"
-#include "kinematics.h"
 #include "stdlib.h"
 #include "math.h"
+#include "kinematics.h"
 #include "optim.h"
 
 // firsttime checking
