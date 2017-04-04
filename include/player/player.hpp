@@ -98,7 +98,7 @@ public:
 };
 
 // ball estimation and filter constructor/state initialization
-EKF init_filter();
+EKF init_filter(double std_model = 0.001, double std_noise = 0.001);
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter);

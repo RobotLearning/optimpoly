@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 	double dt = 0.002;
 	tt.set_ball_state(0.2);
 
-	vec6 ball_state = join_vert(tt.get_ball_position(),tt.get_ball_velocity());
+	vec6 ball_state = tt.get_ball_state();
 	filter.set_prior(ball_state,0.01 * eye<mat>(6,6));
 
 	mat M = zeros<mat>(6,N);
@@ -238,6 +238,35 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 	mat Mfilt = filter.predict_path(dt,N);
 
 	BOOST_TEST(approx_equal(M, Mfilt, "absdiff", 0.002));
+
+}
+
+/*
+ * Test mismatch in ball prediction
+ * by using a spin model and a normal drag model for prediction
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_mismatch_pred ) {
+
+	std::cout << "Testing ball prediction accuracy in mismatch case (spin)" << std::endl;
+	TableTennis tt = TableTennis(true, false); //init with spin
+	arma_rng::set_seed(5);
+	EKF filter = init_filter(0.3,0.001);
+	int N = 100;
+	tt.set_ball_state(0.2);
+	vec6 ball_init = tt.get_ball_state();
+	filter.set_prior(ball_init,eye<mat>(6,6));
+	vec pos_errs, vel_errs;
+	pos_errs = vel_errs = zeros<vec>(N);
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(DT);
+		filter.predict(DT,true);
+		filter.update(tt.get_ball_position());
+		pos_errs(i) = norm(filter.get_mean()(span(X,Z)) - tt.get_ball_position());
+		vel_errs(i) = norm(filter.get_mean()(span(DX,DZ)) - tt.get_ball_velocity());
+	}
+	std::cout << "Pos error max: " << max(pos_errs) << std::endl;
+	std::cout << "Vel error max: " << max(vel_errs) << std::endl;
 
 }
 

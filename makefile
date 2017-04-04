@@ -40,7 +40,7 @@ optim:
 	                    -lm -o bin/liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp \
+	$(CC) $(TESTFLAGS) test/test_kalman.cpp \
 	                  -o unit_tests.o -lm -larmadillo \
 	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
 	                   /usr/local/lib/libboost_unit_test_framework.a \

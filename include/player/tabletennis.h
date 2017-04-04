@@ -30,12 +30,7 @@ struct racket {
 // flags for table tennis players
 static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
-// functions outside of Table Tennis class
-static mat33 quat2mat(const vec4 & q);
-static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
-static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
-static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
-		                 vec3 & ball_vel);
+// interface to the outside world (e.g. player)
 vec calc_next_ball(const vec & xnow, double dt);
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
 
@@ -90,6 +85,7 @@ public:
 
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;
+	vec6 get_ball_state() const;
 
 	// set reasonable ball positions and velocities for table tennis
 	void set_ball_state(double std);

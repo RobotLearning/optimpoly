@@ -323,7 +323,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 				coparams.q0[i] = qact.q(i);
 				coparams.q0dot[i] = qact.qd(i);
 			}
-			//cout << state_est << endl;
+			//cout << filter.get_mean().t() << endl;
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
@@ -393,7 +393,7 @@ bool Player::check_update() const {
 	vec6 state_est;
 	bool update;
 	//static int num_updates;
-	static const double FREQ_MPC = 10.0;
+	static const double FREQ_MPC = 40.0;
 	static wall_clock timer;
 	bool activate, passed_lim = false;
 
@@ -404,7 +404,7 @@ bool Player::check_update() const {
 		// ball is incoming
 		if (mpc && moving) {
 			activate = (timer.toc() > (1.0/FREQ_MPC));
-			passed_lim = state_est(Y) > -0.2; //cart_state(Y);
+			passed_lim = state_est(Y) > 0.0; //cart_state(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {
@@ -593,10 +593,8 @@ void generate_strike(const optim & params, const joint & qact,
  * useful for passing to Player constructor
  *
  */
-EKF init_filter() {
+EKF init_filter(double std_model, double std_noise) {
 
-	double std_model = 0.3;
-	double std_noise = 0.001;
 	mat C = eye<mat>(3,6);
 	mat66 Q = std_model * eye<mat>(6,6);
 	mat33 R = std_noise * eye<mat>(3,3);

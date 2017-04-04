@@ -146,11 +146,11 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 			printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
 		valid = false;
 	}
-	else if (blob.blob.x[2] > yMax || blob.blob.x[2] < yMin) {
+	/*else if (blob.blob.x[2] > yMax || blob.blob.x[2] < yMin) {
 		if (verbose)
 			printf("BLOB NOT VALID! Ball is outside y-limits!\n");
 		valid = false;
-	}
+	}*/
 	// between the table if ball appears outside the x limits
 	else if (fabs(blob.blob.x[2] - yCenter) < table_length/2.0 &&
 			fabs(blob.blob.x[1]) > xMax) {
@@ -216,7 +216,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // centered player
-	static EKF filter = init_filter();
+	static EKF filter = init_filter(0.3,0.001);
 
 	if (player_flags.reset) {
 		for (int i = 0; i < NDOF; i++) {

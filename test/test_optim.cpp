@@ -1,5 +1,5 @@
 /*
- * optim.cpp
+ * test_optim.cpp
  *
  * Unit Tests for polynomial optimization
  *
@@ -7,12 +7,15 @@
  *      Author: okoc
  */
 
+#ifndef BOOST_TEST_MODULE
+#define BOOST_TEST_MODULE test_table_tennis
+#endif
+
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
 #include <thread>
-
-#include "../old/ccode/kinematics_old.h"
+#include "kinematics.h"
 #include "utils.h"
 #include "optim.h"
 #include "lookup.h"
@@ -97,7 +100,7 @@ BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
 
 	init_coptim_params(init_joint_state, q0);
 	coptim coparams = {q0, q0dot, q0, lb, ub, 1.0};
-	optim opt_params = {q0, q0dot, 0.5, false, false};
+	optim opt_params = {q0, q0dot, 0.5, false, false, true};
 
 	// run NLOPT opt algorithm here //
 	/*std::thread t(&nlopt_optim_fixed_run,

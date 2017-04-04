@@ -17,6 +17,13 @@
 #include <armadillo>
 #include "tabletennis.h"
 
+// functions outside of Table Tennis class
+static mat33 quat2mat(const vec4 & q);
+static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
+static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
+static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
+		                 vec3 & ball_vel);
+
 /**
  * @brief Initialize ball pos and velocity to input vector of size 6
  * and initialize ball spin to zero.
@@ -64,11 +71,13 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 void TableTennis::init_topspin() {
 
 	if (SPIN_MODE) {
+		//std::cout << "Initializing with spin" << std::endl;
 		ball_spin(X) = -50*2*datum::pi; // constant 3000 rpm topsin
 		// others are zero
 	}
 	else {
-		// do nothing, they are all zero - spinless model
+		//std::cout << "Initializing without spin" << std::endl;
+ 		// do nothing, they are all zero - spinless model
 	}
 }
 
@@ -78,7 +87,7 @@ void TableTennis::init_topspin() {
  *
  * Set the ball-gun somewhere behind the table and launches a ball.
  * Adds noise to the initial ball launch velocity.
- * Sets spin to ZERO.
+ * DOES NOT MODIFY SPIN (from before)!
  * Method is used for testing purposes (see Unit Tests).
  *
  * @param std Standard deviation of the initial ball pos and vel distribution.
@@ -98,7 +107,6 @@ void TableTennis::set_ball_state(double std) {
 
 	this->ball_pos = rand_ball_pos;
 	this->ball_vel = rand_ball_vel;
-	this->ball_spin = zeros<vec>(3);
 	this->LAND = false;
 	this->HIT = false;
 }
@@ -109,6 +117,14 @@ void TableTennis::set_ball_state(double std) {
 vec3 TableTennis::get_ball_position() const {
 
 	return this->ball_pos;
+}
+
+/**
+ * @return Return ball state as a 6-vector.
+ */
+vec6 TableTennis::get_ball_state() const {
+
+	return join_vert(this->ball_pos,this->ball_vel);
 }
 
 /**
@@ -197,6 +213,7 @@ vec3 TableTennis::flight_model() const {
 	vec3 ball_acc = drag_flight_model();
 	// add Magnus force
 	if (SPIN_MODE) {
+		//std::cout << "Adding some spin force" << std::endl;
 		vec3 magnus = cross(ball_spin,ball_vel); // acceleration due to magnus force
 		magnus *= Clift;
 		ball_acc += magnus;
@@ -534,6 +551,8 @@ static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
  * They can use then to apply predict() using the this function pointer.
  *
  * Warning: spin is turned off!
+ * FIXME: Prediction with a spin model does not work as intended since
+ * the spin after bounce is not saved.
  *
  *
  * @param xnow Consists of current ball position and velocity.
