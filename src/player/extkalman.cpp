@@ -40,11 +40,11 @@ EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(C
 
 	this->f = fp;
 
-	if (x(0) == datum::inf) {
+	/*if (x(0) == datum::inf) {
 		std::cout
 		<< "EKF not initialized! Call set_prior before filtering!"
 		<< std::endl;
-	}
+	}*/
 }
 
 /*

@@ -69,7 +69,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter,alg,true,2);
+	Player *robot = new Player(q0,filter,alg,false,2);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
@@ -92,6 +92,45 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	delete(robot);
 	std::cout << "******************************************************" << std::endl;
 }
+
+///*
+// * Testing whether the ball can be returned to the opponents court
+// */
+//BOOST_DATA_TEST_CASE(test_mismatch, data::make(algs), alg) {
+//
+//	std::cout << "*************** Testing Prediction Mismatch *****************" << std::endl;
+//
+//	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+//	set_bounds(lb,ub,0.01,Tmax);
+//	vec7 lbvec(lb); vec7 ubvec(ub);
+//	TableTennis tt = TableTennis(false,true);
+//	//arma_rng::set_seed_random();
+//	arma_rng::set_seed(2);
+//	tt.set_ball_state(0.2);
+//
+//	vec7 q0;
+//	init_right_posture(q0);
+//	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+//	EKF filter = init_filter();
+//	Player *robot = new Player(q0,filter,alg,false,2);
+//
+//	int N = 2000;
+//	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+//	racket robot_racket;
+//	for (int i = 0; i < N; i++) {
+//		robot->play(qact, tt.get_ball_position(), qdes);
+//		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+//		calc_racket_state(qdes,robot_racket);
+//		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
+//		//tt.integrate_ball_state(dt);
+//		tt.integrate_ball_state(robot_racket,DT);
+//		usleep(DT*1e6);
+//	}
+//	std::cout << "Testing joint limits as well...\n";
+//	BOOST_TEST(tt.has_landed());
+//	delete(robot);
+//	std::cout << "******************************************************" << std::endl;
+//}
 
 /*
  * Testing whether table tennis ball bounces on table and touches the ground

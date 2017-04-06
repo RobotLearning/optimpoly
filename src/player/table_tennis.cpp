@@ -20,9 +20,10 @@
 // functions outside of Table Tennis class
 static mat33 quat2mat(const vec4 & q);
 static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
-static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel, bool spin);
+static void table_contact_model(const double & CFTX, const double & CFTY, const double & CRT,
+		                        const bool spin_flag, vec3 & ball_spin, vec3 & ball_vel);
 static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
-		                 vec3 & ball_vel);
+		                         const double & racket_param, vec3 & ball_vel);
 
 /**
  * @brief Initialize ball pos and velocity to input vector of size 6
@@ -79,6 +80,46 @@ void TableTennis::init_topspin() {
 		//std::cout << "Initializing without spin" << std::endl;
  		// do nothing, they are all zero - spinless model
 	}
+}
+
+void TableTennis::load_params() {
+
+	#include <boost/program_options.hpp>
+	namespace po = boost::program_options;
+	using namespace std;
+
+	string home = std::getenv("HOME");
+	string config_file = home + "/polyoptim/" + "CONFIG";
+
+
+	try {
+		// Declare a group of options that will be
+		// allowed in config file
+		po::options_description config("Configuration");
+		config.add_options()
+			("CFTX", po::value<double>(&params.CFTX),"optimization method")
+			("CFTY", po::value<double>(),"corrections (MPC)")
+			("CRT", po::value<double>(),"verbosity level")
+			("CRR", po::value<double>(),"saving robot/ball data")
+		    ("Cdrag", po::value<double>()->default_value(false),
+			 "saving robot/ball data");
+		    ("gravity", po::value<double>()->default_value(false),
+			 "saving robot/ball data");
+		    ("lift", po::value<double>()->default_value(false),
+			 "saving robot/ball data");
+		po::variables_map vm;
+		ifstream ifs(config_file.c_str());
+		if (!ifs) {
+			cout << "can not open config file: " << config_file << "\n";
+		}
+		else {
+			po::store(parse_config_file(ifs, config), vm);
+			notify(vm);
+		}
+	}
+	catch(exception& e) {
+		cout << e.what() << "\n";
+}
 }
 
 /**
@@ -215,7 +256,7 @@ vec3 TableTennis::flight_model() const {
 	if (SPIN_MODE) {
 		//std::cout << "Adding some spin force" << std::endl;
 		vec3 magnus = cross(ball_spin,ball_vel); // acceleration due to magnus force
-		magnus *= Clift;
+		magnus *= params.Clift;
 		ball_acc += magnus;
 	}
 	return ball_acc;
@@ -232,9 +273,9 @@ vec3 TableTennis::drag_flight_model() const {
 
 	double velBall = norm(ball_vel);
 	vec3 ball_acc;
-	ball_acc(X) = -ball_vel(X) * Cdrag * velBall;
-	ball_acc(Y) = -ball_vel(Y) * Cdrag * velBall;
-	ball_acc(Z) = gravity - ball_vel(Z) * Cdrag * velBall;
+	ball_acc(X) = -ball_vel(X) * params.Cdrag * velBall;
+	ball_acc(Y) = -ball_vel(Y) * params.Cdrag * velBall;
+	ball_acc(Z) = params.gravity - ball_vel(Z) * params.Cdrag * velBall;
 
 	return ball_acc;
 }
@@ -317,7 +358,8 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
 			check_landing(ball_cand_pos(Y),HIT,VERBOSE,LAND);
-			table_contact_model(ball_spin,ball_cand_vel,SPIN_MODE);
+			table_contact_model(params.CFTX, params.CFTY, params.CRT, SPIN_MODE,
+					            ball_spin,ball_cand_vel);
 		}
 	}
 }
@@ -394,7 +436,7 @@ void TableTennis::check_ball_racket_contact(const racket & robot_racket,
 		if (VERBOSE)
 			std::cout << "Contact with racket!" << std::endl;
 		// Reflect to back
-		racket_contact_model(robot_racket.vel, robot_racket.normal, ball_cand_vel);
+		racket_contact_model(robot_racket.vel, robot_racket.normal, params.CRR, ball_cand_vel);
 	}
 }
 
@@ -509,9 +551,10 @@ static mat33 quat2mat(const vec4 & q) {
  * TODO: add a spinning contact model
  *
  */
-static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal, vec3 & ball_vel) {
+static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
+		                         const double & racket_param, vec3 & ball_vel) {
 
-	double speed = (1 + CRR) * dot(racket_normal, racket_vel - ball_vel);
+	double speed = (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel);
 	ball_vel += speed * racket_normal;
 }
 
@@ -521,8 +564,8 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
  * Spin vector is also modified.
  * Coeff of restitution and friction used.
  */
-static void table_contact_model(vec3 & ball_spin, vec3 & ball_vel,
-		                 bool spin_flag) {
+static void table_contact_model(const double & CFTX, const double & CFTY, const double & CRT,
+		                        const bool spin_flag, vec3 & ball_spin, vec3 & ball_vel) {
 
 	if (spin_flag) { // if spin mode is on ballvec is not a null pointer
 		//cout << "Using a spin model for bounce..." << endl;

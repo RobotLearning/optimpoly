@@ -27,6 +27,27 @@ struct racket {
 	vec3 normal;
 };
 
+struct ball_params {
+
+	/* Contact Coefficients */
+	/* coefficient of restitution for the table (i.e. rebound z-velocity multiplier) */
+	double CRT = 0.88;
+	/* coefficient of table contact model on Y-direction */
+	double CFTY = 0.72;
+	/* coefficient of table contact model on X-direction */
+	double CFTX = 0.68;
+	/* coefficent of restitution for racket */
+	double CRR = 0.78;
+
+	/* Air drag coefficient */
+	double Cdrag = 0.1414;
+
+	/* for simulating different gravities */
+	double gravity = -9.802;
+	/* coefficient of lift for the magnus force */
+	double Clift = 0.001;
+};
+
 // flags for table tennis players
 static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
@@ -50,6 +71,7 @@ private:
 	bool LAND; // true on successful landing, false after reset
 	bool HIT; // true on succesful hitting, false after reset
 
+	ball_params params; // ball prediction parameters
 	vec3 ball_pos;
 	vec3 ball_vel;
 	vec3 ball_spin; // ball angular velocity = 0 if spin mode is turned OFF
@@ -82,6 +104,7 @@ public:
 	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
 	bool has_landed() const;
+	void load_params();
 
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;

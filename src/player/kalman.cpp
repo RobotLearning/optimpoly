@@ -19,7 +19,6 @@
 #include <armadillo>
 #include "kalman.h"
 
-using namespace std;
 using namespace arma;
 
 
@@ -181,7 +180,7 @@ void KF::check_spd(const mat & M) const {
 		cerr << "Covariance matrix must be square!" << endl;
 	if (any(vectorise(M - M.t())))
 		cerr << "Covariance matrix must be symmetric!" << endl;
-	const string form = "sa";
+	const std::string form = "sa";
 	vec eigvals = eig_sym(M);
 	if (eigvals(0) < 0.0) {
 		throw "Covariance matrix must be positive semidefinite!";
@@ -204,10 +203,10 @@ mat KF::chol_semi(const mat & M) const {
 		Y = chol(M);
 	}
 	catch (char * err1) {
-		cout << "Covariance is reset to zero!" << endl;
+		std::cout << "Covariance is reset to zero!" << std::endl;
 		Y = zeros<mat>(size,size);
 	}
-	catch (runtime_error & err2) {
+	catch (std::runtime_error & err2) {
 		vec eigval;
 		mat eigvec;
 		eig_sym(eigval, eigvec, M);
@@ -261,7 +260,7 @@ void KF::discretize(const mat & Ac, const mat & Bc, double dt) {
 mat KF::smoothen(const mat & observations) {
 
 	// TODO:
-	throw "Unimplemented!";
+	throw std::runtime_error("Unimplemented!");
 
 }
 
@@ -269,14 +268,14 @@ mat KF::smoothen(const mat & observations) {
  * @brief Get state mean.
  *
  * @return State mean.
- * @throw Error message if prior was not set before!
+ * @throw Exception if prior was not set before!
  *
  */
 vec KF::get_mean() const {
 
 	// quick and dirty check for initialization
 	if (!x.is_finite()) {
-		throw "KF not initialized! Please set prior!";
+		throw std::runtime_error("KF not initialized! Please set prior!");
 	}
 
 	return x;
@@ -286,14 +285,14 @@ vec KF::get_mean() const {
  * @brief Get state covariance.
  *
  * @return State covariance.
- * @throw Error message if prior was not set before!
+ * @throw Exception if prior was not set before!
  *
  */
 mat KF::get_covar() const {
 
 	// quick and dirty check for initialization
 	if (P(0,0) == datum::inf) {
-		throw "KF not initialized! Please set prior!";
+		throw std::runtime_error("KF not initialized! Please set prior!");
 	}
 
 	return P;
@@ -306,14 +305,14 @@ mat KF::get_covar() const {
  * @param idx 1 - A, 2 - B, 3 - C, 4 - D respectively.
  * @return model matrix A to C, D is not implemented!
  *
- * @throw Error if uninitialized (inf in ARMADILLO).
+ * @throw Exception if uninitialized (inf in ARMADILLO).
  * D is not implemented!
  *
  */
 mat KF::get_model(int idx) const {
 
 	if (idx > 4 || idx < 1) {
-		throw "Index must be 1 to 4 only!";
+		throw std::runtime_error("Index must be 1 to 4 only!");
 	}
 	mat out;
 	switch (idx) {
@@ -323,12 +322,12 @@ mat KF::get_model(int idx) const {
 				break;
 		case 3: out = C;
 				break;
-		case 4:	throw "D matrix unimplemented!";
+		case 4:	throw std::runtime_error("D matrix unimplemented!");
 				break;
-		default: throw "This shouldn't happen!";
+		default: throw std::runtime_error("This shouldn't happen!");
 	}
 	if (out(0,0) == datum::inf) {
-		throw "Matrix is not initialized!";
+		throw std::runtime_error("Matrix is not initialized!");
 	}
 	return out;
 }
@@ -395,7 +394,7 @@ void KF::update(const vec & y) {
 mat KF::sample_observations(int N) const {
 
 	// disable messages being printed to the err2 stream
-	ostream nullstream(0);
+	std::ostream nullstream(0);
 	set_stream_err2(nullstream);
 
 	int dimy = C.n_rows;

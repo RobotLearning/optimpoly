@@ -189,7 +189,7 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 	try {
 		return filter.get_mean();
 	}
-	catch (const char * exception) {
+	catch (const std::exception & exception) {
 		return join_vert(obs,zeros<vec>(3));
 	}
 }
@@ -411,7 +411,7 @@ bool Player::check_update() const {
 			update = update && !moving;
 		}
 	}
-	catch (const char * not_init_error) {
+	catch (const std::exception & not_init_error) {
 		update = false;
 	}
 	if (update) {
