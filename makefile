@@ -8,7 +8,7 @@ TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
 
 # for compiling everything 
-all: install interface lookup kinematics 
+all: install interface lookup kinematics
 
 # for compiling only necessary stuff to play table tennis (in test mode)
 install: player filter tabletennis optim
@@ -29,7 +29,7 @@ player:
 	$(CC) $(INSTALLFLAGS) src/player/player.cpp $(LIBS) -o bin/libplayer.so
 
 interface:
-	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -o bin/libinterface.so
+	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o bin/libinterface.so
 
 optim:
 	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
@@ -40,7 +40,7 @@ optim:
 	                    -lm -o bin/liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) test/test_kalman.cpp \
+	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp \
 	                  -o unit_tests.o -lm -larmadillo \
 	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
 	                   /usr/local/lib/libboost_unit_test_framework.a \

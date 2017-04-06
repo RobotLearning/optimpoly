@@ -69,7 +69,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter,alg,false,2);
+	Player *robot = new Player(q0,filter,alg,true,2);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};

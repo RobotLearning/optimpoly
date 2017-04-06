@@ -7,8 +7,11 @@
  *
  */
 
+#include <boost/program_options.hpp>
+#include <string>
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <armadillo>
 #include <cmath>
 #include <sys/time.h>
@@ -16,6 +19,7 @@
 #include "player.hpp"
 #include "tabletennis.h"
 
+namespace po = boost::program_options;
 using namespace arma;
 
 /* The data structures from SL */
@@ -61,7 +65,7 @@ struct SL_VisionBlob {
 /**
  * @brief Options passed to Player class (algorithm, saving, corrections).
  */
-struct pflags { //! player flags
+struct player_flags { //! player flags
 	int verbosity = 0; //! OFF, LOW, HIGH
 	bool reset = true; //! reinitializing player class
 	bool save = false; //! saving ball/robot data
@@ -69,45 +73,89 @@ struct pflags { //! player flags
 	algo alg = FIXED; //! algorithm for trajectory generation
 };
 
-pflags player_flags; //! global structure for setting Player options
+player_flags flags; //! global structure for setting Player options
 
 #include "sl_interface.h"
 
 /**
- * @brief Set algorithm and options to initialize Player with.
- *
- * The global variable player_flags is set here and
- * the play() function will use it to initialize the Player class.
+ * @brief Set algorithm to initialize Player with.
  *
  * @param alg_num Select between three algorithms: VHP/FIXED/LAZY.
- * @param mpc_flag Turn on/off online corrections.
- * @param save_flag Save ball observations if TRUE.
- * @param verbose_flag Flag for (verbose) printing, 0 = OFF, 1 = LOW, 2 = HIGH.
  */
-void set_algorithm(const int alg_num, const int mpc_flag,
-		           const int save_flag, const int verbose_flag) {
+void set_algorithm(const int alg_num) {
 
-	player_flags.reset = true;
 	switch (alg_num) {
 		case 0:
-			std::cout << "Setting to VHP player..." << std::endl;
-			player_flags.alg = VHP;
+			std::cout << "Setting to FIXED player..." << std::endl;
+			flags.alg = FIXED;
 			break;
 		case 1:
-			std::cout << "Setting to FIXED player..." << std::endl;
-			player_flags.alg = FIXED;
+			std::cout << "Setting to LAZY player..." << std::endl;
+			flags.alg = LAZY;
 			break;
 		case 2:
 			std::cout << "Setting to LAZY player..." << std::endl;
-			player_flags.alg = LAZY;
+			flags.alg = VHP;
 			break;
 		default:
-			player_flags.alg = FIXED;
+			flags.alg = FIXED;
 	}
-	mpc_flag ? player_flags.mpc = true : player_flags.mpc = false;
-	save_flag ? player_flags.save = true : player_flags.save = false;
-	player_flags.verbosity = verbose_flag;
+}
 
+// A helper function to simplify the main part.
+template<class T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& v) {
+    copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
+    return os;
+}
+
+/**
+ * @brief Set algorithm and options to initialize Player with.
+ *
+ * The global variable flags is set here and
+ * the play() function will use it to initialize the Player class.
+ *
+ */
+void load_options() {
+
+	flags.reset = true;
+	using namespace std;
+	string home = std::getenv("HOME");
+	string config_file = home + "/polyoptim/" + "CONFIG";
+	int alg_num;
+
+    try {
+		// Declare a group of options that will be
+		// allowed in config file
+		po::options_description config("Configuration");
+		config.add_options()
+			("algorithm", po::value<int>(&alg_num)->default_value(0),
+				  "optimization method")
+			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
+				 "corrections (MPC)")
+			("verbose", po::value<int>(&flags.verbosity)->default_value(1),
+		         "verbosity level")
+		    ("save_data", po::value<bool>(&flags.save)->default_value(false),
+		         "saving robot/ball data");
+        po::variables_map vm;
+        ifstream ifs(config_file.c_str());
+        if (!ifs) {
+            cout << "can not open config file: " << config_file << "\n";
+        }
+        else {
+            po::store(parse_config_file(ifs, config), vm);
+            notify(vm);
+        }
+    }
+    catch(exception& e) {
+        cout << e.what() << "\n";
+    }
+    set_algorithm(alg_num);
+
+    cout << "Algorithm specified: " << flags.alg << "\n";
+	cout << "MPC Turned on? " << flags.mpc << "\n";
+	cout << "Verbosity level? " << flags.verbosity << "\n";
+	cout << "Saving ball data? " << flags.save << "\n";
 }
 
 /*
@@ -181,8 +229,8 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],player_flags.verbosity) ||
-			check_blob_validity(blobs[1],player_flags.verbosity)) {
+	if (check_blob_validity(blobs[3],flags.verbosity) ||
+			check_blob_validity(blobs[1],flags.verbosity)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)
@@ -218,16 +266,16 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static Player *robot = nullptr; // centered player
 	static EKF filter = init_filter(0.3,0.001);
 
-	if (player_flags.reset) {
+	if (flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_filter();
+		filter = init_filter(0.3,0.001);
 		delete robot;
-		robot = new Player(q0,filter,player_flags.alg,player_flags.mpc,player_flags.verbosity);
-		player_flags.reset = false;
+		robot = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity);
+		flags.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -268,7 +316,7 @@ static void save_data(const joint & qact, const joint & qdes,
 	static std::ofstream stream_balls;
 	static vec6 ball_est = zeros<vec>(6);
 
-	if (player_flags.save) {
+	if (flags.save) {
 		try {
 			ball_est = filter.get_mean();
 		}
@@ -319,14 +367,14 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	static Player *cp; // centered player
 	static EKF filter = init_filter();
 
-	if (player_flags.reset) {
+	if (flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		cp = new Player(q0,filter,player_flags.alg,player_flags.mpc,player_flags.verbosity);
-		player_flags.reset = false;
+		cp = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity);
+		flags.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
