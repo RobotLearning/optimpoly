@@ -538,7 +538,7 @@ static void calc_times(const lazy_data* data,
 	static double ballpos[NCART];
 	static double ballvel[NCART];
 	static double table_z = floor_level - table_height + ball_radius;
-	static double g = fabs(gravity);
+	static double g = 9.8;
 	static double net_y = dist_to_table - table_length/2;
 	double distBall2TableZ;
 
@@ -574,7 +574,7 @@ static void calc_times(const lazy_data* data,
 		netTime_ = *netTime = (net_y - ballpos[Y])/ballvel[Y];
 
 		xnet_ = *xnet = ballpos[Z] + netTime_ * ballvel[Z] +
-				        0.5*gravity*netTime_*netTime_;
+				        0.5*g*netTime_*netTime_;
 		xland_[0] = xland[0] = ballpos[X] + landTime_ * ballvel[X];
 		xland_[1] = xland[1] = ballpos[Y] + landTime_ * ballvel[Y];
 
@@ -700,6 +700,7 @@ static void set_penalty_matrices(weights * pen) {
  */
 static void racket_contact_model(double* racketVel, double* racketNormal, double* ballVel) {
 
+	static const double racket_param = 0.78;
 	static double diffVel[NCART];
 	static double normalMultSpeed[NCART];
 	double speed;
@@ -707,7 +708,7 @@ static void racket_contact_model(double* racketVel, double* racketNormal, double
 	for (int i = 0; i < NCART; i++)
 		diffVel[i] = racketVel[i] - ballVel[i];
 
-	speed = (1 + CRR) * inner_prod(NCART, racketNormal, diffVel);
+	speed = (1 + racket_param) * inner_prod(NCART, racketNormal, diffVel);
 
 	for (int i = 0; i < NCART; i++) {
 		normalMultSpeed[i] = speed * racketNormal[i];

@@ -14,7 +14,8 @@ all: install interface lookup kinematics
 install: player filter tabletennis optim
 
 tabletennis:
-	$(CC) $(INSTALLFLAGS) src/player/table_tennis.cpp $(LIBS) -o bin/libtennis.so
+	$(CC) $(INSTALLFLAGS) src/player/table_tennis.cpp $(LIBS) \
+	-lboost_program_options -o bin/libtennis.so
 
 kinematics:
 	$(CC) $(INSTALLFLAGS) src/player/kinematics.cpp $(LIBS) -o bin/libkin.so

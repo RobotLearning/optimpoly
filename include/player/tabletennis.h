@@ -27,6 +27,19 @@ struct racket {
 	vec3 normal;
 };
 
+/**
+ * @brief Information about the status of the game
+ */
+struct status {
+	bool hit = false;
+	bool land = false;
+	bool ground = false;
+};
+
+/**
+ * @brief Ball parameters used to predict future ball path
+ * and to calculate desired racket parameters.
+ */
 struct ball_params {
 
 	/* Contact Coefficients */
@@ -68,8 +81,7 @@ private:
 
 	bool SPIN_MODE; // turn on prediction with a spin model
 	bool VERBOSE;
-	bool LAND; // true on successful landing, false after reset
-	bool HIT; // true on succesful hitting, false after reset
+	status stats;
 
 	ball_params params; // ball prediction parameters
 	vec3 ball_pos;
@@ -95,7 +107,7 @@ private:
 	void check_ball_racket_contact(const racket & robot,
 			       const vec3 & ball_cand_pos, vec3 & ball_cand_vel);
 	// Check if it hits the ground...
-	void check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
+	void check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel);
 
 public:
 
@@ -104,7 +116,7 @@ public:
 	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
 	bool has_landed() const;
-	void load_params();
+	void load_params(const std::string & file_name_relative);
 
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;
@@ -116,6 +128,14 @@ public:
 	// ball prediction functions
 	void integrate_ball_state(const double dt);
 	void integrate_ball_state(const racket & robot, const double dt);
+
+	// calculating desired racket
+	void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) const;
+	void calc_des_ball_out_vel(const vec2 & ball_land_des,
+							   const double time_land_des,
+							   const mat & balls_predicted, mat & balls_out_vel) const;
+	void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
+			                 const mat & racket_normal, mat & racket_vel) const;
 
 	// used as an interface for the ball prediction
 	friend vec calc_next_ball(const vec & xnow, const double dt);

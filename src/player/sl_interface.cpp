@@ -94,7 +94,7 @@ void set_algorithm(const int alg_num) {
 			flags.alg = LAZY;
 			break;
 		case 2:
-			std::cout << "Setting to LAZY player..." << std::endl;
+			std::cout << "Setting to VHP player..." << std::endl;
 			flags.alg = VHP;
 			break;
 		default:
@@ -103,11 +103,11 @@ void set_algorithm(const int alg_num) {
 }
 
 // A helper function to simplify the main part.
-template<class T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& v) {
-    copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
-    return os;
-}
+//template<class T>
+//std::ostream& operator<<(std::ostream& os, const std::vector<T>& v) {
+//    copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
+//    return os;
+//}
 
 /**
  * @brief Set algorithm and options to initialize Player with.

@@ -8,14 +8,19 @@
  *
  * Most of them are used in simulation mode, such as
  * the simulate_ball function.
+ * Three methods are used to calculate desired racket quantities (which are necessary to
+ * put here to use the parameters).
  *
  * We support in simulation opponent modelling, simple spin modelling, etc.
  *
  *
  */
 
+#include <boost/program_options.hpp>
 #include <armadillo>
 #include "tabletennis.h"
+
+namespace po = boost::program_options;
 
 // functions outside of Table Tennis class
 static mat33 quat2mat(const vec4 & q);
@@ -36,8 +41,6 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 
 	SPIN_MODE = spin_flag;
 	VERBOSE = verbosity;
-	LAND = false;
-	HIT = false;
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
@@ -56,8 +59,6 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 
 	SPIN_MODE = spin_flag;
 	VERBOSE = verbosity;
-	LAND = false;
-	HIT = false;
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
@@ -82,31 +83,29 @@ void TableTennis::init_topspin() {
 	}
 }
 
-void TableTennis::load_params() {
+/**
+ * @brief Load ball prediction parameters from a CONFIG file
+ * @param file_name_relative Relative file name (base is polyoptim)
+ *
+ */
+void TableTennis::load_params(const std::string & file_name_relative) {
 
-	#include <boost/program_options.hpp>
-	namespace po = boost::program_options;
 	using namespace std;
-
 	string home = std::getenv("HOME");
-	string config_file = home + "/polyoptim/" + "CONFIG";
-
+	string config_file = home + "/polyoptim/" + file_name_relative;
 
 	try {
 		// Declare a group of options that will be
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-			("CFTX", po::value<double>(&params.CFTX),"optimization method")
-			("CFTY", po::value<double>(),"corrections (MPC)")
-			("CRT", po::value<double>(),"verbosity level")
-			("CRR", po::value<double>(),"saving robot/ball data")
-		    ("Cdrag", po::value<double>()->default_value(false),
-			 "saving robot/ball data");
-		    ("gravity", po::value<double>()->default_value(false),
-			 "saving robot/ball data");
-		    ("lift", po::value<double>()->default_value(false),
-			 "saving robot/ball data");
+			("CFTX", po::value<double>(&params.CFTX),"coefficient of table contact model on X-direction")
+			("CFTY", po::value<double>(&params.CFTY),"coefficient of table contact model on Y-direction")
+			("CRT", po::value<double>(&params.CRT),"coefficient of restitution for the table")
+			("CRR", po::value<double>(&params.CRR),"coefficent of restitution for racket")
+		    ("drag", po::value<double>(&params.Cdrag),"Air drag coefficient")
+		    ("gravity", po::value<double>(&params.gravity),"for simulating different gravities")
+		    ("lift", po::value<double>(&params.Clift),"coefficient of lift for the magnus force");
 		po::variables_map vm;
 		ifstream ifs(config_file.c_str());
 		if (!ifs) {
@@ -119,7 +118,7 @@ void TableTennis::load_params() {
 	}
 	catch(exception& e) {
 		cout << e.what() << "\n";
-}
+	}
 }
 
 /**
@@ -148,8 +147,6 @@ void TableTennis::set_ball_state(double std) {
 
 	this->ball_pos = rand_ball_pos;
 	this->ball_vel = rand_ball_vel;
-	this->LAND = false;
-	this->HIT = false;
 }
 
 /**
@@ -357,7 +354,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 			(fabs(ball_cand_pos(X) - table_center) <= table_width/2.0)) {
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
-			check_landing(ball_cand_pos(Y),HIT,VERBOSE,LAND);
+			check_landing(ball_cand_pos(Y),stats.hit,VERBOSE,stats.land);
 			table_contact_model(params.CFTX, params.CFTY, params.CRT, SPIN_MODE,
 					            ball_spin,ball_cand_vel);
 		}
@@ -431,8 +428,8 @@ void TableTennis::check_ball_racket_contact(const racket & robot_racket,
 
 	// check for contact with racket
 	if ((parallel_dist_ball2racket < racket_radius) &&
-			(fabs(normal_dist_ball2racket) < ball_radius) && !HIT) {
-		HIT = true;
+			(fabs(normal_dist_ball2racket) < ball_radius) && !stats.hit) {
+		stats.hit = true;
 		if (VERBOSE)
 			std::cout << "Contact with racket!" << std::endl;
 		// Reflect to back
@@ -452,17 +449,17 @@ void TableTennis::check_ball_racket_contact(const racket & robot_racket,
  * @param ball_cand_vel Next candidate ball velocities.
  * If contact occurs, velocities are set to zero.
  */
-void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) const {
+void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
 
-	static double ball_last_z_pos;
 	if (ball_cand_pos(Z) <= floor_level) {
-		if (VERBOSE && (ball_pos(Z) != ball_last_z_pos)) // we dont want to print all the time
+		if (VERBOSE && !stats.ground) {// we dont want to print all the time
 			std::cout << "Contact with ground Zeroing the velocities!" << std::endl;
+			stats.ground = true;
+		}
 		// zero the velocities
 		ball_cand_vel = zeros<vec>(3);
 		ball_cand_pos(Z) = floor_level;
 	}
-	ball_last_z_pos = ball_pos(Z);
 
 }
 
@@ -470,7 +467,7 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
  *
  * @brief Checks for legal landing (on the opponents court).
  *
- * Function that returns the LAND data member (which is set true on legal
+ * Function that returns the stats.land data member (which is set true on legal
  * contact with opponents court).
  * Useful for generating statistics, and on robot vs. robot mode.
  *
@@ -479,7 +476,77 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
  */
 bool TableTennis::has_landed() const {
 
-	return this->LAND;
+	return this->stats.land;
+}
+
+/**
+ * @brief Calculate desired racket normal assuming mirror law
+ *
+ * Does not use any state of the table tennis class, only the parameters.
+ *
+ * @param v_in Incoming ball velocity
+ * @param v_out Outgoing ball velocity (desired)
+ * @param normal Desired normals of the racket calculated (output)
+ */
+void TableTennis::calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) const {
+
+	normal = v_out - v_in;
+	// normalize
+	normal = normalise(normal);
+}
+
+
+/**
+ * @brief Computes the desired outgoing velocity of the ball after possible contact
+ *
+ * To return to a desired landing position at a desired landing time on the
+ * opponents court, we calculate the desired outgoing velocities.
+ * Does not use any state of the table tennis class, only the parameters.
+ *
+ * @param ball_land_des Desired landing position of the ball
+ * @param time_land_des Time it should take for the ball to land on opponents court
+ * @param balls_predicted The incoming balls that are predicted (for a fixed time horizon)
+ * @param balls_out_vel Outgoing velocities on the predicted ball locations (output)
+ */
+void TableTennis::calc_des_ball_out_vel(const vec2 & ball_land_des,
+						   const double time_land_des,
+						   const mat & balls_predicted, mat & balls_out_vel) const {
+
+	static double z_table = floor_level - table_height + ball_radius;
+
+	// elementwise division
+	balls_out_vel.row(X) = (ball_land_des(X) - balls_predicted.row(X)) / time_land_des;
+	balls_out_vel.row(Y) = (ball_land_des(Y) - balls_predicted.row(Y)) / time_land_des;
+	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) -
+			                0.5 * params.gravity * pow(time_land_des,2)) / time_land_des;
+
+	//TODO: consider air drag, hack for now
+	balls_out_vel.row(X) *= 1.1;
+	balls_out_vel.row(Y) *= 1.1;
+	balls_out_vel.row(Z) *= 1.2;
+}
+
+/**
+ *
+ * @brief Calculate desired racket velocity given ball incoming and outgoing velocities
+ *
+ * Assuming a mirror law.
+ * Assumes no desired spin, i.e. racket velocity along the racket will be set to zero
+ *
+ * @param vel_ball_in Incoming ball velocities already predicted
+ * @param vel_ball_out Outgoing desired ball velocities already calculated
+ * @param racket_normal Desired racket normals already calculated
+ * @param racket_vel Desired racket velocities (output)
+ */
+void TableTennis::calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
+		                 const mat & racket_normal, mat & racket_vel) const {
+
+	int N = vel_ball_in.n_cols;
+	for (int i = 0; i < N; i++) {
+		racket_vel.col(i) = arma::dot(((vel_ball_out.col(i) + params.CRR * vel_ball_in.col(i)) /
+				                        (1 + params.CRR)),
+								racket_normal.col(i)) * racket_normal.col(i);
+	}
 }
 
 /**

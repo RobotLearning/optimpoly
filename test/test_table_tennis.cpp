@@ -66,8 +66,10 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	tt.set_ball_state(0.2);
 
 	vec7 q0;
+	double std_obs = 0.001; // std of the noisy observations
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	vec3 obs;
 	EKF filter = init_filter();
 	Player *robot = new Player(q0,filter,alg,false,2);
 
@@ -76,12 +78,13 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
-		robot->play(qact, tt.get_ball_position(), qdes);
-		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+		//if (i % 20 == 0)
+		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
+		robot->play(qact, obs, qdes);
+		//robot->cheat(qact, tt.get_ball_state(), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
-		//tt.integrate_ball_state(dt);
 		tt.integrate_ball_state(robot_racket,DT);
 		usleep(DT*1e6);
 	}
@@ -104,6 +107,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 //	set_bounds(lb,ub,0.01,Tmax);
 //	vec7 lbvec(lb); vec7 ubvec(ub);
 //	TableTennis tt = TableTennis(false,true);
+//	tt.load_params("test/ball_params_mismatch");
 //	//arma_rng::set_seed_random();
 //	arma_rng::set_seed(2);
 //	tt.set_ball_state(0.2);
@@ -112,21 +116,20 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 //	init_right_posture(q0);
 //	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 //	EKF filter = init_filter();
-//	Player *robot = new Player(q0,filter,alg,false,2);
+//	Player *robot = new Player(q0,filter,alg,true,2);
 //
 //	int N = 2000;
 //	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 //	racket robot_racket;
 //	for (int i = 0; i < N; i++) {
-//		robot->play(qact, tt.get_ball_position(), qdes);
-//		//robot->cheat(qact, join_vert(tt.get_ball_position(), tt.get_ball_velocity()), qdes);
+//		//robot->play(qact, tt.get_ball_position(), qdes);
+//		robot->cheat(qact, tt.get_ball_state(), qdes);
 //		calc_racket_state(qdes,robot_racket);
 //		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
 //		//tt.integrate_ball_state(dt);
 //		tt.integrate_ball_state(robot_racket,DT);
 //		usleep(DT*1e6);
 //	}
-//	std::cout << "Testing joint limits as well...\n";
 //	BOOST_TEST(tt.has_landed());
 //	delete(robot);
 //	std::cout << "******************************************************" << std::endl;
@@ -189,10 +192,8 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 		filter.update(ball_pos);
 		err(i) = norm(filter.get_mean() - join_vert(ball_pos,ball_vel),2);
 	}
-	std::cout << "Error of state estimate";
 	//cout << "Error of state estimate" << endl << err << endl;
 	BOOST_TEST(err(N-1) <= err(0), boost::test_tools::tolerance(0.0001));
-	std::cout << " decreases." << std::endl;
 }
 
 
@@ -224,8 +225,8 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 		err(i) = norm(ball_state - cp.filt_ball_state(obs),2);
 		//usleep(10e3);
 	}
-	std::cout << "Error of state estimate"; //<< endl << err.t() << endl;
+	//std::cout << "Error of state estimate"; //<< endl << err.t() << endl;
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
-	std::cout << " decreases." << std::endl;
+	//std::cout << " decreases." << std::endl;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
 }

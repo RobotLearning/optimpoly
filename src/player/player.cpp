@@ -529,14 +529,15 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 
 	//static wall_clock timer;
 	//timer.tic();
+	static TableTennis tennis = TableTennis(false,false);
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
 	mat racket_des_normal = zeros<mat>(3,N);
 	mat racket_des_vel = zeros<mat>(3,N);
-	calc_des_ball_out_vel(ball_land_des,time_land_des,balls_predicted,balls_out_vel);
-	calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
-	calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
+	tennis.calc_des_ball_out_vel(ball_land_des,time_land_des,balls_predicted,balls_out_vel);
+	tennis.calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
+	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
 	// place racket centre on the predicted ball
 
@@ -620,61 +621,6 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 }
 
 /*
- * Calculate desired racket normal assuming mirror law
- */
-void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) {
-
-	normal = v_out - v_in;
-	// normalize
-	normal = normalise(normal);
-}
-
-/*
- *
- *  Computes the desired outgoing velocity of the ball after contact
- *	to hit the goal on a desired landing position on the
- *	opponents court
- *
- *
- */
-void calc_des_ball_out_vel(const vec2 & ball_land_des,
-						   const double time_land_des,
-						   const mat & balls_predicted, mat & balls_out_vel) {
-
-	static double z_table = floor_level - table_height + ball_radius;
-
-	// elementwise division
-	balls_out_vel.row(X) = (ball_land_des(X) - balls_predicted.row(X)) / time_land_des;
-	balls_out_vel.row(Y) = (ball_land_des(Y) - balls_predicted.row(Y)) / time_land_des;
-	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) -
-			                0.5 * gravity * pow(time_land_des,2)) / time_land_des;
-
-	//TODO: consider air drag, hack for now
-	balls_out_vel.row(X) *= 1.1;
-	balls_out_vel.row(Y) *= 1.1;
-	balls_out_vel.row(Z) *= 1.2;
-}
-
-/*
- * Calculate desired racket velocity given ball incoming and
- * outgoing velocities
- * Assuming a mirror law
- * Assumes no desired spin, i.e. racket velocity along the racket will be set to zero
- *
- * Output is the last parameter: racketVel
- *
- */
-void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
-		                 const mat & racket_normal, mat & racket_vel) {
-
-	int N = vel_ball_in.n_cols;
-	for (int i = 0; i < N; i++) {
-		racket_vel.col(i) = dot(((vel_ball_out.col(i) + CRR * vel_ball_in.col(i)) / (1 + CRR)),
-								racket_normal.col(i)) * racket_normal.col(i);
-	}
-}
-
-/*
  *
  * Checks for legal bounce
  * If an incoming ball has bounced before or bounces on opponents' court
@@ -717,6 +663,7 @@ void check_legal_bounce(const vec6 & ball_est, game & game_state) {
  * If ball has bounced legally bounce, then there should be no more bounces.
  *
  * TODO: no need to check after ball passes table
+ * FIXME: turned it off!
  *
  */
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
@@ -742,7 +689,7 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 		return true;
 	}
 
-	return false;
+	return true; // return false;
 }
 
 /*

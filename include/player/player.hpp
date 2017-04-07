@@ -117,12 +117,6 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 racketdes calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
 							   racketdes & racket_params);
-void calc_des_ball_out_vel(const vec2 & ball_land_des,
-						   const double time_land_des,
-						   const mat & balls_predicted, mat & balls_out_vel);
-void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
-		                 const mat & racket_normal, mat & racket_vel);
-void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal);
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
 

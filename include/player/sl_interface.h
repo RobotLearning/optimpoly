@@ -36,9 +36,6 @@ static void save_data(const joint & qact, const joint & qdes,
 		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter);
 static void set_algorithm(const int alg_num);
 
-template<class T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& v);
-
 #endif
 
 #endif /* CARMA_H */
