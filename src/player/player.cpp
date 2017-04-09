@@ -403,7 +403,7 @@ bool Player::check_update() const {
 				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
 		// ball is incoming
 		if (mpc && moving) {
-			activate = (timer.toc() > (1.0/FREQ_MPC));
+			activate = true; //(timer.toc() > (1.0/FREQ_MPC));
 			passed_lim = state_est(Y) > 0.0; //cart_state(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
