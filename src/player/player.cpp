@@ -65,6 +65,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	time2return = 1.0;
 	num_obs = 0;
 	valid_obs = true;
+	t_cum = 0.0;
 	game_state = AWAITING;
 
 	ball_land_des(X) = 0.0;
@@ -137,7 +138,6 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	static const int min_obs = 5;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
-	static double t_cum = 0.0;
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
@@ -327,7 +327,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
-			t.detach();
+			t.join(); //t.detach();
 		}
 		else {
 			if (verbose > 1)
@@ -392,6 +392,7 @@ bool Player::check_update() const {
 
 	vec6 state_est;
 	bool update;
+	static int counter;
 	//static int num_updates;
 	static const double FREQ_MPC = 40.0;
 	static wall_clock timer;
@@ -399,11 +400,12 @@ bool Player::check_update() const {
 
 	try {
 		state_est = filter.get_mean();
+		counter++;
 		update = !optim_params.update && !optim_params.running
 				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
 		// ball is incoming
 		if (mpc && moving) {
-			activate = true; //(timer.toc() > (1.0/FREQ_MPC));
+			activate = (counter % 20 == 0); //(timer.toc() > (1.0/FREQ_MPC));
 			passed_lim = state_est(Y) > 0.0; //cart_state(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
@@ -515,6 +517,21 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 	}
 
 	return valid_hp;
+}
+
+/**
+ * @brief Method useful for testing performance of different players.
+ *
+ * Using many balls in simulation requires fast resetting
+ * Setting a time threshold as a resetting condition won't work in this case.
+ *
+ */
+void Player::reset_filter() {
+
+	filter = init_filter();
+	num_obs = 0;
+	game_state = AWAITING;
+	t_cum = 0.0;
 }
 
 /*
@@ -663,7 +680,6 @@ void check_legal_bounce(const vec6 & ball_est, game & game_state) {
  * If ball has bounced legally bounce, then there should be no more bounces.
  *
  * TODO: no need to check after ball passes table
- * FIXME: turned it off!
  *
  */
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
@@ -689,7 +705,7 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 		return true;
 	}
 
-	return true; // return false;
+	return false;
 }
 
 /*

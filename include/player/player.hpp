@@ -58,6 +58,7 @@ private:
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
+	double t_cum; // counting time stamps for resetting filter
 
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
@@ -88,6 +89,7 @@ public:
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
+	void reset_filter();
 
 	// main function
 	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);

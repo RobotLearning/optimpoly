@@ -69,6 +69,8 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 /**
  * @brief Initialize constant angular velocity (a.k.a. spin)
  * for the spinning ball.
+ *
+ * TODO: also load from file!
  */
 void TableTennis::init_topspin() {
 
