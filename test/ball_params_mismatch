@@ -2,9 +2,9 @@
 # coefficient of restitution for the table (i.e. rebound z-velocity multiplier)
 CRT = 0.88
 # coefficient of table contact model on Y-direction
-CFTY = 0.90 #0.72
+CFTY = 0.72
 # coefficient of table contact model on X-direction
-CFTX = 0.90 #0.68
+CFTX = 0.68
 # coefficent of restitution for racket
 CRR = 0.78
 
