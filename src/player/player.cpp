@@ -294,7 +294,7 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			t.detach();
+			t.join();
 		}
 	}
 
@@ -312,7 +312,7 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
-	mat balls_pred;
+	static mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update()) {
@@ -350,7 +350,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 void Player::optim_lazy_param(const joint & qact) {
 
 	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
-	mat balls_pred;
+	static mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update()) {
@@ -369,7 +369,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			t.detach();
+			t.join();
 		}
 	}
 
@@ -494,14 +494,16 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 /*
  * Predict hitting point on the Virtual Hitting Plane (VHP)
  * if the ball is legal (legal detected bounce or legal predicted bounce)
+ * and there is enough time (50 ms threshold)
  *
  * The location of the VHP is defined as a constant (constants.h)
  *
  */
 bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 
+	static const double time_min = 0.05;
+	static mat balls_path;
 	bool valid_hp = false;
-	mat balls_path;
 	predict_ball(balls_path);
 	uvec vhp_index;
 	unsigned idx;
@@ -512,7 +514,8 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 			idx = as_scalar(vhp_index);
 			ball_pred = balls_path.col(idx);
 			time_pred = racket_params.dt * (idx + 1);
-			valid_hp = true;
+			if (time_pred > time_min)
+				valid_hp = true;
 		}
 	}
 

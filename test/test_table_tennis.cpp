@@ -34,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {LAZY};
+algo algs[] = {VHP};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -60,7 +60,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 1;
+	int num_trials = 200;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -81,7 +81,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		tt = TableTennis(false,false);
-		std::cout << "New ball coming!" << std::endl;
+		std::cout << "Trial: " << n << std::endl;
 		tt.set_ball_state(0.2);
 		tt.load_params("test/ball_params_mismatch");
 		robot->reset_filter(std_model,std_noise);
