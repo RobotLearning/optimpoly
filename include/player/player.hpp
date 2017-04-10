@@ -89,7 +89,7 @@ public:
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
-	void reset_filter();
+	void reset_filter(double std_model, double std_noise);
 
 	// main function
 	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);

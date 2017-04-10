@@ -80,7 +80,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(mpcs), mpc) {
 		tt = TableTennis(false,true);
 		std::cout << "New ball coming!" << std::endl;
 		tt.set_ball_state(0.2);
-		robot->reset_filter();
+		tt.load_params("test/ball_params_mismatch");
+		robot->reset_filter(0.0,std_obs*std_obs);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_obs * randn<vec>(3);
 			robot->play(qact, obs, qdes);

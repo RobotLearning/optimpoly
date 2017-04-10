@@ -526,9 +526,9 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
  * Setting a time threshold as a resetting condition won't work in this case.
  *
  */
-void Player::reset_filter() {
+void Player::reset_filter(double std_model, double std_noise) {
 
-	filter = init_filter();
+	filter = init_filter(std_model,std_noise);
 	num_obs = 0;
 	game_state = AWAITING;
 	t_cum = 0.0;
