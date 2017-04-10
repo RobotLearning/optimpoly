@@ -24,7 +24,8 @@ namespace po = boost::program_options;
 
 // functions outside of Table Tennis class
 static mat33 quat2mat(const vec4 & q);
-static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land);
+static void check_bounce(const double ball_y, const double vel_y, const bool hit, const bool verbose,
+		                  bool & legal_bounce, bool & land);
 static void table_contact_model(const double & CFTX, const double & CFTY, const double & CRT,
 		                        const bool spin_flag, vec3 & ball_spin, vec3 & ball_vel);
 static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
@@ -356,7 +357,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 			(fabs(ball_cand_pos(X) - table_center) <= table_width/2.0)) {
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
-			check_landing(ball_cand_pos(Y),stats.hit,VERBOSE,stats.land);
+			check_bounce(ball_cand_pos(Y),ball_cand_vel(Y),stats.hit,VERBOSE,stats.legal_bounce,stats.land);
 			table_contact_model(params.CFTX, params.CFTY, params.CRT, SPIN_MODE,
 					            ball_spin,ball_cand_vel);
 		}
@@ -478,7 +479,19 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
  */
 bool TableTennis::has_landed() const {
 
-	return this->stats.land;
+	bool legal_land = false;
+	if (stats.land && stats.legal_bounce)
+		legal_land = true;
+	return legal_land;
+}
+
+/**
+ * @brief Checks for legal bounce of the ball (on the robot court).
+ * @return
+ */
+bool TableTennis::is_legal_ball() const {
+
+	return stats.legal_bounce;
 }
 
 /**
@@ -553,36 +566,54 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_b
 
 /**
  *
- * @brief Checks for legal landing on the opponents court
+ * @brief Checks for legal bounce on robot court landing on the opponents court
+ *
+ * If the ball bounced only once before hit on the robot court
+ * then it is a LEGAL_BOUNCE.
  *
  * If there was already a hit and ball hasn't landed yet,
  * then the bounce location is checked and if it is on the opponent's court
- * then it is a LEGAL land.
+ * and if LEGAL_BOUNCE is TRUE then it is a LAND.
  *
- * @param ball_y
- * @param hit
- * @param verbose
- * @param land
+ * @param ball_y Ball's y-location
+ * @param vel_y Ball's velocity in the y-direction (positive if incoming towards robot)
+ * @param hit Whether ball was hit with a racket or not
+ * @param verbose To turn on verbose printing
+ * @param legal_bounce True if ball bounced only once on the robot court
+ * @param land Whether ball landed legally or not
  */
-static void check_landing(const double ball_y, const bool hit, const bool verbose, bool & land) {
+static void check_bounce(const double ball_y, const double vel_y, const bool hit, const bool verbose,
+		                  bool & legal_bounce, bool & land) {
 
+	static double net_y = dist_to_table - table_length/2.0;
 	if (verbose) {
-		if (ball_y < dist_to_table - table_length/2.0)
+		if (ball_y < net_y)
 			std::cout << "Bounces on opponents court!" << std::endl;
 		else
 			std::cout << "Bounces on robot court!" << std::endl;
 	}
-	if (hit && !land) {
-		if (ball_y < dist_to_table - table_length/2.0) {
-			land = true;
-			if (verbose) {
-				std::cout << "Legal land!" << std::endl;
-			}
+	if (vel_y > 0) { // incoming ball
+		if (ball_y < net_y || legal_bounce) {
+			legal_bounce = false;
 		}
 		else {
-			land = false;
-			if (verbose) {
-				std::cout << "Illegal ball! Lost a point..." << std::endl;
+			legal_bounce = true;
+		}
+	}
+	else { // outgoing ball
+		// checking for legal landing
+		if (hit && legal_bounce && !land) {
+			if (ball_y < net_y) {
+				land = true;
+				if (verbose) {
+					std::cout << "Legal land!" << std::endl;
+				}
+			}
+			else {
+				land = false;
+				if (verbose) {
+					std::cout << "Illegal land! Lost a point..." << std::endl;
+				}
 			}
 		}
 	}

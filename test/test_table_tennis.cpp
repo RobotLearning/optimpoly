@@ -34,8 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {FIXED};
-bool mpcs[] = {true,false};
+algo algs[] = {LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -54,15 +53,17 @@ inline void init_right_posture(vec7 & q0) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-BOOST_DATA_TEST_CASE(test_land, data::make(mpcs), mpc) {
+BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Running MPC test..." << std::endl;
 	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 5;
+	int num_trials = 1;
 	int num_lands = 0;
+	int num_misses = 0;
+	int num_not_valid = 0;
 	//arma_rng::set_seed_random();
 	arma_rng::set_seed(2);
 	vec7 q0;
@@ -72,13 +73,14 @@ BOOST_DATA_TEST_CASE(test_land, data::make(mpcs), mpc) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
-	Player* robot = new Player(q0,filter,FIXED,mpc,1);
+	bool mpc = true;
+	Player* robot = new Player(q0,filter,alg,mpc,0);
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
-		tt = TableTennis(false,true);
+		tt = TableTennis(false,false);
 		std::cout << "New ball coming!" << std::endl;
 		tt.set_ball_state(0.2);
 		tt.load_params("test/ball_params_mismatch");
@@ -94,10 +96,15 @@ BOOST_DATA_TEST_CASE(test_land, data::make(mpcs), mpc) {
 		if (tt.has_landed()) {
 			num_lands++;
 		}
+		else if (!tt.is_legal_ball())
+			num_not_valid++;
+		else
+			num_misses++;
 	}
 	std::cout << "======================================================" << endl;
-	std::cout << "Out of " << num_trials << " attemps, "
-			<< num_lands << " lands!" << std::endl;
+	std::cout << "Out of " << num_trials << " trials, "
+			<< num_lands << " lands, " << num_not_valid <<
+			" not valid balls, " << num_misses << " misses!" <<std::endl;
 	std::cout << "======================================================" << endl;
 	delete(robot);
 }

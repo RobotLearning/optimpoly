@@ -32,6 +32,7 @@ struct racket {
  */
 struct status {
 	bool hit = false;
+	bool legal_bounce = false;
 	bool land = false;
 	bool ground = false;
 };
@@ -116,6 +117,7 @@ public:
 	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
 	bool has_landed() const;
+	bool is_legal_ball() const;
 	void load_params(const std::string & file_name_relative);
 
 	vec3 get_ball_position() const;
