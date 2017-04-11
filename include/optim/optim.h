@@ -47,6 +47,8 @@ typedef struct {
 	double* lb;
 	double* ub;
 	double time2return;
+	bool moving;
+	bool verbose;
 } coptim; // optimization coparameters
 
 /**
@@ -61,7 +63,6 @@ typedef struct {
 	double T;
 	bool running;
 	bool update;
-	bool verbose;
 } optim; // optimization variables
 
 /**

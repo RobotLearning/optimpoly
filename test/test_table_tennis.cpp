@@ -34,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {VHP};
+algo algs[] = {FIXED};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -60,7 +60,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 20;
+	int num_trials = 1;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -82,8 +82,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		tt = TableTennis(false,false);
 		std::cout << "Trial: " << n << std::endl;
-		tt.set_ball_state(0.2);
-		tt.load_params("test/ball_params_mismatch");
+		tt.set_ball_gun(0.10);
 		robot->reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
@@ -165,7 +164,7 @@ BOOST_AUTO_TEST_CASE( test_touch_ground ) {
 
 	int N = 200;
 	double dt = 0.01;
-	tt.set_ball_state(0.2);
+	tt.set_ball_gun(0.2);
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(dt);
 	}
@@ -193,7 +192,7 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 	EKF filter = EKF(calc_next_ball,C,Q,R);
 
 	// set table tennis ball and filter
-	tt.set_ball_state(0.2);
+	tt.set_ball_gun(0.2);
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
 	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);
 	mat66 P0;
@@ -240,7 +239,7 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 	TableTennis tt = TableTennis();
 	EKF filter = init_filter(std_model,std_noise);
 	Player *cp = new Player(zeros<vec>(NDOF),filter);
-	tt.set_ball_state(0.2);
+	tt.set_ball_gun(0.2);
 
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(DT);

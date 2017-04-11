@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
 
 	int N = 1000;
 	double dt = 0.002;
-	tt.set_ball_state(0.2);
+	tt.set_ball_gun(0.2);
 
 	vec6 ball_state = tt.get_ball_state();
 	filter.set_prior(ball_state,0.01 * eye<mat>(6,6));
@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE( test_mismatch_pred ) {
 	arma_rng::set_seed(5);
 	EKF filter = init_filter(0.3,0.001);
 	int N = 100;
-	tt.set_ball_state(0.2);
+	tt.set_ball_gun(0.2);
 	vec6 ball_init = tt.get_ball_state();
 	filter.set_prior(ball_init,eye<mat>(6,6));
 	vec pos_errs, vel_errs;

@@ -19,7 +19,6 @@
 #include "player.hpp"
 #include "tabletennis.h"
 
-namespace po = boost::program_options;
 using namespace arma;
 
 /* The data structures from SL */
@@ -118,10 +117,12 @@ void set_algorithm(const int alg_num) {
  */
 void load_options() {
 
-	flags.reset = true;
+	namespace po = boost::program_options;
 	using namespace std;
+
+	flags.reset = true;
 	string home = std::getenv("HOME");
-	string config_file = home + "/polyoptim/" + "CONFIG";
+	string config_file = home + "/polyoptim/" + "player.cfg";
 	int alg_num;
 
     try {

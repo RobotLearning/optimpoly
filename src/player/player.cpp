@@ -93,9 +93,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 		qinit[i] = qrest[i] = qzero[i] = q0(i);
 	}
 
-	optim_params = {qzero, qzerodot, 0.5, false, false, verbose > 1};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return};
-	moving = false;
+	optim_params = {qzero, qzerodot, 0.5, false, false};
+	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return, false, verbose > 1};
 
 }
 
@@ -294,7 +293,7 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			t.join();
+			t.join();//t.detach();
 		}
 	}
 
@@ -365,7 +364,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			t.join();
+			t.join();//t.detach();
 		}
 	}
 
@@ -400,13 +399,13 @@ bool Player::check_update() const {
 		update = !optim_params.update && !optim_params.running
 				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
 		// ball is incoming
-		if (mpc && moving) {
+		if (mpc && coparams.moving) {
 			activate = (counter % 20 == 0); //(timer.toc() > (1.0/FREQ_MPC));
 			passed_lim = state_est(Y) > 0.0; //cart_state(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {
-			update = update && !moving;
+			update = update && !coparams.moving;
 		}
 	}
 	catch (const std::exception & not_init_error) {
@@ -458,7 +457,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 			//	std::cout << optim_params.qf[i] << "\t" << optim_params.qfdot[i] << "\t";
 			//std::cout << optim_params.T << std::endl;
 		}
-		moving = true;
+		coparams.moving = true;
 		idx = 0;
 		optim_params.update = false;
 		if (alg == LAZY) {
@@ -470,14 +469,14 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	}
 
 	// make sure we update after optim finished
-	if (moving) {
+	if (coparams.moving) {
 		qdes.q = Q_des.col(idx);
 		qdes.qd = Qd_des.col(idx);
 		qdes.qdd = Qdd_des.col(idx);
 		idx++;
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
-			moving = false;
+			coparams.moving = false;
 			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(NDOF);
 			qdes.qdd = zeros<vec>(NDOF);

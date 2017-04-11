@@ -47,7 +47,7 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 		                      double *joint_max_cand, double *joint_min_cand);
 static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
 		                     double *joint_max_cand, double *joint_min_cand);
-static double test_optim(double *x, lazy_data* data, bool verbose);
+static double test_optim(double *x, lazy_data* data);
 static void modify_ball_outgoing_vel(double* ballVel);
 static void calc_times(const lazy_data* data,
 		               const double *x,
@@ -98,22 +98,8 @@ double nlopt_optim_lazy_run(double** ballpred,
 	init_right_posture(qwait);
 	lazy_data data = {racketdata,coparams,ballpred,qwait,
 			          racketdata->dt,racketdata->Nmax};
-	static int count = 0;
-	printf("==========================================\n");
-	printf("Running NLOPT\n");
-	//initTime = get_time();
-	//print_input_structs(&data,params);
 	nlopt_optim_fixed_run(data.coparams,data.racketdata,params);
-	/*double x[OPTIM_DIM];
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qf[i];
-		x[i+NDOF] = params->qfdot[i];
-	}
-	x[2*NDOF] = params->T;
-	double maxviol = test_optim(x,&data,true);*/
 	double maxviol = nlopt_optim_lazy(&data,params);
-	printf("Optim count: %d\n", (++count));
-	printf("==========================================\n");
 	return maxviol;
 }
 
@@ -188,20 +174,20 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (params->verbose)
+		if (data->coparams->verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = test_optim(x,data,params->update);
+	    max_violation = test_optim(x,data);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		if (params->verbose) {
+		if (data->coparams->verbose) {
 			printf("NLOPT success with exit code %d!\n", res);
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    max_violation = test_optim(x,data,params->update);
-	    if (max_violation < 1e-2)
+	    max_violation = test_optim(x,data);
+	    if (max_violation < 1e-2 && x[2*NDOF] > 0.05)
 	    	finalize_soln(x,data,params,past_time);
 	}
 	params->running = false;
@@ -599,9 +585,10 @@ static void calc_times(const lazy_data* data,
  *
  *
  */
-static double test_optim(double *x, lazy_data* data, bool verbose) {
+static double test_optim(double *x, lazy_data* data) {
 
 	// give info on constraint violation
+	static int count = 0;
 	double *grad = 0;
 	static double land_violation[INEQ_LAND_CONSTR_DIM];
 	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
@@ -609,8 +596,9 @@ static double test_optim(double *x, lazy_data* data, bool verbose) {
 	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, OPTIM_DIM, x, grad, data);
 	double cost = costfunc(OPTIM_DIM, x, grad, data);
 
-	if (verbose) {
+	if (data->coparams->verbose) {
 		// give info on solution vector
+		printf("Optim count: %d\n", (++count));
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
 		printf("Constraint info:\n");

@@ -28,8 +28,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
 static double test_optim(const double *x, const double T,
 		          coptim * coparams,
-				  racketdes * racketdata,
-				  bool info);
+				  racketdes * racketdata);
 static void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
@@ -78,12 +77,12 @@ double nlopt_vhp_run(coptim *coparams,
 	nlopt_opt opt;
 	double x[2*NDOF];
 	double tol_eq[EQ_CONSTR_DIM];
-	//double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-	//const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	init_last_soln(params,x);
-	//init_rest_soln(coparams,x);
-	// set tolerances equal to second argument //
+
+	if (coparams->moving)
+		init_last_soln(params,x);
+	else
+		init_rest_soln(coparams,x);
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
@@ -91,8 +90,6 @@ double nlopt_vhp_run(coptim *coparams,
 	nlopt_set_lower_bounds(opt, coparams->lb);
 	nlopt_set_upper_bounds(opt, coparams->ub);
 	nlopt_set_min_objective(opt, penalize_dist_to_limits, coparams);
-	//nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-	//		                         coparams, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
 			                         racketdata, tol_eq);
 
@@ -103,19 +100,19 @@ double nlopt_vhp_run(coptim *coparams,
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (params->verbose)
+		if (coparams->verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
 	    max_violation = 100.0;
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		if (params->verbose) {
+		if (coparams->verbose) {
 			printf("NLOPT success with exit code %d!\n", res);
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    max_violation = test_optim(x,params->T,coparams,racketdata,params->verbose);
+	    max_violation = test_optim(x,params->T,coparams,racketdata);
 	    if (max_violation < 1e-2)
 	    	finalize_soln(x,params,past_time);
 	}
@@ -235,8 +232,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  */
 static double test_optim(const double *x, const double T,
 		          coptim * coparams,
-				  racketdes * racketdata,
-				  bool info) {
+				  racketdes * racketdata) {
 
 	double x_[2*NDOF+1];
 	for (int i = 0; i < 2*NDOF; i++)
@@ -253,7 +249,7 @@ static double test_optim(const double *x, const double T,
 			                 2*NDOF, x_, grad, coparams);
 	//double cost = costfunc(OPTIM_DIM, x, grad, coparams);
 
-	if (info) {
+	if (coparams->verbose) {
 		// give info on solution vector
 		print_optim_vec(x_);
 		//printf("f = %.2f\n",cost);

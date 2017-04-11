@@ -63,7 +63,6 @@ private:
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
-	bool moving; // robot is moving or not
 	bool mpc; // apply corrections
 	bool valid_obs; // ball observed is valid (new ball and not an outlier)
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)

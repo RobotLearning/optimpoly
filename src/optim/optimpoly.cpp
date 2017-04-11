@@ -17,7 +17,7 @@
 static bool firsttime[3]; //! TODO: remove this global var!
 
 // termination
-static double test_optim(const double *x, coptim *params, racketdes *racketdata, bool info);
+static double test_optim(const double *x, coptim *params, racketdes *racketdata);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
 static bool check_optim_result(const int res);
 
@@ -76,8 +76,12 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	//init_rest_soln(coparams,x); //parameters are the initial joint positions q0
-	init_last_soln(params,x);
+
+	if (coparams->moving)
+		init_last_soln(params,x);
+	else
+		init_rest_soln(coparams,x);
+
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -98,23 +102,23 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (params->verbose)
+		if (coparams->verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
-	    max_violation = test_optim(x,coparams,racketdata,params->verbose);
+	    max_violation = test_optim(x,coparams,racketdata);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		if (params->verbose) {
+		if (coparams->verbose) {
 			printf("NLOPT success with exit code %d!\n", res);
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    max_violation = test_optim(x,coparams,racketdata,params->verbose);
-	    if (max_violation < 1e-2)
+	    max_violation = test_optim(x,coparams,racketdata);
+	    if (max_violation < 1e-2 && x[2*NDOF] > 0.05)
 	    	finalize_soln(x,params,past_time);
 	}
 	params->running = false;
-	if (params->verbose)
+	if (coparams->verbose)
 		check_optim_result(res);
 	//nlopt_destroy(opt);
 	return max_violation;
@@ -205,7 +209,7 @@ static bool check_optim_result(const int res) {
  * Debug by testing the constraint violation of the solution vector
  *
  */
-static double test_optim(const double *x, coptim * coparams, racketdes * racketdata, bool info) {
+static double test_optim(const double *x, coptim * coparams, racketdes * racketdata) {
 
 	// give info on constraint violation
 	double *grad = 0;
@@ -217,7 +221,7 @@ static double test_optim(const double *x, coptim * coparams, racketdes * racketd
 			                 OPTIM_DIM, x, grad, coparams);
 	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
 
-	if (info) {
+	if (coparams->verbose) {
 		// give info on solution vector
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);

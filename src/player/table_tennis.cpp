@@ -20,8 +20,6 @@
 #include <armadillo>
 #include "tabletennis.h"
 
-namespace po = boost::program_options;
-
 // functions outside of Table Tennis class
 static mat33 quat2mat(const vec4 & q);
 static void check_bounce(const double ball_y, const double vel_y, const bool hit, const bool verbose,
@@ -87,12 +85,13 @@ void TableTennis::init_topspin() {
 }
 
 /**
- * @brief Load ball prediction parameters from a CONFIG file
+ * @brief Load ball prediction and other SIM parameters from a CONFIG file
  * @param file_name_relative Relative file name (base is polyoptim)
  *
  */
 void TableTennis::load_params(const std::string & file_name_relative) {
 
+	namespace po = boost::program_options;
 	using namespace std;
 	string home = std::getenv("HOME");
 	string config_file = home + "/polyoptim/" + file_name_relative;
@@ -102,13 +101,20 @@ void TableTennis::load_params(const std::string & file_name_relative) {
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-			("CFTX", po::value<double>(&params.CFTX),"coefficient of table contact model on X-direction")
-			("CFTY", po::value<double>(&params.CFTY),"coefficient of table contact model on Y-direction")
-			("CRT", po::value<double>(&params.CRT),"coefficient of restitution for the table")
-			("CRR", po::value<double>(&params.CRR),"coefficent of restitution for racket")
-		    ("drag", po::value<double>(&params.Cdrag),"Air drag coefficient")
-		    ("gravity", po::value<double>(&params.gravity),"for simulating different gravities")
-		    ("lift", po::value<double>(&params.Clift),"coefficient of lift for the magnus force");
+			("ball_params.CFTX", po::value<double>(&params.CFTX),
+					"coefficient of table contact model on X-direction")
+			("ball_params.CFTY", po::value<double>(&params.CFTY),
+					"coefficient of table contact model on Y-direction")
+			("ball_params.CRT", po::value<double>(&params.CRT),
+					"coefficient of restitution for the table")
+			("ball_params.CRR", po::value<double>(&params.CRR),
+					"coefficent of restitution for racket")
+		    ("ball_params.drag", po::value<double>(&params.Cdrag),
+		    		"Air drag coefficient")
+		    ("ball_params.gravity", po::value<double>(&params.gravity),
+		    		"for simulating different gravities")
+		    ("ball_params.lift", po::value<double>(&params.Clift),
+		    		"coefficient of lift for the magnus force");
 		po::variables_map vm;
 		ifstream ifs(config_file.c_str());
 		if (!ifs) {
@@ -134,18 +140,33 @@ void TableTennis::load_params(const std::string & file_name_relative) {
  * Method is used for testing purposes (see Unit Tests).
  *
  * @param std Standard deviation of the initial ball pos and vel distribution.
+ * @param ballgun_side Position the ballgun: 0 = LEFT, 1 = CENTER (DEFAULT), 2 = RIGHT.
  *
  */
-void TableTennis::set_ball_state(double std) {
+void TableTennis::set_ball_gun(double std, int ballgun_side) {
 
-	vec3 ballgun;
-	ballgun << table_center + 0.4 << endr
-			<< dist_to_table - table_length - 0.2 << endr
-			<< floor_level - table_height + 0.15 << endr;
+	//using namespace std;
+	vec3 ballgun = {table_center, dist_to_table - table_length - 0.2, floor_level - table_height + 0.15};
+	vec3 good_ball_vel;
+	switch (ballgun_side) {
+	case 0:
+		//cout << "Setting ballgun to left side..." << endl;
+		good_ball_vel << -1.08 << endr << 4.80 << endr << 3.84 << endr;
+		ballgun(X) += +0.4;	break;
+	case 1:
+		//cout << "Setting ballgun to center..." << endl;
+		good_ball_vel << 0.0 << endr << 4.80 << endr << 3.84 << endr;
+		break;
+	case 2:
+		//cout << "Setting ballgun to right side..." << endl;
+		good_ball_vel << +1.08 << endr << 4.80 << endr << 3.84 << endr;
+		ballgun(X) += -0.4; break;
+	default:
+		good_ball_vel << 0.0 << endr << 4.80 << endr << 3.84 << endr;
+		// do nothing ballgun is already centred.
+	}
 
 	vec3 rand_ball_pos = ballgun + std * randn<vec>(3);
-	vec3 good_ball_vel;
-	good_ball_vel << -1.08 << endr << 4.80 << endr << 3.84 << endr;
 	vec3 rand_ball_vel = good_ball_vel + std * randn<vec>(3);
 
 	this->ball_pos = rand_ball_pos;
@@ -188,7 +209,6 @@ vec3 TableTennis::get_ball_velocity() const {
  *
  * Integrate the ball state dt seconds later.
  * Checking contacts with environment, i.e. racket, net, table, ground.
- * TODO: implementing Symplectic Euler, implement RK4 also!
  *
  * @param robot_racket Racket of the robot for checking a strike
  * @param dt Prediction horizon.
