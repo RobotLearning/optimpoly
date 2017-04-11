@@ -53,14 +53,14 @@ inline void init_right_posture(vec7 & q0) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	std::cout << "Running MPC test..." << std::endl;
 	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 1;
+	int num_trials = 5;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -73,8 +73,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
-	bool mpc = true;
-	Player* robot = new Player(q0,filter,alg,mpc,2);
+	Player* robot = new Player(q0,filter,alg,true,2);
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
@@ -108,51 +107,51 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	delete(robot);
 }
 
-///*
-// * Testing whether the ball can be returned to the opponents court
-// */
-//BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
-//
-//	std::cout << "*************** Testing Robot Ball Landing ************" << std::endl;
-//
-//	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
-//	set_bounds(lb,ub,0.01,Tmax);
-//	vec7 lbvec(lb); vec7 ubvec(ub);
-//	TableTennis tt = TableTennis(false,true);
-//	//arma_rng::set_seed_random();
-//	arma_rng::set_seed(5);
-//	tt.set_ball_state(0.2);
-//
-//	vec7 q0;
-//	double std_obs = 0.0001; // std of the noisy observations
-//	init_right_posture(q0);
-//	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
-//	vec3 obs;
-//	EKF filter = init_filter(0.0,std_obs*std_obs);
-//	Player *robot = new Player(q0,filter,alg,true,2);
-//
-//	int N = 2000;
-//	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
-//	racket robot_racket;
-//	mat Qdes = zeros<mat>(NDOF,N);
-//	for (int i = 0; i < N; i++) {
-//		//if (i % 20 == 0)
-//		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-//		robot->play(qact, obs, qdes);
-//		//robot->cheat(qact, tt.get_ball_state(), qdes);
-//		Qdes.col(i) = qdes.q;
-//		calc_racket_state(qdes,robot_racket);
-//		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
-//		tt.integrate_ball_state(robot_racket,DT);
-//		usleep(DT*1e6);
-//	}
-//	std::cout << "Testing joint limits as well...\n";
-//	BOOST_TEST(all(max(Qdes,1) < ubvec));
-//	BOOST_TEST(all(min(Qdes,1) > lbvec));
-//	BOOST_TEST(tt.has_landed());
-//	delete(robot);
-//	std::cout << "******************************************************" << std::endl;
-//}
+/*
+ * Testing whether the ball can be returned to the opponents court
+ */
+BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+
+	std::cout << "Testing Robot Ball Landing" << std::endl;
+
+	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+	set_bounds(lb,ub,0.01,Tmax);
+	vec7 lbvec(lb); vec7 ubvec(ub);
+	TableTennis tt = TableTennis(false,true);
+	//arma_rng::set_seed_random();
+	arma_rng::set_seed(2);
+	tt.set_ball_gun(0.05);
+
+	vec7 q0;
+	double std_obs = 0.0; // std of the noisy observations
+	init_right_posture(q0);
+	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	vec3 obs;
+	EKF filter = init_filter(0.0,std_obs*std_obs);
+	Player *robot = new Player(q0,filter,alg,false,2);
+
+	int N = 2000;
+	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+	racket robot_racket;
+	mat Qdes = zeros<mat>(NDOF,N);
+	for (int i = 0; i < N; i++) {
+		//if (i % 20 == 0)
+		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
+		robot->play(qact, obs, qdes);
+		//robot->cheat(qact, tt.get_ball_state(), qdes);
+		Qdes.col(i) = qdes.q;
+		calc_racket_state(qdes,robot_racket);
+		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
+		tt.integrate_ball_state(robot_racket,DT);
+		//usleep(DT*1e6);
+	}
+	std::cout << "Testing joint limits as well...\n";
+	BOOST_TEST(all(max(Qdes,1) < ubvec));
+	BOOST_TEST(all(min(Qdes,1) > lbvec));
+	BOOST_TEST(tt.has_landed());
+	delete(robot);
+	std::cout << "******************************************************" << std::endl;
+}
 
 /*
  * Testing whether table tennis ball bounces on table and touches the ground

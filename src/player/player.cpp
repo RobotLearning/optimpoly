@@ -34,6 +34,7 @@
 #include "player.hpp"
 
 #include "kinematics.h"
+#include "kinematics.hpp"
 #include "constants.h"
 #include "kalman.h"
 #include "tabletennis.h"
@@ -281,7 +282,7 @@ void Player::optim_vhp_param(const joint & qact) {
 	vec6 balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
-	if (check_update()) {
+	if (check_update(qact)) {
 		if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
 			calc_racket_strategy(balls_pred,ball_land_des,
 					time_land_des,racket_params);
@@ -314,7 +315,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 	static mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
-	if (check_update()) {
+	if (check_update(qact)) {
 		predict_ball(balls_pred);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
@@ -348,7 +349,7 @@ void Player::optim_lazy_param(const joint & qact) {
 	static mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
-	if (check_update()) {
+	if (check_update(qact)) {
 		predict_ball(balls_pred);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
@@ -383,15 +384,17 @@ void Player::optim_lazy_param(const joint & qact) {
  * the frequency of updates is respected, and the ball has not passed the y-limit
  *
  */
-bool Player::check_update() const {
+bool Player::check_update(const joint & qact) const {
 
 	vec6 state_est;
 	bool update;
 	static int counter;
+	racket robot_racket;
 	//static int num_updates;
 	static const double FREQ_MPC = 40.0;
 	static wall_clock timer;
 	bool activate, passed_lim = false;
+
 
 	try {
 		state_est = filter.get_mean();
@@ -400,8 +403,9 @@ bool Player::check_update() const {
 				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
 		// ball is incoming
 		if (mpc && coparams.moving) {
+			calc_racket_state(qact,robot_racket);
 			activate = (counter % 20 == 0); //(timer.toc() > (1.0/FREQ_MPC));
-			passed_lim = state_est(Y) > 0.0; //cart_state(Y);
+			passed_lim = state_est(Y) > robot_racket.pos(Y); //cart_state(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {

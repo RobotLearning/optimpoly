@@ -17,6 +17,12 @@
 
 using namespace arma;
 
+static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3);
+static void rotate_to_quat(const mat33 & R, vec4 & quat);
+static void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col);
+static void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats);
+static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac);
+
 /**
  * @brief Calculates cartesian racket pos, vel and normal
  * given joint positions and velocities.

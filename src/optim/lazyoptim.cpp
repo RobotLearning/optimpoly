@@ -71,7 +71,7 @@ static void racket_contact_model(double* racketVel, double* racketNormal, double
 static void interp_ball(double** ballpred, const double T,
 		                const double dt, const int Nmax,
 						double *ballpos, double *ballvel);
-static void init_soln(const optim * params, double x[OPTIM_DIM]);
+static void init_last_soln(const optim * params, double x[OPTIM_DIM]);
 static void init_right_posture(double* qwait);
 
 
@@ -94,13 +94,17 @@ double nlopt_optim_lazy_run(double** ballpred,
 	                  racketdes *racketdata,
 		              optim *params) {
 
-	static double qwait[NDOF];
-	init_right_posture(qwait);
-	lazy_data data = {racketdata,coparams,ballpred,qwait,
-			          racketdata->dt,racketdata->Nmax};
-	nlopt_optim_fixed_run(data.coparams,data.racketdata,params);
-	double maxviol = nlopt_optim_lazy(&data,params);
-	return maxviol;
+	if (coparams->moving) {
+		double qwait[NDOF];
+		init_right_posture(qwait);
+		lazy_data data = {racketdata,coparams,ballpred,qwait,
+				          racketdata->dt,racketdata->Nmax};
+		return nlopt_optim_lazy(&data,params);
+	}
+	else {
+		return nlopt_optim_fixed_run(coparams,racketdata,params);
+	}
+
 }
 
 /*
@@ -153,7 +157,7 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-3,tol_ineq_land);
 	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
-	init_soln(params,x); //parameters are the initial joint positions q0*/
+	init_last_soln(params,x); //parameters are initialized to last optimized values
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
@@ -738,7 +742,7 @@ static void interp_ball(double** ballpred, const double T,
  *
  * The closer to the optimum it is the faster alg should converge
  */
-static void init_soln(const optim * params, double x[OPTIM_DIM]) {
+static void init_last_soln(const optim * params, double x[OPTIM_DIM]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
