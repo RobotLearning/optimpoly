@@ -34,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {LAZY};
+algo algs[] = {VHP};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -60,12 +60,12 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 2;
+	int num_trials = 20;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
 	//arma_rng::set_seed_random();
-	arma_rng::set_seed(2);
+	arma_rng::set_seed(1);
 	vec7 q0;
 	double std_noise = 0.001;
 	double std_model = 0.03;
@@ -74,7 +74,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
 	bool mpc = true;
-	Player* robot = new Player(q0,filter,alg,mpc,0);
+	Player* robot = new Player(q0,filter,alg,mpc,2);
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;

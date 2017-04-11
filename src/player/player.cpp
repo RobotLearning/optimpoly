@@ -329,10 +329,6 @@ void Player::optim_fixedp_param(const joint & qact) {
 					&coparams,&racket_params,&optim_params);
 			t.join(); //t.detach();
 		}
-		else {
-			if (verbose > 1)
-				cout << "ball is not legal!" << endl;
-		}
 	}
 }
 

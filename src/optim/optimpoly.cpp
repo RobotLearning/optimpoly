@@ -76,8 +76,8 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	init_rest_soln(coparams,x); //parameters are the initial joint positions q0
-	//init_last_soln(params,x);
+	//init_rest_soln(coparams,x); //parameters are the initial joint positions q0
+	init_last_soln(params,x);
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
