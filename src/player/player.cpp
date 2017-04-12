@@ -51,7 +51,7 @@ using namespace arma;
  * VHP and FP try to return the ball to the centre of the opponents court,
  * LP tries to just return the ball to the opponents court.
  *
- * TODO: remove callocs and replace with new!
+ * TODO: remove callocs and replace with new! and add unique/shared pointers
 
  * @param q0 Initial joint positions.
  * @param filter_ Reference to an input filter (must be initialized in a separate line).

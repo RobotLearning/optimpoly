@@ -125,111 +125,6 @@ double nlopt_optim_fixed_run(coptim *coparams,
 }
 
 /*
- * Give info about the optimization after termination
- *
- */
-static bool check_optim_result(const int res) {
-
-	bool flag = false;
-	switch (res) {
-	case NLOPT_SUCCESS:
-		printf("Success!\n");
-		flag = true;
-		break;
-	case NLOPT_STOPVAL_REACHED:
-		printf("Optimization stopped because stopval (above) was reached.\n");
-		flag = true;
-		break;
-	case NLOPT_FTOL_REACHED:
-		printf("Optimization stopped because ftol_rel "
-				"or ftol_abs (above) was reached.\n");
-		flag = true;
-		break;
-	case NLOPT_XTOL_REACHED:
-		flag = true;
-		printf("Optimization stopped because xtol_rel or xtol_abs (above) was reached.\n");
-		break;
-	case NLOPT_MAXEVAL_REACHED:
-		flag = true;
-		printf("Optimization stopped because maxeval (above) was reached.\n");
-		break;
-	case NLOPT_MAXTIME_REACHED:
-		flag = true;
-		printf("Optimization stopped because maxtime (above) was reached.\n");
-		break;
-	case NLOPT_FAILURE:
-		printf("Epic fail!\n");
-		break;
-	case NLOPT_INVALID_ARGS:
-		printf("Invalid arguments (e.g. lower bounds are bigger than "
-				"upper bounds, an unknown algorithm was specified, etcetera).\n");
-		break;
-	case NLOPT_OUT_OF_MEMORY:
-		printf("Ran out of memory!\n");
-		break;
-	case NLOPT_ROUNDOFF_LIMITED:
-		printf("Halted because roundoff errors limited progress."
-			"(In this case, the optimization still typically returns a useful result.\n");
-		break;
-	case NLOPT_FORCED_STOP:
-		printf("Halted because of a forced termination: "
-				"the user called nlopt_force_stop(opt)"
-				"on the optimization’s nlopt_opt object "
-				"opt from the user’s objective function or constraints.\n");
-		break;
-
-	}
-	return flag;
-}
-
-/*
- * Debug by testing the constraint violation of the solution vector
- *
- */
-static double test_optim(const double *x, coptim * coparams, racketdes * racketdata) {
-
-	// give info on constraint violation
-	double *grad = 0;
-	static double kin_violation[EQ_CONSTR_DIM];
-	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             OPTIM_DIM, x, grad, racketdata);
-	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, coparams);
-	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
-
-	if (coparams->verbose) {
-		// give info on solution vector
-		print_optim_vec(x);
-		printf("f = %.2f\n",cost);
-		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
-		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
-		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
-		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-			if (lim_violation[i] > 0.0)
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
-		}
-	}
-
-	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
-			    max_array(lim_violation,INEQ_CONSTR_DIM));
-}
-
-/*
- * Finalize the solution and update target SL structure and hitTime value
- */
-static void finalize_soln(const double* x, optim * params, double time_elapsed) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		params->qf[i] = x[i];
-		params->qfdot[i] = x[i+NDOF];
-	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
-	params->update = true;
-}
-
-/*
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
@@ -508,6 +403,110 @@ static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]) {
 	x[2*NDOF] = 0.5;
 }
 
+/*
+ * Debug by testing the constraint violation of the solution vector
+ *
+ */
+static double test_optim(const double *x, coptim * coparams, racketdes * racketdata) {
+
+	// give info on constraint violation
+	double *grad = 0;
+	static double kin_violation[EQ_CONSTR_DIM];
+	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
+			             OPTIM_DIM, x, grad, racketdata);
+	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
+			                 OPTIM_DIM, x, grad, coparams);
+	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
+
+	if (coparams->verbose) {
+		// give info on solution vector
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
+		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
+		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
+	}
+
+	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+			    max_array(lim_violation,INEQ_CONSTR_DIM));
+}
+
+/*
+ * Finalize the solution and update target SL structure and hitTime value
+ */
+static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		params->qf[i] = x[i];
+		params->qfdot[i] = x[i+NDOF];
+	}
+	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	params->update = true;
+}
+
+/*
+ * Give info about the optimization after termination
+ *
+ */
+static bool check_optim_result(const int res) {
+
+	bool flag = false;
+	switch (res) {
+	case NLOPT_SUCCESS:
+		printf("Success!\n");
+		flag = true;
+		break;
+	case NLOPT_STOPVAL_REACHED:
+		printf("Optimization stopped because stopval (above) was reached.\n");
+		flag = true;
+		break;
+	case NLOPT_FTOL_REACHED:
+		printf("Optimization stopped because ftol_rel "
+				"or ftol_abs (above) was reached.\n");
+		flag = true;
+		break;
+	case NLOPT_XTOL_REACHED:
+		flag = true;
+		printf("Optimization stopped because xtol_rel or xtol_abs (above) was reached.\n");
+		break;
+	case NLOPT_MAXEVAL_REACHED:
+		flag = true;
+		printf("Optimization stopped because maxeval (above) was reached.\n");
+		break;
+	case NLOPT_MAXTIME_REACHED:
+		flag = true;
+		printf("Optimization stopped because maxtime (above) was reached.\n");
+		break;
+	case NLOPT_FAILURE:
+		printf("Epic fail!\n");
+		break;
+	case NLOPT_INVALID_ARGS:
+		printf("Invalid arguments (e.g. lower bounds are bigger than "
+				"upper bounds, an unknown algorithm was specified, etcetera).\n");
+		break;
+	case NLOPT_OUT_OF_MEMORY:
+		printf("Ran out of memory!\n");
+		break;
+	case NLOPT_ROUNDOFF_LIMITED:
+		printf("Halted because roundoff errors limited progress."
+			"(In this case, the optimization still typically returns a useful result.\n");
+		break;
+	case NLOPT_FORCED_STOP:
+		printf("Halted because of a forced termination: "
+				"the user called nlopt_force_stop(opt)"
+				"on the optimization’s nlopt_opt object "
+				"opt from the user’s objective function or constraints.\n");
+		break;
+
+	}
+	return flag;
+}
 
 static void print_input_structs(coptim *coparams,
 	      	  	  	  	  	   racketdes *racketdata,
