@@ -94,7 +94,7 @@ double nlopt_optim_lazy_run(double** ballpred,
 	                  racketdes *racketdata,
 		              optim *params) {
 
-	if (coparams->moving) {
+	if (true) { //coparams->moving
 		double qwait[NDOF];
 		init_right_posture(qwait);
 		lazy_data data = {racketdata,coparams,ballpred,qwait,
@@ -104,34 +104,6 @@ double nlopt_optim_lazy_run(double** ballpred,
 	else {
 		return nlopt_optim_fixed_run(coparams,racketdata,params);
 	}
-
-}
-
-/*
- * Print input structs to give info about the arguments
- * For debugging purposes useful
- *
- */
-static void print_input_structs(lazy_data* data, optim* params) {
-
-	for (int i = 0; i < NDOF; i++) {
-		printf("qwait[%d] = %f\n", i, data->qwait[i]);
-		printf("q0[%d] = %f\n", i, data->coparams->q0[i]);
-		printf("q0dot[%d] = %f\n", i, data->coparams->q0dot[i]);
-		printf("lb[%d] = %f\n", i, data->coparams->lb[i]);
-		printf("ub[%d] = %f\n", i, data->coparams->ub[i]);
-	}
-	printf("Tret = %f\n", data->coparams->time2return);
-	for (int i = 0; i < NDOF; i++) {
-		printf("qf[%d] = %f\n", i, params->qf[i]);
-		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
-	}
-	printf("Thit = %f\n", params->T);
-
-	print_mat_size("ball = ", data->ballpred, 2*NCART, 5);
-	print_mat_size("pos = ", data->racketdata->pos, NCART, 5);
-	print_mat_size("vel = ", data->racketdata->vel, NCART, 5);
-	print_mat_size("normal = ", data->racketdata->normal, NCART, 5);
 
 }
 
@@ -552,7 +524,7 @@ static void calc_times(const lazy_data* data,
 		modify_ball_outgoing_vel(ballvel);
 		distBall2TableZ = ballpos[Z] - table_z;
 
-		if (sqr(ballvel[3]) > -2*g*distBall2TableZ) {
+		if (sqr(ballvel[Z]) > -2*g*distBall2TableZ) {
 			landTime_ = *landTime = fmax(ballvel[Z] +
 					sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ),
 				ballvel[Z] - sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ)) / g;
@@ -605,17 +577,16 @@ static double test_optim(double *x, lazy_data* data) {
 		printf("Optim count: %d\n", (++count));
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
-		printf("Constraint info:\n");
-		printf("Ball to racket normal distance: %.2f\n",land_violation[0]);
-		printf("Ball distance projected to racket: %.2f\n", land_violation[2]);
-		printf("netTime: %f\n", -land_violation[3]);
-	    printf("landTime - netTime: %f\n", -land_violation[6]);
-		printf("wall_z - zNet: %f\n", -land_violation[4]);
-		printf("zNet - net_z: %f\n", -land_violation[5]);
-		printf("table_xmax - xLand: %f\n", -land_violation[6]);
-		printf("table_xmax + xLand: %f\n", -land_violation[8]);
-		printf("net_y - yLand: %f\n", -land_violation[9]);
-	    printf("yLand - table_ymax: %f\n", -land_violation[10]);
+		printf("Hitting constraints (b2r):\n");
+		printf("Normal distance: %.2f\n",land_violation[0]);
+		printf("Projected to racket: %.2f\n", land_violation[2]);
+		printf("Landing constraints:\n");
+		printf("NetTime: %f\n", -land_violation[3]);
+	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
+		printf("Below wall by : %f\n", -land_violation[4]);
+		printf("Above net by: %f\n", -land_violation[5]);
+		printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
+		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
@@ -796,3 +767,32 @@ static void finalize_soln(const double* x,
 	data->coparams->qrest = qrest;
 	params->update = true;
 }
+
+/*
+ * Print input structs to give info about the arguments
+ * For debugging purposes useful
+ *
+ */
+static void print_input_structs(lazy_data* data, optim* params) {
+
+	for (int i = 0; i < NDOF; i++) {
+		printf("qwait[%d] = %f\n", i, data->qwait[i]);
+		printf("q0[%d] = %f\n", i, data->coparams->q0[i]);
+		printf("q0dot[%d] = %f\n", i, data->coparams->q0dot[i]);
+		printf("lb[%d] = %f\n", i, data->coparams->lb[i]);
+		printf("ub[%d] = %f\n", i, data->coparams->ub[i]);
+	}
+	printf("Tret = %f\n", data->coparams->time2return);
+	for (int i = 0; i < NDOF; i++) {
+		printf("qf[%d] = %f\n", i, params->qf[i]);
+		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
+	}
+	printf("Thit = %f\n", params->T);
+
+	print_mat_size("ball = ", data->ballpred, 2*NCART, 5);
+	print_mat_size("pos = ", data->racketdata->pos, NCART, 5);
+	print_mat_size("vel = ", data->racketdata->vel, NCART, 5);
+	print_mat_size("normal = ", data->racketdata->normal, NCART, 5);
+
+}
+

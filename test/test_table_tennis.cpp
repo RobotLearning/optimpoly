@@ -34,7 +34,7 @@
 using namespace arma;
 namespace data = boost::unit_test::data;
 
-algo algs[] = {FIXED};
+algo algs[] = {LAZY};
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -53,59 +53,59 @@ inline void init_right_posture(vec7 & q0) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
-
-	std::cout << "Running MPC test..." << std::endl;
-	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
-	set_bounds(lb,ub,0.01,Tmax);
-	vec7 lbvec(lb); vec7 ubvec(ub);
-	TableTennis tt;
-	int num_trials = 5;
-	int num_lands = 0;
-	int num_misses = 0;
-	int num_not_valid = 0;
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(1);
-	vec7 q0;
-	double std_noise = 0.001;
-	double std_model = 0.03;
-	init_right_posture(q0);
-	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
-	vec3 obs;
-	EKF filter = init_filter(std_model,std_noise);
-	Player* robot = new Player(q0,filter,alg,true,2);
-	int N = 2000;
-	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
-	racket robot_racket;
-
-	for (int n = 0; n < num_trials; n++) { // for each trial
-		tt = TableTennis(false,false);
-		std::cout << "Trial: " << n << std::endl;
-		tt.set_ball_gun(0.10);
-		robot->reset_filter(std_model,std_noise);
-		for (int i = 0; i < N; i++) { // one trial
-			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-			robot->play(qact, obs, qdes);
-			calc_racket_state(qdes,robot_racket);
-			tt.integrate_ball_state(robot_racket,DT);
-			qact.q = qdes.q;
-			qact.qd = qdes.qd;
-		}
-		if (tt.has_landed()) {
-			num_lands++;
-		}
-		else if (!tt.is_legal_ball())
-			num_not_valid++;
-		else
-			num_misses++;
-	}
-	std::cout << "======================================================" << endl;
-	std::cout << "Out of " << num_trials << " trials, "
-			<< num_lands << " lands, " << num_not_valid <<
-			" not valid balls, " << num_misses << " misses!" <<std::endl;
-	std::cout << "======================================================" << endl;
-	delete(robot);
-}
+//BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
+//
+//	std::cout << "Running MPC test..." << std::endl;
+//	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+//	set_bounds(lb,ub,0.01,Tmax);
+//	vec7 lbvec(lb); vec7 ubvec(ub);
+//	TableTennis tt;
+//	int num_trials = 5;
+//	int num_lands = 0;
+//	int num_misses = 0;
+//	int num_not_valid = 0;
+//	//arma_rng::set_seed_random();
+//	arma_rng::set_seed(1);
+//	vec7 q0;
+//	double std_noise = 0.001;
+//	double std_model = 0.03;
+//	init_right_posture(q0);
+//	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+//	vec3 obs;
+//	EKF filter = init_filter(std_model,std_noise);
+//	Player* robot = new Player(q0,filter,alg,true,2);
+//	int N = 2000;
+//	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+//	racket robot_racket;
+//
+//	for (int n = 0; n < num_trials; n++) { // for each trial
+//		tt = TableTennis(false,false);
+//		std::cout << "Trial: " << n << std::endl;
+//		tt.set_ball_gun(0.10);
+//		robot->reset_filter(std_model,std_noise);
+//		for (int i = 0; i < N; i++) { // one trial
+//			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
+//			robot->play(qact, obs, qdes);
+//			calc_racket_state(qdes,robot_racket);
+//			tt.integrate_ball_state(robot_racket,DT);
+//			qact.q = qdes.q;
+//			qact.qd = qdes.qd;
+//		}
+//		if (tt.has_landed()) {
+//			num_lands++;
+//		}
+//		else if (!tt.is_legal_ball())
+//			num_not_valid++;
+//		else
+//			num_misses++;
+//	}
+//	std::cout << "======================================================" << endl;
+//	std::cout << "Out of " << num_trials << " trials, "
+//			<< num_lands << " lands, " << num_not_valid <<
+//			" not valid balls, " << num_misses << " misses!" <<std::endl;
+//	std::cout << "======================================================" << endl;
+//	delete(robot);
+//}
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -119,16 +119,16 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
 	//arma_rng::set_seed_random();
-	arma_rng::set_seed(2);
-	tt.set_ball_gun(0.05);
+	arma_rng::set_seed(5);
+	tt.set_ball_gun(0.05,0); // init ball on the left side of the robot
 
 	vec7 q0;
 	double std_obs = 0.0; // std of the noisy observations
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
-	EKF filter = init_filter(0.0,std_obs*std_obs);
-	Player *robot = new Player(q0,filter,alg,false,2);
+	EKF filter = init_filter();
+	Player *robot = new Player(q0,filter,alg,true,1);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};

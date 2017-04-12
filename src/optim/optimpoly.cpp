@@ -124,29 +124,6 @@ double nlopt_optim_fixed_run(coptim *coparams,
 	return max_violation;
 }
 
-static void print_input_structs(coptim *coparams,
-	      	  	  	  	  	   racketdes *racketdata,
-							   optim * params) {
-
-	for (int i = 0; i < NDOF; i++) {
-		printf("q0[%d] = %f\n", i, coparams->q0[i]);
-		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
-		printf("lb[%d] = %f\n", i, coparams->lb[i]);
-		printf("ub[%d] = %f\n", i, coparams->ub[i]);
-	}
-	printf("Tret = %f\n", coparams->time2return);
-	for (int i = 0; i < NDOF; i++) {
-		printf("qf[%d] = %f\n", i, params->qf[i]);
-		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
-	}
-	printf("Thit = %f\n", params->T);
-
-	print_mat_size("pos = ", racketdata->pos, NCART, 5);
-	print_mat_size("vel = ", racketdata->vel, NCART, 5);
-	print_mat_size("normal = ", racketdata->normal, NCART, 5);
-
-}
-
 /*
  * Give info about the optimization after termination
  *
@@ -529,4 +506,28 @@ static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]) {
 		x[i+NDOF] = 0.0;
 	}
 	x[2*NDOF] = 0.5;
+}
+
+
+static void print_input_structs(coptim *coparams,
+	      	  	  	  	  	   racketdes *racketdata,
+							   optim * params) {
+
+	for (int i = 0; i < NDOF; i++) {
+		printf("q0[%d] = %f\n", i, coparams->q0[i]);
+		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
+		printf("lb[%d] = %f\n", i, coparams->lb[i]);
+		printf("ub[%d] = %f\n", i, coparams->ub[i]);
+	}
+	printf("Tret = %f\n", coparams->time2return);
+	for (int i = 0; i < NDOF; i++) {
+		printf("qf[%d] = %f\n", i, params->qf[i]);
+		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
+	}
+	printf("Thit = %f\n", params->T);
+
+	print_mat_size("pos = ", racketdata->pos, NCART, 5);
+	print_mat_size("vel = ", racketdata->vel, NCART, 5);
+	print_mat_size("normal = ", racketdata->normal, NCART, 5);
+
 }
