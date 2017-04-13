@@ -294,7 +294,8 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			t.join();//t.detach();
+			//t.join();
+			t.detach();
 		}
 	}
 
@@ -327,7 +328,8 @@ void Player::optim_fixedp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
-			t.join(); //t.detach();
+			//t.join();
+			t.detach();
 		}
 	}
 }
@@ -365,7 +367,8 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			t.join();//t.detach();
+			//t.join();
+			t.detach();
 		}
 	}
 
@@ -404,8 +407,8 @@ bool Player::check_update(const joint & qact) const {
 		// ball is incoming
 		if (mpc && coparams.moving) {
 			calc_racket_state(qact,robot_racket);
-			activate = (counter % 20 == 0); //(timer.toc() > (1.0/FREQ_MPC));
-			passed_lim = state_est(Y) > robot_racket.pos(Y); //cart_state(Y);
+			activate = (timer.toc() > (1.0/FREQ_MPC)); //(counter % 20 == 0); //
+			passed_lim = state_est(Y) > robot_racket.pos(Y);
 			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {

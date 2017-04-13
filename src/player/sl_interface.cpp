@@ -153,7 +153,7 @@ void load_options() {
     }
     set_algorithm(alg_num);
 
-    cout << "Algorithm specified: " << flags.alg << "\n";
+    cout << "Algorithm specified: " << alg_num << "\n";
 	cout << "MPC Turned on? " << flags.mpc << "\n";
 	cout << "Verbosity level? " << flags.verbosity << "\n";
 	cout << "Saving ball data? " << flags.save << "\n";

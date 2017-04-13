@@ -128,7 +128,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter,alg,true,2);
+	Player *robot = new Player(q0,filter,alg,false,2);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
@@ -145,6 +145,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 		tt.integrate_ball_state(robot_racket,DT);
 		//usleep(DT*1e6);
 	}
+	//cout << "Upper limits:" << endl << ubvec << "Lower limits:" << endl << lbvec << endl;
+	//cout << max(Qdes,1) << endl;
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
 	BOOST_TEST(all(min(Qdes,1) > lbvec));

@@ -9,6 +9,7 @@
  *      Author: okan
  */
 
+#include <iostream>
 #include "constants.h"
 #include "table.h"
 #include "utils.h"
@@ -99,7 +100,7 @@ double nlopt_optim_lazy_run(double** ballpred,
 		init_right_posture(qwait);
 		lazy_data data = {racketdata,coparams,ballpred,qwait,
 				          racketdata->dt,racketdata->Nmax};
-		//return nlopt_optim_fixed_run(coparams,racketdata,params);
+		//nlopt_optim_fixed_run(coparams,racketdata,params);
 		return nlopt_optim_lazy(&data,params);
 	}
 	else {
@@ -223,6 +224,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	Jhit = inner_w_prod(NCART,w->R_hit,ballproj,ballproj);
 	Jland = punish_land_robot(xland,xnet,w->R_land, w->R_net);
 	Jwait = punish_wait_robot(data,w->R_wait,qrest);
+
+	//std::cout << J1 << "\t" << J2 << "\t" << Jhit << "\t" << Jland << "\t" << Jwait << std::endl;
 
 	return J1 + J2 + Jhit + Jland + Jwait;
 }
@@ -588,13 +591,13 @@ static void set_penalty_matrices(weights * pen) {
 	double* Rwait = (double*)calloc(NDOF,sizeof(double));
 	double* Rhit = (double*)calloc(NDOF,sizeof(double));
 	double* Rland = (double*)calloc(2,sizeof(double));
-	double Rnet = 1.0;
+	double Rnet = 10.0;
 
 	const_vec(NDOF,1.0,R1);
 	const_vec(NDOF,1.0,R2);
 	const_vec(NDOF,1.0,Rwait);
-	const_vec(NCART,1.0,Rhit);
-	const_vec(2,1.0,Rland);
+	const_vec(NCART,1e3,Rhit);
+	const_vec(2,1e2,Rland);
 
 	pen->R_hit = Rhit;
 	pen->R_land = Rland;
