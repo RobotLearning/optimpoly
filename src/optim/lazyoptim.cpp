@@ -60,7 +60,7 @@ static void calc_times(const lazy_data* data,
 					   double *ball_proj);
 static void calc_rest_robot(const lazy_data* data,
 		                        const double *x,
-		                        const double *Rret,
+		                        const double *Rreturn,
 								const double *a3,
 								const double *a2,
 								const double landTime,
@@ -273,7 +273,7 @@ static double punish_wait_robot(const lazy_data* data,
  */
 static void calc_rest_robot(const lazy_data* data,
 		                        const double *x,
-		                        const double *Rret,
+		                        const double *Rreturn,
 								const double *a3,
 								const double *a2,
 								const double landTime,
@@ -282,7 +282,7 @@ static void calc_rest_robot(const lazy_data* data,
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = (x[i] + x[i+NDOF] * landTime +
 				    a2[i] * pow(landTime,2) +
-					a3[i] * pow(landTime,3)) / (2*Rret[i]);
+					a3[i] * pow(landTime,3)) / (2*Rreturn[i]);
 	}
 }
 
@@ -414,7 +414,7 @@ static void calc_return_poly_coeff(const double *qwait,
 								   double *a1, double *a2) {
 	double weights[NDOF];
 	for (int i = 0; i < NDOF; i++) {
-		weights[i] = Rwait[i] / (6 + pow(T,3)*Rwait[i]/2);
+		weights[i] = (Rwait[i]/2) / (6 + pow(T,3)*Rwait[i]/2);
 		a1[i] = weights[i] * (x[i+NDOF]*T + 2*x[i] - 2*qwait[i]);
 		a2[i] = -x[i+NDOF]/(2*T) - (3/2)*T*a1[i];
 	}
@@ -448,8 +448,8 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
  * Clamp to [0,TIME2RETURN]
  *
  */
-static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
-		                     double *joint_max_cand, double *joint_min_cand) {
+static void calc_return_extrema_cand(double *a1, double *a2, const double *x,
+		double landTime, double *joint_max_cand, double *joint_min_cand) {
 
 	int i;
 	static double cand1, cand2;
@@ -476,7 +476,7 @@ static void calc_return_extrema_cand(double *a1, double *a2, const double *x, do
  * landTime and netTime variables and return these when the optimization
  * variable is the same (meaning optimization algorithm did not update it yet).
  *
- * TODO: simplify code! If landtime is not real, should we set it to 1.0?
+ * TODO: simplify code! If landtime is not real, should we set it to -1.0?
  *
  */
 static void calc_times(const lazy_data* data,
@@ -757,7 +757,7 @@ static void finalize_soln(const double* x,
 	calc_times(data, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
 
 	calc_return_poly_coeff(data->qwait,x,landTime,w->R_wait,b1,b2);
-	calc_rest_robot(data,x,w->R_wait,b1,b2,landTime,qrest);
+	calc_rest_robot(data,x,w->R_return,b1,b2,landTime,qrest);
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
@@ -765,7 +765,6 @@ static void finalize_soln(const double* x,
 		params->qfdot[i] = x[i+NDOF];
 	}
 	params->T = x[2*NDOF] - (time_elapsed/1e3);
-	//printf("Landtime = %f\n", landTime);
 	data->coparams->time2return = landTime;
 	data->coparams->qrest = qrest;
 	params->update = true;

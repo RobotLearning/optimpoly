@@ -118,22 +118,25 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(5);
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,0); // init ball on the left side of the robot
 
 	vec7 q0;
-	double std_obs = 0.0; // std of the noisy observations
+	double std_obs = 0.001; // std of the noisy observations
 	init_right_posture(q0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
-	EKF filter = init_filter();
-	Player *robot = new Player(q0,filter,alg,false,2);
+	EKF filter = init_filter(0.03,std_obs);
+	Player *robot = new Player(q0,filter,alg,true,1);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
+	bool moving = false;
+	int move_idx = 0;
+	bool limit_exc = false;
 	for (int i = 0; i < N; i++) {
 		//if (i % 20 == 0)
 		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
@@ -144,8 +147,21 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
 		tt.integrate_ball_state(robot_racket,DT);
 		//usleep(DT*1e6);
+		qact.q = qdes.q;
+		qact.qd = qdes.qd;
+		if (any(qdes.q != q0) && !moving) {
+			move_idx = i;
+			moving = true;
+		}
+		if (any(qdes.q > ubvec) && !limit_exc) {
+			cout << "Max limits exceeded at " << (i-move_idx)*DT << " sec!\n";
+			limit_exc = true;
+		}
+		if (any(qdes.q < lbvec) && !limit_exc) {
+			cout << "Min limits exceeded at " << (i-move_idx)*DT << " sec!\n";
+			limit_exc = true;
+		}
 	}
-	//cout << "Upper limits:" << endl << ubvec << "Lower limits:" << endl << lbvec << endl;
 	//cout << max(Qdes,1) << endl;
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
