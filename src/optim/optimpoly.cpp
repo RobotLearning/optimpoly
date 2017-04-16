@@ -114,7 +114,7 @@ double nlopt_optim_fixed_run(coptim *coparams,
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
 	    max_violation = test_optim(x,coparams,racketdata);
-	    if (max_violation < 1e-2 && x[2*NDOF] > 0.05)
+	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
 	    	finalize_soln(x,params,past_time);
 	}
 	params->running = false;
@@ -446,7 +446,7 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	params->T = x[2*NDOF]; // - (time_elapsed/1e3);
 	params->update = true;
 }
 
