@@ -162,10 +162,11 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT);
-		if (newball) { // && !filter.check_outlier(obs,verbose > 0)) {
+		if (newball && filter.check_outlier(obs,verbose > 0)) {
 			valid_obs = true;
 			filter.update(obs);
-			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
+			//cout << "Updating...\n"
+			//     << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
 		}
 
 	}
@@ -709,7 +710,7 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 /*
  * Checks to see if the observation is new (updated)
  *
- * The blobs need to be at least tol = 1e-3 apart from each other in distance
+ * The blobs need to be at least tol apart from each other in distance
  *
  */
 bool check_new_obs(const vec3 & obs, double tol) {
@@ -757,7 +758,7 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	//P *= 0.1;
+	//P *= 100.0;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 

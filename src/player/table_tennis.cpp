@@ -713,7 +713,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  * Function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
  *
- * Warning: spin is turned ON!
+ * Warning: spin is turned ON/OFF arbitrarily!
  * Prediction with a spin model assumes that spin is kept constant
  * as changes to spin are not saved!
  *
@@ -724,7 +724,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow,true,false);
+	TableTennis tennis = TableTennis(xnow,false,false);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
@@ -740,7 +740,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
  * They can use then to apply predict() using the this function pointer.
  * This version also checks for robot's racket to predict next ball state.
  *
- * Warning: spin is turned ON!
+ * Warning: spin is turned ON/OFF arbitrarily!
  *
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.
