@@ -398,7 +398,6 @@ bool Player::check_update(const joint & qact) const {
 	static wall_clock timer;
 	bool activate, passed_lim = false;
 
-
 	try {
 		state_est = filter.get_mean();
 		counter++;
@@ -458,23 +457,18 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
 	if (optim_params.update) {
-		if (verbose > 0) {
+		if (verbose) {
 			std::cout << "Launching/updating strike" << std::endl;
-			//for (int i = 0; i < NDOF; i++)
-			//	std::cout << optim_params.qf[i] << "\t" << optim_params.qfdot[i] << "\t";
-			//std::cout << optim_params.T << std::endl;
 		}
 		coparams.moving = true;
-		idx = 0;
 		optim_params.update = false;
-		if (alg == LAZY) {
+		/*if (alg == LAZY) {
 			time2return = coparams.time2return;
 			for (int i = 0; i < NDOF; i++)
 				q_rest_des(i) = coparams.qrest[i];
-			//cout << q_rest_des << endl;
-		}
+		}*/ // call polynomial generation
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
-		// call polynomial generation
+		idx = 0;
 	}
 
 	// make sure we update after optim finished

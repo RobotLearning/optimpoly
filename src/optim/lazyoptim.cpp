@@ -68,12 +68,13 @@ static void calc_rest_robot(const lazy_data* data,
 static void finalize_soln(const double* x,
 		lazy_data* data, optim * params, double time_elapsed);
 static void set_penalty_matrices(weights * pen);
-static void racket_contact_model(double* racketVel, double* racketNormal, double* ballVel);
+static void racket_contact_model(const double* racketVel,
+		                         const double* racketNormal, double* ballVel);
 static void interp_ball(double** ballpred, const double T,
 		                const double dt, const int Nmax,
 						double *ballpos, double *ballvel);
 static void init_last_soln(const optim * params, double x[OPTIM_DIM]);
-static void init_right_posture(double* qwait);
+static void init_posture(double* qwait, int posture);
 
 
 /**
@@ -97,10 +98,18 @@ double nlopt_optim_lazy_run(double** ballpred,
 
 	if (coparams->moving) {
 		double qwait[NDOF];
-		init_right_posture(qwait);
+		init_posture(qwait,1);
 		lazy_data data = {racketdata,coparams,ballpred,qwait,
 				          racketdata->dt,racketdata->Nmax};
 		//nlopt_optim_fixed_run(coparams,racketdata,params);
+		/*static double x[15];
+		for (int i = 0; i < 7; i++) {
+			x[i] = params->qf[i];
+			x[i+NDOF] = params->qfdot[i];
+		}
+		x[2*NDOF] = params->T;
+		firsttime[0] = firsttime[1] = firsttime[2] = true;
+		test_optim(x,&data);*/
 		return nlopt_optim_lazy(&data,params);
 	}
 	else {
@@ -165,7 +174,7 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
 	    max_violation = test_optim(x,data);
-	    if (max_violation < 1e-2 && x[2*NDOF] > 0.05)
+	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
 	    	finalize_soln(x,data,params,past_time);
 	}
 	params->running = false;
@@ -225,9 +234,9 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	Jland = punish_land_robot(xland,xnet,w->R_land, w->R_net);
 	Jwait = punish_wait_robot(data,w->R_wait,qrest);
 
-	//std::cout << J1 << "\t" << J2 << "\t" << Jhit << "\t" << Jland << "\t" << Jwait << std::endl;
+	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << "\t" << Jwait << std::endl;
 
-	return J1 + J2 + Jhit + Jland + Jwait;
+	return J1 + Jhit + Jland + Jwait;
 }
 
 /*
@@ -505,7 +514,7 @@ static void calc_times(const lazy_data* data,
 	static double ballvel[NCART];
 	static double table_z = floor_level - table_height + ball_radius;
 	static double g = 9.8;
-	static double net_y = dist_to_table - table_length/2;
+	static double net_y = dist_to_table - table_length/2.0;
 	double distBall2TableZ;
 
 	if (vec_is_equal(OPTIM_DIM,x,x_)) {
@@ -529,18 +538,18 @@ static void calc_times(const lazy_data* data,
 		distBall2TableZ = ballpos[Z] - table_z;
 
 		if (sqr(ballvel[Z]) > -2*g*distBall2TableZ) {
-			landTime_ = *landTime = (-ballvel[Z] + sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ))
-					                /(2*distBall2TableZ);
+			landTime_ = *landTime =
+			fmax(0.10,(ballvel[Z] + sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ))/g);
 		}
 		else {
 			// landTime is not real!
-			landTime_ = *landTime = -1.0;
+			landTime_ = *landTime = 0.10;
 		}
-		netTime_ = *netTime = (net_y - ballpos[Y])/ballvel[Y];
+		netTime_ = *netTime = fmax(0.10,(net_y - ballpos[Y])/ballvel[Y]);
 
 		xnet_ = *xnet = ballpos[Z] + netTime_ * ballvel[Z] - 0.5*g*netTime_*netTime_;
-		xland_[0] = xland[0] = ballpos[X] + landTime_ * ballvel[X];
-		xland_[1] = xland[1] = ballpos[Y] + landTime_ * ballvel[Y];
+		xland_[X] = xland[X] = ballpos[X] + landTime_ * ballvel[X];
+		xland_[Y] = xland[Y] = ballpos[Y] + landTime_ * ballvel[Y];
 
 		// calculate deviation of ball to racket - hitting constraints
 		make_equal(NCART,ballpos,ball_proj);
@@ -591,13 +600,13 @@ static void set_penalty_matrices(weights * pen) {
 	double* Rwait = (double*)calloc(NDOF,sizeof(double));
 	double* Rhit = (double*)calloc(NDOF,sizeof(double));
 	double* Rland = (double*)calloc(2,sizeof(double));
-	double Rnet = 10.0;
+	double Rnet = 1e3;
 
 	const_vec(NDOF,1.0,R1);
 	const_vec(NDOF,1.0,R2);
-	const_vec(NDOF,1.0,Rwait);
-	const_vec(NCART,1e3,Rhit);
-	const_vec(2,1e2,Rland);
+	const_vec(NDOF,1,Rwait);
+	const_vec(NCART,2e4,Rhit);
+	const_vec(2,1e3,Rland);
 
 	pen->R_hit = Rhit;
 	pen->R_land = Rland;
@@ -618,7 +627,8 @@ static void set_penalty_matrices(weights * pen) {
  *
  *
  */
-static void racket_contact_model(double* racketVel, double* racketNormal, double* ballVel) {
+static void racket_contact_model(const double* racketVel,
+		const double* racketNormal, double* ballVel) {
 
 	static const double racket_param = 0.78;
 	static double diffVel[NCART];
@@ -683,15 +693,30 @@ static void init_last_soln(const optim * params, double x[OPTIM_DIM]) {
 /*
  * Initialize robot posture on the right size of the robot
  */
-static void init_right_posture(double* qwait) {
+static void init_posture(double* qwait, int posture) {
 
-	qwait[0] = 1.0;
-	qwait[1] = -0.2;
-	qwait[2] = -0.1;
-	qwait[3] = 1.8;
-	qwait[4] = -1.57;
-	qwait[5] = 0.1;
-	qwait[6] = 0.3;
+	switch (posture) {
+	case 0: // right
+		qwait[0] = 1.0;	qwait[1] = -0.2;
+		qwait[2] = -0.1; qwait[3] = 1.8;
+		qwait[4] = -1.57; qwait[5] = 0.1;
+		qwait[6] = 0.3;
+		break;
+	case 1: // center
+		qwait[0] = 0.0;	qwait[1] = 0.0;
+		qwait[2] = 0.0; qwait[3] = 1.5;
+		qwait[4] = -1.75; qwait[5] = 0.0;
+		qwait[6] = 0.0;
+		break;
+	case 2: // left
+		qwait[0] = -1.0; qwait[1] = 0.0;
+		qwait[2] = 0.0;	qwait[3] = 1.5;
+		qwait[4] = -1.57; qwait[5] = 0.1;
+		qwait[6] = 0.3;
+		break;
+	default:
+		break;
+	}
 }
 
 /*
@@ -719,8 +744,8 @@ static double test_optim(double *x, lazy_data* data) {
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
 		printf("Hitting constraints (b2r):\n");
-		printf("Normal distance: %.2f\n",land_violation[0]);
-		printf("Projected to racket: %.2f\n", land_violation[2]);
+		printf("Distance along normal: %.2f\n",land_violation[0]);
+		printf("Distance along racket: %.2f\n", land_violation[2]);
 		printf("Landing constraints:\n");
 		printf("NetTime: %f\n", -land_violation[3]);
 	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
@@ -730,7 +755,7 @@ static double test_optim(double *x, lazy_data* data) {
 		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i);
 			}
 		}
 	}
@@ -764,7 +789,7 @@ static void finalize_soln(const double* x,
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	params->T = x[2*NDOF]; // - (time_elapsed/1e3);
 	data->coparams->time2return = landTime;
 	data->coparams->qrest = qrest;
 	params->update = true;

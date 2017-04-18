@@ -125,7 +125,7 @@ public:
 	vec6 get_ball_state() const;
 
 	// set reasonable ball positions and velocities for table tennis
-	void set_ball_gun(double std, int ballgun_side = 0);
+	void set_ball_gun(double std, int ballgun_side = 1);
 
 	// ball prediction functions
 	void integrate_ball_state(const double dt);
