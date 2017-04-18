@@ -86,6 +86,11 @@ typedef struct {
 	double R_net;
 } weights; // weights for optimization penalties
 
+// interface for VHP player
+double nlopt_vhp_run(coptim *coparams,
+					 racketdes *racketdata,
+					 optim *params);
+
 // interface for LAZY player
 double nlopt_optim_lazy_run(double** ballpred,
 		              coptim *coparams,
@@ -96,10 +101,5 @@ double nlopt_optim_lazy_run(double** ballpred,
 double nlopt_optim_fixed_run(coptim * coparams,
 		                     racketdes * racketdata,
 							 optim * params);
-
-// interface for VHP player
-double nlopt_vhp_run(coptim *coparams,
-					 racketdes *racketdata,
-					 optim *params);
 
 #endif /* OPTIMPOLY_H_ */

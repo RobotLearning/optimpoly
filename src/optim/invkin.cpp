@@ -45,7 +45,6 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 							  double *joint_max_cand, double *joint_min_cand);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
 
-
 /**
  * @brief inverse kinematics for table tennis trajectory generation
  *        based on a fixed Virtual Hitting Plane (VHP).

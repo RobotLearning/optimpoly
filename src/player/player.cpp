@@ -463,6 +463,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		}
 		coparams.moving = true;
 		optim_params.update = false;
+		// call polynomial generation
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		idx = 0;
 	}

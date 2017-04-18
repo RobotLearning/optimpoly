@@ -321,7 +321,6 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 		result[i+3*NDOF] = lb[i] - joint_return_min_cand[i];
 		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
 	}
-
 }
 
 /*
@@ -355,6 +354,7 @@ static void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		a1[i] = (2/pow(T,3))*(x[i]-q0[i]) + (1/(T*T))*(q0dot[i] + x[i+NDOF]);
 		a2[i] = (3/(T*T))*(q0[i]-x[i]) - (1/T)*(2*x[i+NDOF] + q0dot[i]);
 	}
+
 }
 
 /*
@@ -529,8 +529,8 @@ static void set_penalty_matrices(weights * pen) {
 	double Rnet = 1e2;
 
 	const_vec(NDOF,1.0,R1);
-	const_vec(NCART,1e2,Rhit);
-	const_vec(2,1e2,Rland);
+	const_vec(NCART,2e4,Rhit);
+	const_vec(2,1e3,Rland);
 
 	pen->R_hit = Rhit;
 	pen->R_land = Rland;

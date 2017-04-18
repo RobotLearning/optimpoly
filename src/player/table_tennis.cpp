@@ -43,7 +43,7 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	init_topspin();
+	init_topspin(-30);
 }
 
 /**
@@ -62,7 +62,7 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
 
-	init_topspin();
+	init_topspin(-30);
 }
 
 /**
@@ -71,11 +71,11 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) {
  *
  * TODO: also load from file!
  */
-void TableTennis::init_topspin() {
+void TableTennis::init_topspin(double val) {
 
 	if (SPIN_MODE) {
 		//std::cout << "Initializing with spin" << std::endl;
-		ball_spin(X) = -50*2*datum::pi; // constant 3000 rpm topsin
+		ball_spin(X) = val*2*datum::pi; // constant 3000 rpm topsin
 		// others are zero
 	}
 	else {
@@ -680,8 +680,8 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
 
 /*
  * Simple contact model that uses spin if spin mode is turned on.
- * Assuming roll contact instead of slide contact in rebound calculations for simplicity.
- * Spin vector is also modified.
+ * TODO: Assuming roll contact instead of slide contact in rebound calculations for simplicity.
+ *       Spin vector is NOT modified.
  * Coeff of restitution and friction used.
  */
 static void table_contact_model(const double & CFTX, const double & CFTY, const double & CRT,
@@ -690,13 +690,13 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
 	if (spin_flag) { // if spin mode is on ballvec is not a null pointer
 		//cout << "Using a spin model for bounce..." << endl;
 		// compute effect on spin
-		ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
-		ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
+		//ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
+		//ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
 		// in z-direction spin is preserved
 		// compute effect on velocity
-		ball_vel(Z) = -CRT * ball_vel(Z);
-		ball_vel(Y) = CFTY * ball_vel(Y) - (1-CFTY) * ball_radius * ball_spin(X);
-		ball_vel(X) = CFTX * ball_vel(X) + (1-CFTX) * ball_radius * ball_spin(Y);
+		ball_vel(Z) = -0.90 * ball_vel(Z);
+		ball_vel(Y) = 1.2 * ball_vel(Y) - 0.2 * ball_radius * ball_spin(X);
+		ball_vel(X) = 1.2 * ball_vel(X) + 0.2 * ball_radius * ball_spin(Y);
 	}
 	else {
 		// reflect ball velocity
@@ -713,9 +713,9 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  * Function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
  *
- * Warning: spin is turned off!
- * FIXME: Prediction with a spin model does not work as intended since
- * the spin after bounce is not saved.
+ * Warning: spin is turned ON!
+ * Prediction with a spin model assumes that spin is kept constant
+ * as changes to spin are not saved!
  *
  *
  * @param xnow Consists of current ball position and velocity.
@@ -724,7 +724,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow,false,false);
+	TableTennis tennis = TableTennis(xnow,true,false);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
@@ -740,7 +740,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
  * They can use then to apply predict() using the this function pointer.
  * This version also checks for robot's racket to predict next ball state.
  *
- * Warning: spin is turned off!
+ * Warning: spin is turned ON!
  *
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.
@@ -748,7 +748,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
  */
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow);
+	TableTennis tennis = TableTennis(xnow,true,false);
 	tennis.integrate_ball_state(robot,dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;

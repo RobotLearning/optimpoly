@@ -90,7 +90,7 @@ private:
 	vec3 ball_spin; // ball angular velocity = 0 if spin mode is turned OFF
 
 	// init topspin function useful in spin initialization
-	void init_topspin();
+	void init_topspin(double val = -50);
 
 	vec3 flight_model() const;
 	vec3 drag_flight_model() const;
