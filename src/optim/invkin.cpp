@@ -45,57 +45,27 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 							  double *joint_max_cand, double *joint_min_cand);
 static void finalize_soln(const double* x, optim * params, double time_elapsed);
 
-
 /**
- * @brief Constructor for the Inverse Kinematics class.
- * Sets the structures and initializes the NLOPT optimization.
- *
- * @param coparams Co-optimization parameters held fixed during optimization.
- * @param racketdata Predicted racket position,velocity and normals.
- * @param params Optimization parameters updated
- *        if the solution found is FEASIBLE.
- *
- */
-InvKin::InvKin(coptim *coparams_,
-		       racketdes *racketdata_,
-		       optim *params_) :
-	coparams(coparams_), racketdata(racketdata_), params(params_) {
-
-	double tol_eq[EQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-	// set tolerances equal to second argument
-
-	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
-	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, coparams->lb);
-	nlopt_set_upper_bounds(opt, coparams->ub);
-	nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM,
-			kinematics_eq_constr, this, tol_eq);
-
-	for (int i = 0; i < NDOF; i++) {
-		limit_avg[i] = (coparams->ub[i] + coparams->lb[i])/2.0;
-	}
-}
-
-/**
- * @brief Run Inverse Kinematics for table tennis trajectory generation
+ * @brief inverse kinematics for table tennis trajectory generation
  *        based on a fixed Virtual Hitting Plane (VHP).
  *
  * Multi-threading entry point for the NLOPT optimization.
  * The optimization problem is solved online using COBYLA (see NLOPT).
  * Cost function in this case is the sum of squared distances from
  * joint limits.
+ * VHP is held fixed at a constant (see constants.h) y-location.
  *
- * TODO: VHP is held fixed at a constant (see constants.h) y-location.
- *
+ * @param coparams Co-optimization parameters held fixed during optimization.
+ * @param racketdata Predicted racket position,velocity and normals.
+ * @param params Optimization parameters updated if the solution found is FEASIBLE.
  * @return the maximum of violations
  *         Maximum of :
  * 		   1. kinematics equality constraint violations
  *         2. joint limit violations throughout trajectory
  */
-double InvKin::operator()() {
+double nlopt_vhp_run(coptim *coparams,
+					 racketdes *racketdata,
+					 optim *params) {
 
 	firsttime[0] = true;
 	firsttime[1] = true;
@@ -103,6 +73,7 @@ double InvKin::operator()() {
 	//print_input_structs(coparams, racketdata, params);
 	params->update = false;
 	params->running = true;
+	nlopt_opt opt;
 	double x[2*NDOF];
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
@@ -111,6 +82,15 @@ double InvKin::operator()() {
 		init_last_soln(params,x);
 	else
 		init_rest_soln(coparams,x);
+
+	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
+	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_lower_bounds(opt, coparams->lb);
+	nlopt_set_upper_bounds(opt, coparams->ub);
+	nlopt_set_min_objective(opt, penalize_dist_to_limits, coparams);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
+			                         racketdata, tol_eq);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -136,6 +116,7 @@ double InvKin::operator()() {
 	    	finalize_soln(x,params,past_time);
 	}
 	params->running = false;
+	//nlopt_destroy(opt);
 	return max_violation;
 }
 

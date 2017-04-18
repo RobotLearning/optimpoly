@@ -89,30 +89,10 @@ typedef struct {
 	double R_net;
 } weights; // weights for optimization penalties
 
-class KinOpt {
-
-public:
-	coptim *coparams;
-	racketdes *racketdata;
-	optim *params;
-	nlopt_opt opt;
-	virtual double operator() = 0;
-	virtual ~KinOpt() = default;
-};
-
-// optim class for VHP player
-class InvKin : public KinOpt {
-
-public:
-	coptim *coparams;
-	racketdes *racketdata;
-	optim *params;
-	nlopt_opt opt;
-	double limit_avg[NDOF];
-
-	InvKin(coptim *coparams, racketdes *racketdata, optim *params);
-	double operator();
-};
+// interface for VHP player
+double nlopt_vhp_run(coptim *coparams,
+					 racketdes *racketdata,
+					 optim *params);
 
 // interface for LAZY player
 double nlopt_optim_lazy_run(double** ballpred,
