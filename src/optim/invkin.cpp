@@ -407,6 +407,6 @@ static void finalize_soln(const double* x, optim * params, double time_elapsed) 
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	//params->T = params->T - (time_elapsed/1e3);
+	params->T = params->T - (time_elapsed/1e3);
 	params->update = true;
 }

@@ -38,7 +38,7 @@ inline bool test_uninit_exception(const KF & filter) {
 	try {
 		vec mean = filter.get_mean();
 	}
-	catch (const char * exception) {
+	catch (const runtime_error & exception) {
 		cout << "Caught the exception!" << endl;
 		flag = true;
 	}
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	std::cout << "**************************************\n";
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
-	double time_data = 0.0;
+	//double time_data = 0.0;
 	int head = 0; //3300;
 	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
 		fuse_blobs(blob1,blob3,status1,status3,obs);
-		time_data = real_ball_data(i,10);
+		//time_data = real_ball_data(i,10);
 		ball_states.row(i-head) = cp.filt_ball_state(obs).t();
 	}
 	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt",raw_ascii);
