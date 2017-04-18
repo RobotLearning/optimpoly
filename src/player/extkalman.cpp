@@ -65,7 +65,7 @@ mat EKF::linearize(double dt, double h) const {
 		fPlus.col(i) = this->f(x + delta.col(i),dt);
 		fMinus.col(i) = this->f(x - delta.col(i),dt);
 	}
-	return (fPlus - fMinus) / (2*dt);
+	return expmat(dt * (fPlus - fMinus) / (2*h));
 }
 
 /**
@@ -80,9 +80,10 @@ void EKF::predict(double dt, bool lin_flag) {
 
 	x = this->f(x,dt);
 	if (lin_flag) {
+		//cout << "A = \n" << linearize(dt,0.01);
 		mat A = linearize(dt,0.0001);
 		P = A * P * A.t() + Q * dt;
-		//cout << P << endl;
+		//cout << "P = \n" << P;
 	}
 }
 
@@ -142,7 +143,8 @@ bool EKF::check_outlier(const vec & y, const bool verbose) const {
 	else {
 		if (verbose) {
 			std::cout << "Outlier detected!" << std::endl
-			          << "Inno vs. Thresh" << inno << threshold << std::endl;
+			          << "Inno: \n" << inno.t()
+					  << "Thresh: \n" << threshold.t();
 		}
 	}
 
