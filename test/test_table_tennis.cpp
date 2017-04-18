@@ -69,7 +69,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 5;
+	int num_trials = 20;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -78,7 +78,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 q0;
 	double std_noise = 0.001;
 	double std_model = 0.03;
-	init_posture(q0,1);
+	init_posture(q0,0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
@@ -90,7 +90,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		tt = TableTennis(false,true);
 		std::cout << "Trial: " << n << std::endl;
-		tt.set_ball_gun(0.05,1);
+		tt.set_ball_gun(0.05,0);
 		robot->reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);

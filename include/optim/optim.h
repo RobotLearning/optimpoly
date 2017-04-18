@@ -72,7 +72,6 @@ typedef struct {
 	racketdes *racketdata;
 	coptim * coparams;
 	double **ballpred;
-	double *qwait;
 	double dt;
 	int Nmax;
 } lazy_data;
@@ -82,8 +81,6 @@ typedef struct {
  */
 typedef struct {
 	double * R_strike;
-	double * R_return;
-	double * R_wait;
 	double * R_hit;
 	double * R_land;
 	double R_net;
