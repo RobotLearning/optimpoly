@@ -758,7 +758,7 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	P *= 100.0;
+	//P *= 100.0;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 

@@ -725,7 +725,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow,true,false);
+	TableTennis tennis = TableTennis(xnow,false,false);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
