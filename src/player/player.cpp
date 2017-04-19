@@ -395,15 +395,14 @@ bool Player::check_update(const joint & qact) const {
 	static int counter;
 	racket robot_racket;
 	//static int num_updates;
-	static const double FREQ_MPC = 40.0;
+	static const double FREQ_MPC = 10.0;
 	static wall_clock timer;
 	bool activate, passed_lim = false;
 
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		update = !optim_params.update && !optim_params.running
-				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
+		update = !optim_params.update && !optim_params.running;
 		// ball is incoming
 		if (mpc && coparams.moving) {
 			calc_racket_state(qact,robot_racket);
@@ -413,7 +412,7 @@ bool Player::check_update(const joint & qact) const {
 			update = update && valid_obs && activate && !passed_lim;
 		}
 		else {
-			update = update && !coparams.moving;
+			update = update && !coparams.moving && state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
 		}
 	}
 	catch (const std::exception & not_init_error) {
