@@ -82,7 +82,7 @@ void EKF::predict(double dt, bool lin_flag) {
 	if (lin_flag) {
 		//cout << "A = \n" << linearize(dt,0.01);
 		mat A = linearize(dt,0.0001);
-		P = A * P * A.t() + Q * dt;
+		P = A * P * A.t() + Q;
 		//cout << "P = \n" << P;
 	}
 }
@@ -135,16 +135,17 @@ bool EKF::check_outlier(const vec & y, const bool verbose) const {
 	static int dim_y = y.n_elem;
 	static double std_dev_mult = 3.0;
 	vec threshold = std_dev_mult * arma::sqrt(P.diag());
-	vec inno = y - C * x;
+	vec inno = clamp(y - C * x, -10, 10);
 
 	if (all(inno < threshold.head(dim_y))) {
 		outlier = false;
 	}
 	else {
 		if (verbose) {
-			std::cout << "Outlier detected!" << std::endl
-			          << "Inno: \n" << inno.t()
-					  << "Thresh: \n" << threshold.t();
+			std::cout << "Outlier detected at: \t" << y.t()
+					  //<< "State: \t" << x.t()
+			          << "Inno: \t" << inno.t()
+					  << "Thresh: \t" << threshold.t();
 		}
 	}
 

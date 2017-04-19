@@ -481,6 +481,7 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
 		}
 		// zero the velocities
 		ball_cand_vel = zeros<vec>(3);
+		ball_cand_pos = ball_pos;
 		ball_cand_pos(Z) = floor_level;
 	}
 
@@ -724,7 +725,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  */
 vec calc_next_ball(const vec & xnow, double dt) {
 
-	TableTennis tennis = TableTennis(xnow,false,false);
+	TableTennis tennis = TableTennis(xnow,true,false);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;

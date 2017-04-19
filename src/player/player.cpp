@@ -161,12 +161,12 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 	}
 	else { // comes here if there are enough balls to start filter
-		filter.predict(DT);
-		if (newball && filter.check_outlier(obs,verbose > 0)) {
+		filter.predict(DT,true);
+		if (newball && !filter.check_outlier(obs,verbose > 0)) {
 			valid_obs = true;
 			filter.update(obs);
 			//cout << "Updating...\n"
-			//     << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
+			//     << "OBS\t" << obs.t() << "FILT\t" << filter.get_mean().t();
 		}
 
 	}
@@ -725,7 +725,7 @@ bool check_new_obs(const vec3 & obs, double tol) {
 }
 
 /*
- * Empirical Bayes procedure to estimate prior given
+ * Least squares to estimate prior given
  * matrix of observations Y of column length N, each row
  * corresponding to one
  *
@@ -758,14 +758,14 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	//P *= 100.0;
+	P *= 100.0;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
 	double dt;
 	for (unsigned i = 1; i < times.n_elem; i++) {
 		dt = times(i) - times(i-1);
-		filter.predict(dt);
+		filter.predict(dt,true);
 		filter.update(observations.col(i));
 	}
 	//x = filter.get_mean();
