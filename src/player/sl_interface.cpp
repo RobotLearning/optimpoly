@@ -70,6 +70,7 @@ struct player_flags { //! player flags
 	bool save = false; //! saving ball/robot data
 	bool mpc = false; //! turn on/off corrections
 	algo alg = FIXED; //! algorithm for trajectory generation
+	mode_operate mode = TEST_SIM;
 };
 
 player_flags flags; //! global structure for setting Player options
@@ -124,16 +125,20 @@ void load_options() {
 	string home = std::getenv("HOME");
 	string config_file = home + "/polyoptim/" + "player.cfg";
 	int alg_num;
+	int mode;
 
     try {
 		// Declare a group of options that will be
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
+		    ("mode", po::value<int>(&mode)->default_value(0),
+			      "mode of operations: SIM vs. SL vs. REAL ROBOT")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
 				 "corrections (MPC)")
+		    ("")
 			("verbose", po::value<int>(&flags.verbosity)->default_value(1),
 		         "verbosity level")
 		    ("save_data", po::value<bool>(&flags.save)->default_value(false),
@@ -153,6 +158,21 @@ void load_options() {
     }
     set_algorithm(alg_num);
 
+    switch (mode) {
+		case 0:
+			flags.mode = TEST_SIM;
+			break;
+		case 1:
+			flags.mode = SL_SIM;
+			break;
+		case 2:
+			flags.mode = REAL_ROBOT;
+			break;
+		default:
+			flags.mode = TEST_SIM;
+    }
+
+    cout << "Mode of operations: " << mode << "\n";
     cout << "Algorithm specified: " << alg_num << "\n";
 	cout << "MPC Turned on? " << flags.mpc << "\n";
 	cout << "Verbosity level? " << flags.verbosity << "\n";
@@ -275,7 +295,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter(0.3,0.001);
 		delete robot;
-		robot = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity);
+		robot = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity,flags.mode);
 		flags.reset = false;
 	}
 	else {

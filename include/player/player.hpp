@@ -67,13 +67,13 @@ private:
 	double t_cum; // counting time stamps for resetting filter
 
 	// flags and related fields
-	mode_operate mode; // sim vs. real robot
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool mpc; // apply corrections
 	bool valid_obs; // ball observed is valid (new ball and not an outlier)
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
+	mode_operate mode; // sim vs. real robot
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
