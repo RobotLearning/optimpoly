@@ -16,13 +16,17 @@ using namespace arma;
 
 /**
  *
- * @brief Kalman filter class with some additional checks.
+ * @brief Discrete Kalman filter class with some additional checks.
+ *
+ * Discrete Kalman Filter class which can discretize continuous model
+ * matrices as well as sampling observations.
+ *
  */
 class KF {
 
 private:
 
-	mat A; // matrices for the linear system
+	mat A; // matrices for the linear system (discrete)
 	mat B;
 
 	// checks and balances
@@ -34,8 +38,8 @@ protected:
 	mat P; // covariance of the state
 	mat C; // observation matrix that EKF can also borrow
 
-	mat Q; // covariance of the process noise
-	mat R; // covariance of the observation noise
+	mat Q; // covariance of the process noise (discrete)
+	mat R; // covariance of the observation noise (discrete)
 
 	void check_spd(const mat & M) const;
 	mat chol_semi(const mat & M) const;
