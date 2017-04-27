@@ -28,6 +28,12 @@ enum game { //trial state
 	HIT,
 };
 
+enum mode_operate { // mode of operations
+	TEST_SIM, // optim wont be detached
+	SL_SIM, // sim but optim will be detached
+	REAL_ROBOT, // outlier detection
+};
+
 /**
  * @brief Desired/actual joint positions, velocities, accelerations.
  *
@@ -61,6 +67,7 @@ private:
 	double t_cum; // counting time stamps for resetting filter
 
 	// flags and related fields
+	mode_operate mode; // sim vs. real robot
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool mpc; // apply corrections
@@ -83,7 +90,8 @@ private:
 
 public:
 
-	Player(const vec7 & q0, EKF & filter, algo alg = FIXED, bool mpc = false, int verbose = 0);
+	Player(const vec7 & q0, EKF & filter,
+			algo alg = FIXED, bool mpc = false, int verbose = 0, mode_operate mode = TEST_SIM);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance

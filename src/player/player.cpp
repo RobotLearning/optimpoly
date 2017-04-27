@@ -59,8 +59,8 @@ using namespace arma;
  * @param mpc_ Flag for turning on/off model predictive control (i.e. corrections).
  * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
  */
-Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_)
-               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_) {
+Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_, mode_operate mode_)
+               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_), mode(mode_) {
 
 	time_land_des = 0.8;
 	time2return = 1.0;
@@ -162,8 +162,12 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT,true);
-		if (newball && !filter.check_outlier(obs,verbose > 0)) {
+		if (newball) {
 			valid_obs = true;
+			if (mode == REAL_ROBOT)
+				valid_obs = !filter.check_outlier(obs,verbose > 0);
+		}
+		if (valid_obs) {
 			filter.update(obs);
 			//cout << "Updating...\n"
 			//     << "OBS\t" << obs.t() << "FILT\t" << filter.get_mean().t();

@@ -65,7 +65,7 @@ mat EKF::linearize(double dt, double h) const {
 		fPlus.col(i) = this->f(x + delta.col(i),dt);
 		fMinus.col(i) = this->f(x - delta.col(i),dt);
 	}
-	return expmat(dt * (fPlus - fMinus) / (2*h));
+	return (fPlus - fMinus) / (2*h);
 }
 
 /**
