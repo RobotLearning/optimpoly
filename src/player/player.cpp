@@ -58,6 +58,7 @@ using namespace arma;
  * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
  * @param mpc_ Flag for turning on/off model predictive control (i.e. corrections).
  * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
+ * @param mode_ Mode of running player (0 = SIM FOR UNIT TESTS, 1 = SL SIM, 2 = REAL ROBOT!)
  */
 Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_, mode_operate mode_)
                : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_), mode(mode_) {
@@ -95,7 +96,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	}
 
 	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return, false, verbose > 1};
+	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
+			    mode != TEST_SIM, false, verbose > 1};
 
 }
 
@@ -127,7 +129,8 @@ Player::~Player() {
  * Checking for also outliers.
  * Resets if the ball suddenly appears on the opponent's court.
  *
- * Returns the valid ball flag.
+ * Ball is valid if ball is a new ball and (in real robot mode)
+ * it is not an outlier!
  *
  * TODO: we're assuming that time elasped dt = DT = 0.002 seconds every time!
  *
@@ -299,8 +302,10 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 
@@ -333,8 +338,10 @@ void Player::optim_fixedp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 }
@@ -372,8 +379,10 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 
@@ -394,14 +403,15 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 bool Player::check_update(const joint & qact) const {
 
+	static vec6 state_last = -10 * ones<vec>(6);
+	//static int num_updates;
+	static const double FREQ_MPC = (mode == REAL_ROBOT) ? 10.0 : 40.0;
+	static wall_clock timer;
 	vec6 state_est;
 	bool update;
 	static int counter;
 	racket robot_racket;
-	//static int num_updates;
-	static const double FREQ_MPC = 10.0;
-	static wall_clock timer;
-	bool activate, passed_lim = false;
+	bool activate, passed_lim, incoming = false;
 
 	try {
 		state_est = filter.get_mean();
@@ -410,13 +420,17 @@ bool Player::check_update(const joint & qact) const {
 		// ball is incoming
 		if (mpc && coparams.moving) {
 			calc_racket_state(qact,robot_racket);
-			activate = (timer.toc() > (1.0/FREQ_MPC));
-			//activate = (counter % 20 == 0);
+			activate = (mode == TEST_SIM) ? counter % 5 == 0 :
+					                        timer.toc() > (1.0/FREQ_MPC);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
-			update = update && valid_obs && activate && !passed_lim;
+			incoming = state_est(Y) > state_last(Y);
+			update = update && valid_obs && activate
+					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !coparams.moving && state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
+			update = update && !coparams.moving
+					&& (state_est(Y) > (dist_to_table - table_length/2.0))
+					&& (state_est(DY) > 2.0);
 		}
 	}
 	catch (const std::exception & not_init_error) {
@@ -425,6 +439,7 @@ bool Player::check_update(const joint & qact) const {
 	if (update) {
 		//cout << num_updates++ << endl;
 		timer.tic();
+		state_last = state_est;
 	}
 	return update;
 }

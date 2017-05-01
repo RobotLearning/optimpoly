@@ -18,7 +18,8 @@ static bool firsttime[3]; //! TODO: remove this global var!
 
 // termination
 static double test_optim(const double *x, coptim *params, racketdes *racketdata);
-static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static void finalize_soln(const double* x, optim * params,
+		                  bool detach, double time_elapsed);
 static bool check_optim_result(const int res);
 
 // optimization related methods
@@ -115,7 +116,7 @@ double nlopt_optim_fixed_run(coptim *coparams,
 		}
 	    max_violation = test_optim(x,coparams,racketdata);
 	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
-	    	finalize_soln(x,params,past_time);
+	    	finalize_soln(x,params,coparams->detach,past_time);
 	}
 	params->running = false;
 	if (coparams->verbose)
@@ -439,14 +440,18 @@ static double test_optim(const double *x, coptim * coparams, racketdes * racketd
 /*
  * Finalize the solution and update target SL structure and hitTime value
  */
-static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+static void finalize_soln(const double* x, optim * params,
+		                  bool detach, double time_elapsed) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	params->T = x[2*NDOF];
+	if (detach) {
+		params->T -= (time_elapsed/1e3);
+	}
 	params->update = true;
 }
 

@@ -47,6 +47,7 @@ typedef struct {
 	double* lb;
 	double* ub;
 	double time2return;
+	bool detach;
 	bool moving;
 	bool verbose;
 } coptim; // optimization coparameters

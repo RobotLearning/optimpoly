@@ -91,7 +91,8 @@ private:
 public:
 
 	Player(const vec7 & q0, EKF & filter,
-			algo alg = FIXED, bool mpc = false, int verbose = 0, mode_operate mode = TEST_SIM);
+			algo alg = FIXED, bool mpc = false,
+			int verbose = 0, mode_operate mode = TEST_SIM);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance

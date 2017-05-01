@@ -81,7 +81,7 @@ void EKF::predict(double dt, bool lin_flag) {
 	x = this->f(x,dt);
 	if (lin_flag) {
 		//cout << "A = \n" << linearize(dt,0.01);
-		mat A = linearize(dt,0.0001);
+		mat A = linearize(dt,0.01);
 		P = A * P * A.t() + Q;
 		//cout << "P = \n" << P;
 	}

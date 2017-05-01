@@ -138,7 +138,6 @@ void load_options() {
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
 				 "corrections (MPC)")
-		    ("")
 			("verbose", po::value<int>(&flags.verbosity)->default_value(1),
 		         "verbosity level")
 		    ("save_data", po::value<bool>(&flags.save)->default_value(false),
@@ -295,7 +294,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter(0.3,0.001);
 		delete robot;
-		robot = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity,flags.mode);
+		robot = new Player(q0,filter,
+				flags.alg,flags.mpc,flags.verbosity,flags.mode);
 		flags.reset = false;
 	}
 	else {

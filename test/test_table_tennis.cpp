@@ -57,7 +57,7 @@ inline void init_posture(vec7 & q0, int posture) {
 	q0 = qinit.t();
 }
 
-algo algs[] = {LAZY};
+algo algs[] = {FIXED};
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -69,7 +69,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
-	int num_trials = 20;
+	int num_trials = 5;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -77,19 +77,19 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	arma_rng::set_seed(0);
 	vec7 q0;
 	double std_noise = 0.001;
-	double std_model = 0.03;
+	double std_model = 0.3;
 	init_posture(q0,0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
-	Player* robot = new Player(q0,filter,alg,true,1);
+	Player* robot = new Player(q0,filter,alg,true,0);
 	int N = 2000;
 	joint qdes = qact;
 	racket robot_racket;
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
-		tt = TableTennis(false,true);
-		std::cout << "Trial: " << n << std::endl;
+		tt = TableTennis(true,true);
+		std::cout << "Trial: " << n+1 << std::endl;
 		tt.set_ball_gun(0.05,0);
 		robot->reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
@@ -119,7 +119,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-/*BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Testing Robot Ball Landing" << std::endl;
 
@@ -132,7 +132,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	tt.set_ball_gun(0.05,1); // init ball on the centre
 
 	vec7 q0;
-	double std_obs = 0.001; // std of the noisy observations
+	double std_obs = 0.000; // std of the noisy observations
 	init_posture(q0,0);
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
@@ -162,7 +162,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	BOOST_TEST(tt.has_landed());
 	delete(robot);
 	std::cout << "******************************************************" << std::endl;
-}*/
+}
 
 /*
  * Testing whether table tennis ball bounces on table and touches the ground
@@ -211,17 +211,15 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 	filter.set_prior(x0,P0);
 	int N = 100;
 	double dt = 0.01;
-	vec6 ball_state;
 	vec3 obs;
 	vec err = zeros<vec>(N);
 
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(dt);
-		ball_state = tt.get_ball_state();
 		obs = tt.get_ball_position() + std_noise * randn<vec>(3);
 		filter.predict(dt);
 		filter.update(obs);
-		err(i) = norm(filter.get_mean() - ball_state,2);
+		err(i) = norm(filter.get_mean() - tt.get_ball_state(),2);
 	}
 	//cout << err << endl;
 	cout << "Error of state estimate start: " << err(0) << " end: " << err(N-1) << endl;
@@ -241,27 +239,25 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 	std::cout << std::endl << "Testing Player class's Filtering performance..." << std::endl;
 
 	int N = 50;
-	vec6 ball_state;
 	vec3 obs;
 	vec err = zeros<vec>(N);
 	double std_noise = 0.001;
-	double std_model = 0.03;
-	TableTennis tt = TableTennis();
+	double std_model = 0.001;
+	TableTennis tt = TableTennis(false,true);
 	EKF filter = init_filter(std_model,std_noise);
 	Player *cp = new Player(zeros<vec>(NDOF),filter);
 	tt.set_ball_gun(0.2);
 
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(DT);
-		ball_state = join_vert(tt.get_ball_position(),tt.get_ball_velocity());
 		obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-		err(i) = norm(ball_state - cp->filt_ball_state(obs),2);
+		err(i) = norm(tt.get_ball_state() - cp->filt_ball_state(obs),2);
 		//usleep(10e3);
 	}
 	//cout << err << endl;
 	cout << "Error of state estimate start: " << err(0) << " end: " << err(N-1) << endl;
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
 	delete(cp);
-	//std::cout << " decreases." << std::endl;
+	//cout << err;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
 }
