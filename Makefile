@@ -41,10 +41,8 @@ optim:
 	                    -lm -o $(LIBDIR)/liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp \
-	                  -o unit_tests.o -lm -larmadillo \
-	                   $(LIBS) -I$(HEADER1) -I$(HEADER2) -I/usr/local/include \
-	                   /usr/local/lib/libboost_unit_test_framework.a \
+	$(CC) $(TESTFLAGS) test/test_kalman.cpp -o unit_tests.o \
+	                   $(LIBS) /is/ei/okoc/install/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libfilter.so $(LIBDIR)/libplayer.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
 					    

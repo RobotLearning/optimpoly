@@ -144,7 +144,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
-	if (check_reset_filter(newball,verbose,filter)) {
+	if (check_reset_filter(newball,verbose)) {
+		filter = init_filter(0.03,0.001,mode == REAL_ROBOT);
 		num_obs = 0;
 		game_state = AWAITING;
 		t_cum = 0.0; // t_cumulative
@@ -545,7 +546,7 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
  */
 void Player::reset_filter(double std_model, double std_noise) {
 
-	filter = init_filter(std_model,std_noise);
+	filter = init_filter(std_model,std_noise,mode == REAL_ROBOT);
 	num_obs = 0;
 	game_state = AWAITING;
 	t_cum = 0.0;
@@ -628,12 +629,15 @@ void generate_strike(const optim & params, const joint & qact,
  * useful for passing to Player constructor
  *
  */
-EKF init_filter(double std_model, double std_noise) {
+EKF init_filter(double std_model, double std_noise, bool spin) {
 
 	mat C = eye<mat>(3,6);
 	mat66 Q = std_model * eye<mat>(6,6);
 	mat33 R = std_noise * eye<mat>(3,3);
-	return EKF(calc_next_ball,C,Q,R);
+	if (spin)
+		return EKF(calc_spin_ball,C,Q,R);
+	else
+		return EKF(calc_next_ball,C,Q,R);
 }
 
 /*
@@ -797,10 +801,8 @@ void estimate_prior(const mat & observations,
  * Basically if a new ball appears 300 ms later than the last new ball
  * we reset the filter.
  *
- * TODO: check if it works on real ball data!
- *
  */
-bool check_reset_filter(const bool newball, const int verbose, EKF & filter) {
+bool check_reset_filter(const bool newball, const int verbose) {
 
 	bool reset = false;
 	static int reset_cnt = 0;
@@ -819,11 +821,9 @@ bool check_reset_filter(const bool newball, const int verbose, EKF & filter) {
 			if (verbose > 0) {
 				std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
 			}
-			filter = init_filter();
 		}
 		timer.tic();
 	}
-
 	return reset;
 }
 

@@ -108,12 +108,12 @@ public:
 };
 
 // ball estimation and filter constructor/state initialization
-EKF init_filter(double std_model = 0.001, double std_noise = 0.001);
+EKF init_filter(double std_model = 0.001, double std_noise = 0.001, bool spin = false);
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter);
 bool check_new_obs(const vec3 & obs, double tol);
-bool check_reset_filter(const bool newball, const int verbose, EKF & filter);
+bool check_reset_filter(const bool newball, const int verbose);
 
 // movement generation
 void generate_strike(const optim & params, const joint & qact,

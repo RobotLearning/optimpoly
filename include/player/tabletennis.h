@@ -68,6 +68,7 @@ static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 // interface to the outside world (e.g. player)
 vec calc_next_ball(const vec & xnow, double dt);
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
+vec calc_spin_ball(const vec & xnow, double dt);
 
 /**
  * @brief Table Tennis ball prediction methods
@@ -143,6 +144,7 @@ public:
 	friend vec calc_next_ball(const vec & xnow, const double dt);
 	friend vec calc_next_ball(const racket & robot,
 			const vec & xnow, const double dt);
+	friend vec calc_spin_ball(const vec & xnow, double dt);
 };
 
 #endif /* end of TABLETENNIS_H_ */

@@ -284,7 +284,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // centered player
-	static EKF filter = init_filter(0.3,0.001);
+	static EKF filter = init_filter(0.3,0.001,flags.mode == REAL_ROBOT);
 
 	if (flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -292,7 +292,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_filter(0.3,0.001);
+		filter = init_filter(0.3,0.001,flags.mode == REAL_ROBOT);
 		delete robot;
 		robot = new Player(q0,filter,
 				flags.alg,flags.mpc,flags.verbosity,flags.mode);

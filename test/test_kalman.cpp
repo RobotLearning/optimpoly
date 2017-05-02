@@ -294,16 +294,16 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	mat real_ball_data;
 	std::string home = std::getenv("HOME");
 	try {
-		real_ball_data.load(home + "Dropbox/data/balls_small.txt", raw_ascii);
-				//"/Dropbox/data/realBallData_030516.txt");
+		real_ball_data.load(home + "/Dropbox/data/realBallData_030516.txt", raw_ascii);
+				//"Dropbox/data/balls_small.txt"
 	}
 	catch (const char * exception) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
 	int N = real_ball_data.n_rows; //4000;
 	mat ball_states = zeros<mat>(N-head,6);
-	EKF filter = init_filter(0.1,0.1);
-	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1);
+	EKF filter = init_filter(0.1,0.1,true); // spin turned on
+	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,REAL_ROBOT);
 	for (int i = head; i < N; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();
@@ -314,8 +314,8 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		ball_states.row(i-head) = cp.filt_ball_state(obs).t();
 		usleep(2000);
 	}
-	ball_states.save(home + "Dropbox/data/balls_small_filtered.txt", raw_ascii);
-			//"/Dropbox/data/realBallData_filtered.txt",raw_ascii);
+	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt", raw_ascii);
+			//"Dropbox/data/balls_small_filtered.txt"
 
 }
 
