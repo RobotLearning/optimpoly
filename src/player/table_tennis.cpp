@@ -36,14 +36,12 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
  * @param spin_flag Turn ON for spin modelling.
  * @param verbosity Turn ON for printing events (bounce, hit, etc.)
  */
-TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity) {
-
-	SPIN_MODE = spin_flag;
-	VERBOSE = verbosity;
+TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity)
+							: SPIN_MODE(spin_flag), VERBOSE(verbosity) {
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	init_topspin(-30);
+	init_topspin(-50.0);
 }
 
 /**
@@ -54,15 +52,13 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
  * @param spin_flag Turn ON for spin modelling.
  * @param verbosity Turn ON for printing events (bounce, hit, etc.)
  */
-TableTennis::TableTennis(bool spin_flag, bool verbosity) {
+TableTennis::TableTennis(bool spin_flag, bool verbosity) :
+	 SPIN_MODE(spin_flag), VERBOSE(verbosity) {
 
-	SPIN_MODE = spin_flag;
-	VERBOSE = verbosity;
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
-
-	init_topspin(-30);
+	init_topspin(-50.0);
 }
 
 /**
@@ -278,6 +274,7 @@ vec3 TableTennis::flight_model() const {
 		vec3 magnus = cross(ball_spin,ball_vel); // acceleration due to magnus force
 		magnus *= params.Clift;
 		ball_acc += magnus;
+		//std::cout << magnus << std::endl;
 	}
 	return ball_acc;
 }
@@ -481,6 +478,7 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
 		}
 		// zero the velocities
 		ball_cand_vel = zeros<vec>(3);
+		ball_cand_pos = ball_pos;
 		ball_cand_pos(Z) = floor_level;
 	}
 
@@ -690,13 +688,13 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
 	if (spin_flag) { // if spin mode is on ballvec is not a null pointer
 		//cout << "Using a spin model for bounce..." << endl;
 		// compute effect on spin
-		//ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
-		//ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
+		ball_spin(X) -= (3*(1-CFTX)/(2*ball_radius))*ball_vel(Y) + (3*(1-CFTX)/2)*ball_spin(X);
+		ball_spin(Y) += (3*(1-CFTY)/(2*ball_radius))*ball_vel(X) - (3*(1-CFTY)/2)*ball_spin(Y);
 		// in z-direction spin is preserved
 		// compute effect on velocity
-		ball_vel(Z) = -0.90 * ball_vel(Z);
-		ball_vel(Y) = 1.2 * ball_vel(Y) - 0.2 * ball_radius * ball_spin(X);
-		ball_vel(X) = 1.2 * ball_vel(X) + 0.2 * ball_radius * ball_spin(Y);
+		ball_vel(Z) = -CRT * ball_vel(Z); // old : 0.90, 1.2 , -0.2, + 0.2
+		ball_vel(Y) = CFTY * ball_vel(Y) - (1-CFTY) * ball_radius * ball_spin(X);
+		ball_vel(X) = CFTX * ball_vel(X) + (1-CFTX) * ball_radius * ball_spin(Y);
 	}
 	else {
 		// reflect ball velocity
@@ -713,7 +711,7 @@ static void table_contact_model(const double & CFTX, const double & CFTY, const 
  * Function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
  *
- * Warning: spin is turned ON!
+ * Warning: spin is turned ON/OFF arbitrarily!
  * Prediction with a spin model assumes that spin is kept constant
  * as changes to spin are not saved!
  *
@@ -740,7 +738,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
  * They can use then to apply predict() using the this function pointer.
  * This version also checks for robot's racket to predict next ball state.
  *
- * Warning: spin is turned ON!
+ * Warning: spin is turned ON/OFF arbitrarily!
  *
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.

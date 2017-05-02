@@ -58,9 +58,10 @@ using namespace arma;
  * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
  * @param mpc_ Flag for turning on/off model predictive control (i.e. corrections).
  * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
+ * @param mode_ Mode of running player (0 = SIM FOR UNIT TESTS, 1 = SL SIM, 2 = REAL ROBOT!)
  */
-Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_)
-               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_) {
+Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_, mode_operate mode_)
+               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_), mode(mode_) {
 
 	time_land_des = 0.8;
 	time2return = 1.0;
@@ -95,7 +96,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	}
 
 	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return, false, verbose > 1};
+	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
+			    mode != TEST_SIM, false, verbose > 1};
 
 }
 
@@ -127,7 +129,8 @@ Player::~Player() {
  * Checking for also outliers.
  * Resets if the ball suddenly appears on the opponent's court.
  *
- * Returns the valid ball flag.
+ * Ball is valid if ball is a new ball and (in real robot mode)
+ * it is not an outlier!
  *
  * TODO: we're assuming that time elasped dt = DT = 0.002 seconds every time!
  *
@@ -161,11 +164,16 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 	}
 	else { // comes here if there are enough balls to start filter
-		filter.predict(DT);
-		if (newball) { // && !filter.check_outlier(obs,verbose > 0)) {
+		filter.predict(DT,true);
+		if (newball) {
 			valid_obs = true;
+			if (mode == REAL_ROBOT)
+				valid_obs = !filter.check_outlier(obs,verbose > 0);
+		}
+		if (valid_obs) {
 			filter.update(obs);
-			//cout << "Updating...\n" << "OBS\n" << obs << "FILT\n" << filter.get_mean() << endl;
+			//cout << "Updating...\n"
+			//     << "OBS\t" << obs.t() << "FILT\t" << filter.get_mean().t();
 		}
 
 	}
@@ -294,8 +302,10 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 
@@ -328,8 +338,10 @@ void Player::optim_fixedp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 }
@@ -367,8 +379,10 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			//t.join();
-			t.detach();
+			if (mode == TEST_SIM)
+				t.join();
+			else
+				t.detach();
 		}
 	}
 
@@ -389,30 +403,34 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 bool Player::check_update(const joint & qact) const {
 
+	static vec6 state_last = -10 * ones<vec>(6);
+	//static int num_updates;
+	static const double FREQ_MPC = (mode == REAL_ROBOT) ? 10.0 : 40.0;
+	static wall_clock timer;
 	vec6 state_est;
 	bool update;
 	static int counter;
 	racket robot_racket;
-	//static int num_updates;
-	static const double FREQ_MPC = 40.0;
-	static wall_clock timer;
-	bool activate, passed_lim = false;
+	bool activate, passed_lim, incoming = false;
 
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		update = !optim_params.update && !optim_params.running
-				&& state_est(DY) > 0.0 && (state_est(Y) > (dist_to_table - table_length/2.0));
+		update = !optim_params.update && !optim_params.running;
 		// ball is incoming
 		if (mpc && coparams.moving) {
 			calc_racket_state(qact,robot_racket);
-			activate = (timer.toc() > (1.0/FREQ_MPC));
-			//activate = (counter % 20 == 0);
+			activate = (mode == TEST_SIM) ? counter % 5 == 0 :
+					                        timer.toc() > (1.0/FREQ_MPC);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
-			update = update && valid_obs && activate && !passed_lim;
+			incoming = state_est(Y) > state_last(Y);
+			update = update && valid_obs && activate
+					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !coparams.moving;
+			update = update && !coparams.moving
+					&& (state_est(Y) > (dist_to_table - table_length/2.0))
+					&& (state_est(DY) > 2.0);
 		}
 	}
 	catch (const std::exception & not_init_error) {
@@ -421,6 +439,7 @@ bool Player::check_update(const joint & qact) const {
 	if (update) {
 		//cout << num_updates++ << endl;
 		timer.tic();
+		state_last = state_est;
 	}
 	return update;
 }
@@ -709,7 +728,7 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 /*
  * Checks to see if the observation is new (updated)
  *
- * The blobs need to be at least tol = 1e-3 apart from each other in distance
+ * The blobs need to be at least tol apart from each other in distance
  *
  */
 bool check_new_obs(const vec3 & obs, double tol) {
@@ -724,7 +743,7 @@ bool check_new_obs(const vec3 & obs, double tol) {
 }
 
 /*
- * Empirical Bayes procedure to estimate prior given
+ * Least squares to estimate prior given
  * matrix of observations Y of column length N, each row
  * corresponding to one
  *
@@ -757,14 +776,14 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	//P *= 0.1;
+	//P *= 100.0;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
 	double dt;
 	for (unsigned i = 1; i < times.n_elem; i++) {
 		dt = times(i) - times(i-1);
-		filter.predict(dt);
+		filter.predict(dt,true);
 		filter.update(observations.col(i));
 	}
 	//x = filter.get_mean();

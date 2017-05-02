@@ -65,7 +65,7 @@ mat EKF::linearize(double dt, double h) const {
 		fPlus.col(i) = this->f(x + delta.col(i),dt);
 		fMinus.col(i) = this->f(x - delta.col(i),dt);
 	}
-	return expmat(dt * (fPlus - fMinus) / (2*h));
+	return (fPlus - fMinus) / (2*h);
 }
 
 /**
@@ -80,9 +80,10 @@ void EKF::predict(double dt, bool lin_flag) {
 
 	x = this->f(x,dt);
 	if (lin_flag) {
-		mat A = linearize(dt,0.0001);
-		P = A * P * A.t() + Q * dt;
-		//cout << P << endl;
+		//cout << "A = \n" << linearize(dt,0.01);
+		mat A = linearize(dt,0.01);
+		P = A * P * A.t() + Q;
+		//cout << "P = \n" << P;
 	}
 }
 
@@ -134,15 +135,17 @@ bool EKF::check_outlier(const vec & y, const bool verbose) const {
 	static int dim_y = y.n_elem;
 	static double std_dev_mult = 3.0;
 	vec threshold = std_dev_mult * arma::sqrt(P.diag());
-	vec inno = y - C * x;
+	vec inno = clamp(y - C * x, -10, 10);
 
 	if (all(inno < threshold.head(dim_y))) {
 		outlier = false;
 	}
 	else {
 		if (verbose) {
-			std::cout << "Outlier detected!" << std::endl
-			          << "Inno vs. Thresh" << inno << threshold << std::endl;
+			std::cout << "Outlier detected at: \t" << y.t()
+					  //<< "State: \t" << x.t()
+			          << "Inno: \t" << inno.t()
+					  << "Thresh: \t" << threshold.t();
 		}
 	}
 

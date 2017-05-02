@@ -54,7 +54,7 @@ static void calc_times(const lazy_data* data,
 					   double *xland,
 					   double *ball_norm, // ball to racket normal distance
 					   double *ball_proj);
-static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static void finalize_soln(const double* x, optim * params, bool detach, double time_elapsed);
 static void set_penalty_matrices(weights * pen);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
@@ -159,7 +159,7 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 		}
 	    max_violation = test_optim(x,data);
 	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
-	    	finalize_soln(x,params,past_time);
+	    	finalize_soln(x,params,data->coparams->detach,past_time);
 	}
 	params->running = false;
 	//nlopt_destroy(opt);
@@ -663,13 +663,16 @@ static double test_optim(double *x, lazy_data* data) {
  *
  *
  */
-static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+static void finalize_soln(const double* x, optim * params,
+		                  bool detach, double time_elapsed) {
 
 	for (int i = 0; i < NDOF; i++) {
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = x[2*NDOF] - (time_elapsed/1e3);
+	params->T = x[2*NDOF];
+	if (detach)
+		params->T -= (time_elapsed/1e3);
 	params->update = true;
 }
 

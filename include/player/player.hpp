@@ -28,6 +28,12 @@ enum game { //trial state
 	HIT,
 };
 
+enum mode_operate { // mode of operations
+	TEST_SIM, // optim wont be detached
+	SL_SIM, // sim but optim will be detached
+	REAL_ROBOT, // outlier detection
+};
+
 /**
  * @brief Desired/actual joint positions, velocities, accelerations.
  *
@@ -67,6 +73,7 @@ private:
 	bool valid_obs; // ball observed is valid (new ball and not an outlier)
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
+	mode_operate mode; // sim vs. real robot
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
@@ -83,7 +90,9 @@ private:
 
 public:
 
-	Player(const vec7 & q0, EKF & filter, algo alg = FIXED, bool mpc = false, int verbose = 0);
+	Player(const vec7 & q0, EKF & filter,
+			algo alg = FIXED, bool mpc = false,
+			int verbose = 0, mode_operate mode = TEST_SIM);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance

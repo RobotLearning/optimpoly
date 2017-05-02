@@ -383,7 +383,10 @@ void KF::update(const vec & y) {
 
 	// update state mean and covariance
 	P = P - K * C * P;
+	//cout << "obs:" << "\t" << y.t();
+	//cout << "x_pre:" << "\t" << x.t();
 	x = x + K * z;
+	//cout << "x_post:" << "\t" << x.t();
 }
 
 /**

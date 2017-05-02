@@ -43,7 +43,8 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void finalize_soln(const double* x, optim * params, double time_elapsed);
+static void finalize_soln(const double* x, optim * params,
+		                  bool detach, double time_elapsed);
 
 /**
  * @brief inverse kinematics for table tennis trajectory generation
@@ -113,7 +114,7 @@ double nlopt_vhp_run(coptim *coparams,
 		}
 	    max_violation = test_optim(x,params->T,coparams,racketdata);
 	    if (max_violation < 1e-2)
-	    	finalize_soln(x,params,past_time);
+	    	finalize_soln(x,params,coparams->detach,past_time);
 	}
 	params->running = false;
 	//nlopt_destroy(opt);
@@ -400,13 +401,14 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 /*
  * Finalize the solution and update target SL structure and hitTime value
  */
-static void finalize_soln(const double* x, optim * params, double time_elapsed) {
+static void finalize_soln(const double* x, optim * params, bool detach, double time_elapsed) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
 		params->qf[i] = x[i];
 		params->qfdot[i] = x[i+NDOF];
 	}
-	params->T = params->T - (time_elapsed/1e3);
+	if (detach)
+		params->T -= (time_elapsed/1e3);
 	params->update = true;
 }
