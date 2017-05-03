@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
 	//double time_data = 0.0;
-	int head = 0; //3300;
+	int head = 3300; // 0
 	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
 	std::string home = std::getenv("HOME");
@@ -300,10 +300,10 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	catch (const char * exception) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
-	int N = real_ball_data.n_rows; //4000;
+	int N = 4000; //real_ball_data.n_rows; //4000;
 	mat ball_states = zeros<mat>(N-head,6);
-	EKF filter = init_filter(0.1,0.1,true); // spin turned on
-	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,REAL_ROBOT);
+	EKF filter = init_filter(0.03,0.001,false); // spin turned on
+	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,TEST_SIM); // REAL_ROBOT);
 	for (int i = head; i < N; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();

@@ -60,6 +60,8 @@ struct ball_params {
 	double gravity = -9.802;
 	/* coefficient of lift for the magnus force */
 	double Clift = 0.001;
+	/* dynamic coefficient of friction */
+	double mu = 0.05;
 };
 
 // flags for table tennis players
@@ -108,6 +110,7 @@ private:
 	// Check contact with racket
 	void check_ball_racket_contact(const racket & robot,
 			       const vec3 & ball_cand_pos, vec3 & ball_cand_vel);
+	void table_contact_model();
 	// Check if it hits the ground...
 	void check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel);
 
