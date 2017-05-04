@@ -302,8 +302,8 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	}
 	int N = 4000; //real_ball_data.n_rows; //4000;
 	mat ball_states = zeros<mat>(N-head,6);
-	EKF filter = init_filter(0.03,0.001,false); // spin turned on
-	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,TEST_SIM); // REAL_ROBOT);
+	EKF filter = init_filter(0.03,0.001,true); // spin turned on
+	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,REAL_ROBOT); //TEST_SIM);
 	for (int i = head; i < N; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();

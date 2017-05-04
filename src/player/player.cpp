@@ -165,7 +165,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 	}
 	else { // comes here if there are enough balls to start filter
-		filter.predict(DT,true);
+		filter.predict(DT,true); //true);
 		if (newball) {
 			valid_obs = true;
 			if (mode == REAL_ROBOT)

@@ -295,6 +295,44 @@ vec3 TableTennis::drag_flight_model() const {
 	return ball_acc;
 }
 
+/**
+ * @brief Simple contact model that uses spin if spin mode is turned on.
+ *
+ * Linear contact model that updates the outgoing rebound velocities only.
+ * Checks if the contact is of roll or slide type. Based on a spin model
+ * from a Japanese table tennis paper.
+ *
+ * Noe: Spin is not changed!
+ * Coeff of restitution and friction used.
+ *
+ */
+void TableTennis::table_contact_model() {
+
+	if (SPIN_MODE) { // if spin mode is on ballvec is not a null pointer
+		//cout << "Using a spin model for bounce..." << endl;
+		static double e_t = params.CRT;
+		static double alpha = 0.4; // roll
+		vec3 vbT = {ball_vel(X) - ball_radius*ball_spin(Y),
+				    ball_vel(Y) + ball_radius*ball_spin(X),
+					0.0};
+		double nu_s = 1 - 0.4 * params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
+		if (nu_s > 0) { // slide
+			alpha = params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
+		}
+		vec3 v = {1.2-alpha,1.1-alpha,-e_t};
+		mat Av = diagmat(v);
+		mat Bv = {{0, alpha * ball_radius, 0}, {-alpha*ball_radius, 0, 0}, {0, 0, 0}};
+		//cout << ball_vel;
+		ball_vel = Av * ball_vel + Bv * ball_spin;
+		//cout << ball_vel;
+	}
+	else {
+		// reflect ball velocity
+		ball_vel(Z) = -params.CRT * ball_vel(Z);
+		ball_vel(Y) = params.CFTY * ball_vel(Y);
+		ball_vel(X) = params.CFTX * ball_vel(X);
+	}
+}
 
 /**
  *
@@ -372,6 +410,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 			(fabs(ball_cand_pos(X) - table_center) <= table_width/2.0)) {
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
+			//std::cout << "Bounce predicted!" << std::endl;
 			check_bounce(ball_cand_pos(Y),ball_cand_vel(Y),stats.hit,VERBOSE,stats.legal_bounce,stats.land);
 			table_contact_model();
 		}
@@ -576,43 +615,6 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_b
 		racket_vel.col(i) = arma::dot(((vel_ball_out.col(i) + params.CRR * vel_ball_in.col(i)) /
 				                        (1 + params.CRR)),
 								racket_normal.col(i)) * racket_normal.col(i);
-	}
-}
-
-/**
- * @brief Simple contact model that uses spin if spin mode is turned on.
- *
- * Linear contact model that updates the outgoing rebound velocities only.
- * Checks if the contact is of roll or slide type. Based on a spin model
- * from a Japanese table tennis paper.
- *
- * Noe: Spin is not changed!
- * Coeff of restitution and friction used.
- *
- */
-void TableTennis::table_contact_model() {
-
-	if (SPIN_MODE) { // if spin mode is on ballvec is not a null pointer
-		//cout << "Using a spin model for bounce..." << endl;
-		vec3 vbT = {ball_vel(X) - ball_radius*ball_spin(Y), ball_vel(Y) + ball_radius*ball_spin(X), 0};
-		static double e_t = params.CRT;
-		static double alpha = 0.4; // roll
-		double nu_s = 1 - 0.4 * params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
-		if (nu_s > 0) { // slide
-			alpha = params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
-		}
-		vec3 v = {1.2-alpha,1.1-alpha,-e_t};
-		mat Av = diagmat(v);
-		mat Bv = {{0, alpha * ball_radius, 0}, {-alpha*ball_radius, 0, 0}, {0, 0, 0}};
-		cout << ball_vel;
-		ball_vel = Av * ball_vel + Bv * ball_spin;
-		cout << ball_vel;
-	}
-	else {
-		// reflect ball velocity
-		ball_vel(Z) = -params.CRT * ball_vel(Z);
-		ball_vel(Y) = params.CFTY * ball_vel(Y);
-		ball_vel(X) = params.CFTX * ball_vel(X);
 	}
 }
 
