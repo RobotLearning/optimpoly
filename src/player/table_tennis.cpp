@@ -306,32 +306,36 @@ vec3 TableTennis::drag_flight_model() const {
  * Coeff of restitution and friction used.
  *
  */
-void TableTennis::table_contact_model() {
+vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
+
+	vec3 ball_vel_out;
 
 	if (SPIN_MODE) { // if spin mode is on ballvec is not a null pointer
 		//cout << "Using a spin model for bounce..." << endl;
 		static double e_t = params.CRT;
 		static double alpha = 0.4; // roll
-		vec3 vbT = {ball_vel(X) - ball_radius*ball_spin(Y),
-				    ball_vel(Y) + ball_radius*ball_spin(X),
+		vec3 vbT = {ball_vel_in(X) - ball_radius*ball_spin(Y),
+				    ball_vel_in(Y) + ball_radius*ball_spin(X),
 					0.0};
-		double nu_s = 1 - 0.4 * params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
+		double nu_s = 1 - 0.4 * params.mu * (1 + e_t) * abs(ball_vel_in(Z))/norm(vbT);
 		if (nu_s > 0) { // slide
-			alpha = params.mu * (1 + e_t) * abs(ball_vel(Z))/norm(vbT);
+			alpha = params.mu * (1 + e_t) * abs(ball_vel_in(Z))/norm(vbT);
 		}
 		vec3 v = {1.2-alpha,1.1-alpha,-e_t};
 		mat Av = diagmat(v);
 		mat Bv = {{0, alpha * ball_radius, 0}, {-alpha*ball_radius, 0, 0}, {0, 0, 0}};
 		//cout << ball_vel;
-		ball_vel = Av * ball_vel + Bv * ball_spin;
+		ball_vel_out = Av * ball_vel_in + Bv * ball_spin;
 		//cout << ball_vel;
 	}
 	else {
 		// reflect ball velocity
-		ball_vel(Z) = -params.CRT * ball_vel(Z);
-		ball_vel(Y) = params.CFTY * ball_vel(Y);
-		ball_vel(X) = params.CFTX * ball_vel(X);
+		//cout << "Coming here!\n" << ball_vel << endl;
+		ball_vel_out(Z) = -params.CRT * ball_vel_in(Z);
+		ball_vel_out(Y) = params.CFTY * ball_vel_in(Y);
+		ball_vel_out(X) = params.CFTX * ball_vel_in(X);
 	}
+	return ball_vel_out;
 }
 
 /**
@@ -412,7 +416,7 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
 			//std::cout << "Bounce predicted!" << std::endl;
 			check_bounce(ball_cand_pos(Y),ball_cand_vel(Y),stats.hit,VERBOSE,stats.legal_bounce,stats.land);
-			table_contact_model();
+			ball_cand_vel = table_contact_model(ball_cand_vel);
 		}
 	}
 }

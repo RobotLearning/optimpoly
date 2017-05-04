@@ -159,7 +159,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			if (num_obs == min_obs) {
 				if (verbose >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(OBS,TIMES,filter);
+				estimate_prior(OBS,TIMES,filter,mode == REAL_ROBOT);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -754,31 +754,35 @@ bool check_new_obs(const vec3 & obs, double tol) {
  * If observations arrive as column vectors then we take
  * transpose of it.
  *
- * Velocity estimation is biased, we multiply velocities by 1.1
- * since they often underestimate actual velocities.
+ * Velocity estimation is biased, we multiply velocities by 0.8
+ * since LSE often overestimates the model with spin.
  *
  *
  */
 void estimate_prior(const mat & observations,
 		            const vec & times,
-					EKF & filter) {
+					EKF & filter,
+					bool real_robot) {
 
 	vec6 x; mat66 P;
 	int num_samples = times.n_elem;
 	mat M = zeros<mat>(num_samples,3);
 	vec3 vel_multiplier = {1.1, 1.1, 1.1};
+	vec times_z = times - times(0); // times zeroed
 
 	// and create the data matrix
 	for (int i = 0; i < num_samples; i++) {
 		M(i,0) = 1.0;
-		M(i,1) = times(i);
-		M(i,2) = times(i) * times(i);
+		M(i,1) = times_z(i);
+		M(i,2) = times_z(i) * times_z(i);
 	}
 	// solving for the parameters
 	//cout << "Data matrix:" << endl << M << endl;
 	mat Beta = solve(M,observations.t());
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
+	if (real_robot)	x(span(DX,DZ)) *= 0.8;
+	//cout << "Initial est:\n" << x << endl;
 	P.eye(6,6);
 	//P *= 100.0;
 	filter.set_prior(x,P);
@@ -786,7 +790,7 @@ void estimate_prior(const mat & observations,
 
 	double dt;
 	for (unsigned i = 1; i < times.n_elem; i++) {
-		dt = times(i) - times(i-1);
+		dt = times_z(i) - times_z(i-1);
 		filter.predict(dt,true);
 		filter.update(observations.col(i));
 	}

@@ -97,6 +97,7 @@ private:
 
 	vec3 flight_model() const;
 	vec3 drag_flight_model() const;
+	vec3 table_contact_model(const vec3 & ball_vel_in) const;
 	void symplectic_euler(const double dt, const vec3 & ball_acc,
 			              vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
 
@@ -110,7 +111,6 @@ private:
 	// Check contact with racket
 	void check_ball_racket_contact(const racket & robot,
 			       const vec3 & ball_cand_pos, vec3 & ball_cand_vel);
-	void table_contact_model();
 	// Check if it hits the ground...
 	void check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel);
 
