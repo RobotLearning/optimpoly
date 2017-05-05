@@ -289,18 +289,21 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
 	bool status1, status3;
 	//double time_data = 0.0;
-	int head = 3300; // 0
+	int head = 0; //3300;
 	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
 	std::string home = std::getenv("HOME");
+	std::string trial;
 	try {
-		real_ball_data.load(home + "/Dropbox/data/realBallData_030516.txt", raw_ascii);
-				//"Dropbox/data/balls_small.txt"
+		cout << "Which trial data to filter?\n";
+		cin >> trial;
+		//real_ball_data.load(home + "/Dropbox/data/realBallData_030516.txt", raw_ascii);
+		real_ball_data.load(home + "/Dropbox/data/real_ball_data_0317/balls_" + trial + ".txt", raw_ascii);
 	}
 	catch (const char * exception) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
-	int N = 4000; //real_ball_data.n_rows; //4000;
+	int N = real_ball_data.n_rows; //4000;
 	mat ball_states = zeros<mat>(N-head,6);
 	EKF filter = init_filter(0.03,0.001,true); // spin turned on
 	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,REAL_ROBOT); //TEST_SIM);
@@ -314,8 +317,8 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		ball_states.row(i-head) = cp.filt_ball_state(obs).t();
 		usleep(2000);
 	}
-	ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt", raw_ascii);
-			//"Dropbox/data/balls_small_filtered.txt"
+	//ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt", raw_ascii);
+	ball_states.save(home + "/Dropbox/data/real_ball_data_0317/balls_" + trial + "_filtered.txt", raw_ascii);
 
 }
 
@@ -353,6 +356,7 @@ static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
 static bool check_blob_validity(const vec3 & blob, const bool & status) {
 
 	bool valid;
+	static vec3 last_blob = blob;
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -369,9 +373,7 @@ static bool check_blob_validity(const vec3 & blob, const bool & status) {
 	else if (blob(Y) > yMax || blob(Y) < yMin) {
 		valid = false;
 	}
-	// between the table if ball appears outside the x limits
-	else if (fabs(blob(Y) - yCenter) < table_length/2.0 &&
-			fabs(blob(X)) > xMax) {
+	else if (last_blob(Y) < yCenter && blob(Y) > dist_to_table) {
 		valid = false;
 	}
 	// on the table blob should not appear under the table
@@ -382,5 +384,6 @@ static bool check_blob_validity(const vec3 & blob, const bool & status) {
 	else {
 		valid = true;
 	}
+	last_blob = blob;
 	return valid;
 }

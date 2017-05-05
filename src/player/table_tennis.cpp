@@ -302,7 +302,7 @@ vec3 TableTennis::drag_flight_model() const {
  * Checks if the contact is of roll or slide type. Based on a spin model
  * from a Japanese table tennis paper.
  *
- * Noe: Spin is not changed!
+ * Note: Spin is not changed!
  * Coeff of restitution and friction used.
  *
  */

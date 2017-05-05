@@ -767,7 +767,6 @@ void estimate_prior(const mat & observations,
 	vec6 x; mat66 P;
 	int num_samples = times.n_elem;
 	mat M = zeros<mat>(num_samples,3);
-	vec3 vel_multiplier = {1.1, 1.1, 1.1};
 	vec times_z = times - times(0); // times zeroed
 
 	// and create the data matrix
@@ -781,10 +780,13 @@ void estimate_prior(const mat & observations,
 	mat Beta = solve(M,observations.t());
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
-	if (real_robot)	x(span(DX,DZ)) *= 0.8;
-	//cout << "Initial est:\n" << x << endl;
 	P.eye(6,6);
-	//P *= 100.0;
+	if (real_robot)	{
+		x(span(DX,DZ)) *= 0.8;
+		P *= 1e3;
+	}
+	//cout << "Data:\n" << observations << endl;
+	//cout << "Initial est:\n" << x << endl;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 

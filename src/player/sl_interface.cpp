@@ -197,6 +197,7 @@ void load_options() {
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 
 	bool valid = true;
+	static double last_blob[NCART+1];
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -214,16 +215,9 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 			printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
 		valid = false;
 	}
-	/*else if (blob.blob.x[2] > yMax || blob.blob.x[2] < yMin) {
+	else if (last_blob[2] < yCenter && blob.blob.x[2] > dist_to_table) {
 		if (verbose)
-			printf("BLOB NOT VALID! Ball is outside y-limits!\n");
-		valid = false;
-	}*/
-	// between the table if ball appears outside the x limits
-	else if (fabs(blob.blob.x[2] - yCenter) < table_length/2.0 &&
-			fabs(blob.blob.x[1]) > xMax) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball is outside the table!\n");
+			printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
 		valid = false;
 	}
 	// on the table blob should not appear under the table
@@ -233,6 +227,9 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 			printf("BLOB NOT VALID! Ball appears under the table!\n");
 		valid = false;
 	}
+	last_blob[1] = blob.blob.x[1];
+	last_blob[2] = blob.blob.x[2];
+	last_blob[3] = blob.blob.x[3];
 	return valid;
 }
 
@@ -330,6 +327,7 @@ static void save_data(const joint & qact, const joint & qdes,
 		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter) {
 
 	static rowvec ball_full;
+    static rowvec rq; // joints in rowvector form
 	static std::string home = std::getenv("HOME");
 	static std::string joint_file = home + "/polyoptim/joints.txt";
 	static std::string ball_file = home + "/polyoptim/balls.txt";
@@ -345,13 +343,13 @@ static void save_data(const joint & qact, const joint & qdes,
 			// do nothing
 		}
 
-		/*rowvec qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
-		rowvec qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
-		rowvec q_full = join_horiz(qdes_full, qact_full);
+		rq = join_horiz(qdes.q.t(),qact.q.t());
+		//qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
+		//qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
 		stream_joints.open(joint_file,ios::out | ios::app);
 		if (stream_joints.is_open()) {
-			stream_joints << q_full;
-		}*/
+			stream_joints << rq; //qdes_full << qact_full << endr;
+		}
 
 		stream_balls.open(ball_file,ios::out | ios::app);
 		ball_full << 1 << ((int)blobs[1].status)
