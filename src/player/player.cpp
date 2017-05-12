@@ -214,9 +214,7 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
  * @param ball_obs Ball observations (positions as 3-vector).
  * @param qdes Desired joint positions, velocities, accelerations.
  */
-void Player::play(const joint & qact,
-		           const vec3 & ball_obs,
-				   joint & qdes) {
+void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
 
@@ -556,6 +554,8 @@ void Player::reset_filter(double std_model, double std_noise) {
  * Function that calculates a racket strategy : positions, velocities and racket normal
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
+ *
+ * TODO: Is there a way to avoid deep copying computed values to racket_params?
  *
  */
 racketdes calc_racket_strategy(const mat & balls_predicted,
