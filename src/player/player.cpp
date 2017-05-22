@@ -95,6 +95,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	num_obs = 0;
 	valid_obs = true;
 	t_cum = 0.0;
+	observations = zeros<mat>(3,min_obs);
+	times = zeros<vec>(min_obs);
 	game_state = AWAITING;
 
 	ball_land_des(X) = 0.0;
@@ -164,10 +166,6 @@ Player::~Player() {
  */
 void Player::estimate_ball_state(const vec3 & obs) {
 
-	// observation matrix
-	const int min_obs = 5;
-	static mat OBS = zeros<mat>(3,min_obs);
-	static vec TIMES = zeros<vec>(min_obs);
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
@@ -180,13 +178,13 @@ void Player::estimate_ball_state(const vec3 & obs) {
 
 	if (num_obs < min_obs) {
 		if (newball) {
-			TIMES(num_obs) = t_cum;
-			OBS.col(num_obs) = obs;
+			times(num_obs) = t_cum;
+			observations.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
 				if (verbose >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(OBS,TIMES,filter,mode == REAL_ROBOT);
+				estimate_prior(observations,times,filter,mode == REAL_ROBOT);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -541,7 +539,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
  */
 bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 
-	static const double time_min = 0.05;
+	const double time_min = 0.05;
 	static mat balls_path;
 	bool valid_hp = false;
 	predict_ball(balls_path);
@@ -623,17 +621,15 @@ void generate_strike(const optim & params, const joint & qact,
 		            mat & Q, mat & Qd, mat & Qdd) {
 
 	// first create hitting polynomials
-	vec7 a2, a3;
-	vec7 b2, b3; // for returning
 	double T = params.T;
 	vec7 qf(params.qf);
 	vec7 qfdot(params.qfdot);
 	vec7 qnow = qact.q;
 	vec7 qdnow = qact.qd;
-	a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-	b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-	b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 
 	int N_hit = T/DT;
 	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);

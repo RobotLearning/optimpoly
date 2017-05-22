@@ -65,6 +65,8 @@ private:
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	double t_cum; // counting time stamps for resetting filter
+	mat observations; // for initializing filter
+	mat times; // for initializing filter
 
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)

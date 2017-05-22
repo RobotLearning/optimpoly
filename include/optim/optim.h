@@ -17,14 +17,14 @@
 #include <math.h>
 #include <nlopt.h>
 #include "string.h" //for bzero
+#include "constants.h"
 
 // defines
-#define NDOF 7
-#define OPTIM_DIM 2*NDOF+1
-#define EQ_CONSTR_DIM 3*NCART
-#define INEQ_CONSTR_DIM 2*NDOF + 2*NDOF // both strike and returning trajectories, min and max
-#define MAX_VEL 200
-#define MAX_ACC 200
+const int OPTIM_DIM = 2*NDOF+1;
+const int EQ_CONSTR_DIM = 3*NCART;
+const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
+const double MAX_VEL = 200;
+const double MAX_ACC = 200;
 
 /**
  * @brief Desired racket positions, vels and normals for dt*Nmax seconds.
