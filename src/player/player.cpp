@@ -15,6 +15,9 @@
  * 3. Real-Robot, here filtering and trajectory corrections are more robust,
  *                outlier detection is also considered for instance.
  *
+ * For the modes (2) and (3) configuration file "player.cfg" sets the modes
+ * for the player class, these can be changed online (assuming robot has no task).
+ *
  *
  * \section install_sec Installation
  *
