@@ -2,7 +2,18 @@
  *
  * \section intro_sec Introduction
  *
- * Documentation for the 'polyoptim' repository starts here.
+ * Welcome to Table Tennis!
+ *
+ * Player class is the orchestrator for Table Tennis
+ * which can call three different trajectory optimizers for table tennis.
+ * These are 3rd order striking and returning polynomials computed
+ * differently for each method.
+ *
+ * We provide three modes for testing/playing table tennis:
+ * 1. Unit Tests, here the performances of three different players are compared.
+ * 2. SL, here the simulation is real-time so threads are detached.
+ * 3. Real-Robot, here filtering and trajectory corrections are more robust,
+ *                outlier detection is also considered for instance.
  *
  *
  * \section install_sec Installation
@@ -10,6 +21,19 @@
  * After pulling run 'make install'.
  * This will allow us to run the unit tests
  * where we can validate the results found in the paper.
+ * Make sure to type 'make test' and run ./unit_tests.o
+ *
+ * \section test_sec Unit Tests
+ *
+ * The unit tests, use boost testing framework and do not only
+ * consider 'unit' tests for each method, but also general scripts for various
+ * test scenarios. For instance
+ *
+ * 1. Does the ball land on the other side?
+ * 2. Which method (1 = VHP, 2 = FP, 3 = LAZY) can land more balls?
+ * 3. Is correction of trajectories useful when you have observation noise
+ *    or  ball prediction error?
+ * 4. Are the filters stable? Can we estimate ball state better as we get more data?
  *
  *
  */
@@ -138,7 +162,7 @@ Player::~Player() {
 void Player::estimate_ball_state(const vec3 & obs) {
 
 	// observation matrix
-	static const int min_obs = 5;
+	const int min_obs = 5;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
 	bool newball = check_new_obs(obs,1e-3);
