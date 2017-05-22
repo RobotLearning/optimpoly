@@ -87,6 +87,27 @@ typedef struct {
 	double R_net;
 } weights; // weights for optimization penalties
 
+class Optim {
+
+private:
+	virtual void predict() = 0;
+	virtual void optim() = 0;
+
+public:
+	virtual void run() = 0;
+
+};
+
+class VHP : public Optim {
+
+private:
+	virtual void predict();
+	virtual void optim();
+
+public:
+	virtual void run();
+};
+
 // interface for VHP player
 double nlopt_vhp_run(coptim *coparams,
 					 racketdes *racketdata,
