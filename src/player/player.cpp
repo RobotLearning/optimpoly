@@ -347,7 +347,7 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
-	static mat balls_pred;
+	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
@@ -384,7 +384,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 void Player::optim_lazy_param(const joint & qact) {
 
 	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
-	static mat balls_pred;
+	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
@@ -428,9 +428,8 @@ void Player::optim_lazy_param(const joint & qact) {
 bool Player::check_update(const joint & qact) const {
 
 	static vec6 state_last = -10 * ones<vec>(6);
-	//static int num_updates;
-	static const double FREQ_MPC = (mode == REAL_ROBOT) ? 10.0 : 40.0;
 	static wall_clock timer;
+	const double FREQ_MPC = (mode == REAL_ROBOT) ? 10.0 : 40.0;
 	vec6 state_est;
 	bool update;
 	static int counter;
@@ -540,7 +539,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 
 	const double time_min = 0.05;
-	static mat balls_path;
+	mat balls_path;
 	bool valid_hp = false;
 	predict_ball(balls_path);
 	uvec vhp_index;
@@ -589,7 +588,7 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 
 	//static wall_clock timer;
 	//timer.tic();
-	static TableTennis tennis = TableTennis(false,false);
+	TableTennis tennis = TableTennis(false,false);
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
