@@ -87,7 +87,6 @@ private:
 	void optim_vhp_param(const joint & qact); // run VHP player
 
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
-	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void calc_next_state(const joint & qact, joint & qdes);
 
 public:

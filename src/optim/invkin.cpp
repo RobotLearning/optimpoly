@@ -15,7 +15,6 @@
 #include "kinematics.h"
 #include "optim.h"
 
-
 static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
 static double const_costfunc(unsigned n, const double *x,
@@ -37,12 +36,42 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
 
+void Optim::fill(racketdes *racket_, double *j0, double *j0dot, double time_pred) {
+	racket = racket_;
+	for (int i = 0; i < NDOF; i++) {
+		q0[i] = j0[i];
+		q0dot[i] = j0dot[i];
+	}
+	T = time_pred;
+};
 
-HittingPlane::HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]) {
 
-	time_land_des = 0.8;
-	ball_land_des[X] = 0.0;
-	ball_land_des[Y] = dist_to_table - 3*table_length/4;
+void Optim::run() {
+	// run optimization in another thread
+	std::thread t(&Optim::optim, this);
+	if (detach)
+		t.detach();
+	else
+		t.join();
+};
+
+bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
+
+	bool flag_update = false;
+	if (update && !running) {
+		for (int i = 0; i < NDOF; i++) {
+			qf_[i] = qf[i];
+			qfdot_[i] = qfdot[i];
+		}
+		T_ = T;
+		flag_update = true;
+	}
+	return flag_update;
+}
+
+
+HittingPlane::HittingPlane(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
+
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	// set tolerances equal to second argument
@@ -50,14 +79,16 @@ HittingPlane::HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, lb);
-	nlopt_set_upper_bounds(opt, ub);
+	nlopt_set_lower_bounds(opt, lb_);
+	nlopt_set_upper_bounds(opt, ub_);
 	nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM,
 			kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
+		ub[i] = ub_[i];
+		lb[i] = lb_[i];
 		limit_avg[i] = (ub[i] + lb[i])/2.0;
 	}
 }
@@ -143,13 +174,11 @@ void HittingPlane::optim() {
 	double past_time = 0.0;
 	double minf; // the minimum objective value, upon return //
 	int res; // error code
-	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
 		if (verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = 100.0;
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
@@ -158,8 +187,7 @@ void HittingPlane::optim() {
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    max_violation = test_soln(x);
-	    if (max_violation < 1e-2)
+	    if (test_soln(x) < 1e-2)
 	    	finalize_soln(x,past_time);
 	}
 	running = false;
@@ -202,24 +230,24 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double qfdot[NDOF];
 	static double vel[NCART];
 	static double normal[NCART];
-	static double q[NDOF];
+	static double qf[NDOF];
 
 	HittingPlane * vhp = (HittingPlane*)my_function_data;
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF; i++) {
-		q[i] = x[i];
+		qf[i] = x[i];
 		qfdot[i] = x[i+NDOF];
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_racket_state(q,qfdot,pos,vel,normal);
+	calc_racket_state(qf,qfdot,pos,vel,normal);
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - vhp->racket.pos[i];
-		result[i + NCART] = vel[i] - vhp->racket.vel[i];
-		result[i + 2*NCART] = normal[i] - vhp->racket.normal[i];
+		result[i] = pos[i] - vhp->racket->pos[i][0];
+		result[i + NCART] = vel[i] - vhp->racket->vel[i][0];
+		result[i + 2*NCART] = normal[i] - vhp->racket->normal[i][0];
 	}
 }
 
@@ -240,12 +268,14 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
-	static double *q0;
-	static double *q0dot;
-	static double *qrest;
-	static double *ub;
-	static double *lb;
-	static double Tret;
+
+	HittingPlane * vhp = (HittingPlane*)my_func_params;
+	double *q0 = vhp->q0;
+	double *q0dot = vhp->q0dot;
+	double *qrest = vhp->qrest;
+	double *ub = vhp->ub;
+	double *lb = vhp->lb;
+	double Tret = vhp->time2return;
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);

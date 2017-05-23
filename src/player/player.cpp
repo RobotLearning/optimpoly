@@ -249,9 +249,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
-			opt->update_state(qact.q,qact.qd);
-			opt->run(filter);
-			//optim_vhp_param(qact);
+			optim_vhp_param(qact);
 			break;
 		case LAZY:
 			optim_lazy_param(qact);
@@ -288,8 +286,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
-			opt->update_state(qact.q,qact.qd);
-			opt->run(filter);
+			optim_vhp_param(qact);
 			break;
 		case LAZY:
 			optim_lazy_param(qact);
@@ -300,6 +297,36 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
+}
+
+/*
+ * Calculate hitting parameters qf, qfdot
+ * on the Virtual Hitting Plane (VHP) by running Inverse Kinematics
+ *
+ * The inverse kinematics routine runs an optimization to minimize
+ * the distance to a rest posture
+ *
+ *
+ */
+void Player::optim_vhp_param(const joint & qact) {
+
+	double time_pred;
+	vec6 ball_pred;
+	double q0[NDOF], q0dot[NDOF];
+
+	// if ball is fast enough and robot is not moving consider optimization
+	if (check_update(qact)) {
+		if (predict_hitting_point(ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
+			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
+			for (int i = 0; i < NDOF; i++) {
+				q0[i] = qact.q(i);
+				q0dot[i] = qact.qd(i);
+			}
+			opt->fill(&racket_params,q0,q0dot,time_pred);
+			opt->run();
+		}
+	}
+
 }
 
 /*
@@ -318,7 +345,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		predict_ball(balls_pred);
+		predict_ball(1.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
@@ -355,7 +382,7 @@ void Player::optim_lazy_param(const joint & qact) {
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		predict_ball(balls_pred);
+		predict_ball(1.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
@@ -507,7 +534,7 @@ bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
 	const double time_min = 0.05;
 	mat balls_path;
 	bool valid_hp = false;
-	predict_ball(time_pred,balls_path,filter);
+	predict_ball(1.0,balls_path,filter);
 	uvec vhp_index;
 	unsigned idx;
 
@@ -563,6 +590,9 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
 	// place racket centre on the predicted ball
+	/*cout << "balls:\n" << balls_predicted
+		 << "vels:\n" << racket_des_vel
+		 << "normals:\n" << racket_des_normal << endl;*/
 
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < NCART; j++) {

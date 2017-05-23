@@ -88,70 +88,50 @@ typedef struct {
 	double R_net;
 } weights; // weights for optimization penalties
 
-struct racket_des {
-	double pos[NCART] = {0.0};
-	double vel[NCART] = {0.0};
-	double normal[NCART] = {0.0};
-}; // racket pos, vel and normals
-
 class Optim {
 
 protected:
-	bool verbose = false;
+	bool verbose = true;
 	bool moving = false;
 	bool update = false;
 	bool running = false;
 	bool detach = false;
 	nlopt_opt opt;
-	double qrest[NDOF] = {0.0};
-	double q0[NDOF] = {0.0};
-	double q0dot[NDOF] = {0.0};
+
 	double qf[NDOF] = {0.0};
 	double qfdot[NDOF] = {0.0};
 	double T = 1.0;
-	virtual ~Optim() {};
+
 	virtual void init_last_soln(double *x) const = 0;
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
-	virtual bool fill() = 0;
 	virtual void optim() = 0;
 public:
-	bool get_params();
-	void update_state(const double *j0, const double *j0dot) {
-		for (int i = 0; i < NDOF; i++) {
-			q0[i] = j0[i];
-			q0dot[i] = j0dot[i];
-		}
-	}
-	void run() {
-		// run optimization in another thread
-		std::thread t(&Optim::optim);
-		if (detach)
-			t.detach();
-		else
-			t.join();
-	}
-
+	racketdes *racket;
+	double lb[NDOF];
+	double ub[NDOF];
+	double qrest[NDOF] = {0.0};
+	double q0[NDOF] = {0.0};
+	double q0dot[NDOF] = {0.0};
+	double time2return = 1.0;
+	virtual ~Optim() {};
+	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
+	void fill(racketdes *racket, double *j0, double *j0dot, double time_pred);
+	void run();
 };
 
 class HittingPlane : public Optim {
 
 protected:
 	//virtual bool predict(EKF & filter);
-	virtual void fill();
 	virtual void optim();
 	virtual void init_last_soln(double x[2*NDOF]) const;
 	virtual void init_rest_soln(double x[2*NDOF]) const;
 	virtual double test_soln(const double x[2*NDOF]) const;
 	virtual void finalize_soln(const double x[2*NDOF], const double time_elapsed);
-private:
-	double ball_land_des[2];
-	double time_land_des;
-	game game_state;
 public:
 	double limit_avg[NDOF];
-	racket_des racket;
 	HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
