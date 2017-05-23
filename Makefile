@@ -33,12 +33,12 @@ interface:
 	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libinterface.so
 
 optim:
-	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
+	$(CC) $(INSTALLFLAGS) src/optim/optimpoly.cpp \
 						src/optim/lazyoptim.cpp \
 						src/optim/invkin.cpp \
 					    src/optim/kinematics.c \
 					    src/optim/utils.c \
-	                    -lm -o $(LIBDIR)/liboptim.so
+	                    -lm -o $(LIBS) $(LIBDIR)/liboptim.so
 
 test:
 	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp -o unit_tests.o \

@@ -123,7 +123,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	for (int i = 0; i < NDOF; i++) {
 		qinit[i] = qrest[i] = qzero[i] = q0(i);
 	}
-
+	opt = new HittingPlane(qrest,lb,ub);
 	optim_params = {qzero, qzerodot, 0.5, false, false};
 	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
 			    mode != TEST_SIM, false, verbose > 1};
@@ -249,7 +249,9 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
-			optim_vhp_param(qact);
+			opt->update_state(qact.q,qact.qd);
+			opt->run(filter);
+			//optim_vhp_param(qact);
 			break;
 		case LAZY:
 			optim_lazy_param(qact);
@@ -286,7 +288,8 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
-			optim_vhp_param(qact);
+			opt->update_state(qact.q,qact.qd);
+			opt->run(filter);
 			break;
 		case LAZY:
 			optim_lazy_param(qact);
@@ -297,42 +300,6 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
-}
-
-/*
- * Calculate hitting parameters qf, qfdot
- * on the Virtual Hitting Plane (VHP) by running Inverse Kinematics
- *
- * The inverse kinematics routine runs an optimization to minimize
- * the distance to a rest posture
- *
- *
- */
-void Player::optim_vhp_param(const joint & qact) {
-
-	double time_pred;
-	vec6 balls_pred;
-
-	// if ball is fast enough and robot is not moving consider optimization
-	if (check_update(qact)) {
-		if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
-			calc_racket_strategy(balls_pred,ball_land_des,
-					time_land_des,racket_params);
-			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
-			}
-			optim_params.T = time_pred;
-			// run optimization in another thread
-			std::thread t(&nlopt_vhp_run,
-					&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
-		}
-	}
-
 }
 
 /*

@@ -67,6 +67,7 @@ private:
 	double t_cum; // counting time stamps for resetting filter
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
+	Optim *opt; // optimizer
 
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
@@ -96,7 +97,6 @@ public:
 			int verbose = 0, mode_operate mode = TEST_SIM);
 	~Player();
 
-	void predict_ball(mat & balls_pred) const;
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
 	void reset_filter(double std_model, double std_noise);
@@ -127,6 +127,7 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 // racket calculations
+void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 racketdes calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
 							   racketdes & racket_params);

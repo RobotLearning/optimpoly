@@ -14,13 +14,11 @@
 #define OPTIMPOLY_H_
 
 // optimization and math libraries
+#include <thread>
 #include <math.h>
 #include <nlopt.h>
 #include "string.h" //for bzero
 #include "constants.h"
-#include <armadillo>
-
-using namespace arma;
 
 // defines
 const int OPTIM_DIM = 2*NDOF+1;
@@ -106,25 +104,34 @@ protected:
 	bool detach = false;
 	nlopt_opt opt;
 	double qrest[NDOF] = {0.0};
+	double q0[NDOF] = {0.0};
+	double q0dot[NDOF] = {0.0};
 	double qf[NDOF] = {0.0};
 	double qfdot[NDOF] = {0.0};
 	double T = 1.0;
-	virtual void init_last_soln() const = 0;
-	virtual void init_rest_soln() const = 0;
-	virtual double test_soln() const = 0;
-	virtual void finalize_soln() = 0;
-	virtual bool predict() = 0;
+	virtual ~Optim() {};
+	virtual void init_last_soln(double *x) const = 0;
+	virtual void init_rest_soln(double *x) const = 0;
+	virtual double test_soln(const double *x) const = 0;
+	virtual void finalize_soln(const double *x, const double dt) = 0;
+	virtual bool predict(EKF & filter) = 0;
 	virtual void optim() = 0;
-	void calc_hit_traj() {
-		if (predict()) {
+	void calc_hit_traj(EKF & filter) {
+		if (predict(filter)) {
 			optim();
 		}
 	}
 public:
 	bool get_params();
-	void run() {
+	void update_state(const double *j0, const double *j0dot) {
+		for (int i = 0; i < NDOF; i++) {
+			q0[i] = j0[i];
+			q0dot[i] = j0dot[i];
+		}
+	}
+	void run(EKF & filter) {
 		// run optimization in another thread
-		std::thread t(calc_hit_traj);
+		std::thread t(&Optim::calc_hit_traj,&filter);
 		if (detach)
 			t.detach();
 		else
@@ -133,24 +140,23 @@ public:
 
 };
 
-class VHP : public Optim {
+class HittingPlane : public Optim {
 
 protected:
-	virtual bool predict();
+	virtual bool predict(EKF & filter);
 	virtual void optim();
 	virtual void init_last_soln(double x[2*NDOF]) const;
 	virtual void init_rest_soln(double x[2*NDOF]) const;
 	virtual double test_soln(const double x[2*NDOF]) const;
-	virtual void finalize_soln(const double x[2*NDOF], double time_elapsed);
+	virtual void finalize_soln(const double x[2*NDOF], const double time_elapsed);
 private:
-	double limit_avg[NDOF];
-	racket_des racket;
-	vec2 ball_land_des;
+	double ball_land_des[2];
 	double time_land_des;
-	EKF & filter;
 	game game_state;
 public:
-	VHP(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
+	double limit_avg[NDOF];
+	racket_des racket;
+	HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
 // interface for LAZY player
