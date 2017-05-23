@@ -128,6 +128,8 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 // racket calculations
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
+bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
+		                   EKF & filter, game & game_state);
 racketdes calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
 							   racketdes & racket_params);

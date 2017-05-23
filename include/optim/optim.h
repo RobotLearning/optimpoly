@@ -114,13 +114,8 @@ protected:
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
-	virtual bool predict(EKF & filter) = 0;
+	virtual bool fill() = 0;
 	virtual void optim() = 0;
-	void calc_hit_traj(EKF & filter) {
-		if (predict(filter)) {
-			optim();
-		}
-	}
 public:
 	bool get_params();
 	void update_state(const double *j0, const double *j0dot) {
@@ -129,9 +124,9 @@ public:
 			q0dot[i] = j0dot[i];
 		}
 	}
-	void run(EKF & filter) {
+	void run() {
 		// run optimization in another thread
-		std::thread t(&Optim::calc_hit_traj,&filter);
+		std::thread t(&Optim::optim);
 		if (detach)
 			t.detach();
 		else
@@ -143,7 +138,8 @@ public:
 class HittingPlane : public Optim {
 
 protected:
-	virtual bool predict(EKF & filter);
+	//virtual bool predict(EKF & filter);
+	virtual void fill();
 	virtual void optim();
 	virtual void init_last_soln(double x[2*NDOF]) const;
 	virtual void init_rest_soln(double x[2*NDOF]) const;

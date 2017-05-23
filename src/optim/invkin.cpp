@@ -8,28 +8,13 @@
  *      Author: okoc
  */
 
-#include <armadillo>
-#include <thread>
 #include "constants.h"
 #include "utils.h"
 #include "stdlib.h"
 #include "math.h"
 #include "kinematics.h"
-#include "tabletennis.h"
-#include "kalman.h"
 #include "optim.h"
 
-using namespace arma;
-
-static void calc_racket_strategy(const vec6 & ball_predicted,
-		                  const vec2 & ball_land_des,
-						  const double time_land_des,
-						  racket_des & racket);
-static bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
-		                   EKF & filter, game & game_state);
-static void check_legal_bounce(const vec6 & ball_est, game & game_state);
-static bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
-static void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 
 static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
@@ -141,19 +126,6 @@ double HittingPlane::test_soln(const double x[2*NDOF]) const {
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
 }
 
-bool HittingPlane::predict(EKF & filter) {
-
-	bool flag = false;
-	vec6 ball_pred;
-	double time_pred;
-	if (predict_hitting_point(ball_pred,time_pred,filter,game_state)) {
-		calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket);
-		T = time_pred;
-		flag = true;
-	}
-	return flag;
-}
-
 void HittingPlane::optim() {
 
 	update = false;
@@ -191,145 +163,6 @@ void HittingPlane::optim() {
 	    	finalize_soln(x,past_time);
 	}
 	running = false;
-}
-
-static void calc_racket_strategy(const vec6 & ball_predicted,
-		                  const vec2 & ball_land_des,
-						  const double time_land_des,
-						  racket_des & racket) {
-
-	TableTennis tennis = TableTennis(false,false);
-
-	vec3 balls_out_vel;
-	vec3 racket_des_normal;
-	vec3 racket_des_vel;
-	tennis.calc_des_ball_out_vel(ball_land_des,time_land_des,ball_predicted,balls_out_vel);
-	tennis.calc_des_racket_normal(ball_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
-	tennis.calc_des_racket_vel(ball_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
-
-	// place racket centre on the predicted ball
-
-	for (int j = 0; j < NCART; j++) {
-		racket.pos[j] = ball_predicted(j);
-		racket.vel[j] = racket_des_vel(j);
-		racket.normal[j] = racket_des_normal(j);
-	}
-}
-
-/*
- * Predict hitting point on the Virtual Hitting Plane (VHP)
- * if the ball is legal (legal detected bounce or legal predicted bounce)
- * and there is enough time (50 ms threshold)
- *
- * The location of the VHP is defined as a constant (constants.h)
- *
- */
-static bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
-		                   EKF & filter, game & game_state) {
-
-	const double time_min = 0.05;
-	mat balls_path;
-	bool valid_hp = false;
-	predict_ball(time_pred,balls_path,filter);
-	uvec vhp_index;
-	unsigned idx;
-
-	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
-		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
-		if (vhp_index.n_elem == 1) {
-			idx = as_scalar(vhp_index);
-			ball_pred = balls_path.col(idx);
-			time_pred = DT * (idx + 1);
-			if (time_pred > time_min)
-				valid_hp = true;
-		}
-	}
-
-	return valid_hp;
-}
-
-/*
- * Predict ball with the models fed into the filter
- *
- * Number of prediction steps is given by Nmax in racket
- * parameters
- *
- */
-static void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
-
-	int N = (int)(time_pred/DT);
-	balls_pred = filter.predict_path(DT,N);
-}
-
-/*
- *
- * Checks for legal bounce
- * If an incoming ball has bounced before or bounces on opponents' court
- * it is declared ILLEGAL (legal_bounce as DATA MEMBER of player class)
- *
- * Bounce variable is static variable of estimate_ball_state method of player class
- * which is reset each time an incoming ball from ball gun is detected.
- *
- * TODO: also consider detecting HIT by robot racket
- *
- */
-static void check_legal_bounce(const vec6 & ball_est, game & game_state) {
-
-
-	static double last_z_vel = 0.0;
-	bool ball_is_incoming = ball_est(DY) > 0.0;
-	bool on_opp_court = (ball_est(Y) < (dist_to_table - (table_length/2.0)));
-
-	if (last_z_vel < 0.0 && ball_est(DZ) > 0.0) { // bounce must have occurred
-		if (ball_is_incoming) {
-			if (game_state == LEGAL || on_opp_court) {
-				game_state = ILLEGAL;
-			}
-			else {
-				//cout << "Legal bounce occurred!" << endl;
-				game_state = LEGAL;
-			}
-		}
-	}
-
-	last_z_vel = ball_est(DZ);
-}
-
-/*
- * Check if the table tennis trial is LEGAL (hence motion planning can be started).
- *
- * If it is exactly one ball when in awaiting mode
- * (before an actual legal bounce was detected) trial will be legal!
- *
- * If ball has bounced legally bounce, then there should be no more bounces.
- *
- * TODO: no need to check after ball passes table
- *
- */
-static bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
-
-	int num_bounces = 0;
-	int N = balls_predicted.n_cols;
-
-	check_legal_bounce(ball_est, game_state);
-
-	// if sign of z-velocity changes then the ball bounces
-	for (int i = 0; i < N-1; i++) {
-		if (balls_predicted(DZ,i) < 0 && balls_predicted(DZ,i+1) > 0) {
-			num_bounces++;
-		}
-	}
-
-	// one bounce is predicted before an actual bounce has happened
-	if (game_state == AWAITING && num_bounces == 1) {
-		return true;
-	}
-	// no bounce is predicted
-	if (game_state == LEGAL && num_bounces == 0) {
-		return true;
-	}
-
-	return false;
 }
 
 /*

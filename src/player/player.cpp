@@ -494,6 +494,38 @@ void Player::reset_filter(double std_model, double std_noise) {
 }
 
 /*
+ * Predict hitting point on the Virtual Hitting Plane (VHP)
+ * if the ball is legal (legal detected bounce or legal predicted bounce)
+ * and there is enough time (50 ms threshold)
+ *
+ * The location of the VHP is defined as a constant (constants.h)
+ *
+ */
+bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
+		                   EKF & filter, game & game_state) {
+
+	const double time_min = 0.05;
+	mat balls_path;
+	bool valid_hp = false;
+	predict_ball(time_pred,balls_path,filter);
+	uvec vhp_index;
+	unsigned idx;
+
+	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
+		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
+		if (vhp_index.n_elem == 1) {
+			idx = as_scalar(vhp_index);
+			ball_pred = balls_path.col(idx);
+			time_pred = DT * (idx + 1);
+			if (time_pred > time_min)
+				valid_hp = true;
+		}
+	}
+
+	return valid_hp;
+}
+
+/*
  * Predict ball with the models fed into the filter
  *
  * Number of prediction steps is given by Nmax in racket
