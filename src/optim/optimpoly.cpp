@@ -37,94 +37,40 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
-
-FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
-
-	double tol_eq[EQ_CONSTR_DIM];
-	double tol_ineq[INEQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	// set tolerances equal to second argument
-
-	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
-	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, lb_);
-	nlopt_set_upper_bounds(opt, ub_);
-	nlopt_set_min_objective(opt, costfunc, this);
-	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
-
+void Optim::fill(racketdes *racket_, double *j0, double *j0dot, double time_pred) {
+	racket = racket_;
 	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = qrest_[i];
-		ub[i] = ub_[i];
-		lb[i] = lb_[i];
+		q0[i] = j0[i];
+		q0dot[i] = j0dot[i];
 	}
-}
+	T = time_pred;
+};
 
-void FocusedOptim::init_last_soln(double x[2*NDOF]) const {
 
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = qf[i];
-		x[i+NDOF] = qfdot[i];
-	}
-	x[2*NDOF] = T;
-}
-
-void FocusedOptim::init_rest_soln(double x[2*NDOF]) const {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = qrest[i];
-		x[i+NDOF] = 0.0;
-	}
-	x[2*NDOF] = 0.5;
-}
-
-void FocusedOptim::finalize_soln(const double x[2*NDOF], double time_elapsed) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		qf[i] = x[i];
-		qfdot[i] = x[i+NDOF];
-	}
-	T = x[2*NDOF];
+void Optim::run() {
+	// run optimization in another thread
+	std::thread t(&Optim::optim, this);
 	if (detach)
-		T -= (time_elapsed/1e3);
-	update = true;
-}
+		t.detach();
+	else
+		t.join();
+};
 
-double FocusedOptim::test_soln(const double x[2*NDOF+1]) const {
+bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
 
-	// give info on constraint violation
-	double *grad = 0;
-	static double kin_violation[EQ_CONSTR_DIM];
-	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             OPTIM_DIM, x, grad, (void*)this);
-	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, (void*)this);
-	double cost = costfunc(OPTIM_DIM, x, grad, (void*)this);
-
-	if (verbose) {
-		// give info on solution vector
-		print_optim_vec(x);
-		printf("f = %.2f\n",cost);
-		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
-		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
-		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
-		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-			if (lim_violation[i] > 0.0)
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+	bool flag_update = false;
+	if (update && !running) {
+		for (int i = 0; i < NDOF; i++) {
+			qf_[i] = qf[i];
+			qfdot_[i] = qfdot[i];
 		}
+		T_ = T;
+		flag_update = true;
 	}
-
-	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
-			    max_array(lim_violation,INEQ_CONSTR_DIM));
+	return flag_update;
 }
 
-void FocusedOptim::optim() {
+void Optim::optim() {
 
 	update = false;
 	running = true;
@@ -152,12 +98,100 @@ void FocusedOptim::optim() {
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    if (test_soln(x) < 1e-2 && x[2*NDOF] > 0.1)
+	    if (test_soln(x) < 1e-2)
 	    	finalize_soln(x,past_time);
 	}
 	if (verbose)
 		check_optim_result(res);
 	running = false;
+}
+
+FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
+
+	double tol_eq[EQ_CONSTR_DIM];
+	double tol_ineq[INEQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
+	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
+	// set tolerances equal to second argument
+
+	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_lower_bounds(opt, lb_);
+	nlopt_set_upper_bounds(opt, ub_);
+	nlopt_set_min_objective(opt, costfunc, this);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
+
+	for (int i = 0; i < NDOF; i++) {
+		qrest[i] = qrest_[i];
+		ub[i] = ub_[i];
+		lb[i] = lb_[i];
+	}
+}
+
+void FocusedOptim::init_last_soln(double x[]) const {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = qf[i];
+		x[i+NDOF] = qfdot[i];
+	}
+	x[2*NDOF] = T;
+}
+
+void FocusedOptim::init_rest_soln(double x[]) const {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = qrest[i];
+		x[i+NDOF] = 0.0;
+	}
+	x[2*NDOF] = 0.5;
+}
+
+void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
+
+	if (x[2*NDOF] > 0.05) {
+		// initialize first dof entries to q0
+		for (int i = 0; i < NDOF; i++) {
+			qf[i] = x[i];
+			qfdot[i] = x[i+NDOF];
+		}
+		T = x[2*NDOF];
+		if (detach)
+			T -= (time_elapsed/1e3);
+		update = true;
+	}
+}
+
+double FocusedOptim::test_soln(const double x[]) const {
+
+	// give info on constraint violation
+	double *grad = 0;
+	static double kin_violation[EQ_CONSTR_DIM];
+	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
+			             OPTIM_DIM, x, grad, (void*)this);
+	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
+			                 OPTIM_DIM, x, grad, (void*)this);
+	double cost = costfunc(OPTIM_DIM, x, grad, (void*)this);
+
+	if (verbose) {
+		// give info on solution vector
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
+		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
+		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
+	}
+
+	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+			    max_array(lim_violation,INEQ_CONSTR_DIM));
 }
 
 /*

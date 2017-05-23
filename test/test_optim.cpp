@@ -25,16 +25,6 @@
 using namespace arma;
 
 /*
- * Sending to C optimization routine the right data
- */
-inline void init_coptim_params(const vec7 & qinit, double *q0) {
-
-	for (int i = 0; i < NDOF; i++) {
-		q0[i] = qinit(i);
-	}
-}
-
-/*
  * Initialize robot posture on the right size of the robot
  */
 inline void init_right_posture(double* q0) {
@@ -57,7 +47,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	cout << "Testing VHP Trajectory Optimizer...\n";
 	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
-	double lb[OPTIM_DIM], ub[OPTIM_DIM];
+	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 
@@ -94,10 +84,6 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	//cout << ball_pred << endl;
 	calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
 
-	//mat balls_pred = filter.predict_path(DT,N);
-	//vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
-	//racket_params = calc_racket_strategy(balls_pred,ball_land_des,0.8,racket_params);
-
 	vec3 normal_example;
 	for (int i = 0; i < NCART; i++) { // check for normal orthonormality
 		normal_example(i) = racket_params.normal[i][0];
@@ -123,7 +109,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	cout << "Testing FP Trajectory Optimizer...\n";
 	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
-	double lb[OPTIM_DIM], ub[OPTIM_DIM];
+	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 

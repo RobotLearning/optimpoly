@@ -36,40 +36,6 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
 
-void Optim::fill(racketdes *racket_, double *j0, double *j0dot, double time_pred) {
-	racket = racket_;
-	for (int i = 0; i < NDOF; i++) {
-		q0[i] = j0[i];
-		q0dot[i] = j0dot[i];
-	}
-	T = time_pred;
-};
-
-
-void Optim::run() {
-	// run optimization in another thread
-	std::thread t(&Optim::optim, this);
-	if (detach)
-		t.detach();
-	else
-		t.join();
-};
-
-bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
-
-	bool flag_update = false;
-	if (update && !running) {
-		for (int i = 0; i < NDOF; i++) {
-			qf_[i] = qf[i];
-			qfdot_[i] = qfdot[i];
-		}
-		T_ = T;
-		flag_update = true;
-	}
-	return flag_update;
-}
-
-
 HittingPlane::HittingPlane(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
@@ -113,14 +79,16 @@ void HittingPlane::init_rest_soln(double x[2*NDOF]) const {
 
 void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		qf[i] = x[i];
-		qfdot[i] = x[i+NDOF];
+	if (T > 0.05) {
+		// initialize first dof entries to q0
+		for (int i = 0; i < NDOF; i++) {
+			qf[i] = x[i];
+			qfdot[i] = x[i+NDOF];
+		}
+		if (detach)
+			T -= (time_elapsed/1e3);
+		update = true;
 	}
-	if (detach)
-		T -= (time_elapsed/1e3);
-	update = true;
 }
 
 double HittingPlane::test_soln(const double x[2*NDOF]) const {
@@ -155,40 +123,6 @@ double HittingPlane::test_soln(const double x[2*NDOF]) const {
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
-}
-
-void HittingPlane::optim() {
-
-	update = false;
-	running = true;
-	double x[2*NDOF];
-
-	if (moving)
-		init_last_soln(x);
-	else
-		init_rest_soln(x);
-
-	double init_time = get_time();
-	double past_time = 0.0;
-	double minf; // the minimum objective value, upon return //
-	int res; // error code
-
-	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (verbose)
-			printf("NLOPT failed with exit code %d!\n", res);
-	    past_time = (get_time() - init_time)/1e3;
-	}
-	else {
-		past_time = (get_time() - init_time)/1e3;
-		if (verbose) {
-			printf("NLOPT success with exit code %d!\n", res);
-			printf("NLOPT took %f ms\n", past_time);
-			printf("Found minimum at f = %0.10g\n", minf);
-		}
-	    if (test_soln(x) < 1e-2)
-	    	finalize_soln(x,past_time);
-	}
-	running = false;
 }
 
 /*

@@ -61,7 +61,7 @@ static void racket_contact_model(const double* racketVel,
 static void interp_ball(double** ballpred, const double T,
 		                const double dt, const int Nmax,
 						double *ballpos, double *ballvel);
-static void init_last_soln(const optim * params, double x[OPTIM_DIM]);
+static void init_last_soln(const optim * params, double x[2*NDOF+1]);
 
 /**
  * @brief Launch LAZY (also known as DEFENSIVE) PLAYER trajectory generation.
@@ -119,7 +119,7 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	params->update = false;
 	params->running = true;
 	nlopt_opt opt;
-	double x[OPTIM_DIM];
+	double x[2*NDOF+1];
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -128,7 +128,7 @@ static double nlopt_optim_lazy(lazy_data *data, optim *params) {
 	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
 	nlopt_set_lower_bounds(opt, data->coparams->lb);
 	nlopt_set_upper_bounds(opt, data->coparams->ub);
 	nlopt_set_min_objective(opt, costfunc, data);
@@ -425,7 +425,7 @@ static void calc_times(const lazy_data* data,
 					   double *ball_norm, // ball to racket normal distance
 					   double *ball_proj) { // ball projected to racket plane
 
-	static double x_[OPTIM_DIM];
+	static double x_[2*NDOF+1];
 	static double b2rn_;
 	static double b2rp_[NCART];
 	static double xnet_;
@@ -445,7 +445,7 @@ static void calc_times(const lazy_data* data,
 	static double net_y = dist_to_table - table_length/2.0;
 	double distBall2TableZ;
 
-	if (vec_is_equal(OPTIM_DIM,x,x_)) {
+	if (vec_is_equal(2*NDOF+1,x,x_)) {
 		*netTime = netTime_;
 		*landTime = landTime_;
 		*xnet = xnet_;
@@ -488,7 +488,7 @@ static void calc_times(const lazy_data* data,
 		}
 		vec_minus(NCART,normal,ball_proj); // we get (e - nn'e) where e is ballpos - racketpos
 		make_equal(NCART,ball_proj,b2rp_);
-		make_equal(OPTIM_DIM,x,x_);
+		make_equal(2*NDOF+1,x,x_);
 	}
 }
 
@@ -602,7 +602,7 @@ static void interp_ball(double** ballpred, const double T,
  *
  * The closer to the optimum it is the faster alg should converge
  */
-static void init_last_soln(const optim * params, double x[OPTIM_DIM]) {
+static void init_last_soln(const optim * params, double x[2*NDOF+1]) {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
@@ -627,9 +627,9 @@ static double test_optim(double *x, lazy_data* data) {
 	double *grad = 0;
 	static double land_violation[INEQ_LAND_CONSTR_DIM];
 	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
-	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, data);
-	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, OPTIM_DIM, x, grad, data);
-	double cost = costfunc(OPTIM_DIM, x, grad, data);
+	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, 2*NDOF+1, x, grad, data);
+	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, 2*NDOF+1, x, grad, data);
+	double cost = costfunc(2*NDOF+1, x, grad, data);
 
 	if (data->coparams->verbose) {
 		// give info on solution vector

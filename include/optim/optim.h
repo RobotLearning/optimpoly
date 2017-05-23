@@ -21,7 +21,6 @@
 #include "constants.h"
 
 // defines
-const int OPTIM_DIM = 2*NDOF+1;
 const int EQ_CONSTR_DIM = 3*NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
 const double MAX_VEL = 200;
@@ -91,6 +90,7 @@ typedef struct {
 class Optim {
 
 protected:
+	static const int OPTIM_DIM = 2*NDOF;
 	bool verbose = true;
 	bool moving = false;
 	bool update = false;
@@ -106,7 +106,7 @@ protected:
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
-	virtual void optim() = 0;
+	virtual void optim();
 public:
 	racketdes *racket;
 	double lb[NDOF];
@@ -124,12 +124,12 @@ public:
 class HittingPlane : public Optim {
 
 protected:
+	static const int OPTIM_DIM = 2*NDOF;
 	//virtual bool predict(EKF & filter);
-	virtual void optim();
-	virtual void init_last_soln(double x[2*NDOF]) const;
-	virtual void init_rest_soln(double x[2*NDOF]) const;
-	virtual double test_soln(const double x[2*NDOF]) const;
-	virtual void finalize_soln(const double x[2*NDOF], const double time_elapsed);
+	virtual void init_last_soln(double x[]) const;
+	virtual void init_rest_soln(double x[]) const;
+	virtual double test_soln(const double x[]) const;
+	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	double limit_avg[NDOF];
 	HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
@@ -138,12 +138,12 @@ public:
 class FocusedOptim : public Optim {
 
 protected:
+	static const int OPTIM_DIM = 2*NDOF + 1;
 	//virtual bool predict(EKF & filter);
-	virtual void optim();
-	virtual void init_last_soln(double x[2*NDOF]) const;
-	virtual void init_rest_soln(double x[2*NDOF]) const;
-	virtual double test_soln(const double x[2*NDOF]) const;
-	virtual void finalize_soln(const double x[2*NDOF], const double time_elapsed);
+	virtual void init_last_soln(double x[]) const;
+	virtual void init_rest_soln(double x[]) const;
+	virtual double test_soln(const double x[]) const;
+	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	FocusedOptim(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
 };
