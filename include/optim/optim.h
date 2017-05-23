@@ -135,15 +135,23 @@ public:
 	HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
+class FocusedOptim : public Optim {
+
+protected:
+	//virtual bool predict(EKF & filter);
+	virtual void optim();
+	virtual void init_last_soln(double x[2*NDOF]) const;
+	virtual void init_rest_soln(double x[2*NDOF]) const;
+	virtual double test_soln(const double x[2*NDOF]) const;
+	virtual void finalize_soln(const double x[2*NDOF], const double time_elapsed);
+public:
+	FocusedOptim(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
+};
+
 // interface for LAZY player
 double nlopt_optim_lazy_run(double** ballpred,
 		              coptim *coparams,
 	                  racketdes *racketdata,
 		              optim *params);
-
-// interface for FIXED player
-double nlopt_optim_fixed_run(coptim * coparams,
-		                     racketdes * racketdata,
-							 optim * params);
 
 #endif /* OPTIMPOLY_H_ */

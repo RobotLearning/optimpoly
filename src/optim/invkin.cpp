@@ -162,8 +162,6 @@ void HittingPlane::optim() {
 	update = false;
 	running = true;
 	double x[2*NDOF];
-	double tol_eq[EQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 
 	if (moving)
 		init_last_soln(x);

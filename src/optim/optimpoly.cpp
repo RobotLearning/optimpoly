@@ -13,13 +13,7 @@
 #include "kinematics.h"
 #include "optim.h"
 
-// firsttime checking
-static bool firsttime[3]; //! TODO: remove this global var!
-
 // termination
-static double test_optim(const double *x, coptim *params, racketdes *racketdata);
-static void finalize_soln(const double* x, optim * params,
-		                  bool detach, double time_elapsed);
 static bool check_optim_result(const int res);
 
 // optimization related methods
@@ -40,89 +34,130 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void init_last_soln(const optim * params, double x[OPTIM_DIM]);
-static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]);
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
-static void print_input_structs(coptim *coparams,
-	      	  	  	  	  	   racketdes *racket,
-							   optim * params);
 
-/**
- * @brief Launch FIXED (also known as FOCUSED) PLAYER trajectory generation.
- *
- * Multi-threading entry point for the NLOPT optimization.
- * The optimization problem is solved online using COBYLA (see NLOPT).
- *
- * @param coparams Co-optimization parameters held fixed during optimization.
- * @param racketdata Predicted racket position,velocity and normals.
- * @param params Optimization parameters updated if the solution found is FEASIBLE.
- * @return the maximum of violations
- *         Maximum of :
- * 		   1. kinematics equality constraint violations
- *         2. joint limit violations throughout trajectory
- */
-double nlopt_optim_fixed_run(coptim *coparams,
-					      racketdes *racketdata,
-						  optim *params) {
 
-	firsttime[0] = firsttime[1] = firsttime[2] = true;
+FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
 
-	//print_input_structs(coparams, racketdata, params);
-	params->update = false;
-	params->running = true;
-	nlopt_opt opt;
-	double x[OPTIM_DIM];
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-
-	if (coparams->moving)
-		init_last_soln(params,x);
-	else
-		init_rest_soln(coparams,x);
-
-	// set tolerances equal to second argument //
+	// set tolerances equal to second argument
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, coparams->lb);
-	nlopt_set_upper_bounds(opt, coparams->ub);
-	nlopt_set_min_objective(opt, costfunc, coparams);
-	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr,
-			                         coparams, tol_ineq);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         racketdata, tol_eq);
+	nlopt_set_lower_bounds(opt, lb_);
+	nlopt_set_upper_bounds(opt, ub_);
+	nlopt_set_min_objective(opt, costfunc, this);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
+
+	for (int i = 0; i < NDOF; i++) {
+		qrest[i] = qrest_[i];
+		ub[i] = ub_[i];
+		lb[i] = lb_[i];
+	}
+}
+
+void FocusedOptim::init_last_soln(double x[2*NDOF]) const {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = qf[i];
+		x[i+NDOF] = qfdot[i];
+	}
+	x[2*NDOF] = T;
+}
+
+void FocusedOptim::init_rest_soln(double x[2*NDOF]) const {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		x[i] = qrest[i];
+		x[i+NDOF] = 0.0;
+	}
+	x[2*NDOF] = 0.5;
+}
+
+void FocusedOptim::finalize_soln(const double x[2*NDOF], double time_elapsed) {
+
+	// initialize first dof entries to q0
+	for (int i = 0; i < NDOF; i++) {
+		qf[i] = x[i];
+		qfdot[i] = x[i+NDOF];
+	}
+	T = x[2*NDOF];
+	if (detach)
+		T -= (time_elapsed/1e3);
+	update = true;
+}
+
+double FocusedOptim::test_soln(const double x[2*NDOF+1]) const {
+
+	// give info on constraint violation
+	double *grad = 0;
+	static double kin_violation[EQ_CONSTR_DIM];
+	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
+			             OPTIM_DIM, x, grad, (void*)this);
+	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
+			                 OPTIM_DIM, x, grad, (void*)this);
+	double cost = costfunc(OPTIM_DIM, x, grad, (void*)this);
+
+	if (verbose) {
+		// give info on solution vector
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
+		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
+		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
+		}
+	}
+
+	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+			    max_array(lim_violation,INEQ_CONSTR_DIM));
+}
+
+void FocusedOptim::optim() {
+
+	update = false;
+	running = true;
+	double x[OPTIM_DIM];
+
+	if (moving)
+		init_last_soln(x);
+	else
+		init_rest_soln(x);
 
 	double init_time = get_time();
 	double past_time = 0.0;
 	double minf; // the minimum objective value, upon return //
 	int res; // error code
-	double max_violation;
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (coparams->verbose)
+		if (verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
-	    max_violation = test_optim(x,coparams,racketdata);
+	    past_time = (get_time() - init_time)/1e3;
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		if (coparams->verbose) {
+		if (verbose) {
 			printf("NLOPT success with exit code %d!\n", res);
 			printf("NLOPT took %f ms\n", past_time);
 			printf("Found minimum at f = %0.10g\n", minf);
 		}
-	    max_violation = test_optim(x,coparams,racketdata);
-	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
-	    	finalize_soln(x,params,coparams->detach,past_time);
+	    if (test_soln(x) < 1e-2 && x[2*NDOF] > 0.1)
+	    	finalize_soln(x,past_time);
 	}
-	params->running = false;
-	if (coparams->verbose)
+	if (verbose)
 		check_optim_result(res);
-	//nlopt_destroy(opt);
-	return max_violation;
+	running = false;
 }
 
 /*
@@ -133,16 +168,11 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 
 	double a1[NDOF];
 	double a2[NDOF];
-	static double *q0dot; // initial joint velocity
-	static double *q0; // initial joint pos
 	double T = x[2*NDOF];
 
-	if (firsttime[0]) {
-		firsttime[0] = false;
-		coptim* optim_data = (coptim*)my_func_params;
-		q0 = optim_data->q0;
-		q0dot = optim_data->q0dot;
-	}
+	FocusedOptim *opt = (FocusedOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
 
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
@@ -168,23 +198,14 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
-	static double *q0;
-	static double *q0dot;
-	static double *qrest;
-	static double *ub;
-	static double *lb;
-	static double Tret;
 
-	if (firsttime[1]) {
-		firsttime[1] = false;
-		coptim* optim_data = (coptim*)my_func_params;
-		q0 = optim_data->q0;
-		q0dot = optim_data->q0dot;
-		qrest = optim_data->qrest;
-		ub = optim_data->ub;
-		lb = optim_data->lb;
-		Tret = optim_data->time2return;
-	}
+	FocusedOptim *opt = (FocusedOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	double *qrest = opt->qrest;
+	double *ub = opt->ub;
+	double *lb = opt->lb;
+	double Tret = opt->time2return;
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
@@ -219,14 +240,10 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double vel[NCART];
 	static double normal[NCART];
 	static double qf[NDOF];
-	static racketdes* racket_data;
 	double T = x[2*NDOF];
 
-	/* initialization of static variables */
-	if (firsttime[2]) {
-		firsttime[2] = false;
-		racket_data = (racketdes*) my_function_data;
-	}
+	FocusedOptim *opt = (FocusedOptim*) my_function_data;
+	racketdes* racket_data = opt->racket;
 
 	// interpolate at time T to get the desired racket parameters
 	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
@@ -371,91 +388,6 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 }
 
 /*
- * Initialize solution for NLOPT using last solution of
- * 2*dof + 1 dimensional problem
- *
- * The closer to the optimum it is the faster alg should converge
- */
-static void init_last_soln(const optim * params, double x[OPTIM_DIM]) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qf[i];
-		x[i+NDOF] = params->qfdot[i];
-	}
-	x[2*NDOF] = params->T;
-}
-
-/*
- * Initialize solution for NLOPT using rest posture
- * 2*dof + 1 dimensional problem
- *
- * Sets T to 0.5
- *
- * The closer to the optimum it is the faster alg should converge
- */
-static void init_rest_soln(const coptim * params, double x[OPTIM_DIM]) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qrest[i];
-		x[i+NDOF] = 0.0;
-	}
-	x[2*NDOF] = 0.5;
-}
-
-/*
- * Debug by testing the constraint violation of the solution vector
- *
- */
-static double test_optim(const double *x, coptim * coparams, racketdes * racketdata) {
-
-	// give info on constraint violation
-	double *grad = 0;
-	static double kin_violation[EQ_CONSTR_DIM];
-	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             OPTIM_DIM, x, grad, racketdata);
-	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, coparams);
-	double cost = costfunc(OPTIM_DIM, x, grad, coparams);
-
-	if (coparams->verbose) {
-		// give info on solution vector
-		print_optim_vec(x);
-		printf("f = %.2f\n",cost);
-		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
-		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
-		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
-		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-			if (lim_violation[i] > 0.0)
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
-		}
-	}
-
-	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
-			    max_array(lim_violation,INEQ_CONSTR_DIM));
-}
-
-/*
- * Finalize the solution and update target SL structure and hitTime value
- */
-static void finalize_soln(const double* x, optim * params,
-		                  bool detach, double time_elapsed) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		params->qf[i] = x[i];
-		params->qfdot[i] = x[i+NDOF];
-	}
-	params->T = x[2*NDOF];
-	if (detach) {
-		params->T -= (time_elapsed/1e3);
-	}
-	params->update = true;
-}
-
-/*
  * Give info about the optimization after termination
  *
  */
@@ -511,27 +443,4 @@ static bool check_optim_result(const int res) {
 
 	}
 	return flag;
-}
-
-static void print_input_structs(coptim *coparams,
-	      	  	  	  	  	   racketdes *racketdata,
-							   optim * params) {
-
-	for (int i = 0; i < NDOF; i++) {
-		printf("q0[%d] = %f\n", i, coparams->q0[i]);
-		printf("q0dot[%d] = %f\n", i, coparams->q0dot[i]);
-		printf("lb[%d] = %f\n", i, coparams->lb[i]);
-		printf("ub[%d] = %f\n", i, coparams->ub[i]);
-	}
-	printf("Tret = %f\n", coparams->time2return);
-	for (int i = 0; i < NDOF; i++) {
-		printf("qf[%d] = %f\n", i, params->qf[i]);
-		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
-	}
-	printf("Thit = %f\n", params->T);
-
-	print_mat_size("pos = ", racketdata->pos, NCART, 5);
-	print_mat_size("vel = ", racketdata->vel, NCART, 5);
-	print_mat_size("normal = ", racketdata->normal, NCART, 5);
-
 }

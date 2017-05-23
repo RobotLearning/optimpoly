@@ -342,6 +342,7 @@ void Player::optim_vhp_param(const joint & qact) {
 void Player::optim_fixedp_param(const joint & qact) {
 
 	mat balls_pred;
+	double q0[NDOF], q0dot[NDOF];
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
@@ -349,17 +350,11 @@ void Player::optim_fixedp_param(const joint & qact) {
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
+				q0[i] = qact.q(i);
+				q0dot[i] = qact.qd(i);
 			}
-			//cout << filter.get_mean().t() << endl;
-			// run optimization in another thread
-			std::thread t(&nlopt_optim_fixed_run,
-					&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
+			opt->fill(&racket_params,q0,q0dot,0.5);
+			opt->run();
 		}
 	}
 }

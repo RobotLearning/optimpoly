@@ -85,7 +85,7 @@ double nlopt_optim_lazy_run(double** ballpred,
 	if (coparams->moving) {
 		lazy_data data = {racketdata,coparams,ballpred,
 				          racketdata->dt,racketdata->Nmax};
-		nlopt_optim_fixed_run(coparams,racketdata,params);
+		//nlopt_optim_fixed_run(coparams,racketdata,params);
 		/*static double x[15];
 		for (int i = 0; i < 7; i++) {
 			x[i] = params->qf[i];
@@ -97,7 +97,7 @@ double nlopt_optim_lazy_run(double** ballpred,
 		return nlopt_optim_lazy(&data,params);
 	}
 	else {
-		return nlopt_optim_fixed_run(coparams,racketdata,params);
+		//return nlopt_optim_fixed_run(coparams,racketdata,params);
 	}
 
 }
