@@ -468,23 +468,6 @@ bool Player::check_update(const joint & qact) const {
 }
 
 /*
- * Predict ball with the models fed into the filter
- *
- * Number of prediction steps is given by Nmax in racket
- * parameters
- *
- */
-void Player::predict_ball(mat & balls_pred) const {
-
-	//static wall_clock timer;
-	//timer.tic();
-	int N = racket_params.Nmax;
-	//cout << filter.get_mean() << endl;
-	balls_pred = filter.predict_path(racket_params.dt,N);
-	//cout << timer.toc() << endl;
-}
-
-/*
  * Unfold the next desired state of the 3rd order polynomials in joint space
  * If movement finishes then the desired state velocities and accelerations are zeroed.
  *
@@ -528,37 +511,6 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 }
 
-/*
- * Predict hitting point on the Virtual Hitting Plane (VHP)
- * if the ball is legal (legal detected bounce or legal predicted bounce)
- * and there is enough time (50 ms threshold)
- *
- * The location of the VHP is defined as a constant (constants.h)
- *
- */
-bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
-
-	const double time_min = 0.05;
-	mat balls_path;
-	bool valid_hp = false;
-	predict_ball(balls_path);
-	uvec vhp_index;
-	unsigned idx;
-
-	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
-		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
-		if (vhp_index.n_elem == 1) {
-			idx = as_scalar(vhp_index);
-			ball_pred = balls_path.col(idx);
-			time_pred = racket_params.dt * (idx + 1);
-			if (time_pred > time_min)
-				valid_hp = true;
-		}
-	}
-
-	return valid_hp;
-}
-
 /**
  * @brief Method useful for testing performance of different players.
  *
@@ -572,6 +524,19 @@ void Player::reset_filter(double std_model, double std_noise) {
 	num_obs = 0;
 	game_state = AWAITING;
 	t_cum = 0.0;
+}
+
+/*
+ * Predict ball with the models fed into the filter
+ *
+ * Number of prediction steps is given by Nmax in racket
+ * parameters
+ *
+ */
+void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
+
+	int N = (int)(time_pred/DT);
+	balls_pred = filter.predict_path(DT,N);
 }
 
 /*

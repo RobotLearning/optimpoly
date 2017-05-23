@@ -14,21 +14,15 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
-
-// firsttime checking
-static bool firsttime[2]; //! TODO: remove this global var!
+#include <armadillo>
+#include "player.hpp"
 
 static double penalize_dist_to_limits(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
 static double const_costfunc(unsigned n, const double *x,
 		                     double *grad, void *my_func_params);
-static void init_last_soln(const optim * params, double x[2*NDOF]);
-static void init_rest_soln(const coptim * params, double x[2*NDOF]);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
-static double test_optim(const double *x, const double T,
-		          coptim * coparams,
-				  racketdes * racketdata);
 static void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
@@ -43,206 +37,60 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void finalize_soln(const double* x, optim * params,
-		                  bool detach, double time_elapsed);
 
-void VHP::run() {
 
-	predict();
-	optim();
-}
+VHP::VHP(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]) {
 
-void VHP::optim() {
-
-}
-
-/**
- * @brief inverse kinematics for table tennis trajectory generation
- *        based on a fixed Virtual Hitting Plane (VHP).
- *
- * Multi-threading entry point for the NLOPT optimization.
- * The optimization problem is solved online using COBYLA (see NLOPT).
- * Cost function in this case is the sum of squared distances from
- * joint limits.
- * VHP is held fixed at a constant (see constants.h) y-location.
- *
- * @param coparams Co-optimization parameters held fixed during optimization.
- * @param racketdata Predicted racket position,velocity and normals.
- * @param params Optimization parameters updated if the solution found is FEASIBLE.
- * @return the maximum of violations
- *         Maximum of :
- * 		   1. kinematics equality constraint violations
- *         2. joint limit violations throughout trajectory
- */
-double nlopt_vhp_run(coptim *coparams,
-					 racketdes *racketdata,
-					 optim *params) {
-
-	firsttime[0] = true;
-	firsttime[1] = true;
-
-	//print_input_structs(coparams, racketdata, params);
-	params->update = false;
-	params->running = true;
-	nlopt_opt opt;
-	double x[2*NDOF];
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-
-	if (coparams->moving)
-		init_last_soln(params,x);
-	else
-		init_rest_soln(coparams,x);
+	// set tolerances equal to second argument
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, coparams->lb);
-	nlopt_set_upper_bounds(opt, coparams->ub);
-	nlopt_set_min_objective(opt, penalize_dist_to_limits, coparams);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr,
-			                         racketdata, tol_eq);
-
-	double init_time = get_time();
-	double past_time = 0.0;
-	double minf; // the minimum objective value, upon return //
-	int res; // error code
-	double max_violation;
-
-	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (coparams->verbose)
-			printf("NLOPT failed with exit code %d!\n", res);
-	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = 100.0;
-	}
-	else {
-		past_time = (get_time() - init_time)/1e3;
-		if (coparams->verbose) {
-			printf("NLOPT success with exit code %d!\n", res);
-			printf("NLOPT took %f ms\n", past_time);
-			printf("Found minimum at f = %0.10g\n", minf);
-		}
-	    max_violation = test_optim(x,params->T,coparams,racketdata);
-	    if (max_violation < 1e-2)
-	    	finalize_soln(x,params,coparams->detach,past_time);
-	}
-	params->running = false;
-	//nlopt_destroy(opt);
-	return max_violation;
-}
-
-/*
- * Penalize (unweighted) squared distance (in joint space) to joint limit averages
- *
- * Adds also joint velocity penalties
- *
- */
-static double penalize_dist_to_limits(unsigned n, const double *x, double *grad, void *my_func_params) {
-
-	static double *ub;
-	static double *lb;
-	static double limit_avg[NDOF];
-	double cost = 0.0;
-
-	if (firsttime[0]) {
-		firsttime[0] = false;
-		coptim* optim_data = (coptim*)my_func_params;
-		ub = optim_data->ub;
-		lb = optim_data->lb;
-		for (int i = 0; i < NDOF; i++) {
-			limit_avg[i] = (ub[i] + lb[i])/2.0;
-		}
-	}
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
+	nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM,
+			kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
-		cost += pow(x[i] - limit_avg[i],2);
-		cost += pow(x[i + NDOF], 2);
+		qrest[i] = qrest_[i];
+		limit_avg[i] = (ub[i] + lb[i])/2.0;
 	}
-	return cost;
 }
 
-
-/*
- * Constant function for simple inverse kinematics
- */
-static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
-
-	return 1.0;
-}
-
-/*
- * Initialize solution for NLOPT optimizer based
- * 2*NDOF dimensional inverse kinematics using last solution found
- *
- */
-static void init_last_soln(const optim * params, double x[2*NDOF]) {
+void VHP::init_last_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qf[i];
-		x[i+NDOF] = params->qfdot[i];
+		x[i] = qf[i];
+		x[i+NDOF] = qfdot[i];
 	}
 }
 
-/*
- * Initialize solution for NLOPT optimizer based
- * 2*NDOF dimensional inverse kinematics using rest posture
- *
- * The closer to the optimum it is the faster alg should converge
- */
-static void init_rest_soln(const coptim * params, double x[2*NDOF]) {
+void VHP::init_rest_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qrest[i];
+		x[i] = qrest[i];
 		x[i+NDOF] = 0.0;
 	}
 }
 
-/*
- * This is the constraint that makes sure we hit the ball
- */
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *my_function_data) {
+void VHP::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 
-	static double pos[NCART];
-	static double qfdot[NDOF];
-	static double vel[NCART];
-	static double normal[NCART];
-	static double q[NDOF];
-	static racketdes* racket_data;
-
-	/* initialization of static variables */
-	if (firsttime[1]) {
-		firsttime[1] = false;
-		racket_data = (racketdes*) my_function_data;
-	}
-
-	// extract state information from optimization variables
+	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF; i++) {
-		q[i] = x[i];
+		qf[i] = x[i];
 		qfdot[i] = x[i+NDOF];
 	}
-
-	// compute the actual racket pos,vel and normal
-	calc_racket_state(q,qfdot,pos,vel,normal);
-
-	// deviations from the desired racket frame
-	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - racket_data->pos[i][0];
-		result[i + NCART] = vel[i] - racket_data->vel[i][0];
-		result[i + 2*NCART] = normal[i] - racket_data->normal[i][0];
-	}
-
+	if (detach)
+		T -= (time_elapsed/1e3);
+	update = true;
 }
 
-/*
- * Debug by testing the constraint violation of the solution vector
- *
- */
-static double test_optim(const double *x, const double T,
-		          coptim * coparams,
-				  racketdes * racketdata) {
+double VHP::test_soln(const double x[2*NDOF]) const {
 
 	double x_[2*NDOF+1];
 	for (int i = 0; i < 2*NDOF; i++)
@@ -253,13 +101,13 @@ static double test_optim(const double *x, const double T,
 	double *grad = 0;
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             2*NDOF, x, grad, racketdata);
+	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, 2*NDOF,
+			             x, grad, (void*)this);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 2*NDOF, x_, grad, coparams);
+			                 2*NDOF, x_, grad, (void*)this);
 	//double cost = costfunc(OPTIM_DIM, x, grad, coparams);
 
-	if (coparams->verbose) {
+	if (verbose) {
 		// give info on solution vector
 		print_optim_vec(x_);
 		//printf("f = %.2f\n",cost);
@@ -274,6 +122,169 @@ static double test_optim(const double *x, const double T,
 
 	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
+}
+
+bool VHP::predict(const vec2 & ball_land_des, const double & time_land_des,
+		          EKF & filter, game & game_state) {
+
+	vec6 ball_pred;
+	double time_pred;
+	if (predict_hitting_point(ball_pred,time_pred,filter,game_state)) {
+		calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket);
+		T = time_pred;
+	}
+}
+
+void calc_racket_strategy(const vec6 & ball_predicted,
+		                  const vec2 & ball_land_des,
+						  const double time_land_des,
+						  racket_des & racket) {
+
+	TableTennis tennis = TableTennis(false,false);
+
+	vec3 balls_out_vel;
+	vec3 racket_des_normal;
+	vec3 racket_des_vel;
+	tennis.calc_des_ball_out_vel(ball_land_des,time_land_des,ball_predicted,balls_out_vel);
+	tennis.calc_des_racket_normal(ball_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
+	tennis.calc_des_racket_vel(ball_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
+
+	// place racket centre on the predicted ball
+
+	for (int j = 0; j < NCART; j++) {
+		racket.pos[j] = ball_predicted(j);
+		racket.vel[j] = racket_des_vel(j);
+		racket.normal[j] = racket_des_normal(j);
+	}
+}
+
+/*
+ * Predict hitting point on the Virtual Hitting Plane (VHP)
+ * if the ball is legal (legal detected bounce or legal predicted bounce)
+ * and there is enough time (50 ms threshold)
+ *
+ * The location of the VHP is defined as a constant (constants.h)
+ *
+ */
+bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
+		                   EKF & filter, game & game_state) {
+
+	const double time_min = 0.05;
+	mat balls_path;
+	bool valid_hp = false;
+	predict_ball(time_pred,balls_path,filter);
+	uvec vhp_index;
+	unsigned idx;
+
+	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
+		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
+		if (vhp_index.n_elem == 1) {
+			idx = as_scalar(vhp_index);
+			ball_pred = balls_path.col(idx);
+			time_pred = DT * (idx + 1);
+			if (time_pred > time_min)
+				valid_hp = true;
+		}
+	}
+
+	return valid_hp;
+}
+
+void VHP::optim() {
+
+	update = false;
+	running = true;
+	double x[2*NDOF];
+	double tol_eq[EQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
+
+	if (moving)
+		init_last_soln(x);
+	else
+		init_rest_soln(x);
+
+	double init_time = get_time();
+	double past_time = 0.0;
+	double minf; // the minimum objective value, upon return //
+	int res; // error code
+	double max_violation;
+
+	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+		if (verbose)
+			printf("NLOPT failed with exit code %d!\n", res);
+	    past_time = (get_time() - init_time)/1e3;
+	    max_violation = 100.0;
+	}
+	else {
+		past_time = (get_time() - init_time)/1e3;
+		if (verbose) {
+			printf("NLOPT success with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
+	    max_violation = test_soln(x);
+	    if (max_violation < 1e-2)
+	    	finalize_soln(x,past_time);
+	}
+	running = false;
+}
+
+/*
+ * Penalize (unweighted) squared distance (in joint space) to joint limit averages
+ *
+ * Adds also joint velocity penalties
+ *
+ */
+static double penalize_dist_to_limits(unsigned n, const double *x, double *grad, void *my_func_params) {
+
+	double cost = 0.0;
+	VHP * vhp = (VHP*)my_func_params;
+
+	for (int i = 0; i < NDOF; i++) {
+		cost += pow(x[i] - vhp->limit_avg[i],2);
+		cost += pow(x[i + NDOF], 2);
+	}
+	return cost;
+}
+
+/*
+ * Constant function for simple inverse kinematics
+ */
+static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+
+	return 1.0;
+}
+
+
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *my_function_data) {
+
+	static double pos[NCART];
+	static double qfdot[NDOF];
+	static double vel[NCART];
+	static double normal[NCART];
+	static double q[NDOF];
+
+	VHP * vhp = (VHP*)my_function_data;
+
+	// extract state information from optimization variables
+	for (int i = 0; i < NDOF; i++) {
+		q[i] = x[i];
+		qfdot[i] = x[i+NDOF];
+	}
+
+	// compute the actual racket pos,vel and normal
+	calc_racket_state(q,qfdot,pos,vel,normal);
+
+	// deviations from the desired racket frame
+	for (int i = 0; i < NCART; i++) {
+		result[i] = pos[i] - vhp->racket.pos[i];
+		result[i + NCART] = vel[i] - vhp->racket.vel[i];
+		result[i + 2*NCART] = normal[i] - vhp->racket.normal[i];
+	}
 }
 
 /*
@@ -299,18 +310,6 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double *ub;
 	static double *lb;
 	static double Tret;
-	static bool firsttime = true;
-
-	if (firsttime) {
-		firsttime = false;
-		coptim* optim_data = (coptim*)my_func_params;
-		q0 = optim_data->q0;
-		q0dot = optim_data->q0dot;
-		qrest = optim_data->qrest;
-		ub = optim_data->ub;
-		lb = optim_data->lb;
-		Tret = optim_data->time2return;
-	}
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
@@ -406,19 +405,4 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 		joint_max_cand[i] = fmax(cand1,cand2);
 		joint_min_cand[i] = fmin(cand1,cand2);
 	}
-}
-
-/*
- * Finalize the solution and update target SL structure and hitTime value
- */
-static void finalize_soln(const double* x, optim * params, bool detach, double time_elapsed) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		params->qf[i] = x[i];
-		params->qfdot[i] = x[i+NDOF];
-	}
-	if (detach)
-		params->T -= (time_elapsed/1e3);
-	params->update = true;
 }

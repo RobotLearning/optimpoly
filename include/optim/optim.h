@@ -18,6 +18,9 @@
 #include <nlopt.h>
 #include "string.h" //for bzero
 #include "constants.h"
+#include <armadillo>
+
+using namespace arma;
 
 // defines
 const int OPTIM_DIM = 2*NDOF+1;
@@ -87,31 +90,68 @@ typedef struct {
 	double R_net;
 } weights; // weights for optimization penalties
 
+struct racket_des {
+	double pos[NCART] = {0.0};
+	double vel[NCART] = {0.0};
+	double normal[NCART] = {0.0};
+}; // racket pos, vel and normals
+
 class Optim {
 
-private:
-	virtual void predict() = 0;
+protected:
+	bool verbose = false;
+	bool moving = false;
+	bool update = false;
+	bool running = false;
+	bool detach = false;
+	nlopt_opt opt;
+	double qrest[NDOF] = {0.0};
+	double qf[NDOF] = {0.0};
+	double qfdot[NDOF] = {0.0};
+	double T = 1.0;
+	virtual void init_last_soln() const = 0;
+	virtual void init_rest_soln() const = 0;
+	virtual double test_soln() const = 0;
+	virtual void finalize_soln() = 0;
+	virtual bool predict() = 0;
 	virtual void optim() = 0;
-
+	void calc_hit_traj() {
+		if (predict()) {
+			optim();
+		}
+	}
 public:
-	virtual void run() = 0;
+	bool get_params();
+	void run() {
+		// run optimization in another thread
+		std::thread t(calc_hit_traj);
+		if (detach)
+			t.detach();
+		else
+			t.join();
+	}
 
 };
 
 class VHP : public Optim {
 
-private:
-	virtual void predict();
+protected:
+	virtual bool predict();
 	virtual void optim();
-
+	virtual void init_last_soln(double x[2*NDOF]) const;
+	virtual void init_rest_soln(double x[2*NDOF]) const;
+	virtual double test_soln(const double x[2*NDOF]) const;
+	virtual void finalize_soln(const double x[2*NDOF], double time_elapsed);
+private:
+	double limit_avg[NDOF];
+	racket_des racket;
+	vec2 ball_land_des;
+	double time_land_des;
+	EKF & filter;
+	game game_state;
 public:
-	virtual void run();
+	VHP(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
 };
-
-// interface for VHP player
-double nlopt_vhp_run(coptim *coparams,
-					 racketdes *racketdata,
-					 optim *params);
 
 // interface for LAZY player
 double nlopt_optim_lazy_run(double** ballpred,

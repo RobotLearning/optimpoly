@@ -87,7 +87,6 @@ private:
 
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
 	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
-	void predict_ball(mat & balls_pred) const;
 	void calc_next_state(const joint & qact, joint & qdes);
 
 public:
@@ -97,6 +96,7 @@ public:
 			int verbose = 0, mode_operate mode = TEST_SIM);
 	~Player();
 
+	void predict_ball(mat & balls_pred) const;
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
 	void reset_filter(double std_model, double std_noise);
