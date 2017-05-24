@@ -133,22 +133,15 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 
 	static double balldist;
 	static double ballproj[NCART];
-	static double *q0dot; // initial joint velocity
-	static double *q0; // initial joint pos
-	static lazy_data * data;
-	static weights *w = (weights*)malloc(sizeof(weights));
 	static double J1, Jhit, Jland;
 	static double a1[NDOF], a2[NDOF];
 	static double netTime, landTime, xnet, xland[2];
 	double T = x[2*NDOF];
 
-	if (firsttime[0]) {
-		firsttime[0] = false;
-		set_penalty_matrices(w);
-		data = (lazy_data*)my_func_params;
-		q0 = data->coparams->q0;
-		q0dot = data->coparams->q0dot;
-	}
+	LazyOptim* opt = (LazyOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	weights *w = opt->w;
 
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
@@ -375,7 +368,7 @@ static void calc_return_extrema_cand(double *a1, double *a2, const double *x,
  * TODO: simplify code! If landtime is not real, should we set it to -1.0?
  *
  */
-static void calc_times(const lazy_data* data,
+static void calc_times(const LazyOptim *opt,
 		               const double *x,
 					   double *netTime,
 					   double *landTime,
@@ -419,7 +412,7 @@ static void calc_times(const lazy_data* data,
 			qfdot[i] = x[i + NDOF];
 		}
 		calc_racket_state(qf, qfdot, pos, vel, normal);
-		interp_ball(data->ballpred, x[2*NDOF], data->dt, data->Nmax, ballpos, ballvel);
+		interp_ball(opt->ballpred, x[2*NDOF], opt->racket->dt, opt->racket->Nmax, ballpos, ballvel);
 		racket_contact_model(vel, normal, ballvel);
 		modify_ball_outgoing_vel(ballvel);
 		distBall2TableZ = ballpos[Z] - table_z;
