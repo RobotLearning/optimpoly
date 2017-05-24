@@ -62,15 +62,24 @@ void Optim::set_verbose(bool flag_verbose) {
 	verbose = flag_verbose;
 }
 
-bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
+bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;
 	if (update && !running) {
-		for (int i = 0; i < NDOF; i++) {
-			qf_[i] = qf[i];
-			qfdot_[i] = qfdot[i];
-		}
-		T_ = T;
+		vec7 qf(qf);
+		vec7 qfdot(qfdot);
+		vec7 q_rest_des(qrest);
+		vec7 qnow = qact.q;
+		vec7 qdnow = qact.qd;
+		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		p.a.col(2) = qnow;
+		p.a.col(3) = qdnow;
+		p.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		p.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		p.b.col(2) = qfdot;
+		p.b.col(3) = qf;
+		p.time2hit = T;
 		flag = true;
 		update = false;
 	}

@@ -42,44 +42,27 @@ typedef struct {
 } optim_des;
 
 /**
- * @brief Optimization coparameters passed to optimizer. (only LP changes them).
- */
-typedef struct {
-	double* q0;
-	double* q0dot;
-	double* qrest;
-	double* lb;
-	double* ub;
-	double time2return;
-	bool detach;
-	bool moving;
-	bool verbose;
-} coptim; // optimization coparameters
-
-/**
- * @brief Optimization parameters passed to optimizer.
+ * @brief Optimization parameters returned from optimizer.
  *
  * When running is TRUE, player does not update trajectories.
  * IF update is TRUE and running is FALSE, then player can update trajectories.
  */
 typedef struct {
-	double* qf;
-	double* qfdot;
-	double T;
-	bool running;
-	bool update;
-} optim; // optimization variables
+	double time2hit = 1.0;
+	mat a = zeros<mat>(NDOF,4); // strike
+	mat b = zeros<mat>(NDOF,4); // return
+} spline_params; // optimization variables
 
 /**
- * @brief Lazy Player uses a different structure.
+ * @brief Desired/actual joint positions, velocities, accelerations.
+ *
+ * output of main Player function play()
  */
 typedef struct {
-	optim_des *racketdata;
-	coptim * coparams;
-	double **ballpred;
-	double dt;
-	int Nmax;
-} lazy_data;
+	vec7 q = zeros<vec>(NDOF);
+	vec7 qd = zeros<vec>(NDOF);
+	vec7 qdd = zeros<vec>(NDOF);
+} joint;
 
 /**
  * @brief Weights for optimization penalties used by LP.
@@ -125,7 +108,7 @@ public:
 	void set_moving(bool flag);
 	void set_detach(bool flag);
 	void set_verbose(bool flag);
-	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
+	bool get_params(const joint & qact, spline_params & p);
 	void update_init_state(double *j0, double *j0dot, double time_pred);
 	void set_des_params(optim_des *params);
 	void run();

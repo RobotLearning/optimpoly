@@ -126,6 +126,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 		default:
 			throw ("Algorithm is not recognized!\n");
 	}
+	opt->set_verbose(verbose > 1);
+	opt->set_detach(mode != TEST_SIM);
 }
 
 /*
@@ -150,7 +152,7 @@ Player::~Player() {
  * Ball is valid if ball is a new ball and (in real robot mode)
  * it is not an outlier!
  *
- * TODO: we're assuming that time elasped dt = DT = 0.002 seconds every time!
+ * Note: we're assuming that time elasped dt = DT = 0.002 seconds every time!
  *
  */
 void Player::estimate_ball_state(const vec3 & obs) {
@@ -358,7 +360,6 @@ void Player::optim_fixedp_param(const joint & qact) {
  *
  * The optimized parameters are: qf, qf_dot, T
  *
- * TODO: delete ballpred in destructor?
  *
  */
 void Player::optim_lazy_param(const joint & qact) {
@@ -450,36 +451,18 @@ bool Player::check_update(const joint & qact) const {
  */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
-	static unsigned idx = 0;
-	static mat Q_des, Qd_des, Qdd_des;
-
 	// this should be only for MPC?
-	if (opt->get_params(qf,qfdot,T)) {
+	if (opt->get_params(qact,poly)) {
 		if (verbose) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
 		moving = true;
 		opt->set_moving(true);
-		// call polynomial generation
-		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
-		idx = 0;
 	}
 
 	// make sure we update after optim finished
 	if (moving) {
-		qdes.q = Q_des.col(idx);
-		qdes.qd = Qd_des.col(idx);
-		qdes.qdd = Qdd_des.col(idx);
-		idx++;
-		if (idx == Q_des.n_cols) {
-			// hitting process will finish
-			moving = false;
-			opt->set_moving(false);
-			qdes.q = q_rest_des;
-			qdes.qd = zeros<vec>(NDOF);
-			qdes.qdd = zeros<vec>(NDOF);
-			idx = 0;
-		}
+		update_next_state(poly,q_rest_des,time2return,qdes);
 	}
 
 }
@@ -549,7 +532,6 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
- * TODO: Is there a way to avoid deep copying computed values to racket_params?
  *
  */
 optim_des calc_racket_strategy(const mat & balls_predicted,
@@ -578,69 +560,37 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 }
 
 /*
- * Create batch hitting and returning joint state 3rd degree polynomials
- *
- */
-void generate_strike(const optim & params, const joint & qact,
-		             const vec7 & q_rest_des, const double time2return,
-		            mat & Q, mat & Qd, mat & Qdd) {
-
-	// first create hitting polynomials
-	double T = params.T;
-	vec7 qf(params.qf);
-	vec7 qfdot(params.qfdot);
-	vec7 qnow = qact.q;
-	vec7 qdnow = qact.qd;
-	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
-
-	int N_hit = T/DT;
-	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
-	int N_return = time2return/DT;
-	rowvec times_ret = linspace<rowvec>(DT,time2return,N_return);
-
-	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
-	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
-	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
-
-	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
-	gen_3rd_poly(times_ret,b3,b2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
-	Q = join_horiz(Q_hit,Q_ret);
-	Qd = join_horiz(Qd_hit,Qd_ret);
-	Qdd = join_horiz(Qdd_hit,Qdd_ret);
-}
-
-/*
  * Update state using hitting and returning joint state 3rd degree polynomials
  *
  */
-void update_strike(const optim & params, const joint & qact,
-		           const vec7 & q_rest_des, const double time2return, joint & qdes) {
+void update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
+				   const double time2return, joint & qdes) {
 
-	// first create hitting polynomials
-	double T = params.T;
-	vec7 qf(params.qf);
-	vec7 qfdot(params.qfdot);
-	vec7 qnow = qact.q;
-	vec7 qdnow = qact.qd;
-	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+	static double t = DT;
+	mat a,b;
+	double tbar;
 
-	int N_hit = T/DT;
-	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
-	int N_return = time2return/DT;
-	rowvec times_ret = linspace<rowvec>(DT,time2return,N_return);
-
-	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
-	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
-	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
-
-	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
-	gen_3rd_poly(times_ret,b3,b2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
+	if (t <= poly.time2hit) {
+		a = poly.a;
+		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
+		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
+		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
+	}
+	else if (t <= poly.time2hit + time2return) {
+		b = poly.b;
+		tbar = t - poly.time2hit;
+		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
+		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
+		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
+	}
+	else {
+		t = 0.0; // hitting finished
+		qdes.q = q_rest_des;
+		qdes.qd = zeros<vec>(NDOF);
+		qdes.qdd = zeros<vec>(NDOF);
+	}
+	t += DT;
 }
 
 /*
@@ -674,25 +624,6 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0(i);
 		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
 		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
-	}
-}
-
-
-/*
- * Update vector of joint angles, velocities and accelerations (from t to t+dt)
- */
-void update_3rd_poly(const double t, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
-		             joint & qdes) {
-
-	// IN MATLAB:
-	//	qStrike(m,:) = a(1)*t.^3 + a(2)*t.^2 + a(3)*t + a(4);
-	//	qdStrike(m,:) = 3*a(1)*t.^2 + 2*a(2)*t + a(3);
-	//	qddStrike(m,:) = 6*a(1)*t + 2*a(2);
-
-	for(int i = 0; i < NDOF; i++) {
-		qdes.q = a3(i) * pow(t,3) + a2(i) * pow(t,2) + a1(i) * t + a0(i);
-		qdes.qd = 3*a3(i) * pow(t,2) + 2*a2(i) * t + a1(i);
-		qdes.qdd = 6*a3(i) * t + 2*a2(i);
 	}
 }
 

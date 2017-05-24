@@ -46,10 +46,12 @@ inline void init_right_posture(double* q0) {
 BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	cout << "Testing VHP Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	double q0[NDOF], q0dot[NDOF];
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
@@ -83,7 +85,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	opt->set_des_params(&racket_params);
 	opt->update_init_state(q0,q0dot,time_pred);
 	opt->run();
-	bool update = opt->get_params(qf,qfdot,T);
+	bool update = opt->get_params(qact,poly);
 
 	BOOST_TEST(update);
 	delete opt;
@@ -95,10 +97,12 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	cout << "Testing FP Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	double q0[NDOF], q0dot[NDOF];
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
@@ -127,7 +131,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	opt->set_des_params(&racket_params);
 	opt->update_init_state(q0,q0dot,0.5);
 	opt->run();
-	bool update = opt->get_params(qf,qfdot,T);
+	bool update = opt->get_params(qact,poly);
 
 	BOOST_TEST(update);
 	delete opt;
@@ -139,10 +143,12 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	cout << "Testing LAZY Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	double q0[NDOF], q0dot[NDOF];
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
@@ -168,7 +174,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	opt->set_des_params(&ball_params);
 	opt->update_init_state(q0,q0dot,0.5);
 	opt->run();
-	bool update = opt->get_params(qf,qfdot,T);
+	bool update = opt->get_params(qact,poly);
 
 	BOOST_TEST(update);
 	delete opt;

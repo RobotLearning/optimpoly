@@ -35,17 +35,6 @@ enum mode_operate { // mode of operations
 };
 
 /**
- * @brief Desired/actual joint positions, velocities, accelerations.
- *
- * output of main Player function play()
- */
-typedef struct {
-	vec7 q;
-	vec7 qd;
-	vec7 qdd;
-} joint;
-
-/**
  *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
@@ -65,6 +54,7 @@ private:
 	double t_cum; // counting time stamps for resetting filter
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
+	spline_params poly;
 	Optim *opt; // optimizer
 
 	// flags and related fields
@@ -117,9 +107,9 @@ bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose);
 
 // movement generation
-void generate_strike(const optim & params, const joint & qact,
-		             const vec7 & q_rest_des, const double time2return,
-		            mat & Q, mat & Qd, mat & Qdd);
+void update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
+				   const double time2return, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
