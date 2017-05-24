@@ -681,8 +681,8 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 /*
  * Update vector of joint angles, velocities and accelerations (from t to t+dt)
  */
-void update_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
-		     mat & Q, mat & Qd, mat & Qdd) {
+void update_3rd_poly(const double t, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
+		             joint & qdes) {
 
 	// IN MATLAB:
 	//	qStrike(m,:) = a(1)*t.^3 + a(2)*t.^2 + a(3)*t + a(4);
@@ -690,9 +690,9 @@ void update_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, con
 	//	qddStrike(m,:) = 6*a(1)*t + 2*a(2);
 
 	for(int i = 0; i < NDOF; i++) {
-		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0(i);
-		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
-		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
+		qdes.q = a3(i) * pow(t,3) + a2(i) * pow(t,2) + a1(i) * t + a0(i);
+		qdes.qd = 3*a3(i) * pow(t,2) + 2*a2(i) * t + a1(i);
+		qdes.qdd = 6*a3(i) * t + 2*a2(i);
 	}
 }
 
