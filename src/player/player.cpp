@@ -78,8 +78,6 @@ using namespace arma;
  * VHP and FP try to return the ball to the centre of the opponents court,
  * LP tries to just return the ball to the opponents court.
  *
- * TODO: remove callocs and replace with new! and add unique/shared pointers
-
  * @param q0 Initial joint positions.
  * @param filter_ Reference to an input filter (must be initialized in a separate line).
  * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
@@ -94,6 +92,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	time2return = 1.0;
 	num_obs = 0;
 	valid_obs = true;
+	moving = false;
 	t_cum = 0.0;
 	observations = zeros<mat>(3,min_obs);
 	times = zeros<vec>(min_obs);
@@ -104,25 +103,29 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	q_rest_des = q0;
 	opt_params.Nmax = 500;
 
-	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
-	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
-	double* qzero = (double*)calloc(NDOF, sizeof(double));
-	double* qinit = (double*)calloc(NDOF, sizeof(double));
-	double* qrest = (double*)calloc(NDOF, sizeof(double));
-	double *lb = (double*)calloc(2*NDOF+1,sizeof(double));
-	double *ub = (double*)calloc(2*NDOF+1,sizeof(double));
+	double lb[2*NDOF+1];
+	double ub[2*NDOF+1];
+	double qrest[NDOF];
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	for (int i = 0; i < NDOF; i++) {
-		qinit[i] = qrest[i] = qzero[i] = q0(i);
+		qrest[i] = q0(i);
 	}
-	opt = new HittingPlane(qrest,lb,ub);
-	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
-			    mode != TEST_SIM, false, verbose > 1};
-
+	switch (alg) {
+		case FIXED:
+			opt = new FocusedOptim(qrest,lb,ub);
+			break;
+		case VHP:
+			opt = new HittingPlane(qrest,lb,ub);
+			break;
+		case LAZY:
+			opt = new LazyOptim(qrest,lb,ub);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 }
 
 /*
@@ -134,13 +137,6 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 Player::~Player() {
 
 	delete opt;
-	free(optim_params.qf);
-	free(optim_params.qfdot);
-	free(coparams.lb);
-	free(coparams.ub);
-	free(coparams.q0dot);
-	free(coparams.qrest);
-	free(coparams.q0);
 }
 
 /*
@@ -415,9 +411,9 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		update = !optim_params.update && !optim_params.running;
+		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
-		if (mpc && coparams.moving) {
+		if (mpc && moving) {
 			calc_racket_state(qact,robot_racket);
 			activate = (mode == TEST_SIM) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/FREQ_MPC);
@@ -427,7 +423,7 @@ bool Player::check_update(const joint & qact) const {
 					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !coparams.moving
+			update = update && !moving
 					&& (state_est(Y) > (dist_to_table - table_length/2.0))
 					&& (state_est(DY) > 2.0);
 		}
@@ -458,26 +454,27 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	static mat Q_des, Qd_des, Qdd_des;
 
 	// this should be only for MPC?
-	if (optim_params.update) {
+	if (opt->get_params(qf,qfdot,T)) {
 		if (verbose) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		coparams.moving = true;
-		optim_params.update = false;
+		moving = true;
+		opt->set_moving(true);
 		// call polynomial generation
 		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		idx = 0;
 	}
 
 	// make sure we update after optim finished
-	if (coparams.moving) {
+	if (moving) {
 		qdes.q = Q_des.col(idx);
 		qdes.qd = Qd_des.col(idx);
 		qdes.qdd = Qdd_des.col(idx);
 		idx++;
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
-			coparams.moving = false;
+			moving = false;
+			opt->set_moving(false);
 			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(NDOF);
 			qdes.qdd = zeros<vec>(NDOF);
@@ -616,6 +613,37 @@ void generate_strike(const optim & params, const joint & qact,
 }
 
 /*
+ * Update state using hitting and returning joint state 3rd degree polynomials
+ *
+ */
+void update_strike(const optim & params, const joint & qact,
+		           const vec7 & q_rest_des, const double time2return, joint & qdes) {
+
+	// first create hitting polynomials
+	double T = params.T;
+	vec7 qf(params.qf);
+	vec7 qfdot(params.qfdot);
+	vec7 qnow = qact.q;
+	vec7 qdnow = qact.qd;
+	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+
+	int N_hit = T/DT;
+	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
+	int N_return = time2return/DT;
+	rowvec times_ret = linspace<rowvec>(DT,time2return,N_return);
+
+	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
+	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
+	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
+
+	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
+	gen_3rd_poly(times_ret,b3,b2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
+}
+
+/*
  * Initialize an Extended Kalman Filter
  * useful for passing to Player constructor
  *
@@ -635,6 +663,25 @@ EKF init_filter(double std_model, double std_noise, bool spin) {
  * Generate matrix of joint angles, velocities and accelerations
  */
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
+		     mat & Q, mat & Qd, mat & Qdd) {
+
+	// IN MATLAB:
+	//	qStrike(m,:) = a(1)*t.^3 + a(2)*t.^2 + a(3)*t + a(4);
+	//	qdStrike(m,:) = 3*a(1)*t.^2 + 2*a(2)*t + a(3);
+	//	qddStrike(m,:) = 6*a(1)*t + 2*a(2);
+
+	for(int i = 0; i < NDOF; i++) {
+		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0(i);
+		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
+		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
+	}
+}
+
+
+/*
+ * Update vector of joint angles, velocities and accelerations (from t to t+dt)
+ */
+void update_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd) {
 
 	// IN MATLAB:

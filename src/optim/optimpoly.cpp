@@ -42,6 +42,26 @@ void Optim::run() {
 		t.join();
 };
 
+bool Optim::check_running() {
+	return running;
+}
+
+bool Optim::check_update() {
+	return update;
+}
+
+void Optim::set_moving(bool flag_move) {
+	moving = flag_move;
+}
+
+void Optim::set_detach(bool flag_detach) {
+	detach = flag_detach;
+}
+
+void Optim::set_verbose(bool flag_verbose) {
+	verbose = flag_verbose;
+}
+
 bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
 
 	bool flag = false;

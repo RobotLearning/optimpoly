@@ -61,8 +61,6 @@ private:
 	double time_land_des; // desired landing time
 	double time2return; // fixed return time for robot
 	optim_des opt_params;
-	optim optim_params;
-	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	double t_cum; // counting time stamps for resetting filter
 	mat observations; // for initializing filter
@@ -74,6 +72,7 @@ private:
 	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool mpc; // apply corrections
 	bool valid_obs; // ball observed is valid (new ball and not an outlier)
+	bool moving;
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
 	mode_operate mode; // sim vs. real robot

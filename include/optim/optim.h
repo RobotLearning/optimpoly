@@ -120,6 +120,11 @@ public:
 	double q0dot[NDOF] = {0.0};
 	double time2return = 1.0;
 	virtual ~Optim() {};
+	bool check_update();
+	bool check_running();
+	void set_moving(bool flag);
+	void set_detach(bool flag);
+	void set_verbose(bool flag);
 	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
 	void update_init_state(double *j0, double *j0dot, double time_pred);
 	void set_des_params(optim_des *params);
