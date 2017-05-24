@@ -36,10 +36,13 @@ void Optim::update_init_state(double *j0, double *j0dot, double time_pred) {
 void Optim::run() {
 	// run optimization in another thread
 	std::thread t(&Optim::optim, this);
-	if (detach)
+	if (detach) {
 		t.detach();
-	else
+	}
+	else {
+		printf("Joining\n");
 		t.join();
+	}
 };
 
 bool Optim::check_running() {
@@ -73,8 +76,8 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 		vec7 qdnow = qact.qd;
 		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
 		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-		p.a.col(2) = qnow;
-		p.a.col(3) = qdnow;
+		p.a.col(2) = qdnow;
+		p.a.col(3) = qnow;
 		p.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
 		p.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 		p.b.col(2) = qfdot;

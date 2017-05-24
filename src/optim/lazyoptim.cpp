@@ -103,7 +103,7 @@ double LazyOptim::test_soln(const double x[]) const {
 		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i);
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF);
 			}
 		}
 	}

@@ -86,22 +86,12 @@ using namespace arma;
  * @param mode_ Mode of running player (0 = SIM FOR UNIT TESTS, 1 = SL SIM, 2 = REAL ROBOT!)
  */
 Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_, mode_operate mode_)
-               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_), mode(mode_) {
-
-	time_land_des = 0.8;
-	time2return = 1.0;
-	num_obs = 0;
-	valid_obs = true;
-	moving = false;
-	t_cum = 0.0;
-	observations = zeros<mat>(3,min_obs);
-	times = zeros<vec>(min_obs);
-	game_state = AWAITING;
+               : filter(filter_), alg(alg_), mpc(mpc_),
+				 verbose(verbose_), mode(mode_) {
 
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
 	q_rest_des = q0;
-	opt_params.Nmax = 500;
 
 	double lb[2*NDOF+1];
 	double ub[2*NDOF+1];
@@ -116,12 +106,15 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	switch (alg) {
 		case FIXED:
 			opt = new FocusedOptim(qrest,lb,ub);
+			opt_params.Nmax = 1000;
 			break;
 		case VHP:
 			opt = new HittingPlane(qrest,lb,ub);
+			opt_params.Nmax = 1;
 			break;
 		case LAZY:
 			opt = new LazyOptim(qrest,lb,ub);
+			opt_params.Nmax = 1000;
 			break;
 		default:
 			throw ("Algorithm is not recognized!\n");
@@ -462,7 +455,10 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// make sure we update after optim finished
 	if (moving) {
-		update_next_state(poly,q_rest_des,time2return,qdes);
+		if (update_next_state(poly,q_rest_des,time2return,qdes)) {
+			moving = false;
+			opt->set_moving(false);
+		}
 	}
 
 }
@@ -563,13 +559,14 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
  * Update state using hitting and returning joint state 3rd degree polynomials
  *
  */
-void update_next_state(const spline_params & poly,
+bool update_next_state(const spline_params & poly,
 		           const vec7 & q_rest_des,
 				   const double time2return, joint & qdes) {
 
 	static double t = DT;
 	mat a,b;
 	double tbar;
+	bool flag = true;
 
 	if (t <= poly.time2hit) {
 		a = poly.a;
@@ -586,11 +583,13 @@ void update_next_state(const spline_params & poly,
 	}
 	else {
 		t = 0.0; // hitting finished
+		flag = false;
 		qdes.q = q_rest_des;
 		qdes.qd = zeros<vec>(NDOF);
 		qdes.qdd = zeros<vec>(NDOF);
 	}
 	t += DT;
+	return flag;
 }
 
 /*
