@@ -21,10 +21,6 @@
 #define INEQ_LAND_CONSTR_DIM 11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
-static bool firsttime[3]; //! TODO: remove this global var!
-
-static double nlopt_optim_lazy(lazy_data *data, optim *params);
-static void print_input_structs(lazy_data* data, optim* params);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 static double punish_land_robot(const double *xland,
 								const double xnet,
@@ -44,7 +40,6 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 		                      double *joint_max_cand, double *joint_min_cand);
 static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
 		                     double *joint_max_cand, double *joint_min_cand);
-static double test_optim(double *x, lazy_data* data);
 static void modify_ball_outgoing_vel(double* ballVel);
 static void calc_times(const lazy_data* data,
 		               const double *x,
@@ -54,116 +49,80 @@ static void calc_times(const lazy_data* data,
 					   double *xland,
 					   double *ball_norm, // ball to racket normal distance
 					   double *ball_proj);
-static void finalize_soln(const double* x, optim * params, bool detach, double time_elapsed);
 static void set_penalty_matrices(weights * pen);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
 static void interp_ball(double** ballpred, const double T,
 		                const double dt, const int Nmax,
 						double *ballpos, double *ballvel);
-static void init_last_soln(const optim * params, double x[2*NDOF+1]);
 
-/**
- * @brief Launch LAZY (also known as DEFENSIVE) PLAYER trajectory generation.
- *
- * Multi-threading entry point for the NLOPT optimization.
- * The optimization problem is solved online using COBYLA (see NLOPT).
- * As a trick, we first launch the FOCUSED PLAYER and then adapt the
- * trajectories using LAZY PLAYER optimization (only inequalities here).
- *
- * @param ballpred Ball prediction matrix (as double pointer).
- * @param coparams Co-optimization parameters held fixed during optimization.
- * @param racketdata Predicted racket position,velocity and normals.
- * @param params Optimization parameters updated if the solution found is FEASIBLE.
- * @return maximum violations (Zero if feasible).
- */
-double nlopt_optim_lazy_run(double** ballpred,
-		              coptim *coparams,
-	                  racketdes *racketdata,
-		              optim *params) {
 
-	if (coparams->moving) {
-		lazy_data data = {racketdata,coparams,ballpred,
-				          racketdata->dt,racketdata->Nmax};
-		//nlopt_optim_fixed_run(coparams,racketdata,params);
-		/*static double x[15];
-		for (int i = 0; i < 7; i++) {
-			x[i] = params->qf[i];
-			x[i+NDOF] = params->qfdot[i];
-		}
-		x[2*NDOF] = params->T;
-		firsttime[0] = firsttime[1] = firsttime[2] = true;
-		test_optim(x,&data);*/
-		return nlopt_optim_lazy(&data,params);
-	}
-	else {
-		//return nlopt_optim_fixed_run(coparams,racketdata,params);
-	}
+LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
+                          : FocusedOptim() {
 
-}
-
-/*
- * NLOPT optimization routine for table tennis LAZY PLAYER (LP)
- *
- * If constraints are violated, it will not modify the lookup values (input)
- *
- * TODO: try different optimization routines
- *
- */
-static double nlopt_optim_lazy(lazy_data *data, optim *params) {
-
-	// firsttime checking
-	firsttime[0] = firsttime[1] = firsttime[2] = true;
-
-	//print_input_structs(coparams, racketdata, params);
-	params->update = false;
-	params->running = true;
-	nlopt_opt opt;
-	double x[2*NDOF+1];
+	set_penalty_matrices(w);
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
 	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
-	init_last_soln(params,x); //parameters are initialized to last optimized values
-	// set tolerances equal to second argument //
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
-	nlopt_set_lower_bounds(opt, data->coparams->lb);
-	nlopt_set_upper_bounds(opt, data->coparams->ub);
-	nlopt_set_min_objective(opt, costfunc, data);
+	nlopt_set_lower_bounds(opt, lb_);
+	nlopt_set_upper_bounds(opt, ub_);
+	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
-			land_ineq_constr, data, tol_ineq_land);
+			land_ineq_constr, this, tol_ineq_land);
 	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-			joint_limits_ineq_constr, data->coparams, tol_ineq_joint);
+			joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	double init_time = get_time();
-	double past_time = 0.0;
-	double minf; // the minimum objective value, upon return
-	int res; // error code
-	double max_violation;
+	for (int i = 0; i < NDOF; i++) {
+		qrest[i] = qrest_[i];
+		ub[i] = ub_[i];
+		lb[i] = lb_[i];
+	}
+}
 
-	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (data->coparams->verbose)
-			printf("NLOPT failed with exit code %d!\n", res);
-	    past_time = (get_time() - init_time)/1e3;
-	    max_violation = test_optim(x,data);
-	}
-	else {
-		past_time = (get_time() - init_time)/1e3;
-		if (data->coparams->verbose) {
-			printf("NLOPT success with exit code %d!\n", res);
-			printf("NLOPT took %f ms\n", past_time);
-			printf("Found minimum at f = %0.10g\n", minf);
+void LazyOptim::set_ball_pred(double **ballpred_) {
+	ballpred = ballpred_;
+}
+
+double LazyOptim::test_soln(const double x[]) const {
+
+	// give info on constraint violation
+	static int count = 0;
+	double *grad = 0;
+	static double land_violation[INEQ_LAND_CONSTR_DIM];
+	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
+	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, (void*)this);
+	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, OPTIM_DIM, x, grad, (void*)this);
+	double cost = costfunc(OPTIM_DIM, x, grad, (void*)this);
+
+	if (verbose) {
+		// give info on solution vector
+		printf("Optim count: %d\n", (++count));
+		print_optim_vec(x);
+		printf("f = %.2f\n",cost);
+		printf("Hitting constraints (b2r):\n");
+		printf("Distance along normal: %.2f\n",land_violation[0]);
+		printf("Distance along racket: %.2f\n", land_violation[2]);
+		printf("Landing constraints:\n");
+		printf("NetTime: %f\n", -land_violation[3]);
+	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
+		printf("Below wall by : %f\n", -land_violation[4]);
+		printf("Above net by: %f\n", -land_violation[5]);
+		printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
+		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
+		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
+			if (lim_violation[i] > 0.0) {
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i);
+			}
 		}
-	    max_violation = test_optim(x,data);
-	    if (max_violation < 1e-2 && x[2*NDOF] > 0.1)
-	    	finalize_soln(x,params,data->coparams->detach,past_time);
 	}
-	params->running = false;
-	//nlopt_destroy(opt);
-	return max_violation;
+
+	return fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),
+			max_array(land_violation,INEQ_LAND_CONSTR_DIM));
 }
 
 /*
@@ -595,111 +554,3 @@ static void interp_ball(double** ballpred, const double T,
 		}
 	}
 }
-
-/*
- * Estimate an initial solution for NLOPT
- * 2*dof + 1 dimensional problem
- *
- * The closer to the optimum it is the faster alg should converge
- */
-static void init_last_soln(const optim * params, double x[2*NDOF+1]) {
-
-	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF; i++) {
-		x[i] = params->qf[i];
-		x[i+NDOF] = params->qfdot[i];
-	}
-	x[2*NDOF] = params->T;
-}
-
-/*
- * Debug by testing the cost function value and
- * the constraint violation of the solution vector x
- *
- * Returns FALSE if joint inequality constraints are violated!
- *
- *
- */
-static double test_optim(double *x, lazy_data* data) {
-
-	// give info on constraint violation
-	static int count = 0;
-	double *grad = 0;
-	static double land_violation[INEQ_LAND_CONSTR_DIM];
-	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
-	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, 2*NDOF+1, x, grad, data);
-	land_ineq_constr(INEQ_LAND_CONSTR_DIM, land_violation, 2*NDOF+1, x, grad, data);
-	double cost = costfunc(2*NDOF+1, x, grad, data);
-
-	if (data->coparams->verbose) {
-		// give info on solution vector
-		printf("Optim count: %d\n", (++count));
-		print_optim_vec(x);
-		printf("f = %.2f\n",cost);
-		printf("Hitting constraints (b2r):\n");
-		printf("Distance along normal: %.2f\n",land_violation[0]);
-		printf("Distance along racket: %.2f\n", land_violation[2]);
-		printf("Landing constraints:\n");
-		printf("NetTime: %f\n", -land_violation[3]);
-	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
-		printf("Below wall by : %f\n", -land_violation[4]);
-		printf("Above net by: %f\n", -land_violation[5]);
-		printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
-		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
-		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
-			if (lim_violation[i] > 0.0) {
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i);
-			}
-		}
-	}
-
-	return fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),
-			max_array(land_violation,INEQ_LAND_CONSTR_DIM));
-}
-
-/*
- * Finalize the solution and update target optimization
- * parameter structure and hitTime values
- *
- *
- */
-static void finalize_soln(const double* x, optim * params,
-		                  bool detach, double time_elapsed) {
-
-	for (int i = 0; i < NDOF; i++) {
-		params->qf[i] = x[i];
-		params->qfdot[i] = x[i+NDOF];
-	}
-	params->T = x[2*NDOF];
-	if (detach)
-		params->T -= (time_elapsed/1e3);
-	params->update = true;
-}
-
-/*
- * Print input structs to give info about the arguments
- * For debugging purposes useful
- *
- */
-static void print_input_structs(lazy_data* data, optim* params) {
-
-	for (int i = 0; i < NDOF; i++) {
-		printf("q0[%d] = %f\n", i, data->coparams->q0[i]);
-		printf("q0dot[%d] = %f\n", i, data->coparams->q0dot[i]);
-		printf("lb[%d] = %f\n", i, data->coparams->lb[i]);
-		printf("ub[%d] = %f\n", i, data->coparams->ub[i]);
-	}
-	printf("Tret = %f\n", data->coparams->time2return);
-	for (int i = 0; i < NDOF; i++) {
-		printf("qf[%d] = %f\n", i, params->qf[i]);
-		printf("qfdot[%d] = %f\n", i, params->qfdot[i]);
-	}
-	printf("Thit = %f\n", params->T);
-
-	print_mat_size("ball = ", data->ballpred, 2*NCART, 5);
-	print_mat_size("pos = ", data->racketdata->pos, NCART, 5);
-	print_mat_size("vel = ", data->racketdata->vel, NCART, 5);
-	print_mat_size("normal = ", data->racketdata->normal, NCART, 5);
-
-}
-

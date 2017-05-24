@@ -117,7 +117,8 @@ public:
 	double time2return = 1.0;
 	virtual ~Optim() {};
 	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
-	void fill(racketdes *racket, double *j0, double *j0dot, double time_pred);
+	void update_init_state(double *j0, double *j0dot, double time_pred);
+	void set_des_racket(racketdes *racket);
 	void run();
 };
 
@@ -132,7 +133,7 @@ protected:
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	double limit_avg[NDOF];
-	HittingPlane(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
+	HittingPlane(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
 class FocusedOptim : public Optim {
@@ -145,7 +146,19 @@ protected:
 	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
-	FocusedOptim(double qrest_[NDOF], double lb[NDOF], double ub[NDOF]);
+	FocusedOptim() {}; // for lazy player
+	FocusedOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
+};
+
+class LazyOptim : public FocusedOptim {
+
+protected:
+	virtual double test_soln(const double x[]) const;
+public:
+	double **ballpred;
+	weights *w;
+	void set_ball_pred(double **ballpred);
+	LazyOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
 // interface for LAZY player

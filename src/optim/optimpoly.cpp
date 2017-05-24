@@ -37,8 +37,7 @@ static void calc_return_extrema_cand(const double *a1, const double *a2,
 static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
-void Optim::fill(racketdes *racket_, double *j0, double *j0dot, double time_pred) {
-	racket = racket_;
+void Optim::update_init_state(double *j0, double *j0dot, double time_pred) {
 	for (int i = 0; i < NDOF; i++) {
 		q0[i] = j0[i];
 		q0dot[i] = j0dot[i];
@@ -58,17 +57,23 @@ void Optim::run() {
 
 bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
 
-	bool flag_update = false;
+	bool flag = false;
 	if (update && !running) {
 		for (int i = 0; i < NDOF; i++) {
 			qf_[i] = qf[i];
 			qfdot_[i] = qfdot[i];
 		}
 		T_ = T;
-		flag_update = true;
+		flag = true;
+		update = false;
 	}
-	return flag_update;
+	return flag;
 }
+
+void Optim::set_des_racket(racketdes *racket_) {
+	racket = racket_;
+}
+
 
 void Optim::optim() {
 

@@ -114,8 +114,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	double* qzero = (double*)calloc(NDOF, sizeof(double));
 	double* qinit = (double*)calloc(NDOF, sizeof(double));
 	double* qrest = (double*)calloc(NDOF, sizeof(double));
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double *lb = (double*)calloc(2*NDOF+1,sizeof(double));
+	double *ub = (double*)calloc(2*NDOF+1,sizeof(double));
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
@@ -138,6 +138,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
  */
 Player::~Player() {
 
+	delete opt;
 	free(optim_params.qf);
 	free(optim_params.qfdot);
 	free(coparams.lb);
@@ -322,7 +323,8 @@ void Player::optim_vhp_param(const joint & qact) {
 				q0[i] = qact.q(i);
 				q0dot[i] = qact.qd(i);
 			}
-			opt->fill(&racket_params,q0,q0dot,time_pred);
+			opt->set_des_racket(&racket_params);
+			opt->update_init_state(q0,q0dot,time_pred);
 			opt->run();
 		}
 	}
@@ -353,7 +355,8 @@ void Player::optim_fixedp_param(const joint & qact) {
 				q0[i] = qact.q(i);
 				q0dot[i] = qact.qd(i);
 			}
-			opt->fill(&racket_params,q0,q0dot,0.5);
+			opt->set_des_racket(&racket_params);
+			opt->update_init_state(q0,q0dot,0.5);
 			opt->run();
 		}
 	}
