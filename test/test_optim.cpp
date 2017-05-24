@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racketdes racket_params = {pos, vel, normal, DT, N};
+	optim_des racket_params = {pos, vel, normal, DT, N};
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
 	Optim *opt = new HittingPlane(q0,lb,ub);
-	opt->set_des_racket(&racket_params);
+	opt->set_des_params(&racket_params);
 	opt->update_init_state(q0,q0dot,0.5);
 	opt->run();
 	bool update = opt->get_params(qf,qfdot,T);
@@ -125,7 +125,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racketdes racket_params = {pos, vel, normal, DT, N};
+	optim_des racket_params = {pos, vel, normal, DT, N};
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
@@ -138,7 +138,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 
 	Optim *opt = new FocusedOptim(q0,lb,ub);
-	opt->set_des_racket(&racket_params);
+	opt->set_des_params(&racket_params);
 	opt->update_init_state(q0,q0dot,0.5);
 	opt->run();
 	bool update = opt->get_params(qf,qfdot,T);
@@ -175,15 +175,25 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-
-	vec6 ball_pred;
-	double time_land_des = 0.8;
 	mat balls_pred = filter.predict_path(DT,N);
+	double** pos = my_matrix(0,NCART,0,N);
+	double** vel = my_matrix(0,NCART,0,N);
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < NCART; j++) {
+			pos[j][i] = balls_pred(j,i);
+			vel[j][i] = balls_pred(j+NCART,i);
+		}
+	}
+	optim_des ball_params = {pos, vel, nullptr, DT, N};
+
 	Optim *opt = new LazyOptim(q0,lb,ub);
+	opt->set_des_params(&ball_params);
 	opt->update_init_state(q0,q0dot,0.5);
 	opt->run();
 	bool update = opt->get_params(qf,qfdot,T);
 
 	BOOST_TEST(update);
 	delete opt;
+	my_free_matrix(pos,0,NCART,0,N);
+	my_free_matrix(vel,0,NCART,0,N);
 }

@@ -34,7 +34,7 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
 void Optim::update_init_state(double *j0, double *j0dot, double time_pred) {
@@ -70,8 +70,8 @@ bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
 	return flag;
 }
 
-void Optim::set_des_racket(racketdes *racket_) {
-	racket = racket_;
+void Optim::set_des_params(optim_des *params_) {
+	param_des = params_;
 }
 
 
@@ -282,7 +282,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	double T = x[2*NDOF];
 
 	FocusedOptim *opt = (FocusedOptim*) my_function_data;
-	racketdes* racket_data = opt->racket;
+	optim_des* racket_data = opt->param_des;
 
 	// interpolate at time T to get the desired racket parameters
 	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
@@ -313,7 +313,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const racketdes* racketdata, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	double deltat = racketdata->dt;

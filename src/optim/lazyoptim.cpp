@@ -41,7 +41,7 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
 static void calc_return_extrema_cand(double *a1, double *a2, const double *x, double landTime,
 		                     double *joint_max_cand, double *joint_min_cand);
 static void modify_ball_outgoing_vel(double* ballVel);
-static void calc_times(const lazy_data* data,
+static void calc_times(const LazyOptim* opt,
 		               const double *x,
 					   double *netTime,
 					   double *landTime,
@@ -49,18 +49,19 @@ static void calc_times(const lazy_data* data,
 					   double *xland,
 					   double *ball_norm, // ball to racket normal distance
 					   double *ball_proj);
-static void set_penalty_matrices(weights * pen);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
-static void interp_ball(double** ballpred, const double T,
-		                const double dt, const int Nmax,
-						double *ballpos, double *ballvel);
+static void interp_ball(const optim_des *params, const double T, double *ballpos, double *ballvel);
 
 
 LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
                           : FocusedOptim() {
 
-	set_penalty_matrices(w);
+	const_vec(NDOF,1.0,w.R_strike);
+	const_vec(NCART,2e4,w.R_hit);
+	const_vec(2,1e3,w.R_land);
+	w.R_net = 1e2;
+
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -84,9 +85,6 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
 	}
 }
 
-void LazyOptim::set_ball_pred(double **ballpred_) {
-	ballpred = ballpred_;
-}
 
 double LazyOptim::test_soln(const double x[]) const {
 
@@ -141,20 +139,20 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	LazyOptim* opt = (LazyOptim*) my_func_params;
 	double *q0 = opt->q0;
 	double *q0dot = opt->q0dot;
-	weights *w = opt->w;
+	weights w = opt->w;
 
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
 
 	// calculate the landing time
-	calc_times(data, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
+	calc_times(opt, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
 
-	J1 = T * (3*T*T*inner_winv_prod(NDOF,w->R_strike,a1,a1) +
-			3*T*inner_winv_prod(NDOF,w->R_strike,a1,a2) +
-			inner_winv_prod(NDOF,w->R_strike,a2,a2));
+	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
+			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
+			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
-	Jhit = inner_w_prod(NCART,w->R_hit,ballproj,ballproj);
-	Jland = punish_land_robot(xland,xnet,w->R_land, w->R_net);
+	Jhit = inner_w_prod(NCART,w.R_hit,ballproj,ballproj);
+	Jland = punish_land_robot(xland,xnet,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
@@ -188,7 +186,6 @@ static double punish_land_robot(const double *xland,
 static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params) {
 
-	static lazy_data *data;
 	static double xnet;
 	static double xland[2];
 	static double balldist;
@@ -201,13 +198,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	static double net_y = dist_to_table - table_length/2.0;
 	static double net_z = floor_level - table_height + net_height;
 
-	/* initialization of static variables */
-	if (firsttime[1]) {
-		firsttime[1] = false;
-		data = (lazy_data*)my_func_params;
-	}
-
-	calc_times(data, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
+	calc_times((LazyOptim*)my_func_params, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
 
 	result[0] = -balldist;
 	result[1] = balldist - ball_radius;
@@ -239,23 +230,14 @@ static void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
-	static double *q0;
-	static double *q0dot;
-	static double *qrest;
-	static double *ub;
-	static double *lb;
-	static double Tret;
 
-	if (firsttime[2]) {
-		firsttime[2] = false;
-		coptim* optim_data = (coptim*)my_func_params;
-		q0 = optim_data->q0;
-		q0dot = optim_data->q0dot;
-		qrest = optim_data->qrest;
-		ub = optim_data->ub;
-		lb = optim_data->lb;
-		Tret = optim_data->time2return;
-	}
+	LazyOptim* opt = (LazyOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	double *qrest = opt->qrest;
+	double *ub = opt->ub;
+	double *lb = opt->lb;
+	double Tret = opt->time2return;
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
@@ -412,7 +394,7 @@ static void calc_times(const LazyOptim *opt,
 			qfdot[i] = x[i + NDOF];
 		}
 		calc_racket_state(qf, qfdot, pos, vel, normal);
-		interp_ball(opt->ballpred, x[2*NDOF], opt->racket->dt, opt->racket->Nmax, ballpos, ballvel);
+		interp_ball(opt->param_des, x[2*NDOF], ballpos, ballvel);
 		racket_contact_model(vel, normal, ballvel);
 		modify_ball_outgoing_vel(ballvel);
 		distBall2TableZ = ballpos[Z] - table_z;
@@ -468,29 +450,6 @@ static void modify_ball_outgoing_vel(double* ballVel) {
 }
 
 /*
- * Initialize the penalty matrices used to punish the robot
- *
- * Penalty structure needs to be initialized before
- *
- */
-static void set_penalty_matrices(weights * pen) {
-
-	double* R1 = (double*)calloc(NDOF,sizeof(double));
-	double* Rhit = (double*)calloc(NDOF,sizeof(double));
-	double* Rland = (double*)calloc(2,sizeof(double));
-	double Rnet = 1e2;
-
-	const_vec(NDOF,1.0,R1);
-	const_vec(NCART,2e4,Rhit);
-	const_vec(2,1e3,Rland);
-
-	pen->R_hit = Rhit;
-	pen->R_land = Rland;
-	pen->R_strike = R1;
-	pen->R_net = Rnet;
-}
-
-/*
  * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
  *
  * The racket contact model in vector form is O = I + (1 + eps_R)*N*N'*(V - I)
@@ -528,22 +487,23 @@ static void racket_contact_model(const double* racketVel,
  * relevant racket entries
  *
  */
-static void interp_ball(double** ballpred, const double T,
-		                const double dt, const int Nmax,
-				        double *ballpos, double *ballvel) {
+static void interp_ball(const optim_des *params, const double T, double *ballpos, double *ballvel) {
+
+    const double dt = params->dt;
+	const int Nmax = params->Nmax;
 	int N = (int) (T/dt);
 	double Tdiff = T - N*dt;
 
 	for (int i = 0; i < NCART; i++) {
 		if (N < Nmax) {
-			ballpos[i] = ballpred[i][N] +
-					(Tdiff/dt) * (ballpred[i][N+1] - ballpred[i][N]);
-			ballvel[i] = ballpred[i+NCART][N] +
-					(Tdiff/dt) * (ballpred[i+NCART][N+1] - ballpred[i+NCART][N]);
+			ballpos[i] = params->pos[i][N] +
+					(Tdiff/dt) * (params->pos[i][N+1] - params->pos[i][N]);
+			ballvel[i] = params->vel[i][N] +
+					(Tdiff/dt) * (params->vel[i][N+1] - params->vel[i][N]);
 		}
 		else {
-			ballpos[i] = ballpred[i][N];
-			ballvel[i] = ballpred[i+NCART][N];
+			ballpos[i] = params->pos[i][N];
+			ballvel[i] = params->vel[i][N];
 		}
 	}
 }

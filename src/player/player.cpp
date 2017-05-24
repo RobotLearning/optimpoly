@@ -107,7 +107,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	double** pos = my_matrix(0,NCART,0,N);
 	double** vel = my_matrix(0,NCART,0,N);
 	double** normal = my_matrix(0,NCART,0,N);
-	racket_params = {pos, vel, normal, 0.002, N};
+	opt_params = {pos, vel, normal, 0.002, N};
 
 	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
 	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
@@ -146,9 +146,9 @@ Player::~Player() {
 	free(coparams.q0dot);
 	free(coparams.qrest);
 	free(coparams.q0);
-	my_free_matrix(racket_params.normal,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(racket_params.pos,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(racket_params.vel,0,NCART,0,racket_params.Nmax);
+	my_free_matrix(opt_params.normal,0,NCART,0,opt_params.Nmax);
+	my_free_matrix(opt_params.pos,0,NCART,0,opt_params.Nmax);
+	my_free_matrix(opt_params.vel,0,NCART,0,opt_params.Nmax);
 }
 
 /*
@@ -318,12 +318,12 @@ void Player::optim_vhp_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		if (predict_hitting_point(ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
-			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
+			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,opt_params);
 			for (int i = 0; i < NDOF; i++) {
 				q0[i] = qact.q(i);
 				q0dot[i] = qact.qd(i);
 			}
-			opt->set_des_racket(&racket_params);
+			opt->set_des_params(&opt_params);
 			opt->update_init_state(q0,q0dot,time_pred);
 			opt->run();
 		}
@@ -350,12 +350,12 @@ void Player::optim_fixedp_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(1.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
+			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,opt_params);
 			for (int i = 0; i < NDOF; i++) {
 				q0[i] = qact.q(i);
 				q0dot[i] = qact.qd(i);
 			}
-			opt->set_des_racket(&racket_params);
+			opt->set_des_params(&opt_params);
 			opt->update_init_state(q0,q0dot,0.5);
 			opt->run();
 		}
@@ -375,30 +375,26 @@ void Player::optim_fixedp_param(const joint & qact) {
  */
 void Player::optim_lazy_param(const joint & qact) {
 
-	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
 	mat balls_pred;
+	double q0[NDOF], q0dot[NDOF];
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		predict_ball(1.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
+				q0[i] = qact.q(i);
+				q0dot[i] = qact.qd(i);
 			}
-			for (int i = 0; i < racket_params.Nmax; i++) {
-				for (int j = 0; j < 2*NCART; j++) {
-					ballpred[j][i] = balls_pred(j,i);
+			for (int i = 0; i < opt_params.Nmax; i++) {
+				for (int j = 0; j < NCART; j++) {
+					opt_params.pos[j][i] = balls_pred(j,i);
+					opt_params.vel[j][i] = balls_pred(j+NCART,i);
 				}
 			}
-			// run optimization in another thread
-			std::thread t(&nlopt_optim_lazy_run,
-					ballpred,&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
+			opt->set_des_params(&opt_params);
+			opt->update_init_state(q0,q0dot,0.5);
+			opt->run();
 		}
 	}
 
@@ -571,9 +567,9 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
  * TODO: Is there a way to avoid deep copying computed values to racket_params?
  *
  */
-racketdes calc_racket_strategy(const mat & balls_predicted,
+optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   racketdes & racket_params) {
+							   optim_des & racket_params) {
 
 	//static wall_clock timer;
 	//timer.tic();

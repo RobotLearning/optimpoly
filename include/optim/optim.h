@@ -27,7 +27,7 @@ const double MAX_VEL = 200;
 const double MAX_ACC = 200;
 
 /**
- * @brief Desired racket positions, vels and normals for dt*Nmax seconds.
+ * @brief Desired racket/ball positions, vels and racket normals for dt*Nmax seconds.
  */
 typedef struct {
 	double** pos;
@@ -35,7 +35,7 @@ typedef struct {
 	double** normal;
 	double dt;
 	int Nmax; // max column length
-} racketdes;
+} optim_des;
 
 /**
  * @brief Optimization coparameters passed to optimizer. (only LP changes them).
@@ -70,7 +70,7 @@ typedef struct {
  * @brief Lazy Player uses a different structure.
  */
 typedef struct {
-	racketdes *racketdata;
+	optim_des *racketdata;
 	coptim * coparams;
 	double **ballpred;
 	double dt;
@@ -81,10 +81,10 @@ typedef struct {
  * @brief Weights for optimization penalties used by LP.
  */
 typedef struct {
-	double * R_strike;
-	double * R_hit;
-	double * R_land;
-	double R_net;
+	double R_strike[NDOF] = {0.0};
+	double R_hit[NCART] = {0.0};
+	double R_land[2] = {0.0};
+	double R_net = 0.0;
 } weights; // weights for optimization penalties
 
 class Optim {
@@ -108,7 +108,7 @@ protected:
 	virtual void finalize_soln(const double *x, const double dt) = 0;
 	virtual void optim();
 public:
-	racketdes *racket;
+	optim_des *param_des;
 	double lb[NDOF];
 	double ub[NDOF];
 	double qrest[NDOF] = {0.0};
@@ -118,7 +118,7 @@ public:
 	virtual ~Optim() {};
 	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
 	void update_init_state(double *j0, double *j0dot, double time_pred);
-	void set_des_racket(racketdes *racket);
+	void set_des_params(optim_des *params);
 	void run();
 };
 
@@ -155,16 +155,14 @@ class LazyOptim : public FocusedOptim {
 protected:
 	virtual double test_soln(const double x[]) const;
 public:
-	double **ballpred;
-	weights *w;
-	void set_ball_pred(double **ballpred);
+	weights w;
 	LazyOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
 // interface for LAZY player
 double nlopt_optim_lazy_run(double** ballpred,
 		              coptim *coparams,
-	                  racketdes *racketdata,
+					  optim_des *racketdata,
 		              optim *params);
 
 #endif /* OPTIMPOLY_H_ */

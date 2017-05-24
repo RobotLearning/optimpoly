@@ -60,7 +60,7 @@ private:
 	vec2 ball_land_des; // desired landing position
 	double time_land_des; // desired landing time
 	double time2return; // fixed return time for robot
-	racketdes racket_params;
+	optim_des opt_params;
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
@@ -129,9 +129,9 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
 		                   EKF & filter, game & game_state);
-racketdes calc_racket_strategy(const mat & balls_predicted,
+optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   racketdes & racket_params);
+							   optim_des & racket_params);
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
 

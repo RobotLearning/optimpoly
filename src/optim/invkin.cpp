@@ -177,9 +177,9 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - vhp->racket->pos[i][0];
-		result[i + NCART] = vel[i] - vhp->racket->vel[i][0];
-		result[i + 2*NCART] = normal[i] - vhp->racket->normal[i][0];
+		result[i] = pos[i] - vhp->param_des->pos[i][0];
+		result[i + NCART] = vel[i] - vhp->param_des->vel[i][0];
+		result[i + 2*NCART] = normal[i] - vhp->param_des->normal[i][0];
 	}
 }
 
