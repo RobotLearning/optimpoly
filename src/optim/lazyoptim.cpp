@@ -9,6 +9,7 @@
  *      Author: okan
  */
 
+#include <armadillo>
 #include <iostream>
 #include "constants.h"
 #include "table.h"
@@ -350,23 +351,23 @@ static void racket_contact_model(const double* racketVel,
  * relevant racket entries
  *
  */
-static void interp_ball(const optim_des *params, const double T, double *ballpos, double *ballvel) {
+static void interp_ball(const optim_des *data, const double T, double *ballpos, double *ballvel) {
 
-    const double dt = params->dt;
-	const int Nmax = params->Nmax;
+    const double dt = data->dt;
+	const int Nmax = data->Nmax;
 	int N = (int) (T/dt);
 	double Tdiff = T - N*dt;
 
 	for (int i = 0; i < NCART; i++) {
 		if (N < Nmax) {
-			ballpos[i] = params->pos[i][N] +
-					(Tdiff/dt) * (params->pos[i][N+1] - params->pos[i][N]);
-			ballvel[i] = params->vel[i][N] +
-					(Tdiff/dt) * (params->vel[i][N+1] - params->vel[i][N]);
+			ballpos[i] = data->ball_pos(i,N) +
+					(Tdiff/dt) * (data->ball_pos(i,N+1) - data->ball_pos(i,N));
+			ballvel[i] = data->ball_vel(i,N) +
+					(Tdiff/dt) * (data->ball_vel(i,N+1) - data->ball_vel(i,N));
 		}
 		else {
-			ballpos[i] = params->pos[i][N];
-			ballvel[i] = params->vel[i][N];
+			ballpos[i] = data->ball_pos(i,N);
+			ballvel[i] = data->ball_vel(i,N);
 		}
 	}
 }

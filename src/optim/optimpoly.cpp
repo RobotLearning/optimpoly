@@ -6,6 +6,7 @@
  *
  */
 
+#include <armadillo>
 #include "constants.h"
 #include "utils.h"
 #include "stdlib.h"
@@ -254,37 +255,37 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des* data, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
-	double deltat = racketdata->dt;
-	if (isnan(T)) {
+	double deltat = data->dt;
+	if (std::isnan(T)) {
 		printf("Warning: T value is nan!\n");
 
 		for(int i = 0; i < NCART; i++) {
-			racket_pos[i] = racketdata->pos[i][0];
-			racket_vel[i] = racketdata->vel[i][0];
-			racket_n[i] = racketdata->normal[i][0];
+			racket_pos[i] = data->racket_pos(i,0);
+			racket_vel[i] = data->racket_vel(i,0);
+			racket_n[i] = data->racket_normal(i,0);
 		}
 	}
 	else {
 		int N = (int) (T/deltat);
 		double Tdiff = T - N*deltat;
-		int Nmax = racketdata->Nmax;
+		int Nmax = data->Nmax;
 
 		for (int i = 0; i < NCART; i++) {
 			if (N < Nmax) {
-				racket_pos[i] = racketdata->pos[i][N] +
-						(Tdiff/deltat) * (racketdata->pos[i][N+1] - racketdata->pos[i][N]);
-				racket_vel[i] = racketdata->vel[i][N] +
-						(Tdiff/deltat) * (racketdata->vel[i][N+1] - racketdata->vel[i][N]);
-				racket_n[i] = racketdata->normal[i][N] +
-						(Tdiff/deltat) * (racketdata->normal[i][N+1] - racketdata->normal[i][N]);
+				racket_pos[i] = data->racket_pos(i,N) +
+						(Tdiff/deltat) * (data->racket_pos(i,N+1) - data->racket_pos(i,N));
+				racket_vel[i] = data->racket_vel(i,N) +
+						(Tdiff/deltat) * (data->racket_vel(i,N+1) - data->racket_vel(i,N));
+				racket_n[i] = data->racket_normal(i,N) +
+						(Tdiff/deltat) * (data->racket_normal(i,N+1) - data->racket_normal(i,N));
 			}
 			else {
-				racket_pos[i] = racketdata->pos[i][N];
-				racket_vel[i] = racketdata->vel[i][N];
-				racket_n[i] = racketdata->normal[i][N];
+				racket_pos[i] = data->racket_pos(i,N);
+				racket_vel[i] = data->racket_vel(i,N);
+				racket_n[i] = data->racket_normal(i,N);
 			}
 		}
 	}

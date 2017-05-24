@@ -62,12 +62,6 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	init_right_posture(q0);
 	set_bounds(lb,ub,SLACK,Tmax);
 
-	int N = 1; //1000;
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	double** normal = my_matrix(0,NCART,0,N);
-	optim_des racket_params = {pos, vel, normal, DT, N};
-
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
@@ -79,12 +73,10 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	double time_land_des = 0.8;
 	BOOST_TEST(predict_hitting_point(ball_pred,time_pred,filter,game_state));
 	//cout << ball_pred << endl;
+	optim_des racket_params;
 	calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
 
-	vec3 normal_example;
-	for (int i = 0; i < NCART; i++) { // check for normal orthonormality
-		normal_example(i) = racket_params.normal[i][0];
-	}
+	vec3 normal_example = racket_params.racket_normal(span(X,Z),0);
 	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
 	Optim *opt = new HittingPlane(q0,lb,ub);
@@ -95,9 +87,6 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	BOOST_TEST(update);
 	delete opt;
-	my_free_matrix(normal,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(pos,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(vel,0,NCART,0,racket_params.Nmax);
 }
 
 /*
@@ -120,12 +109,9 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	lookup_random_entry(ball_state,strike_params);
 	init_right_posture(q0);
 	set_bounds(lb,ub,SLACK,Tmax);
-
+	optim_des racket_params;
 	int N = 1000;
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	double** normal = my_matrix(0,NCART,0,N);
-	optim_des racket_params = {pos, vel, normal, DT, N};
+	racket_params.Nmax = 1000;
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
@@ -145,9 +131,6 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	BOOST_TEST(update);
 	delete opt;
-	my_free_matrix(normal,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(pos,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(vel,0,NCART,0,racket_params.Nmax);
 }
 
 /*
@@ -163,8 +146,8 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	arma_rng::set_seed(3);
-	//arma_rng::set_seed_random();
+	//arma_rng::set_seed(3);
+	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -176,15 +159,10 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	for (int i = 0; i < N; i++) {
-		for (int j = 0; j < NCART; j++) {
-			pos[j][i] = balls_pred(j,i);
-			vel[j][i] = balls_pred(j+NCART,i);
-		}
-	}
-	optim_des ball_params = {pos, vel, nullptr, DT, N};
+	optim_des ball_params;
+	ball_params.ball_pos = balls_pred.rows(X,Z);
+	ball_params.ball_vel = balls_pred.rows(DX,DZ);
+	ball_params.Nmax = N;
 
 	Optim *opt = new LazyOptim(q0,lb,ub);
 	opt->set_des_params(&ball_params);
@@ -194,6 +172,4 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	BOOST_TEST(update);
 	delete opt;
-	my_free_matrix(pos,0,NCART,0,N);
-	my_free_matrix(vel,0,NCART,0,N);
 }

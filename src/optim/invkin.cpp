@@ -8,6 +8,7 @@
  *      Author: okoc
  */
 
+#include <armadillo>
 #include "constants.h"
 #include "utils.h"
 #include "stdlib.h"
@@ -163,8 +164,8 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - vhp->param_des->pos[i][0];
-		result[i + NCART] = vel[i] - vhp->param_des->vel[i][0];
-		result[i + 2*NCART] = normal[i] - vhp->param_des->normal[i][0];
+		result[i] = pos[i] - vhp->param_des->racket_pos(i);
+		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);;
+		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
 	}
 }

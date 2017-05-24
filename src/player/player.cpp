@@ -102,12 +102,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	ball_land_des(X) = 0.0;
 	ball_land_des(Y) = dist_to_table - 3*table_length/4;
 	q_rest_des = q0;
-
-	int N = 500;
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	double** normal = my_matrix(0,NCART,0,N);
-	opt_params = {pos, vel, normal, 0.002, N};
+	opt_params.Nmax = 500;
 
 	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
 	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
@@ -146,9 +141,6 @@ Player::~Player() {
 	free(coparams.q0dot);
 	free(coparams.qrest);
 	free(coparams.q0);
-	my_free_matrix(opt_params.normal,0,NCART,0,opt_params.Nmax);
-	my_free_matrix(opt_params.pos,0,NCART,0,opt_params.Nmax);
-	my_free_matrix(opt_params.vel,0,NCART,0,opt_params.Nmax);
 }
 
 /*
@@ -382,15 +374,11 @@ void Player::optim_lazy_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(1.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
+			opt_params.ball_pos = balls_pred.rows(X,Z);
+			opt_params.ball_vel = balls_pred.rows(DX,DZ);
 			for (int i = 0; i < NDOF; i++) {
 				q0[i] = qact.q(i);
 				q0dot[i] = qact.qd(i);
-			}
-			for (int i = 0; i < opt_params.Nmax; i++) {
-				for (int j = 0; j < NCART; j++) {
-					opt_params.pos[j][i] = balls_pred(j,i);
-					opt_params.vel[j][i] = balls_pred(j+NCART,i);
-				}
 			}
 			opt->set_des_params(&opt_params);
 			opt->update_init_state(q0,q0dot,0.5);
@@ -584,17 +572,10 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
 	// place racket centre on the predicted ball
-	/*cout << "balls:\n" << balls_predicted
-		 << "vels:\n" << racket_des_vel
-		 << "normals:\n" << racket_des_normal << endl;*/
+	racket_params.racket_pos = balls_predicted.rows(X,Z);
+	racket_params.racket_vel = racket_des_vel;
+	racket_params.racket_normal = racket_des_normal;
 
-	for (int i = 0; i < N; i++) {
-		for (int j = 0; j < NCART; j++) {
-			racket_params.pos[j][i] = balls_predicted(j,i);
-			racket_params.vel[j][i] = racket_des_vel(j,i);
-			racket_params.normal[j][i] = racket_des_normal(j,i);
-		}
-	}
 	//cout << timer.toc() << endl;
 	return racket_params;
 }

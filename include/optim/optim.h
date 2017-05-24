@@ -26,15 +26,19 @@ const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajec
 const double MAX_VEL = 200;
 const double MAX_ACC = 200;
 
+using namespace arma;
+
 /**
  * @brief Desired racket/ball positions, vels and racket normals for dt*Nmax seconds.
  */
 typedef struct {
-	double** pos;
-	double** vel;
-	double** normal;
-	double dt;
-	int Nmax; // max column length
+	mat racket_pos = mat();
+	mat racket_vel = mat();
+	mat racket_normal = mat();
+	mat ball_pos = mat();
+	mat ball_vel = mat();
+	double dt = DT;
+	int Nmax = 1; // max column length
 } optim_des;
 
 /**
