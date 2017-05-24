@@ -159,10 +159,20 @@ public:
 	LazyOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
 };
 
-// interface for LAZY player
-double nlopt_optim_lazy_run(double** ballpred,
-		              coptim *coparams,
-					  optim_des *racketdata,
-		              optim *params);
+// functions that all players use
+void joint_limits_ineq_constr(unsigned m, double *result,
+		                      unsigned n, const double *x, double *grad, void *data);
+
+void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+		                    double *a1, double *a2);
+void calc_return_poly_coeff(const double *q0, const double *q0dot,
+		                    const double *x, const double time2return,
+		                    double *a1, double *a2);
+void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+		                      const double *q0, const double *q0dot,
+							  double *joint_max_cand, double *joint_min_cand);
+void calc_return_extrema_cand(const double *a1, const double *a2,
+		                      const double *x, const double time2return,
+							  double *joint_max_cand, double *joint_min_cand);
 
 #endif /* OPTIMPOLY_H_ */

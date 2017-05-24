@@ -20,20 +20,6 @@ static bool check_optim_result(const int res);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-static void joint_limits_ineq_constr(unsigned m, double *result,
-		                      unsigned n, const double *x, double *grad, void *data);
-
-static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
-		                    double *a1, double *a2);
-static void calc_return_poly_coeff(const double *q0, const double *q0dot,
-		                    const double *x, const double time2return,
-		                    double *a1, double *a2);
-static void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
-		                      const double *q0, const double *q0dot,
-							  double *joint_max_cand, double *joint_min_cand);
-static void calc_return_extrema_cand(const double *a1, const double *a2,
-		                      const double *x, const double time2return,
-							  double *joint_max_cand, double *joint_min_cand);
 static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
@@ -221,51 +207,6 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 }
 
 /*
- * This is the inequality constraint that makes sure we never exceed the
- * joint limits during the striking and returning motion
- *
- */
-static void joint_limits_ineq_constr(unsigned m, double *result,
-		unsigned n, const double *x, double *grad, void *my_func_params) {
-
-	static double a1[NDOF];
-	static double a2[NDOF];
-	static double a1ret[NDOF]; // coefficients for the returning polynomials
-	static double a2ret[NDOF];
-	static double qdot_rest[NDOF];
-	static double joint_strike_max_cand[NDOF];
-	static double joint_strike_min_cand[NDOF];
-	static double joint_return_max_cand[NDOF];
-	static double joint_return_min_cand[NDOF];
-
-	FocusedOptim *opt = (FocusedOptim*) my_func_params;
-	double *q0 = opt->q0;
-	double *q0dot = opt->q0dot;
-	double *qrest = opt->qrest;
-	double *ub = opt->ub;
-	double *lb = opt->lb;
-	double Tret = opt->time2return;
-
-	// calculate the polynomial coeffs which are used for checking joint limits
-	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-	calc_return_poly_coeff(qrest,qdot_rest,x,Tret,a1ret,a2ret);
-	// calculate the candidate extrema both for strike and return
-	calc_strike_extrema_cand(a1,a2,x[2*NDOF],q0,q0dot,
-			joint_strike_max_cand,joint_strike_min_cand);
-	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
-
-	/* deviations from joint min and max */
-	for (int i = 0; i < NDOF; i++) {
-		result[i] = joint_strike_max_cand[i] - ub[i];
-		result[i+NDOF] = lb[i] - joint_strike_min_cand[i];
-		result[i+2*NDOF] = joint_return_max_cand[i] - ub[i];
-		result[i+3*NDOF] = lb[i] - joint_return_min_cand[i];
-		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
-	}
-
-}
-
-/*
  * This is the constraint that makes sure we hit the ball
  */
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
@@ -350,10 +291,55 @@ static void first_order_hold(const optim_des* racketdata, const double T, double
 }
 
 /*
+ * This is the inequality constraint that makes sure we never exceed the
+ * joint limits during the striking and returning motion
+ *
+ */
+void joint_limits_ineq_constr(unsigned m, double *result,
+		unsigned n, const double *x, double *grad, void *my_func_params) {
+
+	static double a1[NDOF];
+	static double a2[NDOF];
+	static double a1ret[NDOF]; // coefficients for the returning polynomials
+	static double a2ret[NDOF];
+	static double qdot_rest[NDOF];
+	static double joint_strike_max_cand[NDOF];
+	static double joint_strike_min_cand[NDOF];
+	static double joint_return_max_cand[NDOF];
+	static double joint_return_min_cand[NDOF];
+
+	FocusedOptim *opt = (FocusedOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	double *qrest = opt->qrest;
+	double *ub = opt->ub;
+	double *lb = opt->lb;
+	double Tret = opt->time2return;
+
+	// calculate the polynomial coeffs which are used for checking joint limits
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
+	calc_return_poly_coeff(qrest,qdot_rest,x,Tret,a1ret,a2ret);
+	// calculate the candidate extrema both for strike and return
+	calc_strike_extrema_cand(a1,a2,x[2*NDOF],q0,q0dot,
+			joint_strike_max_cand,joint_strike_min_cand);
+	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
+
+	/* deviations from joint min and max */
+	for (int i = 0; i < NDOF; i++) {
+		result[i] = joint_strike_max_cand[i] - ub[i];
+		result[i+NDOF] = lb[i] - joint_strike_min_cand[i];
+		result[i+2*NDOF] = joint_return_max_cand[i] - ub[i];
+		result[i+3*NDOF] = lb[i] - joint_return_min_cand[i];
+		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
+	}
+
+}
+
+/*
  * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2) {
 
 	double T = x[2*NDOF];
@@ -371,7 +357,7 @@ static void calc_strike_poly_coeff(const double *q0, const double *q0dot, const 
  * and time to return constant T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-static void calc_return_poly_coeff(const double *q0, const double *q0dot,
+void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		                    const double *x, const double T,
 		                    double *a1, double *a2) {
 
@@ -388,7 +374,7 @@ static void calc_return_poly_coeff(const double *q0, const double *q0dot,
  * Clamp to [0,T]
  *
  */
-static void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
 		                      const double *q0, const double *q0dot,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
@@ -410,7 +396,7 @@ static void calc_strike_extrema_cand(const double *a1, const double *a2, const d
  * Clamp to [0,TIME2RETURN]
  *
  */
-static void calc_return_extrema_cand(const double *a1, const double *a2,
+void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double Tret,
 		                      double *joint_max_cand, double *joint_min_cand) {
 

@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	Optim *opt = new HittingPlane(q0,lb,ub);
 	opt->set_des_params(&racket_params);
-	opt->update_init_state(q0,q0dot,0.5);
+	opt->update_init_state(q0,q0dot,time_pred);
 	opt->run();
 	bool update = opt->get_params(qf,qfdot,T);
 
