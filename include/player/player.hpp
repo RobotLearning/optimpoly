@@ -100,6 +100,7 @@ private:
 	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
 	void predict_ball(mat & balls_pred) const;
 	void calc_next_state(const joint & qact, joint & qdes);
+	void calc_next_states(const joint & qact, joint & qdes);
 
 public:
 
@@ -131,6 +132,9 @@ bool check_reset_filter(const bool newball, const int verbose);
 void generate_strike(const optim & params, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
+bool update_next_state(const optim & params, const joint & qact,
+		           const vec7 & q_rest_des, const bool reset,
+				   const double time2return, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);

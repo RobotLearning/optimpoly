@@ -493,7 +493,7 @@ void Player::predict_ball(mat & balls_pred) const {
  * parameters (qf, qf_dot and T_hit)
  *
  */
-void Player::calc_next_state(const joint & qact, joint & qdes) {
+void Player::calc_next_states(const joint & qact, joint & qdes) {
 
 	static unsigned idx = 0;
 	static mat Q_des, Qd_des, Qdd_des;
@@ -523,6 +523,28 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 			qdes.qd = zeros<vec>(NDOF);
 			qdes.qdd = zeros<vec>(NDOF);
 			idx = 0;
+		}
+	}
+
+}
+
+void Player::calc_next_state(const joint & qact, joint & qdes) {
+
+	bool reset = false;
+	// this should be only for MPC?
+	if (optim_params.update) {
+		if (pflags.verbosity) {
+			std::cout << "Launching/updating strike" << std::endl;
+		}
+		reset = true;
+		coparams.moving = true;
+		optim_params.update = false;
+	}
+
+	// make sure we update after optim finished
+	if (coparams.moving) {
+		if (!update_next_state(optim_params,qact,q_rest_des,reset,time2return,qdes)) {
+			coparams.moving = false;
 		}
 	}
 
@@ -646,6 +668,66 @@ void generate_strike(const optim & params, const joint & qact,
 	Q = join_horiz(Q_hit,Q_ret);
 	Qd = join_horiz(Qd_hit,Qd_ret);
 	Qdd = join_horiz(Qdd_hit,Qdd_ret);
+}
+
+bool update_next_state(const optim & params, const joint & qact,
+		           const vec7 & q_rest_des, const bool reset,
+				   const double time2return, joint & qdes) {
+
+	static vec7 qf,qfdot,qnow,qdnow;
+	static mat a = zeros<mat>(NDOF,4);
+	static mat b = zeros<mat>(NDOF,4);
+	static double t = DT;
+	double T;
+	double tbar;
+	bool flag = true;
+
+	if (reset) {
+		t = DT;
+		return true;
+	}
+
+	if (t == DT) {
+		// form a, b poly coeff matrices
+		T = params.T;
+		for (int i = 0; i < NDOF; i++) {
+			qf(i) = params.qf[i];
+			qfdot(i) = params.qfdot[i];
+			qnow(i) = qact.q[i];
+			qdnow(i) = qact.qd[i];
+		}
+		a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		a.col(2) = qdnow;
+		a.col(3) = qnow;
+		b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		b.col(2) = qfdot;
+		b.col(3) = qf;
+		cout << "A = \n" << a << "B = \n" << b << endl;
+	}
+
+	if (t <= T) {
+		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
+		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
+		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
+		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
+	}
+	else if (t <= T + time2return) {
+		tbar = t - T;
+		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
+		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
+		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
+	}
+	else {
+		t = 0.0; // hitting finished
+		flag = false;
+		qdes.q = q_rest_des;
+		qdes.qd = zeros<vec>(NDOF);
+		qdes.qdd = zeros<vec>(NDOF);
+	}
+	t += DT;
+	return flag;
 }
 
 /*
