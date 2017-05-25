@@ -32,6 +32,6 @@ static const double ball_radius  = 0.02;
 /* Table Tennis Racket Radius */
 static const double racket_radius = 0.076; // shorter axis about 15.2 cm, longer approx 15.5 - 15.6
 
-
+double topspin = -50.0; // initial topspin given to ball if spin is turned on
 
 #endif /* INCLUDE_CONSTANTS_H_ */

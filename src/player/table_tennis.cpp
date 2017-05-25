@@ -39,7 +39,7 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	init_topspin(-50);
+	init_topspin(topspin);
 	//load_params("ball.cfg");
 	//init_topspin(params.init_topspin);
 }
@@ -58,7 +58,7 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) :
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
-	init_topspin(-50);
+	init_topspin(topspin);
 	//load_params("ball.cfg");
 	//init_topspin(params.init_topspin);
 }

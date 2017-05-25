@@ -143,6 +143,7 @@ void load_options() {
 			("time2return", po::value<double>(&flags.time2return),
 						 "time to return to start posture")
 			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates")
+			("init_topspin", po::value<double>(&flags.init_topspin), "topspin of ball predictions")
 		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
 		    ("std_noise", po::value<double>(&flags.std_noise), "std of filter obs noise")
 		    ("std_model", po::value<double>(&flags.std_model), "std of filter process noise")

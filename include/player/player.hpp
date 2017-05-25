@@ -52,7 +52,6 @@ struct player_flags { //! player flags
 	mode_operate mode = TEST_SIM;
 	algo alg = FIXED; //! algorithm for trajectory generation
 	bool mpc = false; //! turn on/off corrections
-	bool spin = false; //! turn on and off spin-based prediction models
 	int verbosity = 0; //! OFF, LOW, HIGH
 	bool save = false; //! saving ball/robot data
 	double ball_land_des_offset[2] = {0.0};
@@ -60,6 +59,8 @@ struct player_flags { //! player flags
 	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
 	double time2return = 1.0; //! time to return to starting posture after hit
 	int freq_mpc = 1; //! frequency of mpc updates if turned on
+	bool spin = false; //! turn on and off spin-based prediction models
+	double init_topspin = -50.0;
 	int min_obs = 5;
 	double std_noise = 0.001;
 	double std_model = 0.1;

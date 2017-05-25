@@ -99,6 +99,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	time_land_des = pflags.time_land_des;
 	time2return = pflags.time2return;
 	q_rest_des = q0;
+	topspin = pflags.init_topspin;
 
 	int N = 500;
 	double** pos = my_matrix(0,NCART,0,N);
