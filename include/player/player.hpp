@@ -35,17 +35,6 @@ enum mode_operate { // mode of operations
 };
 
 /**
- * @brief Desired/actual joint positions, velocities, accelerations.
- *
- * output of main Player function play()
- */
-typedef struct {
-	vec7 q;
-	vec7 qd;
-	vec7 qdd;
-} joint;
-
-/**
  *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
@@ -58,25 +47,24 @@ private:
 	// data fields
 	EKF & filter; // filter for the ball estimation
 	vec2 ball_land_des; // desired landing position
-	double time_land_des; // desired landing time
-	double time2return; // fixed return time for robot
-	optim_des opt_params;
-	optim optim_params;
-	coptim coparams;
+	double time_land_des = 0.6; // desired landing time
+	double time2return = 1.0; // fixed return time for robot
+	optim_des pred_params;
 	vec7 q_rest_des; // desired resting joint state
-	double t_cum; // counting time stamps for resetting filter
-	mat observations; // for initializing filter
-	mat times; // for initializing filter
+	double t_cum = 0.0; // counting time stamps for resetting filter
+	mat observations = zeros<mat>(3,min_obs); // for initializing filter
+	mat times = zeros<vec>(min_obs); // for initializing filter
+	spline_params poly;
 	Optim *opt; // optimizer
 
 	// flags and related fields
 	algo alg; // algorithm (fixed player, vhp, etc.)
-	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
+	game game_state = AWAITING; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool mpc; // apply corrections
-	bool moving;
-	bool valid_obs; // ball observed is valid (new ball and not an outlier)
+	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
+	bool moving = false;
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
-	int num_obs; // number of observations received
+	int num_obs = 0; // number of observations received
 	mode_operate mode; // sim vs. real robot
 
 	// ball estimation
@@ -119,9 +107,13 @@ bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose);
 
 // movement generation
+
 void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
+bool update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
+				   const double time2return, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);

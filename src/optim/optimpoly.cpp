@@ -24,12 +24,23 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
-void Optim::update_init_state(double *j0, double *j0dot, double time_pred) {
+void Optim::update_init_state(const joint & qact, const double time_pred) {
 	for (int i = 0; i < NDOF; i++) {
-		q0[i] = j0[i];
-		q0dot[i] = j0dot[i];
+		q0[i] = qact.q(i);
+		q0dot[i] = qact.qd(i);
 	}
 	T = time_pred;
+};
+
+void Optim::run() {
+	// run optimization in another thread
+	std::thread t(&Optim::optim, this);
+	if (detach) {
+		t.detach();
+	}
+	else {
+		t.join();
+	}
 };
 
 bool Optim::check_running() {
@@ -40,25 +51,36 @@ bool Optim::check_update() {
 	return update;
 }
 
+void Optim::set_moving(bool flag_move) {
+	moving = flag_move;
+}
 
-void Optim::run() {
-	// run optimization in another thread
-	std::thread t(&Optim::optim, this);
-	if (detach)
-		t.detach();
-	else
-		t.join();
-};
+void Optim::set_detach(bool flag_detach) {
+	detach = flag_detach;
+}
 
-bool Optim::get_params(vec7 & qf_, vec7 & qfdot_, double T_) {
+void Optim::set_verbose(bool flag_verbose) {
+	verbose = flag_verbose;
+}
+
+bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;
 	if (update && !running) {
-		for (int i = 0; i < NDOF; i++) {
-			qf_(i) = qf[i];
-			qfdot_(i) = qfdot[i];
-		}
-		T_ = T;
+		vec7 qf(qf);
+		vec7 qfdot(qfdot);
+		vec7 q_rest_des(qrest);
+		vec7 qnow = qact.q;
+		vec7 qdnow = qact.qd;
+		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		p.a.col(2) = qdnow;
+		p.a.col(3) = qnow;
+		p.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		p.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		p.b.col(2) = qfdot;
+		p.b.col(3) = qf;
+		p.time2hit = T;
 		flag = true;
 		update = false;
 	}
@@ -282,7 +304,7 @@ static void first_order_hold(const optim_des* data, const double T, double racke
 		int Nmax = data->Nmax;
 
 		for (int i = 0; i < NCART; i++) {
-			if (N < Nmax) {
+			if (N < Nmax - 1) {
 				racket_pos[i] = data->racket_pos(i,N) +
 						(Tdiff/deltat) * (data->racket_pos(i,N+1) - data->racket_pos(i,N));
 				racket_vel[i] = data->racket_vel(i,N) +
@@ -291,9 +313,9 @@ static void first_order_hold(const optim_des* data, const double T, double racke
 						(Tdiff/deltat) * (data->racket_normal(i,N+1) - data->racket_normal(i,N));
 			}
 			else {
-				racket_pos[i] = data->racket_pos(i,N);
-				racket_vel[i] = data->racket_vel(i,N);
-				racket_n[i] = data->racket_normal(i,N);
+				racket_pos[i] = data->racket_pos(i,Nmax-1);
+				racket_vel[i] = data->racket_vel(i,Nmax-1);
+				racket_n[i] = data->racket_normal(i,Nmax-1);
 			}
 		}
 	}

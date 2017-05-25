@@ -23,7 +23,7 @@ static double const_costfunc(unsigned n, const double *x,
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
 
-HittingPlane::HittingPlane(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
+HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
@@ -35,8 +35,7 @@ HittingPlane::HittingPlane(double qrest_[NDOF], double lb_[NDOF], double ub_[NDO
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);
 	nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM,
-			kinematics_eq_constr, this, tol_eq);
+	nlopt_add_equality_mconstraint(opt,EQ_CONSTR_DIM,kinematics_eq_constr,this,tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
@@ -72,13 +71,14 @@ void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 			qf[i] = x[i];
 			qfdot[i] = x[i+NDOF];
 		}
-		if (detach)
+		if (detach) {
 			T -= (time_elapsed/1e3);
+		}
 		update = true;
 	}
 }
 
-double HittingPlane::test_soln(const double x[2*NDOF]) const {
+double HittingPlane::test_soln(const double x[]) const {
 
 	double x_[2*NDOF+1];
 	for (int i = 0; i < 2*NDOF; i++)
@@ -87,8 +87,8 @@ double HittingPlane::test_soln(const double x[2*NDOF]) const {
 
 	// give info on constraint violation
 	double *grad = 0;
-	static double kin_violation[EQ_CONSTR_DIM];
-	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	double kin_violation[EQ_CONSTR_DIM];
+	double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, 2*NDOF,
 			             x, grad, (void*)this);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
@@ -165,7 +165,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
 		result[i] = pos[i] - vhp->param_des->racket_pos(i);
-		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);;
+		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
 		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
 	}
 }

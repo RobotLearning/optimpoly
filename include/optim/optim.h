@@ -32,54 +32,37 @@ using namespace arma;
  * @brief Desired racket/ball positions, vels and racket normals for dt*Nmax seconds.
  */
 typedef struct {
-	mat racket_pos = mat();
-	mat racket_vel = mat();
-	mat racket_normal = mat();
-	mat ball_pos = mat();
-	mat ball_vel = mat();
+	mat racket_pos = zeros<mat>(NCART,1);
+	mat racket_vel = zeros<mat>(NCART,1);
+	mat racket_normal = zeros<mat>(NCART,1);
+	mat ball_pos = zeros<mat>(NCART,1);
+	mat ball_vel = zeros<mat>(NCART,1);
 	double dt = DT;
 	int Nmax = 1; // max column length
 } optim_des;
 
 /**
- * @brief Optimization coparameters passed to optimizer. (only LP changes them).
- */
-typedef struct {
-	double* q0;
-	double* q0dot;
-	double* qrest;
-	double* lb;
-	double* ub;
-	double time2return;
-	bool detach;
-	bool moving;
-	bool verbose;
-} coptim; // optimization coparameters
-
-/**
- * @brief Optimization parameters passed to optimizer.
+ * @brief Optimization parameters returned from optimizer.
  *
  * When running is TRUE, player does not update trajectories.
  * IF update is TRUE and running is FALSE, then player can update trajectories.
  */
 typedef struct {
-	double* qf;
-	double* qfdot;
-	double T;
-	bool running;
-	bool update;
-} optim; // optimization variables
+	double time2hit = 1.0;
+	mat a = zeros<mat>(NDOF,4); // strike
+	mat b = zeros<mat>(NDOF,4); // return
+} spline_params; // optimization variables
 
 /**
- * @brief Lazy Player uses a different structure.
+ * @brief Desired/actual joint positions, velocities, accelerations.
+ *
+ * output of main Player function play()
  */
 typedef struct {
-	optim_des *racketdata;
-	coptim * coparams;
-	double **ballpred;
-	double dt;
-	int Nmax;
-} lazy_data;
+	vec7 q = zeros<vec>(NDOF);
+	vec7 qd = zeros<vec>(NDOF);
+	vec7 qdd = zeros<vec>(NDOF);
+} joint;
 
 /**
  * @brief Weights for optimization penalties used by LP.
@@ -120,10 +103,13 @@ public:
 	double q0dot[NDOF] = {0.0};
 	double time2return = 1.0;
 	virtual ~Optim() {};
-	bool check_running();
 	bool check_update();
-	bool get_params(vec7 & qf, vec7 & qfdot, double T);
-	void update_init_state(double *j0, double *j0dot, double time_pred);
+	bool check_running();
+	void set_moving(bool flag);
+	void set_detach(bool flag);
+	void set_verbose(bool flag);
+	bool get_params(const joint & qact, spline_params & p);
+	void update_init_state(const joint & qact, const double time_pred);
 	void set_des_params(optim_des *params);
 	void run();
 };
@@ -139,7 +125,7 @@ protected:
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	double limit_avg[NDOF];
-	HittingPlane(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
+	HittingPlane(double qrest[], double lb[], double ub[]);
 };
 
 class FocusedOptim : public Optim {
@@ -153,7 +139,7 @@ protected:
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	FocusedOptim() {}; // for lazy player
-	FocusedOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
+	FocusedOptim(double qrest[], double lb[], double ub[]);
 };
 
 class LazyOptim : public FocusedOptim {
@@ -162,7 +148,7 @@ protected:
 	virtual double test_soln(const double x[]) const;
 public:
 	weights w;
-	LazyOptim(double qrest[NDOF], double lb[NDOF], double ub[NDOF]);
+	LazyOptim(double qrest[], double lb[], double ub[]);
 };
 
 // functions that all players use
