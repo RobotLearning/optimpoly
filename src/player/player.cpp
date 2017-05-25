@@ -87,18 +87,17 @@ using namespace arma;
  * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
  * @param mode_ Mode of running player (0 = SIM FOR UNIT TESTS, 1 = SL SIM, 2 = REAL ROBOT!)
  */
-Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose_, mode_operate mode_)
-               : filter(filter_), alg(alg_), mpc(mpc_), verbose(verbose_), mode(mode_) {
+Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
+               : filter(filter_), pflags(flags) {
 
-	time_land_des = 0.8;
-	time2return = 1.0;
 	num_obs = 0;
 	valid_obs = true;
 	t_cum = 0.0;
-	game_state = AWAITING;
 
-	ball_land_des(X) = 0.0;
-	ball_land_des(Y) = dist_to_table - 3*table_length/4;
+	ball_land_des(X) += pflags.ball_land_des_offset[X];
+	ball_land_des(Y) = dist_to_table - 3*table_length/4 + pflags.ball_land_des_offset[Y];
+	time_land_des = pflags.time_land_des;
+	time2return = pflags.time2return;
 	q_rest_des = q0;
 
 	int N = 500;
@@ -123,8 +122,8 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	}
 
 	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
-			    mode != TEST_SIM, false, verbose > 1};
+	coparams = {qinit, qzerodot2, qrest, lb, ub, pflags.time2return,
+			    pflags.mode != TEST_SIM, false, pflags.verbosity > 1};
 
 }
 
@@ -171,8 +170,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
-	if (check_reset_filter(newball,verbose)) {
-		filter = init_filter(0.03,0.001,mode == REAL_ROBOT);
+	if (check_reset_filter(newball,pflags.verbosity)) {
+		filter = init_filter(0.03,0.001,pflags.spin);
 		num_obs = 0;
 		game_state = AWAITING;
 		t_cum = 0.0; // t_cumulative
@@ -184,9 +183,9 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			OBS.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
-				if (verbose >= 1)
+				if (pflags.verbosity >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(OBS,TIMES,filter,mode == REAL_ROBOT);
+				estimate_prior(OBS,TIMES,filter,pflags.mode == REAL_ROBOT);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -195,8 +194,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		filter.predict(DT,true); //true);
 		if (newball) {
 			valid_obs = true;
-			if (mode == REAL_ROBOT)
-				valid_obs = !filter.check_outlier(obs,verbose > 0);
+			if (pflags.mode == REAL_ROBOT)
+				valid_obs = !filter.check_outlier(obs,pflags.verbosity);
 		}
 		if (valid_obs) {
 			filter.update(obs);
@@ -246,7 +245,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 	estimate_ball_state(ball_obs);
 
 	// initialize optimization and get the hitting parameters
-	switch (alg) {
+	switch (pflags.alg) {
 		case FIXED:
 			optim_fixedp_param(qact);
 			break;
@@ -283,7 +282,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 		game_state = AWAITING;
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	switch (alg) {
+	switch (pflags.alg) {
 		case FIXED:
 			optim_fixedp_param(qact);
 			break;
@@ -328,7 +327,7 @@ void Player::optim_vhp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_vhp_run,
 					&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
+			if (pflags.mode == TEST_SIM)
 				t.join();
 			else
 				t.detach();
@@ -364,7 +363,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_fixed_run,
 					&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
+			if (pflags.mode == TEST_SIM)
 				t.join();
 			else
 				t.detach();
@@ -405,7 +404,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			// run optimization in another thread
 			std::thread t(&nlopt_optim_lazy_run,
 					ballpred,&coparams,&racket_params,&optim_params);
-			if (mode == TEST_SIM)
+			if (pflags.mode == TEST_SIM)
 				t.join();
 			else
 				t.detach();
@@ -429,13 +428,11 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 bool Player::check_update(const joint & qact) const {
 
+	static int counter;
 	static vec6 state_last = -10 * ones<vec>(6);
-	//static int num_updates;
-	static const double FREQ_MPC = (mode == REAL_ROBOT) ? 10.0 : 40.0;
 	static wall_clock timer;
 	vec6 state_est;
 	bool update;
-	static int counter;
 	racket robot_racket;
 	bool activate, passed_lim, incoming = false;
 
@@ -444,10 +441,10 @@ bool Player::check_update(const joint & qact) const {
 		counter++;
 		update = !optim_params.update && !optim_params.running;
 		// ball is incoming
-		if (mpc && coparams.moving) {
+		if (pflags.mpc && coparams.moving) {
 			calc_racket_state(qact,robot_racket);
-			activate = (mode == TEST_SIM) ? counter % 5 == 0 :
-					                        timer.toc() > (1.0/FREQ_MPC);
+			activate = (pflags.mode == TEST_SIM) ? counter % 5 == 0 :
+					                        timer.toc() > (1.0/pflags.freq_mpc);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
 			incoming = state_est(Y) > state_last(Y);
 			update = update && valid_obs && activate
@@ -455,7 +452,7 @@ bool Player::check_update(const joint & qact) const {
 		}
 		else {
 			update = update && !coparams.moving
-					&& (state_est(Y) > (dist_to_table - table_length/2.0))
+					&& (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset))
 					&& (state_est(DY) > 2.0);
 		}
 	}
@@ -503,7 +500,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
 	if (optim_params.update) {
-		if (verbose) {
+		if (pflags.verbosity) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
 		coparams.moving = true;
@@ -571,7 +568,7 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
  */
 void Player::reset_filter(double std_model, double std_noise) {
 
-	filter = init_filter(std_model,std_noise,mode == REAL_ROBOT);
+	filter = init_filter(std_model,std_noise,pflags.spin);
 	num_obs = 0;
 	game_state = AWAITING;
 	t_cum = 0.0;

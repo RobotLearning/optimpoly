@@ -46,6 +46,24 @@ typedef struct {
 } joint;
 
 /**
+ * @brief Options passed to Player class (algorithm, saving, corrections).
+ */
+struct player_flags { //! player flags
+	mode_operate mode = TEST_SIM;
+	algo alg = FIXED; //! algorithm for trajectory generation
+	bool mpc = false; //! turn on/off corrections
+	bool spin = false; //! turn on and off spin-based prediction models
+	int verbosity = 0; //! OFF, LOW, HIGH
+	bool save = false; //! saving ball/robot data
+	double ball_land_des_offset[2] = {0.0};
+	double time_land_des = 0.6;
+	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
+	double time2return = 1.0; //! time to return to starting posture after hit
+	int freq_mpc = 1; //! frequency of mpc updates if turned on
+	bool reset = true; //! reinitializing player class
+};
+
+/**
  *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
@@ -57,23 +75,18 @@ private:
 
 	// data fields
 	EKF & filter; // filter for the ball estimation
-	vec2 ball_land_des; // desired landing position
-	double time_land_des; // desired landing time
-	double time2return; // fixed return time for robot
+	vec2 ball_land_des = zeros<vec>(2); // desired landing position
+	double time_land_des = 0.8;
+	double time2return = 1.0;
 	racketdes racket_params;
 	optim optim_params;
 	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
-	double t_cum; // counting time stamps for resetting filter
-
-	// flags and related fields
-	algo alg; // algorithm (fixed player, vhp, etc.)
-	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
-	bool mpc; // apply corrections
-	bool valid_obs; // ball observed is valid (new ball and not an outlier)
-	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
-	int num_obs; // number of observations received
-	mode_operate mode; // sim vs. real robot
+	double t_cum = 0.0; // counting time stamps for resetting filter
+	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
+	int num_obs = 0; // number of observations received
+	game game_state = AWAITING;
+	player_flags pflags;
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
@@ -90,9 +103,7 @@ private:
 
 public:
 
-	Player(const vec7 & q0, EKF & filter,
-			algo alg = FIXED, bool mpc = false,
-			int verbose = 0, mode_operate mode = TEST_SIM);
+	Player(const vec7 & q0, EKF & filter, player_flags & flags);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance

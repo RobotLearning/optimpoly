@@ -61,18 +61,6 @@ struct SL_VisionBlob {
 	SL_Cstate  blob;
 };
 
-/**
- * @brief Options passed to Player class (algorithm, saving, corrections).
- */
-struct player_flags { //! player flags
-	int verbosity = 0; //! OFF, LOW, HIGH
-	bool reset = true; //! reinitializing player class
-	bool save = false; //! saving ball/robot data
-	bool mpc = false; //! turn on/off corrections
-	algo alg = FIXED; //! algorithm for trajectory generation
-	mode_operate mode = TEST_SIM;
-};
-
 player_flags flags; //! global structure for setting Player options
 
 #include "sl_interface.h"
@@ -138,10 +126,23 @@ void load_options() {
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
 				 "corrections (MPC)")
+			("spin", po::value<bool>(&flags.spin)->default_value(false),
+						 "apply spin model")
 			("verbose", po::value<int>(&flags.verbosity)->default_value(1),
 		         "verbosity level")
 		    ("save_data", po::value<bool>(&flags.save)->default_value(false),
-		         "saving robot/ball data");
+		         "saving robot/ball data")
+		    ("ball_land_des_x_offset", po::value<double>(&flags.ball_land_des_offset[0]),
+		    	 "ball land x offset")
+			("ball_land_des_y_offset", po::value<double>(&flags.ball_land_des_offset[1]),
+				 "ball land y offset")
+		    ("time_land_des", po::value<double>(&flags.time_land_des),
+		    	 "time land des")
+			("start_optim_offset", po::value<double>(&flags.optim_offset),
+				 "start optim offset")
+			("time2return", po::value<double>(&flags.time2return),
+						 "time to return to start posture")
+			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -170,12 +171,6 @@ void load_options() {
 		default:
 			flags.mode = TEST_SIM;
     }
-
-    cout << "Mode of operations: " << mode << "\n";
-    cout << "Algorithm specified: " << alg_num << "\n";
-	cout << "MPC Turned on? " << flags.mpc << "\n";
-	cout << "Verbosity level? " << flags.verbosity << "\n";
-	cout << "Saving ball data? " << flags.save << "\n";
 }
 
 /*
@@ -291,8 +286,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		filter = init_filter(0.3,0.001,flags.mode == REAL_ROBOT);
 		delete robot;
-		robot = new Player(q0,filter,
-				flags.alg,flags.mpc,flags.verbosity,flags.mode);
+		robot = new Player(q0,filter,flags);
 		flags.reset = false;
 	}
 	else {
@@ -392,7 +386,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		cp = new Player(q0,filter,flags.alg,flags.mpc,flags.verbosity);
+		cp = new Player(q0,filter,flags);
 		flags.reset = false;
 	}
 	else {
@@ -415,67 +409,3 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 		joint_des_state[i+1].thdd = qdes.qdd(i);
 	}
 }
-
-
-// * Inverts the given SL matrix matc [with indices starting from 1]
-// * by initializing ARMADILLO equivalent and inverting it
-// *
-// * After inversion the matrix contents are overwritten to the SL input matrix (double**)
-// * Memory for output matrix needs to be allocated before in SL (e.g. my_matrix()).
-// *
-// */
-//void invert_matrix(double** matc, int nrows, double** out) {
-//
-//	double* bowels = new double[nrows*nrows];
-//
-//	// fill the bowels
-//	int i,j;
-//	for(i = 1; i <= nrows; i++) {
-//		for(j = 1; j <= nrows; j++) {
-//			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
-//		}
-//	}
-//
-//	// initialize ARMA mat
-//	mat A(bowels,nrows,nrows);
-//	mat B = inv(A);
-//
-//	for(i = 1; i <= nrows; i++) {
-//		for(j = 1; j <= nrows; j++) {
-//			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
-//		}
-//	}
-//
-//}
-//
-
-// * Taking pseudoinverse with default tolerance using ARMADILLO
-// *
-// * Output matrix must be the transpose of the input matrix (so make sure
-// * you initialize properly!).
-// *
-// *
-// */
-//void pinv_matrix(double** matc, int nrows, int ncols, double** out) {
-//
-//	double* bowels = new double[nrows*ncols];
-//
-//	// fill the bowels
-//	int i,j;
-//	for(i = 1; i <= nrows; i++) {
-//		for(j = 1; j <= ncols; j++) {
-//			bowels[(j-1)*nrows + (i-1)] = matc[i][j]; // mat from SL
-//		}
-//	}
-//
-//	// initialize ARMA mat
-//	mat A(bowels,nrows,ncols);
-//	mat B = pinv(A);
-//
-//	for(i = 1; i <= ncols; i++) {
-//		for(j = 1; j <= nrows; j++) {
-//			out[i][j] = B(i-1,j-1); // mat from ARMADILLO
-//		}
-//	}
-//}
-

@@ -82,7 +82,11 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
-	Player* robot = new Player(q0,filter,alg,true,0);
+	player_flags flags;
+	flags.alg = alg;
+	flags.mpc = true;
+	flags.freq_mpc = 20;
+	Player* robot = new Player(q0,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
 	racket robot_racket;
@@ -137,7 +141,9 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
-	Player *robot = new Player(q0,filter,alg,false,2);
+	player_flags flags;
+	flags.alg = alg;
+	Player *robot = new Player(q0,filter,flags);
 
 	int N = 2000;
 	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
@@ -245,7 +251,8 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 	double std_model = 0.001;
 	TableTennis tt = TableTennis(false,true);
 	EKF filter = init_filter(std_model,std_noise);
-	Player *cp = new Player(zeros<vec>(NDOF),filter);
+	player_flags flags;
+	Player *cp = new Player(zeros<vec>(NDOF),filter,flags);
 	tt.set_ball_gun(0.2);
 
 	for (int i = 0; i < N; i++) {
