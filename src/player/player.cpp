@@ -588,6 +588,7 @@ bool update_next_state(const spline_params & poly,
 		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
 		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
 		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
+		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
 	}
 	else if (t <= poly.time2hit + time2return) {
 		b = poly.b;

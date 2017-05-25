@@ -67,20 +67,25 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;
 	if (update && !running) {
-		vec7 qf(qf);
-		vec7 qfdot(qfdot);
-		vec7 q_rest_des(qrest);
+		vec7 qf_, qfdot_, qrest_;
+		for (int i = 0; i < NDOF; i++) {
+			qf_(i) = qf[i];
+			qfdot_(i) = qfdot[i];
+			qrest_(i) = qrest[i];
+		}
 		vec7 qnow = qact.q;
 		vec7 qdnow = qact.qd;
-		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		p.a.col(0) = 2.0 * (qnow - qf_) / pow(T,3) + (qfdot_ + qdnow) / pow(T,2);
+		p.a.col(1) = 3.0 * (qf_ - qnow) / pow(T,2) - (qfdot_ + 2.0*qdnow) / T;
 		p.a.col(2) = qdnow;
 		p.a.col(3) = qnow;
-		p.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-		p.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
-		p.b.col(2) = qfdot;
-		p.b.col(3) = qf;
+		//cout << "A = \n" << p.a << endl;
+		p.b.col(0) = 2.0 * (qf_ - qrest_) / pow(time2return,3) + (qfdot_) / pow(time2return,2);
+		p.b.col(1) = 3.0 * (qrest_ - qf_) / pow(time2return,2) - (2.0*qfdot_) / time2return;
+		p.b.col(2) = qfdot_;
+		p.b.col(3) = qf_;
 		p.time2hit = T;
+		//cout << "B = \n" << p.b << endl;
 		flag = true;
 		update = false;
 	}

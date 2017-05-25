@@ -85,7 +85,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	init_posture(qact.q,2);
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
-	Player robot = Player(qact.q,filter,alg,true,0);
+	Player robot = Player(qact.q,filter,alg,true,2);
 	int N = 2000;
 	joint qdes = qact;
 	racket robot_racket;
