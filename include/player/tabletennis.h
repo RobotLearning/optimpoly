@@ -62,6 +62,8 @@ struct ball_params {
 	double Clift = 0.001;
 	/* dynamic coefficient of friction */
 	double mu = 0.05;
+	/* initial topspin amount */
+	double init_topspin = -50.0;
 };
 
 // flags for table tennis players
@@ -127,6 +129,7 @@ public:
 	vec3 get_ball_position() const;
 	vec3 get_ball_velocity() const;
 	vec6 get_ball_state() const;
+	void set_ball_state(const vec6 & ball_state);
 
 	// set reasonable ball positions and velocities for table tennis
 	void set_ball_gun(double std, int ballgun_side = 1);

@@ -68,7 +68,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
-	TableTennis tt;
+	TableTennis tt = TableTennis(true,true);
 	int num_trials = 1;
 	int num_lands = 0;
 	int num_misses = 0;
@@ -92,7 +92,6 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	racket robot_racket;
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
-		tt = TableTennis(true,true);
 		std::cout << "Trial: " << n+1 << std::endl;
 		tt.set_ball_gun(0.05,2);
 		robot->reset_filter(std_model,std_noise);

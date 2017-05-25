@@ -142,7 +142,14 @@ void load_options() {
 				 "start optim offset")
 			("time2return", po::value<double>(&flags.time2return),
 						 "time to return to start posture")
-			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates");
+			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates")
+		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
+		    ("std_noise", po::value<double>(&flags.std_noise), "std of filter obs noise")
+		    ("std_model", po::value<double>(&flags.std_model), "std of filter process noise")
+		    ("mu_est_mult", po::value<double>(&flags.mult_mu_init), "initial filter mean est. multiplier")
+		    ("P_est_mult", po::value<double>(&flags.mult_p_init), "initial filter var est. multiplier")
+		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
+		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {

@@ -46,7 +46,7 @@ typedef struct {
 } joint;
 
 /**
- * @brief Options passed to Player class (algorithm, saving, corrections).
+ * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
 struct player_flags { //! player flags
 	mode_operate mode = TEST_SIM;
@@ -60,6 +60,13 @@ struct player_flags { //! player flags
 	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
 	double time2return = 1.0; //! time to return to starting posture after hit
 	int freq_mpc = 1; //! frequency of mpc updates if turned on
+	int min_obs = 5;
+	double std_noise = 0.001;
+	double std_model = 0.1;
+	double mult_mu_init = 0.8;
+	double mult_p_init = 1e3;
+	double t_reset_thresh = 0.3;
+	double VHPY = -0.3;
 	bool reset = true; //! reinitializing player class
 };
 
@@ -124,9 +131,11 @@ EKF init_filter(double std_model = 0.001, double std_noise = 0.001, bool spin = 
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter,
-					bool mode);
+					bool real_robot,
+					double mult_mu,
+					double mult_p);
 bool check_new_obs(const vec3 & obs, double tol);
-bool check_reset_filter(const bool newball, const int verbose);
+bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 
 // movement generation
 void generate_strike(const optim & params, const joint & qact,

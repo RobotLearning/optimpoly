@@ -39,7 +39,9 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	init_topspin(-50.0);
+	init_topspin(-50);
+	//load_params("ball.cfg");
+	//init_topspin(params.init_topspin);
 }
 
 /**
@@ -56,7 +58,9 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) :
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
-	init_topspin(-50.0);
+	init_topspin(-50);
+	//load_params("ball.cfg");
+	//init_topspin(params.init_topspin);
 }
 
 /**
@@ -108,7 +112,9 @@ void TableTennis::load_params(const std::string & file_name_relative) {
 		    ("ball_params.gravity", po::value<double>(&params.gravity),
 		    		"for simulating different gravities")
 		    ("ball_params.lift", po::value<double>(&params.Clift),
-		    		"coefficient of lift for the magnus force");
+		    		"coefficient of lift for the magnus force")
+	        ("ball_params.init_topspin", po::value<double>(&params.init_topspin),
+	    		    "initial topspin");
 		po::variables_map vm;
 		ifstream ifs(config_file.c_str());
 		if (!ifs) {
@@ -182,6 +188,16 @@ vec6 TableTennis::get_ball_state() const {
 
 	return join_vert(this->ball_pos,this->ball_vel);
 }
+
+/**
+ * @return Set ball state as a 6-vector.
+ */
+void TableTennis::set_ball_state(const vec6 & ball_state) {
+
+	this->ball_pos = ball_state(span(X,Z));
+	this->ball_vel = ball_state(span(DX,DZ));
+}
+
 
 /**
  * @return Ball velocity as a 3-vector.
@@ -758,6 +774,7 @@ vec calc_next_ball(const vec & xnow, double dt) {
 vec calc_spin_ball(const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(xnow,true,false);
+	//tennis.set_ball_state(xnow);
 	tennis.integrate_ball_state(dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;
@@ -782,6 +799,7 @@ vec calc_spin_ball(const vec & xnow, double dt) {
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
+	//tennis.set_ball_state(xnow);
 	tennis.integrate_ball_state(robot,dt);
 	static vec6 out = zeros<vec>(6);
 	out(span(X,Z)) = tennis.ball_pos;

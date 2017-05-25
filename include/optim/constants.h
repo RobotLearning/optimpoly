@@ -24,7 +24,6 @@
 #define NCART 3
 #define NDOF 7
 
-static const double VHPY = -0.3; // VHP in front of the robot
 static const double DT = 0.002; // 500 Hz robot operation
 
 /* Table Tennis Ball Variables */

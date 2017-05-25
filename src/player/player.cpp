@@ -164,14 +164,14 @@ Player::~Player() {
 void Player::estimate_ball_state(const vec3 & obs) {
 
 	// observation matrix
-	const int min_obs = 5;
+	const int min_obs = pflags.min_obs;
 	static mat OBS = zeros<mat>(3,min_obs);
 	static vec TIMES = zeros<vec>(min_obs);
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
-	if (check_reset_filter(newball,pflags.verbosity)) {
-		filter = init_filter(0.03,0.001,pflags.spin);
+	if (check_reset_filter(newball,pflags.verbosity,pflags.t_reset_thresh)) {
+		filter = init_filter(pflags.std_model,pflags.std_noise,pflags.spin);
 		num_obs = 0;
 		game_state = AWAITING;
 		t_cum = 0.0; // t_cumulative
@@ -185,7 +185,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			if (num_obs == min_obs) {
 				if (pflags.verbosity >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(OBS,TIMES,filter,pflags.mode == REAL_ROBOT);
+				estimate_prior(OBS,TIMES,filter,pflags.mode == REAL_ROBOT,
+						                        pflags.mult_mu_init, pflags.mult_p_init);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -260,7 +261,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 	}
 
 	// generate movement or calculate next desired step
-	calc_next_state(qact, qdes);
+	calc_next_states(qact, qdes);
 
 }
 
@@ -453,7 +454,7 @@ bool Player::check_update(const joint & qact) const {
 		else {
 			update = update && !coparams.moving
 					&& (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset))
-					&& (state_est(DY) > 2.0);
+					&& (state_est(DY) > 0.5);
 		}
 	}
 	catch (const std::exception & not_init_error) {
@@ -568,7 +569,7 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
 	unsigned idx;
 
 	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
-		vhp_index = find(balls_path.row(Y) >= VHPY, 1);
+		vhp_index = find(balls_path.row(Y) >= pflags.VHPY, 1);
 		if (vhp_index.n_elem == 1) {
 			idx = as_scalar(vhp_index);
 			ball_pred = balls_path.col(idx);
@@ -670,6 +671,10 @@ void generate_strike(const optim & params, const joint & qact,
 	Qdd = join_horiz(Qdd_hit,Qdd_ret);
 }
 
+/*
+ * FIXME: NOT WORKING!
+ *
+ */
 bool update_next_state(const optim & params, const joint & qact,
 		           const vec7 & q_rest_des, const bool reset,
 				   const double time2return, joint & qdes) {
@@ -690,11 +695,11 @@ bool update_next_state(const optim & params, const joint & qact,
 	if (t == DT) {
 		// form a, b poly coeff matrices
 		T = params.T;
+		qnow = qact.q;
+		qdnow = qact.qd;
 		for (int i = 0; i < NDOF; i++) {
 			qf(i) = params.qf[i];
 			qfdot(i) = params.qfdot[i];
-			qnow(i) = qact.q[i];
-			qdnow(i) = qact.qd[i];
 		}
 		a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
 		a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
@@ -704,7 +709,7 @@ bool update_next_state(const optim & params, const joint & qact,
 		b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 		b.col(2) = qfdot;
 		b.col(3) = qf;
-		cout << "A = \n" << a << "B = \n" << b << endl;
+		//cout << "A = \n" << a << "B = \n" << b << endl;
 	}
 
 	if (t <= T) {
@@ -868,7 +873,9 @@ bool check_new_obs(const vec3 & obs, double tol) {
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter,
-					bool real_robot) {
+					bool real_robot,
+					double mult_mu,
+					double mult_p) {
 
 	vec6 x; mat66 P;
 	int num_samples = times.n_elem;
@@ -888,8 +895,8 @@ void estimate_prior(const mat & observations,
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
 	if (real_robot)	{
-		x(span(DX,DZ)) *= 0.8;
-		P *= 1e3;
+		x(span(DX,DZ)) *= mult_mu;
+		P *= mult_p;
 	}
 	//cout << "Data:\n" << observations << endl;
 	//cout << "Initial est:\n" << x << endl;
@@ -914,11 +921,10 @@ void estimate_prior(const mat & observations,
  * we reset the filter.
  *
  */
-bool check_reset_filter(const bool newball, const int verbose) {
+bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
 
 	bool reset = false;
 	static int reset_cnt = 0;
-	static double threshold = 0.3; // 300 miliseconds
 	static bool firsttime = true;
 	static wall_clock timer;
 
