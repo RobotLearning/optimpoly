@@ -78,10 +78,11 @@ algo algs[] = {FIXED, VHP, LAZY};
  *
  *
  */
+/*
 BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	std::cout << "Running MPC Test..." << std::endl;
-	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+	double Tmax = 1.0, lb[2*NDOF+1], ub[2*NDOF+1];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt;
@@ -129,7 +130,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 			<< num_lands << " lands, " << num_not_valid <<
 			" not valid balls, " << num_misses << " misses!" <<std::endl;
 	std::cout << "======================================================" << endl;
-}
+}*/
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -138,7 +139,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Testing Robot Ball Landing" << std::endl;
 
-	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+	double Tmax = 1.0, lb[2*NDOF+1], ub[2*NDOF+1];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);

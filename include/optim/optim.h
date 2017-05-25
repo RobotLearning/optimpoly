@@ -120,7 +120,9 @@ public:
 	double q0dot[NDOF] = {0.0};
 	double time2return = 1.0;
 	virtual ~Optim() {};
-	bool get_params(double qf_[NDOF], double qfdot_[NDOF], double T_);
+	bool check_running();
+	bool check_update();
+	bool get_params(vec7 & qf, vec7 & qfdot, double T);
 	void update_init_state(double *j0, double *j0dot, double time_pred);
 	void set_des_params(optim_des *params);
 	void run();

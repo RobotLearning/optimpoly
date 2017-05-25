@@ -73,6 +73,7 @@ private:
 	algo alg; // algorithm (fixed player, vhp, etc.)
 	game game_state; // ball awaiting, detected bouncing legally/illegally, or was hit
 	bool mpc; // apply corrections
+	bool moving;
 	bool valid_obs; // ball observed is valid (new ball and not an outlier)
 	int verbose; // level of verbosity (printing, OFF = 0, LOW = 1, HIGH = 2)
 	int num_obs; // number of observations received
@@ -118,7 +119,7 @@ bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose);
 
 // movement generation
-void generate_strike(const optim & params, const joint & qact,
+void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,

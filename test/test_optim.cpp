@@ -46,7 +46,8 @@ inline void init_right_posture(double* q0) {
 BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	cout << "Testing VHP Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	vec7 qf, qfdot;
+	double q0[NDOF], q0dot[NDOF], T;
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
@@ -95,7 +96,8 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	cout << "Testing FP Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	vec7 qf, qfdot;
+	double q0[NDOF], q0dot[NDOF], T;
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
@@ -139,7 +141,8 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	cout << "Testing LAZY Trajectory Optimizer...\n";
-	double qf[NDOF], qfdot[NDOF], q0[NDOF], q0dot[NDOF], T;
+	vec7 qf, qfdot;
+	double q0[NDOF], q0dot[NDOF], T;
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;

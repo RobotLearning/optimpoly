@@ -94,6 +94,7 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	time2return = 1.0;
 	num_obs = 0;
 	valid_obs = true;
+	moving = false;
 	t_cum = 0.0;
 	observations = zeros<mat>(3,min_obs);
 	times = zeros<vec>(min_obs);
@@ -104,24 +105,15 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 	q_rest_des = q0;
 	opt_params.Nmax = 500;
 
-	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
-	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
-	double* qzero = (double*)calloc(NDOF, sizeof(double));
-	double* qinit = (double*)calloc(NDOF, sizeof(double));
-	double* qrest = (double*)calloc(NDOF, sizeof(double));
-	double *lb = (double*)calloc(2*NDOF+1,sizeof(double));
-	double *ub = (double*)calloc(2*NDOF+1,sizeof(double));
+	double qrest[NDOF], lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	for (int i = 0; i < NDOF; i++) {
-		qinit[i] = qrest[i] = qzero[i] = q0(i);
+		qrest[i] = q0(i);
 	}
 	opt = new HittingPlane(qrest,lb,ub);
-	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, time2return,
-			    mode != TEST_SIM, false, verbose > 1};
 
 }
 
@@ -134,13 +126,6 @@ Player::Player(const vec7 & q0, EKF & filter_, algo alg_, bool mpc_, int verbose
 Player::~Player() {
 
 	delete opt;
-	free(optim_params.qf);
-	free(optim_params.qfdot);
-	free(coparams.lb);
-	free(coparams.ub);
-	free(coparams.q0dot);
-	free(coparams.qrest);
-	free(coparams.q0);
 }
 
 /*
@@ -415,9 +400,9 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		update = !optim_params.update && !optim_params.running;
+		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
-		if (mpc && coparams.moving) {
+		if (mpc && moving) {
 			calc_racket_state(qact,robot_racket);
 			activate = (mode == TEST_SIM) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/FREQ_MPC);
@@ -427,7 +412,7 @@ bool Player::check_update(const joint & qact) const {
 					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !coparams.moving
+			update = update && !moving
 					&& (state_est(Y) > (dist_to_table - table_length/2.0))
 					&& (state_est(DY) > 2.0);
 		}
@@ -456,28 +441,29 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	static unsigned idx = 0;
 	static mat Q_des, Qd_des, Qdd_des;
+	static vec7 qf, qfdot;
+	static double T;
 
 	// this should be only for MPC?
-	if (optim_params.update) {
+	if (opt->get_params(qf,qfdot,T)) {
 		if (verbose) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		coparams.moving = true;
-		optim_params.update = false;
+		moving = true;
 		// call polynomial generation
-		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
+		generate_strike(qf,qfdot,T,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
 		idx = 0;
 	}
 
 	// make sure we update after optim finished
-	if (coparams.moving) {
+	if (moving) {
 		qdes.q = Q_des.col(idx);
 		qdes.qd = Qd_des.col(idx);
 		qdes.qdd = Qdd_des.col(idx);
 		idx++;
 		if (idx == Q_des.n_cols) {
 			// hitting process will finish
-			coparams.moving = false;
+			moving = false;
 			qdes.q = q_rest_des;
 			qdes.qd = zeros<vec>(NDOF);
 			qdes.qdd = zeros<vec>(NDOF);
@@ -584,14 +570,11 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
  * Create batch hitting and returning joint state 3rd degree polynomials
  *
  */
-void generate_strike(const optim & params, const joint & qact,
+void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd) {
 
 	// first create hitting polynomials
-	double T = params.T;
-	vec7 qf(params.qf);
-	vec7 qfdot(params.qfdot);
 	vec7 qnow = qact.q;
 	vec7 qdnow = qact.qd;
 	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);

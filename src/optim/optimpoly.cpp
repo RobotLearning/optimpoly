@@ -32,6 +32,14 @@ void Optim::update_init_state(double *j0, double *j0dot, double time_pred) {
 	T = time_pred;
 };
 
+bool Optim::check_running() {
+	return running;
+}
+
+bool Optim::check_update() {
+	return update;
+}
+
 
 void Optim::run() {
 	// run optimization in another thread
@@ -42,13 +50,13 @@ void Optim::run() {
 		t.join();
 };
 
-bool Optim::get_params(double qf_[NDOF], double qfdot_[NDOF], double T_) {
+bool Optim::get_params(vec7 & qf_, vec7 & qfdot_, double T_) {
 
 	bool flag = false;
 	if (update && !running) {
 		for (int i = 0; i < NDOF; i++) {
-			qf_[i] = qf[i];
-			qfdot_[i] = qfdot[i];
+			qf_(i) = qf[i];
+			qfdot_(i) = qfdot[i];
 		}
 		T_ = T;
 		flag = true;
