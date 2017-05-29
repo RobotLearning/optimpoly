@@ -96,6 +96,7 @@ private:
 	void optim_lazy_param(const joint & qact);
 	void optim_vhp_param(const joint & qact); // run VHP player
 
+	void calc_opt_params(const joint & qact);
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
 	void calc_next_state(const joint & qact, joint & qdes);
 

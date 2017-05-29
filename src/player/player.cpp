@@ -231,25 +231,42 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
+	std::thread t;
 
-	// initialize optimization and get the hitting parameters
-	switch (pflags.alg) {
-		case FOCUS:
-			optim_fixedp_param(qact);
-			break;
-		case VHP:
-			optim_vhp_param(qact);
-			break;
-		case LAZY:
-			optim_lazy_param(qact);
-			break;
-		default:
-			throw ("Algorithm is not recognized!\n");
-	}
+	calc_opt_params(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
 
+}
+
+/*
+ * @brief React to ball observation by predicting and optimizing
+ * trajectory parameters if necessary.
+ *
+ */
+void Player::calc_opt_params(const joint & qact) {
+
+	// initialize optimization and get the hitting parameters
+	switch (pflags.alg) {
+		case FOCUS:
+			t = std::thread(&Player::optim_fixedp_param,this,qact);
+			break;
+		case VHP:
+			t = std::thread(&Player::optim_vhp_param,this,qact);
+			break;
+		case LAZY:
+			t = std::thread(&Player::optim_lazy_param,this,qact);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
+	if (pflags.mode != TEST_SIM) {
+		t.detach();
+	}
+	else {
+		t.join();
+	}
 }
 
 /**
@@ -270,19 +287,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 		game_state = AWAITING;
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	switch (pflags.alg) {
-		case FOCUS:
-			optim_fixedp_param(qact);
-			break;
-		case VHP:
-			optim_vhp_param(qact);
-			break;
-		case LAZY:
-			optim_lazy_param(qact);
-			break;
-		default:
-			throw ("Algorithm is not recognized!\n");
-	}
+	calc_opt_params(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -309,7 +314,7 @@ void Player::optim_vhp_param(const joint & qact) {
 			opt->set_des_params(&pred_params);
 			opt->fix_hitting_time(time_pred);
 			opt->update_init_state(qact);
-			opt->run();
+			opt->optim();
 		}
 	}
 
@@ -336,7 +341,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
-			opt->run();
+			opt->optim();
 		}
 	}
 }
@@ -363,7 +368,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
-			opt->run();
+			opt->optim();
 		}
 	}
 

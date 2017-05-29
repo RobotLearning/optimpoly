@@ -31,17 +31,6 @@ void Optim::update_init_state(const joint & qact) {
 	}
 }
 
-void Optim::run() {
-	// run optimization in another thread
-	std::thread t(&Optim::optim, this);
-	if (detach) {
-		t.detach();
-	}
-	else {
-		t.join();
-	}
-};
-
 bool Optim::check_running() {
 	return running;
 }
