@@ -23,6 +23,14 @@ static double const_costfunc(unsigned n, const double *x,
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
 
+/*
+ * This is actually only used by Virtual Hitting Plane!
+ */
+void Optim::fix_hitting_time(double time_pred) {
+	if (time_pred > 0.05)
+		T = time_pred;
+}
+
 HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];

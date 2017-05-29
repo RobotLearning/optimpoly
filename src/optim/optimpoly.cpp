@@ -24,13 +24,12 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
-void Optim::update_init_state(const joint & qact, const double time_pred) {
+void Optim::update_init_state(const joint & qact) {
 	for (int i = 0; i < NDOF; i++) {
 		q0[i] = qact.q(i);
 		q0dot[i] = qact.qd(i);
 	}
-	T = time_pred;
-};
+}
 
 void Optim::run() {
 	// run optimization in another thread
@@ -111,10 +110,12 @@ void Optim::optim() {
 	running = true;
 	double x[OPTIM_DIM];
 
-	if (moving)
+	if (moving) {
 		init_last_soln(x);
-	else
+	}
+	else {
 		init_rest_soln(x);
+	}
 
 	double init_time = get_time();
 	double past_time = 0.0;

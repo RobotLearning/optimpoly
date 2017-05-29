@@ -58,7 +58,7 @@ inline void init_posture(vec7 & q0, int posture) {
 }
 
 
-algo algs[] = {FOCUS, VHP, LAZY};
+algo algs[] = {VHP, FOCUS, LAZY};
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -70,7 +70,8 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	std::cout << "Running MPC Test..." << std::endl;
 	double Tmax = 1.0, lb[2*NDOF+1], ub[2*NDOF+1];
 	set_bounds(lb,ub,0.01,Tmax);
-	vec7 lbvec(lb); vec7 ubvec(ub);
+	vec7 lbvec(lb);
+	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
 	int num_trials = 1;
 	int num_lands = 0;
@@ -78,7 +79,6 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	int num_not_valid = 0;
 	arma_rng::set_seed_random();
 	//arma_rng::set_seed(0);
-	vec7 q0;
 	double std_noise = 0.001;
 	double std_model = 0.3;
 	joint qact;
@@ -89,7 +89,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 50;
-	flags.verbosity = 0;
+	//flags.verbosity = 0;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
@@ -97,7 +97,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
-		tt.set_ball_gun(0.05,0);
+		tt.set_ball_gun(0.05,1);
 		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
@@ -125,7 +125,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-/*BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Testing Robot Ball Landing" << std::endl;
 
@@ -170,7 +170,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	BOOST_TEST(all(min(Qdes,1) > lbvec));
 	BOOST_TEST(tt.has_landed());
 	std::cout << "******************************************************" << std::endl;
-}*/
+}
 
 /*
  * Testing whether table tennis ball bounces on table and touches the ground

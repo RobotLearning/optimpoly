@@ -307,8 +307,8 @@ void Player::optim_vhp_param(const joint & qact) {
 		if (predict_hitting_point(pflags.VHPY,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
 			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
-			//cout << pred_params.racket_pos << endl;
-			opt->update_init_state(qact,time_pred);
+			opt->fix_hitting_time(time_pred);
+			opt->update_init_state(qact);
 			opt->run();
 		}
 	}
@@ -335,7 +335,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
-			opt->update_init_state(qact,0.5);
+			opt->update_init_state(qact);
 			opt->run();
 		}
 	}
@@ -362,7 +362,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			opt->set_des_params(&pred_params);
-			opt->update_init_state(qact,0.5);
+			opt->update_init_state(qact);
 			opt->run();
 		}
 	}
@@ -384,6 +384,7 @@ void Player::optim_lazy_param(const joint & qact) {
  */
 bool Player::check_update(const joint & qact) const {
 
+	static int firsttime = true;
 	static int counter;
 	static vec6 state_last = -10 * ones<vec>(6);
 	static wall_clock timer;
@@ -391,6 +392,11 @@ bool Player::check_update(const joint & qact) const {
 	bool update;
 	racket robot_racket;
 	bool activate, passed_lim, incoming = false;
+
+	if (firsttime) {
+		timer.tic();
+		firsttime = false;
+	}
 
 	try {
 		state_est = filter.get_mean();
@@ -411,6 +417,7 @@ bool Player::check_update(const joint & qact) const {
 					&& (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset))
 					&& (state_est(DY) > 0.5);
 		}
+		state_last = state_est;
 	}
 	catch (const std::exception & not_init_error) {
 		update = false;
@@ -418,7 +425,6 @@ bool Player::check_update(const joint & qact) const {
 	if (update) {
 		//cout << num_updates++ << endl;
 		timer.tic();
-		state_last = state_est;
 	}
 	return update;
 }

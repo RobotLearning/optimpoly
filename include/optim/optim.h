@@ -93,7 +93,7 @@ protected:
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
-	virtual void optim();
+	void optim();
 public:
 	optim_des *param_des;
 	double lb[NDOF];
@@ -109,7 +109,8 @@ public:
 	void set_detach(bool flag);
 	void set_verbose(bool flag);
 	bool get_params(const joint & qact, spline_params & p);
-	void update_init_state(const joint & qact, const double time_pred);
+	void update_init_state(const joint & qact);
+	void fix_hitting_time(double time_pred);
 	void set_des_params(optim_des *params);
 	void run();
 };

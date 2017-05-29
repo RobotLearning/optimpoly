@@ -74,8 +74,8 @@ void set_algorithm(const int alg_num) {
 
 	switch (alg_num) {
 		case 0:
-			std::cout << "Setting to FIXED player..." << std::endl;
-			flags.alg = FIXED;
+			std::cout << "Setting to FOCUSED player..." << std::endl;
+			flags.alg = FOCUS;
 			break;
 		case 1:
 			std::cout << "Setting to LAZY player..." << std::endl;
@@ -86,7 +86,7 @@ void set_algorithm(const int alg_num) {
 			flags.alg = VHP;
 			break;
 		default:
-			flags.alg = FIXED;
+			flags.alg = FOCUS;
 	}
 }
 
