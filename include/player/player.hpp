@@ -35,6 +35,7 @@ enum mode_operate { // mode of operations
 };
 
 /**
+<<<<<<< HEAD
  * @brief Desired/actual joint positions, velocities, accelerations.
  *
  * output of main Player function play()
@@ -72,6 +73,8 @@ struct player_flags { //! player flags
 };
 
 /**
+=======
+>>>>>>> 4051c0d176e38bac8029afa39b9362876f268926
  *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
@@ -86,15 +89,20 @@ private:
 	vec2 ball_land_des = zeros<vec>(2); // desired landing position
 	double time_land_des = 0.8;
 	double time2return = 1.0;
-	racketdes racket_params;
-	optim optim_params;
-	coptim coparams;
 	vec7 q_rest_des; // desired resting joint state
 	double t_cum = 0.0; // counting time stamps for resetting filter
+	bool moving = false;
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;
 	player_flags pflags;
+	optim_des pred_params;
+	vec7 q_rest_des; // desired resting joint state
+	double t_cum = 0.0; // counting time stamps for resetting filter
+	mat observations = zeros<mat>(3,min_obs); // for initializing filter
+	mat times = zeros<vec>(min_obs); // for initializing filter
+	spline_params poly;
+	Optim *opt; // optimizer
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
@@ -105,8 +113,6 @@ private:
 	void optim_vhp_param(const joint & qact); // run VHP player
 
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
-	bool predict_hitting_point(vec6 & ball_pred, double & time_pred);
-	void predict_ball(mat & balls_pred) const;
 	void calc_next_state(const joint & qact, joint & qdes);
 	void calc_next_states(const joint & qact, joint & qdes);
 
@@ -139,20 +145,29 @@ bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 
 // movement generation
-void generate_strike(const optim & params, const joint & qact,
+
+void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
+<<<<<<< HEAD
 bool update_next_state(const optim & params, const joint & qact,
 		           const vec7 & q_rest_des, const bool reset,
+=======
+bool update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
+>>>>>>> 4051c0d176e38bac8029afa39b9362876f268926
 				   const double time2return, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 // racket calculations
-racketdes calc_racket_strategy(const mat & balls_predicted,
+void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
+bool predict_hitting_point(vec6 & ball_pred, double & time_pred,
+		                   EKF & filter, game & game_state);
+optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   racketdes & racket_params);
+							   optim_des & racket_params);
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
 

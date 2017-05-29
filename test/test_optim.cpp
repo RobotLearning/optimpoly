@@ -25,16 +25,6 @@
 using namespace arma;
 
 /*
- * Sending to C optimization routine the right data
- */
-inline void init_coptim_params(const vec7 & qinit, double *q0) {
-
-	for (int i = 0; i < NDOF; i++) {
-		q0[i] = qinit(i);
-	}
-}
-
-/*
  * Initialize robot posture on the right size of the robot
  */
 inline void init_right_posture(vec7 & q0) {
@@ -50,70 +40,139 @@ inline void init_right_posture(vec7 & q0) {
 
 /*
  *
- * Here testing NLOPT optimization for FIXED player
+ * Here testing NLOPT optimization for VHP player
  *
  */
-BOOST_AUTO_TEST_CASE(test_nlopt_optim) {
+BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
-	std::cout << "**************Testing NLOPT Optimization***********" << std::endl;
-	double *q0dot = (double*)calloc(NDOF,sizeof(double));
-	double *q0 = (double*)calloc(NDOF,sizeof(double));
-	// initial guess for optim //
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	cout << "Testing VHP Trajectory Optimizer...\n";
+	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
 
 	// update initial parameters from lookup table
-	std::cout << "Looking up a random entry..." << std::endl;
+	std::cout << "Looking up a random ball entry..." << std::endl;
 	arma_rng::set_seed(2);
 	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
 	//std::cout << ball_state << std::endl;
-
-	vec7 init_joint_state;
-	init_right_posture(init_joint_state);
-
-	// initialize ball and racket //
-	// predict for T_pred seconds
+	init_right_posture(qact.q);
 	set_bounds(lb,ub,SLACK,Tmax);
-
-	int N = 1000;
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	double** normal = my_matrix(0,NCART,0,N);
-	racketdes racket_params = {pos, vel, normal, DT, N};
 
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
-	mat balls_pred = filter.predict_path(DT,N);
+
+	double time_pred;
+	vec6 ball_pred;
+	game game_state = AWAITING;
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
-	racket_params = calc_racket_strategy(balls_pred,ball_land_des,0.8,racket_params);
-	vec3 normal_example;
-	for (int i = 0; i < NCART; i++) { // check for normal orthonormality
-		normal_example(i) = racket_params.normal[i][5];
-	}
+	double time_land_des = 0.8;
+	BOOST_TEST(predict_hitting_point(ball_pred,time_pred,filter,game_state));
+	//cout << ball_pred << endl;
+	optim_des racket_params;
+	calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
+
+	vec3 normal_example = racket_params.racket_normal(span(X,Z),0);
 	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
-	init_coptim_params(init_joint_state, q0);
-	coptim coparams = {q0, q0dot, q0, lb, ub, 1.0};
-	optim opt_params = {q0, q0dot, 0.5, false, false, true};
+	Optim *opt = new HittingPlane(qact.q.memptr(),lb,ub);
+	opt->set_des_params(&racket_params);
+	opt->update_init_state(qact,time_pred);
+	opt->run();
+	bool update = opt->get_params(qact,poly);
 
-	// run NLOPT opt algorithm here //
-	/*std::thread t(&nlopt_optim_fixed_run,
-			&coparams,&racket_params,&opt_params);
-	t.join();
-	std::cout << "***************************************" << std::endl;*/
+	BOOST_TEST(update);
+	delete opt;
+}
 
-	/*auto future = std::async(nlopt_optim_fixed_run,
-			&coparams,&racket_params,&opt_params);
-    double max_violation = future.get();*/
-	double max_violation = nlopt_optim_fixed_run
-			(&coparams,&racket_params,&opt_params);
+/*
+ * Testing Fixed Player (or Focused Player)
+ */
+BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
-	// test to see if kinematics constraints are violated
-	BOOST_TEST(max_violation < 0.01);
+	cout << "Testing FP Trajectory Optimizer...\n";
+	double lb[2*NDOF+1], ub[2*NDOF+1];
+	double SLACK = 0.01;
+	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
+
+	// update initial parameters from lookup table
+	std::cout << "Looking up a random ball entry..." << std::endl;
+	arma_rng::set_seed(2);
+	//arma_rng::set_seed_random();
+	vec::fixed<15> strike_params;
+	vec6 ball_state;
+	lookup_random_entry(ball_state,strike_params);
+	init_right_posture(qact.q);
+	set_bounds(lb,ub,SLACK,Tmax);
+	optim_des racket_params;
+	int N = 1000;
+	racket_params.Nmax = 1000;
+
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+
+	vec6 ball_pred;
+	double time_land_des = 0.8;
+	mat balls_pred = filter.predict_path(DT,N);
+	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
+	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
+
+	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub);
+	opt->set_des_params(&racket_params);
+	opt->update_init_state(qact,0.5);
+	opt->run();
+	bool update = opt->get_params(qact,poly);
+
+	BOOST_TEST(update);
+	delete opt;
+}
+
+/*
+ * Testing Lazy Player (or Defensive Player)
+ */
+BOOST_AUTO_TEST_CASE(test_dp_optim) {
+
+	cout << "Testing LAZY Trajectory Optimizer...\n";
+	double lb[2*NDOF+1], ub[2*NDOF+1];
+	double SLACK = 0.01;
+	double Tmax = 1.0;
+	joint qact;
+	spline_params poly;
+
+	// update initial parameters from lookup table
+	std::cout << "Looking up a random ball entry..." << std::endl;
+	//arma_rng::set_seed(3);
+	arma_rng::set_seed_random();
+	vec::fixed<15> strike_params;
+	vec6 ball_state;
+	lookup_random_entry(ball_state,strike_params);
+	init_right_posture(qact.q);
+	set_bounds(lb,ub,SLACK,Tmax);
+
+	int N = 1000;
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	mat balls_pred = filter.predict_path(DT,N);
+	optim_des ball_params;
+	ball_params.ball_pos = balls_pred.rows(X,Z);
+	ball_params.ball_vel = balls_pred.rows(DX,DZ);
+	ball_params.Nmax = N;
+
+	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub);
+	opt->set_des_params(&ball_params);
+	opt->update_init_state(qact,0.5);
+	opt->run();
+	bool update = opt->get_params(qact,poly);
+
+	BOOST_TEST(update);
+	delete opt;
 }

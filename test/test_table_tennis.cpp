@@ -57,15 +57,18 @@ inline void init_posture(vec7 & q0, int posture) {
 	q0 = qinit.t();
 }
 
-algo algs[] = {FIXED, VHP, LAZY};
+
+algo algs[] = {FIXED};
 
 /*
  * Testing whether the ball can be returned to the opponents court
+ *
  */
+
 BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
-	std::cout << "Running MPC test..." << std::endl;
-	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+	std::cout << "Running MPC Test..." << std::endl;
+	double Tmax = 1.0, lb[2*NDOF+1], ub[2*NDOF+1];
 	set_bounds(lb,ub,0.01,Tmax);
 	vec7 lbvec(lb); vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
@@ -78,15 +81,15 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 q0;
 	double std_noise = 0.001;
 	double std_model = 0.3;
-	init_posture(q0,2);
-	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	joint qact;
+	init_posture(qact.q,2);
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
 	player_flags flags;
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 20;
-	Player* robot = new Player(q0,filter,flags);
+	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
 	racket robot_racket;
@@ -94,10 +97,10 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
 		tt.set_ball_gun(0.05,2);
-		robot->reset_filter(std_model,std_noise);
+		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-			robot->play(qact, obs, qdes);
+			robot.play(qact, obs, qdes);
 			calc_racket_state(qdes,robot_racket);
 			tt.integrate_ball_state(robot_racket,DT);
 			qact.q = qdes.q;
@@ -116,7 +119,6 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 			<< num_lands << " lands, " << num_not_valid <<
 			" not valid balls, " << num_misses << " misses!" <<std::endl;
 	std::cout << "======================================================" << endl;
-	delete(robot);
 }
 
 /*
@@ -126,32 +128,32 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Testing Robot Ball Landing" << std::endl;
 
-	double Tmax = 1.0, lb[OPTIM_DIM], ub[OPTIM_DIM];
+	double Tmax = 2.0;
+	double lb[2*NDOF+1], ub[2*NDOF+1];
 	set_bounds(lb,ub,0.01,Tmax);
-	vec7 lbvec(lb); vec7 ubvec(ub);
+	vec7 lbvec(lb);
+	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
 	//arma_rng::set_seed_random();
 	arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,1); // init ball on the centre
-
-	vec7 q0;
 	double std_obs = 0.000; // std of the noisy observations
-	init_posture(q0,0);
-	joint qact = {q0, zeros<vec>(7), zeros<vec>(7)};
+	joint qact;
+	init_posture(qact.q,0);
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
 	flags.alg = alg;
-	Player *robot = new Player(q0,filter,flags);
-
+	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
-	joint qdes = {q0, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+	joint qdes;
+	qdes.q = qact.q;
 	racket robot_racket;
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
 		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-		robot->play(qact, obs, qdes);
-		//robot->cheat(qact, tt.get_ball_state(), qdes);
+		//robot.play(qact, obs, qdes);
+		robot.cheat(qact, tt.get_ball_state(), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
@@ -165,7 +167,6 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
 	BOOST_TEST(all(min(Qdes,1) > lbvec));
 	BOOST_TEST(tt.has_landed());
-	delete(robot);
 	std::cout << "******************************************************" << std::endl;
 }
 
@@ -199,8 +200,8 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 			"Testing EKF table tennis estimator with initial estimate error..." << std::endl;
 	// initialize TableTennis and Filter classes
 	TableTennis tt = TableTennis(false,true);
-	double std_noise = 0.001;
-	double std_model = 0.03;
+	const double std_noise = 0.001;
+	const double std_model = 0.03;
 	mat C = eye<mat>(3,6);
 	mat66 Q = std_model * eye<mat>(6,6);
 	mat33 R = std_noise * eye<mat>(3,3);
@@ -211,11 +212,12 @@ BOOST_AUTO_TEST_CASE( test_ball_ekf ) {
 	vec3 init_pos = tt.get_ball_position() + 0.5 * randu<vec>(3);
 	vec3 init_vel = tt.get_ball_velocity() + 0.2 * randu<vec>(3);
 	mat66 P0;
-	P0.eye(6,6); P0 *= 1e6;
+	P0.eye(6,6);
+	P0 *= 1e6;
 	vec6 x0 = join_vert(init_pos,init_vel);
 	filter.set_prior(x0,P0);
-	int N = 100;
-	double dt = 0.01;
+	const int N = 100;
+	const double dt = 0.01;
 	vec3 obs;
 	vec err = zeros<vec>(N);
 
@@ -243,27 +245,26 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 
 	std::cout << std::endl << "Testing Player class's Filtering performance..." << std::endl;
 
-	int N = 50;
+	const int N = 50;
 	vec3 obs;
 	vec err = zeros<vec>(N);
-	double std_noise = 0.001;
-	double std_model = 0.001;
+	const double std_noise = 0.001;
+	const double std_model = 0.001;
 	TableTennis tt = TableTennis(false,true);
 	EKF filter = init_filter(std_model,std_noise);
 	player_flags flags;
-	Player *cp = new Player(zeros<vec>(NDOF),filter,flags);
+	Player cp = Player(zeros<vec>(NDOF),filter,flags);
 	tt.set_ball_gun(0.2);
 
 	for (int i = 0; i < N; i++) {
 		tt.integrate_ball_state(DT);
 		obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-		err(i) = norm(tt.get_ball_state() - cp->filt_ball_state(obs),2);
+		err(i) = norm(tt.get_ball_state() - cp.filt_ball_state(obs),2);
 		//usleep(10e3);
 	}
 	//cout << err << endl;
 	cout << "Error of state estimate start: " << err(0) << " end: " << err(N-1) << endl;
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
-	delete(cp);
 	//cout << err;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
 }

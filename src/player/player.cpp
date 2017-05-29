@@ -78,8 +78,6 @@ using namespace arma;
  * VHP and FP try to return the ball to the centre of the opponents court,
  * LP tries to just return the ball to the opponents court.
  *
- * TODO: remove callocs and replace with new! and add unique/shared pointers
-
  * @param q0 Initial joint positions.
  * @param filter_ Reference to an input filter (must be initialized in a separate line).
  * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
@@ -90,10 +88,6 @@ using namespace arma;
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
                : filter(filter_), pflags(flags) {
 
-	num_obs = 0;
-	valid_obs = true;
-	t_cum = 0.0;
-
 	ball_land_des(X) += pflags.ball_land_des_offset[X];
 	ball_land_des(Y) = dist_to_table - 3*table_length/4 + pflags.ball_land_des_offset[Y];
 	time_land_des = pflags.time_land_des;
@@ -101,51 +95,45 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	q_rest_des = q0;
 	topspin = pflags.init_topspin;
 
-	int N = 500;
-	double** pos = my_matrix(0,NCART,0,N);
-	double** vel = my_matrix(0,NCART,0,N);
-	double** normal = my_matrix(0,NCART,0,N);
-	racket_params = {pos, vel, normal, 0.002, N};
-
-	double* qzerodot = (double*)calloc(NDOF,sizeof(double));
-	double* qzerodot2 = (double*)calloc(NDOF,sizeof(double));
-	double* qzero = (double*)calloc(NDOF, sizeof(double));
-	double* qinit = (double*)calloc(NDOF, sizeof(double));
-	double* qrest = (double*)calloc(NDOF, sizeof(double));
-	double *lb = (double*)calloc(OPTIM_DIM,sizeof(double));
-	double *ub = (double*)calloc(OPTIM_DIM,sizeof(double));
+	double lb[2*NDOF+1];
+	double ub[2*NDOF+1];
+	double qrest[NDOF];
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	for (int i = 0; i < NDOF; i++) {
-		qinit[i] = qrest[i] = qzero[i] = q0(i);
+		qrest[i] = q0(i);
 	}
 
-	optim_params = {qzero, qzerodot, 0.5, false, false};
-	coparams = {qinit, qzerodot2, qrest, lb, ub, pflags.time2return,
-			    pflags.mode != TEST_SIM, false, pflags.verbosity > 1};
-
+	switch (alg) {
+		case FIXED:
+			opt = new FocusedOptim(qrest,lb,ub);
+			pred_params.Nmax = 1000;
+			break;
+		case VHP:
+			opt = new HittingPlane(qrest,lb,ub);
+			break;
+		case LAZY:
+			opt = new LazyOptim(qrest,lb,ub);
+			pred_params.Nmax = 1000;
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
+	opt->set_verbose(verbose > 1);
+	opt->set_detach(mode != TEST_SIM);
 }
 
 /*
  *
  * Deconstructor for the Player class.
- * Frees the memory using free() as in C-style since calloc() was called.
+ * Frees the pointer to Optimization classes
  *
  */
 Player::~Player() {
 
-	free(optim_params.qf);
-	free(optim_params.qfdot);
-	free(coparams.lb);
-	free(coparams.ub);
-	free(coparams.q0dot);
-	free(coparams.qrest);
-	free(coparams.q0);
-	my_free_matrix(racket_params.normal,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(racket_params.pos,0,NCART,0,racket_params.Nmax);
-	my_free_matrix(racket_params.vel,0,NCART,0,racket_params.Nmax);
+	delete opt;
 }
 
 /*
@@ -159,15 +147,11 @@ Player::~Player() {
  * Ball is valid if ball is a new ball and (in real robot mode)
  * it is not an outlier!
  *
- * TODO: we're assuming that time elasped dt = DT = 0.002 seconds every time!
+ * Note: we're assuming that time elasped dt = DT = 0.002 seconds every time!
  *
  */
 void Player::estimate_ball_state(const vec3 & obs) {
 
-	// observation matrix
-	const int min_obs = pflags.min_obs;
-	static mat OBS = zeros<mat>(3,min_obs);
-	static vec TIMES = zeros<vec>(min_obs);
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
@@ -180,14 +164,13 @@ void Player::estimate_ball_state(const vec3 & obs) {
 
 	if (num_obs < min_obs) {
 		if (newball) {
-			TIMES(num_obs) = t_cum;
-			OBS.col(num_obs) = obs;
+			times(num_obs) = t_cum;
+			observations.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == min_obs) {
 				if (pflags.verbosity >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(OBS,TIMES,filter,pflags.mode == REAL_ROBOT,
-						                        pflags.mult_mu_init, pflags.mult_p_init);
+				estimate_prior(observations,times,filter,pflags.mode == REAL_ROBOT);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -313,26 +296,16 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::optim_vhp_param(const joint & qact) {
 
+	vec6 ball_pred;
 	double time_pred;
-	vec6 balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		if (predict_hitting_point(balls_pred,time_pred)) { // ball is legal and reaches VHP
-			calc_racket_strategy(balls_pred,ball_land_des,
-					time_land_des,racket_params);
-			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
-			}
-			optim_params.T = time_pred;
-			// run optimization in another thread
-			std::thread t(&nlopt_vhp_run,
-					&coparams,&racket_params,&optim_params);
-			if (pflags.mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
+		if (predict_hitting_point(pflags.VHPY,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
+			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
+			opt->set_des_params(&pred_params);
+			opt->update_init_state(qact,time_pred);
+			opt->run();
 		}
 	}
 
@@ -350,25 +323,16 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
-	static mat balls_pred;
+	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		predict_ball(balls_pred);
+		predict_ball(2.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
-			}
-			//cout << filter.get_mean().t() << endl;
-			// run optimization in another thread
-			std::thread t(&nlopt_optim_fixed_run,
-					&coparams,&racket_params,&optim_params);
-			if (pflags.mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
+			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
+			opt->set_des_params(&pred_params);
+			opt->update_init_state(qact,0.5);
+			opt->run();
 		}
 	}
 }
@@ -381,35 +345,21 @@ void Player::optim_fixedp_param(const joint & qact) {
  *
  * The optimized parameters are: qf, qf_dot, T
  *
- * TODO: delete ballpred in destructor?
  *
  */
 void Player::optim_lazy_param(const joint & qact) {
 
-	static double** ballpred = my_matrix(0,2*NCART,0,racket_params.Nmax);
-	static mat balls_pred;
+	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		predict_ball(balls_pred);
+		predict_ball(2.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-			for (int i = 0; i < NDOF; i++) {
-				coparams.q0[i] = qact.q(i);
-				coparams.q0dot[i] = qact.qd(i);
-			}
-			for (int i = 0; i < racket_params.Nmax; i++) {
-				for (int j = 0; j < 2*NCART; j++) {
-					ballpred[j][i] = balls_pred(j,i);
-				}
-			}
-			// run optimization in another thread
-			std::thread t(&nlopt_optim_lazy_run,
-					ballpred,&coparams,&racket_params,&optim_params);
-			if (pflags.mode == TEST_SIM)
-				t.join();
-			else
-				t.detach();
+			pred_params.ball_pos = balls_pred.rows(X,Z);
+			pred_params.ball_vel = balls_pred.rows(DX,DZ);
+			opt->set_des_params(&pred_params);
+			opt->update_init_state(qact,0.5);
+			opt->run();
 		}
 	}
 
@@ -433,6 +383,7 @@ bool Player::check_update(const joint & qact) const {
 	static int counter;
 	static vec6 state_last = -10 * ones<vec>(6);
 	static wall_clock timer;
+	const double FREQ_MPC = (pflags.mode == REAL_ROBOT) ? 10.0 : 40.0;
 	vec6 state_est;
 	bool update;
 	racket robot_racket;
@@ -441,9 +392,9 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		update = !optim_params.update && !optim_params.running;
+		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
-		if (pflags.mpc && coparams.moving) {
+		if (pflags.mpc && moving) {
 			calc_racket_state(qact,robot_racket);
 			activate = (pflags.mode == TEST_SIM) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
@@ -453,7 +404,7 @@ bool Player::check_update(const joint & qact) const {
 					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !coparams.moving
+			update = update && !moving
 					&& (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset))
 					&& (state_est(DY) > 0.5);
 		}
@@ -470,23 +421,6 @@ bool Player::check_update(const joint & qact) const {
 }
 
 /*
- * Predict ball with the models fed into the filter
- *
- * Number of prediction steps is given by Nmax in racket
- * parameters
- *
- */
-void Player::predict_ball(mat & balls_pred) const {
-
-	//static wall_clock timer;
-	//timer.tic();
-	int N = racket_params.Nmax;
-	//cout << filter.get_mean() << endl;
-	balls_pred = filter.predict_path(racket_params.dt,N);
-	//cout << timer.toc() << endl;
-}
-
-/*
  * Unfold the next desired state of the 3rd order polynomials in joint space
  * If movement finishes then the desired state velocities and accelerations are zeroed.
  *
@@ -497,90 +431,23 @@ void Player::predict_ball(mat & balls_pred) const {
  */
 void Player::calc_next_states(const joint & qact, joint & qdes) {
 
-	static unsigned idx = 0;
-	static mat Q_des, Qd_des, Qdd_des;
-
 	// this should be only for MPC?
-	if (optim_params.update) {
+	if (opt->get_params(qact,poly)) {
 		if (pflags.verbosity) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		coparams.moving = true;
-		optim_params.update = false;
-		// call polynomial generation
-		generate_strike(optim_params,qact,q_rest_des,time2return,Q_des,Qd_des,Qdd_des);
-		idx = 0;
+		moving = true;
+		opt->set_moving(true);
 	}
 
 	// make sure we update after optim finished
-	if (coparams.moving) {
-		qdes.q = Q_des.col(idx);
-		qdes.qd = Qd_des.col(idx);
-		qdes.qdd = Qdd_des.col(idx);
-		idx++;
-		if (idx == Q_des.n_cols) {
-			// hitting process will finish
-			coparams.moving = false;
-			qdes.q = q_rest_des;
-			qdes.qd = zeros<vec>(NDOF);
-			qdes.qdd = zeros<vec>(NDOF);
-			idx = 0;
+	if (moving) {
+		if (!update_next_state(poly,q_rest_des,time2return,qdes)) {
+			moving = false;
+			opt->set_moving(false);
 		}
 	}
 
-}
-
-void Player::calc_next_state(const joint & qact, joint & qdes) {
-
-	bool reset = false;
-	// this should be only for MPC?
-	if (optim_params.update) {
-		if (pflags.verbosity) {
-			std::cout << "Launching/updating strike" << std::endl;
-		}
-		reset = true;
-		coparams.moving = true;
-		optim_params.update = false;
-	}
-
-	// make sure we update after optim finished
-	if (coparams.moving) {
-		if (!update_next_state(optim_params,qact,q_rest_des,reset,time2return,qdes)) {
-			coparams.moving = false;
-		}
-	}
-
-}
-
-/*
- * Predict hitting point on the Virtual Hitting Plane (VHP)
- * if the ball is legal (legal detected bounce or legal predicted bounce)
- * and there is enough time (50 ms threshold)
- *
- * The location of the VHP is defined as a constant (constants.h)
- *
- */
-bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
-
-	static const double time_min = 0.05;
-	static mat balls_path;
-	bool valid_hp = false;
-	predict_ball(balls_path);
-	uvec vhp_index;
-	unsigned idx;
-
-	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
-		vhp_index = find(balls_path.row(Y) >= pflags.VHPY, 1);
-		if (vhp_index.n_elem == 1) {
-			idx = as_scalar(vhp_index);
-			ball_pred = balls_path.col(idx);
-			time_pred = racket_params.dt * (idx + 1);
-			if (time_pred > time_min)
-				valid_hp = true;
-		}
-	}
-
-	return valid_hp;
 }
 
 /**
@@ -592,10 +459,55 @@ bool Player::predict_hitting_point(vec6 & ball_pred, double & time_pred) {
  */
 void Player::reset_filter(double std_model, double std_noise) {
 
-	filter = init_filter(std_model,std_noise,pflags.spin);
+	filter = init_filter(std_model,std_noise,pflags.mode == REAL_ROBOT);
 	num_obs = 0;
 	game_state = AWAITING;
 	t_cum = 0.0;
+}
+
+/*
+ * Predict hitting point on the Virtual Hitting Plane (VHP)
+ * if the ball is legal (legal detected bounce or legal predicted bounce)
+ * and there is enough time (50 ms threshold)
+ *
+ * The location of the VHP is defined as a constant (constants.h)
+ *
+ */
+bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_pred,
+		                   EKF & filter, game & game_state) {
+
+	const double time_min = 0.05;
+	mat balls_path;
+	bool valid_hp = false;
+	predict_ball(2.0,balls_path,filter);
+	uvec vhp_index;
+	unsigned idx;
+
+	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
+		vhp_index = find(balls_path.row(Y) >= vhpy, 1);
+		if (vhp_index.n_elem == 1) {
+			idx = as_scalar(vhp_index);
+			ball_pred = balls_path.col(idx);
+			time_pred = DT * (idx + 1);
+			if (time_pred > time_min)
+				valid_hp = true;
+		}
+	}
+
+	return valid_hp;
+}
+
+/*
+ * Predict ball with the models fed into the filter
+ *
+ * Number of prediction steps is given by Nmax in racket
+ * parameters
+ *
+ */
+void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
+
+	int N = (int)(time_pred/DT);
+	balls_pred = filter.predict_path(DT,N);
 }
 
 /*
@@ -603,16 +515,15 @@ void Player::reset_filter(double std_model, double std_noise) {
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
  *
- * TODO: Is there a way to avoid deep copying computed values to racket_params?
  *
  */
-racketdes calc_racket_strategy(const mat & balls_predicted,
+optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   racketdes & racket_params) {
+							   optim_des & racket_params) {
 
 	//static wall_clock timer;
 	//timer.tic();
-	static TableTennis tennis = TableTennis(false,false);
+	TableTennis tennis = TableTennis(false,false);
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
@@ -623,38 +534,30 @@ racketdes calc_racket_strategy(const mat & balls_predicted,
 	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
 	// place racket centre on the predicted ball
+	racket_params.racket_pos = balls_predicted.rows(X,Z);
+	racket_params.racket_vel = racket_des_vel;
+	racket_params.racket_normal = racket_des_normal;
 
-	for (int i = 0; i < N; i++) {
-		for (int j = 0; j < NCART; j++) {
-			racket_params.pos[j][i] = balls_predicted(j,i);
-			racket_params.vel[j][i] = racket_des_vel(j,i);
-			racket_params.normal[j][i] = racket_des_normal(j,i);
-		}
-	}
 	//cout << timer.toc() << endl;
 	return racket_params;
 }
 
 /*
- * Create batch hitting and returning joint state 3rd degree polynomials
+ * Update state using hitting and returning joint state 3rd degree polynomials
  *
  */
-void generate_strike(const optim & params, const joint & qact,
+
+void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd) {
 
 	// first create hitting polynomials
-	vec7 a2, a3;
-	vec7 b2, b3; // for returning
-	double T = params.T;
-	vec7 qf(params.qf);
-	vec7 qfdot(params.qfdot);
 	vec7 qnow = qact.q;
 	vec7 qdnow = qact.qd;
-	a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-	b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-	b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 
 	int N_hit = T/DT;
 	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
@@ -673,54 +576,28 @@ void generate_strike(const optim & params, const joint & qact,
 }
 
 /*
- * FIXME: NOT WORKING!
  *
+ * FIXME: not working!
  */
-bool update_next_state(const optim & params, const joint & qact,
-		           const vec7 & q_rest_des, const bool reset,
+bool update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
 				   const double time2return, joint & qdes) {
 
-	static vec7 qf,qfdot,qnow,qdnow;
-	static mat a = zeros<mat>(NDOF,4);
-	static mat b = zeros<mat>(NDOF,4);
 	static double t = DT;
-	double T;
+	mat a,b;
 	double tbar;
 	bool flag = true;
 
-	if (reset) {
-		t = DT;
-		return true;
-	}
-
-	if (t == DT) {
-		// form a, b poly coeff matrices
-		T = params.T;
-		qnow = qact.q;
-		qdnow = qact.qd;
-		for (int i = 0; i < NDOF; i++) {
-			qf(i) = params.qf[i];
-			qfdot(i) = params.qfdot[i];
-		}
-		a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-		a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-		a.col(2) = qdnow;
-		a.col(3) = qnow;
-		b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-		b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
-		b.col(2) = qfdot;
-		b.col(3) = qf;
-		//cout << "A = \n" << a << "B = \n" << b << endl;
-	}
-
-	if (t <= T) {
+	if (t <= poly.time2hit) {
+		a = poly.a;
 		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
 		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
 		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
 		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
 	}
-	else if (t <= T + time2return) {
-		tbar = t - T;
+	else if (t <= poly.time2hit + time2return) {
+		b = poly.b;
+		tbar = t - poly.time2hit;
 		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
 		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
 		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);

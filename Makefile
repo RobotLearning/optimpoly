@@ -6,7 +6,7 @@ CC=g++
 LIBS=-larmadillo -lm
 INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O0
 TESTFLAGS=-g --std=c++11 -pthread
-OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3
+OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3 -std=c++11
 
 # for compiling everything 
 all: install interface lookup kinematics 
@@ -42,12 +42,12 @@ optim:
 
 test:
 	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp -o unit_tests.o \
-	                   $(LIBS) /is/ei/okoc/install/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
+	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libfilter.so $(LIBDIR)/libplayer.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
 					    
 clean:
-	rm -rf *.a *.o *.so
+	rm -rf *.a *.o lib/*.so
 
 .PHONY: all test clean player optim
 
