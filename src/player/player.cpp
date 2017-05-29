@@ -93,6 +93,8 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	time_land_des = pflags.time_land_des;
 	time2return = pflags.time2return;
 	q_rest_des = q0;
+	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
+	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	topspin = pflags.init_topspin;
 
 	double lb[2*NDOF+1];
@@ -106,7 +108,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 		qrest[i] = q0(i);
 	}
 
-	switch (alg) {
+	switch (pflags.alg) {
 		case FIXED:
 			opt = new FocusedOptim(qrest,lb,ub);
 			pred_params.Nmax = 1000;
@@ -121,8 +123,8 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 		default:
 			throw ("Algorithm is not recognized!\n");
 	}
-	opt->set_verbose(verbose > 1);
-	opt->set_detach(mode != TEST_SIM);
+	opt->set_verbose(pflags.verbosity > 1);
+	opt->set_detach(pflags.mode != TEST_SIM);
 }
 
 /*
@@ -162,15 +164,16 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		t_cum = 0.0; // t_cumulative
 	}
 
-	if (num_obs < min_obs) {
+	if (num_obs < pflags.min_obs) {
 		if (newball) {
 			times(num_obs) = t_cum;
 			observations.col(num_obs) = obs;
 			num_obs++;
-			if (num_obs == min_obs) {
+			if (num_obs == pflags.min_obs) {
 				if (pflags.verbosity >= 1)
 					cout << "Estimating initial ball state\n";
-				estimate_prior(observations,times,filter,pflags.mode == REAL_ROBOT);
+				estimate_prior(observations,times,filter,
+				pflags.mode == REAL_ROBOT, pflags.mult_mu_init, pflags.mult_p_init);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
