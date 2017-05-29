@@ -109,7 +109,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	}
 
 	switch (pflags.alg) {
-		case FIXED:
+		case FOCUS:
 			opt = new FocusedOptim(qrest,lb,ub);
 			pred_params.Nmax = 1000;
 			break;
@@ -161,12 +161,12 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		filter = init_filter(pflags.std_model,pflags.std_noise,pflags.spin);
 		num_obs = 0;
 		game_state = AWAITING;
-		t_cum = 0.0; // t_cumulative
+		t_obs = 0.0; // t_cumulative
 	}
 
 	if (num_obs < pflags.min_obs) {
 		if (newball) {
-			times(num_obs) = t_cum;
+			times(num_obs) = t_obs;
 			observations.col(num_obs) = obs;
 			num_obs++;
 			if (num_obs == pflags.min_obs) {
@@ -192,7 +192,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 
 	}
-	t_cum += DT;
+	t_obs += DT;
 }
 
 /**
@@ -234,7 +234,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	// initialize optimization and get the hitting parameters
 	switch (pflags.alg) {
-		case FIXED:
+		case FOCUS:
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
@@ -248,7 +248,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 	}
 
 	// generate movement or calculate next desired step
-	calc_next_states(qact, qdes);
+	calc_next_state(qact, qdes);
 
 }
 
@@ -271,7 +271,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
 	switch (pflags.alg) {
-		case FIXED:
+		case FOCUS:
 			optim_fixedp_param(qact);
 			break;
 		case VHP:
@@ -307,6 +307,7 @@ void Player::optim_vhp_param(const joint & qact) {
 		if (predict_hitting_point(pflags.VHPY,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
 			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
+			//cout << pred_params.racket_pos << endl;
 			opt->update_init_state(qact,time_pred);
 			opt->run();
 		}
@@ -386,7 +387,6 @@ bool Player::check_update(const joint & qact) const {
 	static int counter;
 	static vec6 state_last = -10 * ones<vec>(6);
 	static wall_clock timer;
-	const double FREQ_MPC = (pflags.mode == REAL_ROBOT) ? 10.0 : 40.0;
 	vec6 state_est;
 	bool update;
 	racket robot_racket;
@@ -397,7 +397,7 @@ bool Player::check_update(const joint & qact) const {
 		counter++;
 		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
-		if (pflags.mpc && moving) {
+		if (pflags.mpc && t_poly > 0.0) {
 			calc_racket_state(qact,robot_racket);
 			activate = (pflags.mode == TEST_SIM) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
@@ -407,7 +407,7 @@ bool Player::check_update(const joint & qact) const {
 					&& !passed_lim && incoming;
 		}
 		else {
-			update = update && !moving
+			update = update && (t_poly == 0.0)
 					&& (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset))
 					&& (state_est(DY) > 0.5);
 		}
@@ -432,21 +432,20 @@ bool Player::check_update(const joint & qact) const {
  * parameters (qf, qf_dot and T_hit)
  *
  */
-void Player::calc_next_states(const joint & qact, joint & qdes) {
+void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
 	if (opt->get_params(qact,poly)) {
 		if (pflags.verbosity) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		moving = true;
+		t_poly = DT;
 		opt->set_moving(true);
 	}
 
 	// make sure we update after optim finished
-	if (moving) {
-		if (!update_next_state(poly,q_rest_des,time2return,qdes)) {
-			moving = false;
+	if (t_poly > 0.0) {
+		if (!update_next_state(poly,q_rest_des,time2return,t_poly,qdes)) {
 			opt->set_moving(false);
 		}
 	}
@@ -465,7 +464,7 @@ void Player::reset_filter(double std_model, double std_noise) {
 	filter = init_filter(std_model,std_noise,pflags.mode == REAL_ROBOT);
 	num_obs = 0;
 	game_state = AWAITING;
-	t_cum = 0.0;
+	t_obs = 0.0;
 }
 
 /*
@@ -473,7 +472,7 @@ void Player::reset_filter(double std_model, double std_noise) {
  * if the ball is legal (legal detected bounce or legal predicted bounce)
  * and there is enough time (50 ms threshold)
  *
- * The location of the VHP is defined as a constant (constants.h)
+ * The location of the VHP is given as an argument (vhp-y-location vhpy)
  *
  */
 bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_pred,
@@ -546,10 +545,10 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 }
 
 /*
- * Update state using hitting and returning joint state 3rd degree polynomials
+ * Generate batch 3rd order polynomials
+ * based on hitting and returning joint state parameters
  *
  */
-
 void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd) {
@@ -579,14 +578,15 @@ void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const 
 }
 
 /*
+ * Given polynomial parameters
+ * Move on to the next desired state (joint pos,vel,acc)
  *
- * FIXME: not working!
  */
 bool update_next_state(const spline_params & poly,
 		           const vec7 & q_rest_des,
-				   const double time2return, joint & qdes) {
-
-	static double t = DT;
+				   const double time2return,
+				   double & t,
+				   joint & qdes) {
 	mat a,b;
 	double tbar;
 	bool flag = true;
@@ -596,6 +596,7 @@ bool update_next_state(const spline_params & poly,
 		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
 		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
 		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
+		t += DT;
 		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
 	}
 	else if (t <= poly.time2hit + time2return) {
@@ -604,6 +605,7 @@ bool update_next_state(const spline_params & poly,
 		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
 		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
 		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
+		t += DT;
 	}
 	else {
 		t = 0.0; // hitting finished
@@ -612,7 +614,6 @@ bool update_next_state(const spline_params & poly,
 		qdes.qd = zeros<vec>(NDOF);
 		qdes.qdd = zeros<vec>(NDOF);
 	}
-	t += DT;
 	return flag;
 }
 

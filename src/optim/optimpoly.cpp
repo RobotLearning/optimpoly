@@ -63,6 +63,14 @@ void Optim::set_verbose(bool flag_verbose) {
 	verbose = flag_verbose;
 }
 
+/*
+ * @brief If optimization succeeded, update polynomial parameters p
+ *
+ * If the optimizers finished running and terminated successfully,
+ * then generates the striking and returning polynomial parameters
+ * from qf, qfdot and T, and given the actual joint states qact, qactdot
+ *
+ */
 bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;

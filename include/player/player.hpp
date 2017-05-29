@@ -17,7 +17,7 @@ using namespace arma;
 
 enum algo {
 	VHP,
-	FIXED,
+	FOCUS,
 	LAZY,
 };
 
@@ -35,28 +35,16 @@ enum mode_operate { // mode of operations
 };
 
 /**
-<<<<<<< HEAD
- * @brief Desired/actual joint positions, velocities, accelerations.
- *
- * output of main Player function play()
- */
-typedef struct {
-	vec7 q;
-	vec7 qd;
-	vec7 qdd;
-} joint;
-
-/**
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
 struct player_flags { //! player flags
 	mode_operate mode = TEST_SIM;
-	algo alg = FIXED; //! algorithm for trajectory generation
+	algo alg = FOCUS; //! algorithm for trajectory generation
 	bool mpc = false; //! turn on/off corrections
 	int verbosity = 0; //! OFF, LOW, HIGH
 	bool save = false; //! saving ball/robot data
 	double ball_land_des_offset[2] = {0.0};
-	double time_land_des = 0.6;
+	double time_land_des = 0.8;
 	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
 	double time2return = 1.0; //! time to return to starting posture after hit
 	int freq_mpc = 1; //! frequency of mpc updates if turned on
@@ -64,17 +52,15 @@ struct player_flags { //! player flags
 	double init_topspin = -50.0;
 	int min_obs = 5;
 	double std_noise = 0.001;
-	double std_model = 0.1;
-	double mult_mu_init = 0.8;
-	double mult_p_init = 1e3;
+	double std_model = 0.001;
+	double mult_mu_init = 1.0;
+	double mult_p_init = 1.0;
 	double t_reset_thresh = 0.3;
 	double VHPY = -0.3;
 	bool reset = true; //! reinitializing player class
 };
 
 /**
-=======
->>>>>>> 4051c0d176e38bac8029afa39b9362876f268926
  *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
@@ -90,15 +76,13 @@ private:
 	double time_land_des = 0.8;
 	double time2return = 1.0;
 	vec7 q_rest_des; // desired resting joint state
-	double t_cum = 0.0; // counting time stamps for resetting filter
-	bool moving = false;
+	double t_obs = 0.0; // counting time stamps for resetting filter
+	double t_poly = 0.0; // time passed on the hitting spline
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;
 	player_flags pflags;
 	optim_des pred_params;
-	vec7 q_rest_des; // desired resting joint state
-	double t_cum = 0.0; // counting time stamps for resetting filter
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
 	spline_params poly;
@@ -114,7 +98,6 @@ private:
 
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
 	void calc_next_state(const joint & qact, joint & qdes);
-	void calc_next_states(const joint & qact, joint & qdes);
 
 public:
 
@@ -151,7 +134,7 @@ void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const 
 		            mat & Q, mat & Qd, mat & Qdd);
 bool update_next_state(const spline_params & poly,
 		           const vec7 & q_rest_des,
-				   const double time2return, joint & qdes);
+				   const double time2return, double & t_poly, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);

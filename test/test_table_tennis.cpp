@@ -58,7 +58,7 @@ inline void init_posture(vec7 & q0, int posture) {
 }
 
 
-algo algs[] = {FIXED};
+algo algs[] = {FOCUS, VHP, LAZY};
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -76,8 +76,8 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(0);
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(0);
 	vec7 q0;
 	double std_noise = 0.001;
 	double std_model = 0.3;
@@ -88,7 +88,8 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	player_flags flags;
 	flags.alg = alg;
 	flags.mpc = true;
-	flags.freq_mpc = 20;
+	flags.freq_mpc = 50;
+	flags.verbosity = 0;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
@@ -96,7 +97,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
-		tt.set_ball_gun(0.05,2);
+		tt.set_ball_gun(0.05,0);
 		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
@@ -124,7 +125,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 /*
  * Testing whether the ball can be returned to the opponents court
  */
-BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
+/*BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
 	std::cout << "Testing Robot Ball Landing" << std::endl;
 
@@ -136,13 +137,14 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	TableTennis tt = TableTennis(false,true);
 	//arma_rng::set_seed_random();
 	arma_rng::set_seed(5);
-	tt.set_ball_gun(0.05,1); // init ball on the centre
+	tt.set_ball_gun(0.05,0); // init ball on the centre
 	double std_obs = 0.000; // std of the noisy observations
 	joint qact;
 	init_posture(qact.q,0);
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
+	flags.verbosity = 1;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -168,7 +170,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	BOOST_TEST(all(min(Qdes,1) > lbvec));
 	BOOST_TEST(tt.has_landed());
 	std::cout << "******************************************************" << std::endl;
-}
+}*/
 
 /*
  * Testing whether table tennis ball bounces on table and touches the ground

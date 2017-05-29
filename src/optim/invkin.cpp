@@ -30,7 +30,7 @@ HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 	// set tolerances equal to second argument
 
 	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF);
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);
