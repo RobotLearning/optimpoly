@@ -97,6 +97,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
+		tt.reset_stats();
 		tt.set_ball_gun(0.05,1);
 		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
@@ -107,10 +108,10 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 			qact.q = qdes.q;
 			qact.qd = qdes.qd;
 		}
-		if (tt.has_landed()) {
+		if (tt.has_legally_landed()) {
 			num_lands++;
 		}
-		else if (!tt.is_legal_ball())
+		else if (!tt.has_legally_bounced())
 			num_not_valid++;
 		else
 			num_misses++;
@@ -168,7 +169,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
 	BOOST_TEST(all(min(Qdes,1) > lbvec));
-	BOOST_TEST(tt.has_landed());
+	BOOST_TEST(tt.has_legally_landed());
 	std::cout << "******************************************************" << std::endl;
 }
 

@@ -32,9 +32,11 @@ struct racket {
  */
 struct status {
 	bool hit = false;
+	bool has_bounced = false;
 	bool legal_bounce = false;
-	bool land = false;
-	bool ground = false;
+	bool has_landed = false;
+	bool legal_land = false;
+	bool touched_ground = false;
 };
 
 /**
@@ -101,6 +103,9 @@ private:
 	// contact models
 	void check_contact(const racket & robot_racket,
 			           vec3 & ball_cand_pos, vec3 & ball_cand_vel); // calls the contact functions below
+
+	void check_legal_bounce(const vec3 & ball_cand_pos, const vec3 & ball_cand_vel);
+	void check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball_cand_vel);
 	// Check contact to table
 	void check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ball_cand_vel);
 	// Check contact with net
@@ -117,8 +122,9 @@ public:
 	TableTennis(bool spin = false, bool verbose = false);
 	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
-	bool has_landed() const;
-	bool is_legal_ball() const;
+	bool has_legally_landed() const;
+	bool has_legally_bounced() const;
+	void reset_stats();
 	void load_params(const std::string & file_name_relative);
 
 	vec3 get_ball_position() const;
