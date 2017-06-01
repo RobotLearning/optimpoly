@@ -92,6 +92,17 @@ void Optim::set_des_params(optim_des *params_) {
 	param_des = params_;
 }
 
+void Optim::run() {
+
+	std::thread t = std::thread(&Optim::optim,this);
+	if (detach) {
+		t.detach();
+	}
+	else {
+		t.join();
+	}
+}
+
 
 void Optim::optim() {
 

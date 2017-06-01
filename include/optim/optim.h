@@ -93,6 +93,7 @@ protected:
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
+	void optim();
 public:
 	optim_des *param_des;
 	double lb[NDOF];
@@ -111,7 +112,7 @@ public:
 	void update_init_state(const joint & qact);
 	void fix_hitting_time(double time_pred);
 	void set_des_params(optim_des *params);
-	void optim();
+	void run();
 };
 
 class HittingPlane : public Optim {

@@ -39,7 +39,7 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
 	ball_spin = zeros<vec>(3);
-	init_topspin(topspin);
+	init_topspin(params.init_topspin);
 	//load_params("ball.cfg");
 	//init_topspin(params.init_topspin);
 }
@@ -58,7 +58,7 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) :
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
-	init_topspin(topspin);
+	init_topspin(params.init_topspin);
 	//load_params("ball.cfg");
 	//init_topspin(params.init_topspin);
 }
@@ -67,7 +67,6 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) :
  * @brief Initialize constant angular velocity (a.k.a. spin)
  * for the spinning ball.
  *
- * TODO: also load from file!
  */
 void TableTennis::init_topspin(double val) {
 

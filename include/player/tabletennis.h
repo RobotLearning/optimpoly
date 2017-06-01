@@ -15,8 +15,6 @@
 #include "constants.h"
 #include "table.h"
 
-double topspin = -50.0;
-
 using namespace arma;
 
 /**

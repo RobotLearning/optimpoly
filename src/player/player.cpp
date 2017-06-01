@@ -95,7 +95,6 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	q_rest_des = q0;
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
-	topspin = pflags.init_topspin;
 
 	double lb[2*NDOF+1];
 	double ub[2*NDOF+1];
@@ -232,60 +231,25 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
 
-	calc_opt_params(qact);
+	switch (pflags.alg) {
+		case FOCUS:
+			optim_fixedp_param(qact);
+			break;
+		case VHP:
+			optim_vhp_param(qact);
+			break;
+		case LAZY:
+			optim_lazy_param(qact);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
 
 }
 
-/*
- * @brief React to ball observation by predicting and optimizing
- * trajectory parameters if possible
- *
- * In detach mode, we only launch another thread if the last one
- * has successfully terminated
- *
- */
-void Player::calc_opt_params(const joint & qact) {
-
-	static std::thread t;
-	// initialize optimization and get the hitting parameters
-	if (pflags.detach) {
-		if (!busy_thread) {
-			switch (pflags.alg) {
-				case FOCUS:
-					t = std::thread(&Player::optim_fixedp_param,this,qact);
-					break;
-				case VHP:
-					t = std::thread(&Player::optim_vhp_param,this,qact);
-					break;
-				case LAZY:
-					t = std::thread(&Player::optim_lazy_param,this,qact);
-					break;
-				default:
-					throw ("Algorithm is not recognized!\n");
-			}
-			t.detach();
-		}
-	}
-	else {
-		switch (pflags.alg) {
-			case FOCUS:
-				t = std::thread(&Player::optim_fixedp_param,this,qact);
-				break;
-			case VHP:
-				t = std::thread(&Player::optim_vhp_param,this,qact);
-				break;
-			case LAZY:
-				t = std::thread(&Player::optim_lazy_param,this,qact);
-				break;
-			default:
-				throw ("Algorithm is not recognized!\n");
-		}
-		t.join();
-	}
-}
 
 /**
  * @brief Cheat Table Tennis by getting the exact ball state in simulation.
@@ -305,7 +269,19 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 		game_state = AWAITING;
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	calc_opt_params(qact);
+	switch (pflags.alg) {
+		case FOCUS:
+			optim_fixedp_param(qact);
+			break;
+		case VHP:
+			optim_vhp_param(qact);
+			break;
+		case LAZY:
+			optim_lazy_param(qact);
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -322,7 +298,6 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::optim_vhp_param(const joint & qact) {
 
-	busy_thread = true;
 	vec6 ball_pred;
 	double time_pred;
 
@@ -333,10 +308,9 @@ void Player::optim_vhp_param(const joint & qact) {
 			opt->set_des_params(&pred_params);
 			opt->fix_hitting_time(time_pred);
 			opt->update_init_state(qact);
-			opt->optim();
+			opt->run();
 		}
 	}
-	busy_thread = false;
 }
 
 /*
@@ -351,7 +325,6 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
-	busy_thread = true;
 	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
@@ -361,10 +334,9 @@ void Player::optim_fixedp_param(const joint & qact) {
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
-			opt->optim();
+			opt->run();
 		}
 	}
-	busy_thread = false;
 }
 
 /*
@@ -379,7 +351,6 @@ void Player::optim_fixedp_param(const joint & qact) {
  */
 void Player::optim_lazy_param(const joint & qact) {
 
-	busy_thread = true;
 	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
@@ -390,11 +361,9 @@ void Player::optim_lazy_param(const joint & qact) {
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
-			opt->optim();
+			opt->run();
 		}
 	}
-	busy_thread = false;
-
 }
 
 /*

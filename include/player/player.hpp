@@ -44,7 +44,6 @@ struct player_flags { //! player flags
 	double time2return = 1.0; //! time to return to starting posture after hit
 	int freq_mpc = 1; //! frequency of mpc updates if turned on
 	bool spin = false; //! turn on and off spin-based prediction models
-	double init_topspin = -50.0;
 	int min_obs = 5;
 	double std_noise = 0.001;
 	double std_model = 0.001;
@@ -73,7 +72,6 @@ private:
 	vec7 q_rest_des; // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	double t_poly = 0.0; // time passed on the hitting spline
-	bool busy_thread = false; // detach thread only if last one terminated before
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;

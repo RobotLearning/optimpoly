@@ -113,15 +113,14 @@ void load_options() {
 	string home = std::getenv("HOME");
 	string config_file = home + "/polyoptim/" + "player.cfg";
 	int alg_num;
-	int mode;
 
     try {
 		// Declare a group of options that will be
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-		    ("mode", po::value<int>(&mode)->default_value(0),
-			      "mode of operations: SIM vs. SL vs. REAL ROBOT")
+		    ("outlier_detection", po::value<bool>(&flags.outlier_detection)->default_value(true),
+			      "OUTLIER DETECTION FOR REAL ROBOT!")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
@@ -143,7 +142,6 @@ void load_options() {
 			("time2return", po::value<double>(&flags.time2return),
 						 "time to return to start posture")
 			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates")
-			("init_topspin", po::value<double>(&flags.init_topspin), "topspin of ball predictions")
 		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
 		    ("std_noise", po::value<double>(&flags.std_noise), "std of filter obs noise")
 		    ("std_model", po::value<double>(&flags.std_model), "std of filter process noise")
@@ -165,20 +163,7 @@ void load_options() {
         cout << e.what() << "\n";
     }
     set_algorithm(alg_num);
-
-    switch (mode) {
-		case 0:
-			flags.mode = TEST_SIM;
-			break;
-		case 1:
-			flags.mode = SL_SIM;
-			break;
-		case 2:
-			flags.mode = REAL_ROBOT;
-			break;
-		default:
-			flags.mode = TEST_SIM;
-    }
+    flags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
 /*
@@ -284,7 +269,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // centered player
-	static EKF filter = init_filter(0.3,0.001,flags.mode == REAL_ROBOT);
+	static EKF filter = init_filter(0.3,0.001,flags.spin);
 
 	if (flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -292,7 +277,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_filter(0.3,0.001,flags.mode == REAL_ROBOT);
+		filter = init_filter(0.3,0.001,flags.spin);
 		delete robot;
 		robot = new Player(q0,filter,flags);
 		flags.reset = false;
