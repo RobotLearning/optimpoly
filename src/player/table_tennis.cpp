@@ -86,6 +86,8 @@ void TableTennis::init_topspin(double val) {
  */
 void TableTennis::reset_stats() {
 	stats.touched_ground = false;
+	stats.has_bounced = false;
+	stats.legal_land = false;
 	stats.hit = false;
 	stats.has_landed = false;
 	stats.legal_bounce = false;
