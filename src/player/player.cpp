@@ -124,7 +124,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 			throw ("Algorithm is not recognized!\n");
 	}
 	opt->set_verbose(pflags.verbosity > 1);
-	opt->set_detach(pflags.mode != TEST_SIM);
+	opt->set_detach(pflags.detach);
 }
 
 /*
@@ -173,7 +173,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 				if (pflags.verbosity >= 1)
 					cout << "Estimating initial ball state\n";
 				estimate_prior(observations,times,filter,
-				pflags.mode == REAL_ROBOT, pflags.mult_mu_init, pflags.mult_p_init);
+						pflags.mult_mu_init, pflags.mult_p_init);
 				//cout << OBS << TIMES << filter.get_mean() << endl;
 			}
 		}
@@ -182,7 +182,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		filter.predict(DT,true); //true);
 		if (newball) {
 			valid_obs = true;
-			if (pflags.mode == REAL_ROBOT)
+			if (pflags.outlier_detection)
 				valid_obs = !filter.check_outlier(obs,pflags.verbosity);
 		}
 		if (valid_obs) {
@@ -231,7 +231,6 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
-	std::thread t;
 
 	calc_opt_params(qact);
 
@@ -242,29 +241,48 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 /*
  * @brief React to ball observation by predicting and optimizing
- * trajectory parameters if necessary.
+ * trajectory parameters if possible
+ *
+ * In detach mode, we only launch another thread if the last one
+ * has successfully terminated
  *
  */
 void Player::calc_opt_params(const joint & qact) {
 
+	static std::thread t;
 	// initialize optimization and get the hitting parameters
-	switch (pflags.alg) {
-		case FOCUS:
-			t = std::thread(&Player::optim_fixedp_param,this,qact);
-			break;
-		case VHP:
-			t = std::thread(&Player::optim_vhp_param,this,qact);
-			break;
-		case LAZY:
-			t = std::thread(&Player::optim_lazy_param,this,qact);
-			break;
-		default:
-			throw ("Algorithm is not recognized!\n");
-	}
-	if (pflags.mode != TEST_SIM) {
-		t.detach();
+	if (pflags.detach) {
+		if (!busy_thread) {
+			switch (pflags.alg) {
+				case FOCUS:
+					t = std::thread(&Player::optim_fixedp_param,this,qact);
+					break;
+				case VHP:
+					t = std::thread(&Player::optim_vhp_param,this,qact);
+					break;
+				case LAZY:
+					t = std::thread(&Player::optim_lazy_param,this,qact);
+					break;
+				default:
+					throw ("Algorithm is not recognized!\n");
+			}
+			t.detach();
+		}
 	}
 	else {
+		switch (pflags.alg) {
+			case FOCUS:
+				t = std::thread(&Player::optim_fixedp_param,this,qact);
+				break;
+			case VHP:
+				t = std::thread(&Player::optim_vhp_param,this,qact);
+				break;
+			case LAZY:
+				t = std::thread(&Player::optim_lazy_param,this,qact);
+				break;
+			default:
+				throw ("Algorithm is not recognized!\n");
+		}
 		t.join();
 	}
 }
@@ -304,6 +322,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::optim_vhp_param(const joint & qact) {
 
+	busy_thread = true;
 	vec6 ball_pred;
 	double time_pred;
 
@@ -317,7 +336,7 @@ void Player::optim_vhp_param(const joint & qact) {
 			opt->optim();
 		}
 	}
-
+	busy_thread = false;
 }
 
 /*
@@ -332,6 +351,7 @@ void Player::optim_vhp_param(const joint & qact) {
  */
 void Player::optim_fixedp_param(const joint & qact) {
 
+	busy_thread = true;
 	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
@@ -344,6 +364,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 			opt->optim();
 		}
 	}
+	busy_thread = false;
 }
 
 /*
@@ -358,6 +379,7 @@ void Player::optim_fixedp_param(const joint & qact) {
  */
 void Player::optim_lazy_param(const joint & qact) {
 
+	busy_thread = true;
 	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
@@ -371,7 +393,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			opt->optim();
 		}
 	}
-
+	busy_thread = false;
 
 }
 
@@ -410,7 +432,7 @@ bool Player::check_update(const joint & qact) const {
 		// ball is incoming
 		if (pflags.mpc && t_poly > 0.0) {
 			calc_racket_state(qact,robot_racket);
-			activate = (pflags.mode == TEST_SIM) ? counter % 5 == 0 :
+			activate = (!pflags.detach) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
 			incoming = state_est(Y) > state_last(Y);
@@ -472,7 +494,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
  */
 void Player::reset_filter(double std_model, double std_noise) {
 
-	filter = init_filter(std_model,std_noise,pflags.mode == REAL_ROBOT);
+	filter = init_filter(std_model,std_noise,pflags.spin);
 	num_obs = 0;
 	game_state = AWAITING;
 	t_obs = 0.0;
@@ -766,7 +788,6 @@ bool check_new_obs(const vec3 & obs, double tol) {
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter,
-					bool real_robot,
 					double mult_mu,
 					double mult_p) {
 
@@ -787,10 +808,8 @@ void estimate_prior(const mat & observations,
 	//cout << "Parameters:" << endl << Beta << endl;
 	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
 	P.eye(6,6);
-	if (real_robot)	{
-		x(span(DX,DZ)) *= mult_mu;
-		P *= mult_p;
-	}
+	x(span(DX,DZ)) *= mult_mu;
+	P *= mult_p;
 	//cout << "Data:\n" << observations << endl;
 	//cout << "Initial est:\n" << x << endl;
 	filter.set_prior(x,P);

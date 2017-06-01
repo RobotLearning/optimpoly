@@ -733,8 +733,7 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
 }
 
 /**
- * @brief Friend function that exposes table tennis ball integration function
- * to an outside filter except for racket contact.
+ * @brief Function that integrates a table tennis ball for an outside filter.
  *
  * Function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
@@ -752,15 +751,11 @@ vec calc_next_ball(const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
 	tennis.integrate_ball_state(dt);
-	static vec6 out = zeros<vec>(6);
-	out(span(X,Z)) = tennis.ball_pos;
-	out(span(DX,DZ)) = tennis.ball_vel;
-	return out;
+	return tennis.get_ball_state();
 }
 
 /**
- * @brief Friend function that exposes table tennis ball integration function
- * to an outside filter except for racket contact.
+ * @brief Function that integrates a table tennis ball for an outside filter.
  *
  * Function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
@@ -776,15 +771,12 @@ vec calc_spin_ball(const vec & xnow, double dt) {
 	TableTennis tennis = TableTennis(xnow,true,false);
 	//tennis.set_ball_state(xnow);
 	tennis.integrate_ball_state(dt);
-	static vec6 out = zeros<vec>(6);
-	out(span(X,Z)) = tennis.ball_pos;
-	out(span(DX,DZ)) = tennis.ball_vel;
-	return out;
+	return tennis.get_ball_state();
 }
 
 /**
- * @brief Friend function that exposes table tennis ball integration function
- * to an outside filter including potential racket contact.
+ * @brief Function that integrates a table tennis ball for an outside filter.
+ * including predicting a potential racket contact.
  *
  * Overloaded function exposes the table tennis integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
@@ -801,8 +793,5 @@ vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 	TableTennis tennis = TableTennis(xnow,false,false);
 	//tennis.set_ball_state(xnow);
 	tennis.integrate_ball_state(robot,dt);
-	static vec6 out = zeros<vec>(6);
-	out(span(X,Z)) = tennis.ball_pos;
-	out(span(DX,DZ)) = tennis.ball_vel;
-	return out;
+	return tennis.get_ball_state();
 }

@@ -71,11 +71,6 @@ struct ball_params {
 // flags for table tennis players
 static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
-// interface to the outside world (e.g. player)
-vec calc_next_ball(const vec & xnow, double dt);
-vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
-vec calc_spin_ball(const vec & xnow, double dt);
-
 /**
  * @brief Table Tennis ball prediction methods
  *
@@ -147,12 +142,11 @@ public:
 							   const mat & balls_predicted, mat & balls_out_vel) const;
 	void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 			                 const mat & racket_normal, mat & racket_vel) const;
-
-	// used as an interface for the ball prediction
-	friend vec calc_next_ball(const vec & xnow, const double dt);
-	friend vec calc_next_ball(const racket & robot,
-			const vec & xnow, const double dt);
-	friend vec calc_spin_ball(const vec & xnow, double dt);
 };
+
+// interface to the outside world (e.g. player)
+vec calc_next_ball(const vec & xnow, double dt);
+vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
+vec calc_spin_ball(const vec & xnow, double dt);
 
 #endif /* end of TABLETENNIS_H_ */

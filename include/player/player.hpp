@@ -28,18 +28,13 @@ enum game { //trial state
 	HIT,
 };
 
-enum mode_operate { // mode of operations
-	TEST_SIM, // optim wont be detached
-	SL_SIM, // sim but optim will be detached
-	REAL_ROBOT, // outlier detection
-};
-
 /**
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
 struct player_flags { //! player flags
-	mode_operate mode = TEST_SIM;
 	algo alg = FOCUS; //! algorithm for trajectory generation
+	bool detach = false;
+	bool outlier_detection = false;
 	bool mpc = false; //! turn on/off corrections
 	int verbosity = 0; //! OFF, LOW, HIGH
 	bool save = false; //! saving ball/robot data
@@ -78,6 +73,7 @@ private:
 	vec7 q_rest_des; // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	double t_poly = 0.0; // time passed on the hitting spline
+	bool busy_thread = false; // detach thread only if last one terminated before
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;
@@ -122,7 +118,6 @@ EKF init_filter(double std_model = 0.001, double std_noise = 0.001, bool spin = 
 void estimate_prior(const mat & observations,
 		            const vec & times,
 					EKF & filter,
-					bool real_robot,
 					double mult_mu,
 					double mult_p);
 bool check_new_obs(const vec3 & obs, double tol);
