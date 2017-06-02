@@ -149,6 +149,14 @@ protected:
 	virtual double test_soln(const double x[]) const;
 public:
 	weights w;
+	double x_last[OPTIM_DIM] = {0.0};
+	double t_land = 1.0;
+	double t_net = 1.0;
+	double x_land[2] = {0.0};
+	double x_net = 0.0;
+	double dist_b2r_norm = 1.0;
+	double dist_b2r_proj[NCART] = {0.0};
+	void calc_times(const double x[]);
 	LazyOptim(double qrest[], double lb[], double ub[]);
 };
 

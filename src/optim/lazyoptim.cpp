@@ -3,7 +3,6 @@
  *
  * @brief NLOPT polynomial optimization functions for LAZY PLAYER are stored here.
  *
- * Lazy Player makes use of FIXED PLAYER to seed good trajectories.
  *
  *  Created on: Sep 11, 2016
  *      Author: okan
@@ -29,15 +28,6 @@ static double punish_land_robot(const double *xland,
 								const double Rnet);
 static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params);
-static void modify_ball_outgoing_vel(double* ballVel);
-static void calc_times(const LazyOptim* opt,
-		               const double *x,
-					   double *netTime,
-					   double *landTime,
-					   double *xnet,
-					   double *xland,
-					   double *ball_norm, // ball to racket normal distance
-					   double *ball_proj);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
 static void interp_ball(const optim_des *params, const double T, double *ballpos, double *ballvel);
@@ -74,6 +64,67 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
 	}
 }
 
+/**
+ * @brief Calculate the net hitting time and the landing time
+ * Assuming that there was an interaction (hitting) between racket and ball.
+ *
+ * Since we call this function multiple times within one optimization step
+ * we store the optimization variable x,
+ * landTime and netTime variables and return these when the optimization
+ * variable is the same (meaning optimization algorithm did not update it yet).
+ *
+ * TODO: simplify code! If landtime is not real, should we set it to -1.0?
+ *
+ */
+void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
+
+	static double qf[NDOF];
+	static double qfdot[NDOF];
+	static double vel[NCART];
+	static double normal[NCART];
+	static double pos[NCART];
+	static double ballpos[NCART];
+	static double ballvel[NCART];
+	static double table_z = floor_level - table_height + ball_radius;
+	static double g = 9.8;
+	static double net_y = dist_to_table - table_length/2.0;
+	double distBall2TableZ;
+
+	if (!vec_is_equal(OPTIM_DIM,x,x_last)) {
+		// extract state information from optimization variables
+		for (int i = 0; i < NDOF; i++) {
+			qf[i] = x[i];
+			qfdot[i] = x[i + NDOF];
+		}
+		calc_racket_state(qf, qfdot, pos, vel, normal);
+		interp_ball(this->param_des, x[2*NDOF], ballpos, ballvel);
+		racket_contact_model(vel, normal, ballvel);
+		distBall2TableZ = ballpos[Z] - table_z;
+
+		if (sqr(ballvel[Z]) > -2*g*distBall2TableZ) {
+			t_land = fmax(0.10,(ballvel[Z] + sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ))/g);
+		}
+		else {
+			// landTime is not real!
+			t_land = 1.0;
+		}
+		t_net = fmax(0.10,(net_y - ballpos[Y])/ballvel[Y]);
+
+		x_net = ballpos[Z] + t_net * ballvel[Z] - 0.5*g*t_net*t_net;
+		x_land[X] = ballpos[X] + t_land * ballvel[X];
+		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
+
+		// calculate deviation of ball to racket - hitting constraints
+		make_equal(NCART,ballpos,dist_b2r_proj);
+		vec_minus(NCART,pos,dist_b2r_proj);
+		dist_b2r_norm = inner_prod(NCART,normal,dist_b2r_proj);
+		for (int i = 0; i < NCART; i++) {
+			normal[i] *= dist_b2r_norm;
+		}
+		vec_minus(NCART,normal,dist_b2r_proj); // we get (e - nn'e) where e is ballpos - racketpos
+		make_equal(2*NDOF+1,x,x_last);
+	}
+}
 
 double LazyOptim::test_soln(const double x[]) const {
 
@@ -118,11 +169,8 @@ double LazyOptim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static double balldist;
-	static double ballproj[NCART];
 	static double J1, Jhit, Jland;
 	static double a1[NDOF], a2[NDOF];
-	static double netTime, landTime, xnet, xland[2];
 	double T = x[2*NDOF];
 
 	LazyOptim* opt = (LazyOptim*) my_func_params;
@@ -134,7 +182,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
 
 	// calculate the landing time
-	calc_times(opt, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
+	opt->calc_times(x);
 
 	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
 			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
@@ -175,142 +223,27 @@ static double punish_land_robot(const double *xland,
 static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params) {
 
-	static double xnet;
-	static double xland[2];
-	static double balldist;
-	static double ballproj[NCART];
-	static double netTime;
-	static double landTime;
 	static double table_xmax = table_width/2.0;
 	static double table_ymax = dist_to_table - table_length;
 	static double wall_z = 1.0;
 	static double net_y = dist_to_table - table_length/2.0;
 	static double net_z = floor_level - table_height + net_height;
 
-	calc_times((LazyOptim*)my_func_params, x, &netTime, &landTime, &xnet, xland, &balldist, ballproj);
+	LazyOptim* opt = (LazyOptim*)my_func_params;
+	opt->calc_times(x);
 
-	result[0] = -balldist;
-	result[1] = balldist - ball_radius;
-	result[2] = inner_prod(NCART,ballproj,ballproj) - sqr(racket_radius);
-	result[3] = -netTime;
-	result[4] = xnet - wall_z;
-	result[5] = -xnet + net_z;
-	result[6] = netTime - landTime;
-	result[7] = xland[X] - table_xmax;
-	result[8] = -xland[X] - table_xmax;
-	result[9] = xland[Y] - net_y;
-	result[10] = -xland[Y] + table_ymax;
-}
-
-/*
- * Calculate the net hitting time and the landing time
- * Assuming that there was an interaction (hitting) between racket and ball.
- *
- * Since we call this function multiple times within one optimization step
- * we store the optimization variable x,
- * landTime and netTime variables and return these when the optimization
- * variable is the same (meaning optimization algorithm did not update it yet).
- *
- * TODO: simplify code! If landtime is not real, should we set it to -1.0?
- *
- */
-static void calc_times(const LazyOptim *opt,
-		               const double *x,
-					   double *netTime,
-					   double *landTime,
-					   double *xnet,
-					   double *xland,
-					   double *ball_norm, // ball to racket normal distance
-					   double *ball_proj) { // ball projected to racket plane
-
-	static double x_[2*NDOF+1];
-	static double b2rn_;
-	static double b2rp_[NCART];
-	static double xnet_;
-	static double xland_[2];
-	static double landTime_;
-	static double netTime_; // local static variables for saving state
-
-	static double qf[NDOF];
-	static double qfdot[NDOF];
-	static double vel[NCART];
-	static double normal[NCART];
-	static double pos[NCART];
-	static double ballpos[NCART];
-	static double ballvel[NCART];
-	static double table_z = floor_level - table_height + ball_radius;
-	static double g = 9.8;
-	static double net_y = dist_to_table - table_length/2.0;
-	double distBall2TableZ;
-
-	if (vec_is_equal(2*NDOF+1,x,x_)) {
-		*netTime = netTime_;
-		*landTime = landTime_;
-		*xnet = xnet_;
-		make_equal(2,xland_,xland);
-		*ball_norm = b2rn_;
-		make_equal(NCART,b2rp_,ball_proj);
-	}
-	else {
-		// extract state information from optimization variables
-		for (int i = 0; i < NDOF; i++) {
-			qf[i] = x[i];
-			qfdot[i] = x[i + NDOF];
-		}
-		calc_racket_state(qf, qfdot, pos, vel, normal);
-		interp_ball(opt->param_des, x[2*NDOF], ballpos, ballvel);
-		racket_contact_model(vel, normal, ballvel);
-		modify_ball_outgoing_vel(ballvel);
-		distBall2TableZ = ballpos[Z] - table_z;
-
-		if (sqr(ballvel[Z]) > -2*g*distBall2TableZ) {
-			landTime_ = *landTime =
-			fmax(0.10,(ballvel[Z] + sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ))/g);
-		}
-		else {
-			// landTime is not real!
-			landTime_ = *landTime = 1.0;
-		}
-		netTime_ = *netTime = fmax(0.10,(net_y - ballpos[Y])/ballvel[Y]);
-
-		xnet_ = *xnet = ballpos[Z] + netTime_ * ballvel[Z] - 0.5*g*netTime_*netTime_;
-		xland_[X] = xland[X] = ballpos[X] + landTime_ * ballvel[X];
-		xland_[Y] = xland[Y] = ballpos[Y] + landTime_ * ballvel[Y];
-
-		// calculate deviation of ball to racket - hitting constraints
-		make_equal(NCART,ballpos,ball_proj);
-		vec_minus(NCART,pos,ball_proj);
-		b2rn_ = *ball_norm = inner_prod(NCART,normal,ball_proj);
-		for (int i = 0; i < NCART; i++) {
-			normal[i] *= b2rn_;
-		}
-		vec_minus(NCART,normal,ball_proj); // we get (e - nn'e) where e is ballpos - racketpos
-		make_equal(NCART,ball_proj,b2rp_);
-		make_equal(2*NDOF+1,x,x_);
-	}
-}
-
-/*
- * Modify ball outgoing velocity by multiplying with a constant vector (less than one)
- *
- * Necessary since the landing and net hitting locations are calculated using projectile motion
- *
- */
-static void modify_ball_outgoing_vel(double* ballVel) {
-
-	static double multiplier_x, multiplier_y, multiplier_z;
-	static bool firsttime = true;
-
-	if (firsttime) {
-		firsttime = false;
-		multiplier_x = 0.9;
-		multiplier_y = 0.8;
-		multiplier_z = 0.83;
-	}
-
-	ballVel[X] *= multiplier_x;
-	ballVel[Y] *= multiplier_y;
-	ballVel[Z] *= multiplier_z;
+	result[0] = -opt->dist_b2r_norm;
+	result[1] = opt->dist_b2r_norm - ball_radius;
+	result[2] = inner_prod(NCART,opt->dist_b2r_proj,opt->dist_b2r_proj)
+			      - sqr(racket_radius);
+	result[3] = -opt->t_net;
+	result[4] = opt->x_net - wall_z;
+	result[5] = -opt->x_net + net_z;
+	result[6] = opt->t_net - opt->t_land;
+	result[7] = opt->x_land[X] - table_xmax;
+	result[8] = -opt->x_land[X] - table_xmax;
+	result[9] = opt->x_land[Y] - net_y;
+	result[10] = -opt->x_land[Y] + table_ymax;
 }
 
 /*
