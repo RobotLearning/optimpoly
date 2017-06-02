@@ -69,8 +69,8 @@ typedef struct {
  */
 typedef struct {
 	double R_strike[NDOF] = {0.0};
-	double R_hit[NCART] = {0.0};
-	double R_land[2] = {0.0};
+	double R_hit = 0.0; // radial
+	double R_land = 0.0; // radial dist from centre punished
 	double R_net = 0.0;
 } weights; // weights for optimization penalties
 
@@ -147,6 +147,7 @@ class LazyOptim : public FocusedOptim {
 
 protected:
 	virtual double test_soln(const double x[]) const;
+	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
 public:
 	weights w;
 	double x_last[OPTIM_DIM] = {0.0};
@@ -155,7 +156,7 @@ public:
 	double x_land[2] = {0.0};
 	double x_net = 0.0;
 	double dist_b2r_norm = 1.0;
-	double dist_b2r_proj[NCART] = {0.0};
+	double dist_b2r_proj = 1.0;
 	void calc_times(const double x[]);
 	LazyOptim(double qrest[], double lb[], double ub[]);
 };

@@ -137,8 +137,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(5);
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,0); // init ball on the centre
 	double std_obs = 0.000; // std of the noisy observations
 	joint qact;

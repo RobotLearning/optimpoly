@@ -24,22 +24,24 @@
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 static double punish_land_robot(const double *xland,
 								const double xnet,
-								const double *Rland,
+								const double Rland,
 								const double Rnet);
-static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
+static void land_ineq_constr(unsigned m, double *result, unsigned n,
+		                     const double *x, double *grad,
 		                     void *my_func_params);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
-static void interp_ball(const optim_des *params, const double T, double *ballpos, double *ballvel);
+static void interp_ball(const optim_des *params, const double T,
+		                double *ballpos, double *ballvel);
 
 
 LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
                           : FocusedOptim() {
 
 	const_vec(NDOF,1.0,w.R_strike);
-	const_vec(NCART,2e4,w.R_hit);
-	const_vec(2,1e3,w.R_land);
 	w.R_net = 1e2;
+	w.R_hit = 2e4;
+	w.R_land = 1e3;
 
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
@@ -86,7 +88,7 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	static double ballpos[NCART];
 	static double ballvel[NCART];
 	static double table_z = floor_level - table_height + ball_radius;
-	static double g = 9.8;
+	static double g = -9.8;
 	static double net_y = dist_to_table - table_length/2.0;
 	double distBall2TableZ;
 
@@ -101,8 +103,8 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		racket_contact_model(vel, normal, ballvel);
 		distBall2TableZ = ballpos[Z] - table_z;
 
-		if (sqr(ballvel[Z]) > -2*g*distBall2TableZ) {
-			t_land = fmax(0.10,(ballvel[Z] + sqrt(sqr(ballvel[Z]) + 2*g*distBall2TableZ))/g);
+		if (sqr(ballvel[Z]) > 2*g*distBall2TableZ) {
+			t_land = fmax(0.10,(-ballvel[Z] + sqrt(sqr(ballvel[Z]) - 2*g*distBall2TableZ))/g);
 		}
 		else {
 			// landTime is not real!
@@ -110,20 +112,34 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		}
 		t_net = fmax(0.10,(net_y - ballpos[Y])/ballvel[Y]);
 
-		x_net = ballpos[Z] + t_net * ballvel[Z] - 0.5*g*t_net*t_net;
+		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_land[X] = ballpos[X] + t_land * ballvel[X];
 		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
 
 		// calculate deviation of ball to racket - hitting constraints
-		make_equal(NCART,ballpos,dist_b2r_proj);
-		vec_minus(NCART,pos,dist_b2r_proj);
-		dist_b2r_norm = inner_prod(NCART,normal,dist_b2r_proj);
-		for (int i = 0; i < NCART; i++) {
-			normal[i] *= dist_b2r_norm;
-		}
-		vec_minus(NCART,normal,dist_b2r_proj); // we get (e - nn'e) where e is ballpos - racketpos
-		make_equal(2*NDOF+1,x,x_last);
+		calc_hit_distance(ballpos,pos,normal);
+		make_equal(OPTIM_DIM,x,x_last);
 	}
+}
+
+/**
+ * @brief Calculate deviation and projection norms of ball to racket.
+ *
+ * Calculates normal and projected distance from ball to racket
+ * For satisfying hitting constraints.
+ *
+ */
+void LazyOptim::calc_hit_distance(const double ball_pos[],
+		                          const double racket_pos[],
+								  const double racket_normal[]) {
+
+	double e[NCART];
+	for (int i = 0; i < NCART; i++) {
+		e[i] = ball_pos[i] - racket_pos[i];
+	}
+	dist_b2r_norm = inner_prod(NCART,racket_normal,e);
+	dist_b2r_proj = sqrt(inner_prod(NCART,e,e) - dist_b2r_norm*dist_b2r_norm);
+
 }
 
 double LazyOptim::test_soln(const double x[]) const {
@@ -203,15 +219,15 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
  */
 static double punish_land_robot(const double *xland,
 								const double xnet,
-								const double *Rland,
+								const double Rland,
 								const double Rnet) {
 	// desired landing locations
 	static double x_des_land = 0.0;
 	static double y_des_land = dist_to_table - 3*table_length/4;
 	static double z_des_net = floor_level - table_height + net_height + 1.0;
 
-	return sqr(xland[X] - x_des_land)*Rland[X] +
-			sqr(xland[Y] - y_des_land)*Rland[Y] +
+	return sqr(xland[X] - x_des_land)*Rland +
+			sqr(xland[Y] - y_des_land)*Rland +
 			sqr(xnet - z_des_net)*Rnet;
 
 }
@@ -234,8 +250,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
-	result[2] = inner_prod(NCART,opt->dist_b2r_proj,opt->dist_b2r_proj)
-			      - sqr(racket_radius);
+	result[2] = opt->dist_b2r_proj - racket_radius;
 	result[3] = -opt->t_net;
 	result[4] = opt->x_net - wall_z;
 	result[5] = -opt->x_net + net_z;
