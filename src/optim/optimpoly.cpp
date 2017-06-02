@@ -188,7 +188,7 @@ void FocusedOptim::init_rest_soln(double x[]) const {
 
 void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 
-	if (x[2*NDOF] > 0.05) {
+	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
 		// initialize first dof entries to q0
 		for (int i = 0; i < NDOF; i++) {
 			qf[i] = x[i];

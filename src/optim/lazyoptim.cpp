@@ -103,7 +103,7 @@ double LazyOptim::test_soln(const double x[]) const {
 		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF);
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF + 1);
 			}
 		}
 	}
@@ -140,8 +140,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
-	Jhit = inner_w_prod(NCART,w.R_hit,ballproj,ballproj);
-	Jland = punish_land_robot(xland,xnet,w.R_land, w.R_net);
+	//Jhit = inner_w_prod(NCART,w.R_hit,ballproj,ballproj);
+	//Jland = punish_land_robot(xland,xnet,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
