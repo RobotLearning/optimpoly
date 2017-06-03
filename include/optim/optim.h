@@ -147,12 +147,14 @@ class LazyOptim : public FocusedOptim {
 
 protected:
 	virtual double test_soln(const double x[]) const;
+	void trigger_optim();
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
+	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	weights w;
 	double x_last[OPTIM_DIM] = {0.0};
-	double t_land = 1.0;
-	double t_net = 1.0;
+	double t_land = -1.0;
+	double t_net = -1.0;
 	double x_land[2] = {0.0};
 	double x_net = 0.0;
 	double dist_b2r_norm = 1.0;

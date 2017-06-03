@@ -35,14 +35,15 @@ static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
 
-LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
-                          : FocusedOptim() {
+LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
+                          : FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1e2;
+	w.R_net = 1e1;
 	w.R_hit = 2e4;
-	w.R_land = 1e3;
+	w.R_land = 1e2;
 
+	/*
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -63,8 +64,45 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF])
 		qrest[i] = qrest_[i];
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
-	}
+	}*/
 }
+
+/**
+ * @brief Trigger LAZY optim AFTER FOCUSED OPTIM succeeds.
+ */
+void LazyOptim::trigger_optim() {
+
+	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
+	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
+	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
+	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
+
+	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
+	nlopt_set_min_objective(opt, costfunc, this);
+	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
+			land_ineq_constr, this, tol_ineq_land);
+	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+			joint_limits_ineq_constr, this, tol_ineq_joint);
+	nlopt_set_xtol_rel(opt, 1e-2);
+}
+
+void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
+
+	if (x[2*NDOF] > 0.05) {
+		// initialize first dof entries to q0
+		for (int i = 0; i < NDOF; i++) {
+			qf[i] = x[i];
+			qfdot[i] = x[i+NDOF];
+		}
+		T = x[2*NDOF];
+		if (detach)
+			T -= (time_elapsed/1e3);
+		update = true;
+	}
+	trigger_optim();
+}
+
 
 /**
  * @brief Calculate the net hitting time and the landing time
@@ -90,7 +128,8 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	static double table_z = floor_level - table_height + ball_radius;
 	static double g = -9.8;
 	static double net_y = dist_to_table - table_length/2.0;
-	double distBall2TableZ;
+	double d; // distance from ball to table_z
+	double discr;
 
 	if (!vec_is_equal(OPTIM_DIM,x,x_last)) {
 		// extract state information from optimization variables
@@ -100,24 +139,22 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		}
 		calc_racket_state(qf, qfdot, pos, vel, normal);
 		interp_ball(this->param_des, x[2*NDOF], ballpos, ballvel);
-		racket_contact_model(vel, normal, ballvel);
-		distBall2TableZ = ballpos[Z] - table_z;
-
-		if (sqr(ballvel[Z]) > 2*g*distBall2TableZ) {
-			t_land = fmax(0.10,(-ballvel[Z] + sqrt(sqr(ballvel[Z]) - 2*g*distBall2TableZ))/g);
+		// calculate deviation of ball to racket - hitting constraints
+		calc_hit_distance(ballpos,pos,normal);
+		if (fabs(dist_b2r_norm) < ball_radius	&& dist_b2r_proj < racket_radius) { // hit
+			racket_contact_model(vel, normal, ballvel);
 		}
-		else {
-			// landTime is not real!
-			t_land = 1.0;
+		d = ballpos[Z] - table_z;
+		if (sqr(ballvel[Z]) > 2*g*d) {
+			discr = sqrt(sqr(ballvel[Z]) - 2*g*d);
+			t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
+			t_net = (net_y - ballpos[Y])/ballvel[Y];
 		}
-		t_net = fmax(0.10,(net_y - ballpos[Y])/ballvel[Y]);
 
 		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_land[X] = ballpos[X] + t_land * ballvel[X];
 		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
 
-		// calculate deviation of ball to racket - hitting constraints
-		calc_hit_distance(ballpos,pos,normal);
 		make_equal(OPTIM_DIM,x,x_last);
 	}
 }
@@ -159,8 +196,8 @@ double LazyOptim::test_soln(const double x[]) const {
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
 		printf("Hitting constraints (b2r):\n");
-		printf("Distance along normal: %.2f\n",land_violation[0]);
-		printf("Distance along racket: %.2f\n", land_violation[2]);
+		printf("Distance along normal: %.2f\n",this->dist_b2r_norm);
+		printf("Distance along racket: %.2f\n",this->dist_b2r_proj);
 		printf("Landing constraints:\n");
 		printf("NetTime: %f\n", -land_violation[3]);
 	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
@@ -204,8 +241,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
-	//Jhit = inner_w_prod(NCART,w.R_hit,ballproj,ballproj);
-	//Jland = punish_land_robot(xland,xnet,w.R_land, w.R_net);
+	Jhit = w.R_hit * opt->dist_b2r_proj;
+	Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
@@ -270,11 +307,15 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
  *       V is the racket velocity
  *       eps_R is the coefficient of restitution of the racket
  *
+ * The outgoing ball velocity is post-multiplied by some constants \mu < 1
+ * to account for ball drag
+ *
  *
  */
 static void racket_contact_model(const double* racketVel,
 		const double* racketNormal, double* ballVel) {
 
+	static const double mult_vel[NCART] = {0.9,0.8,0.83};
 	static const double racket_param = 0.78;
 	static double diffVel[NCART];
 	static double normalMultSpeed[NCART];
@@ -289,6 +330,9 @@ static void racket_contact_model(const double* racketVel,
 		normalMultSpeed[i] = speed * racketNormal[i];
 	}
 	vec_plus(NCART,normalMultSpeed,ballVel);
+	for (int i = 0; i < NCART; i++ ) {
+		ballVel[i] *= mult_vel[i];
+	}
 }
 
 /*
@@ -306,16 +350,26 @@ static void interp_ball(const optim_des *data, const double T, double *ballpos, 
 	int N = (int) (T/dt);
 	double Tdiff = T - N*dt;
 
-	for (int i = 0; i < NCART; i++) {
-		if (N < Nmax) {
-			ballpos[i] = data->ball_pos(i,N) +
-					(Tdiff/dt) * (data->ball_pos(i,N+1) - data->ball_pos(i,N));
-			ballvel[i] = data->ball_vel(i,N) +
-					(Tdiff/dt) * (data->ball_vel(i,N+1) - data->ball_vel(i,N));
+	if (std::isnan(T)) {
+		printf("Warning: T value is nan!\n");
+
+		for(int i = 0; i < NCART; i++) {
+			ballpos[i] = data->ball_pos(i,0);
+			ballvel[i] = data->ball_vel(i,0);
 		}
-		else {
-			ballpos[i] = data->ball_pos(i,N);
-			ballvel[i] = data->ball_vel(i,N);
+	}
+	else {
+		for (int i = 0; i < NCART; i++) {
+			if (N < Nmax - 1) {
+				ballpos[i] = data->ball_pos(i,N) +
+						(Tdiff/dt) * (data->ball_pos(i,N+1) - data->ball_pos(i,N));
+				ballvel[i] = data->ball_vel(i,N) +
+						(Tdiff/dt) * (data->ball_vel(i,N+1) - data->ball_vel(i,N));
+			}
+			else {
+				ballpos[i] = data->ball_pos(i,Nmax-1);
+				ballvel[i] = data->ball_vel(i,Nmax-1);
+			}
 		}
 	}
 }

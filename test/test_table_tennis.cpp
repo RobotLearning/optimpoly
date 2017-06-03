@@ -64,8 +64,7 @@ algo algs[] = {LAZY};
  * Testing whether the ball can be returned to the opponents court
  *
  */
-
-/*BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
+BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	std::cout << "Running MPC Test..." << std::endl;
 	double Tmax = 1.0, lb[2*NDOF+1], ub[2*NDOF+1];
@@ -89,7 +88,7 @@ algo algs[] = {LAZY};
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 50;
-	flags.verbosity = 0;
+	flags.verbosity = 2;
 	//flags.verbosity = 0;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -122,7 +121,7 @@ algo algs[] = {LAZY};
 			<< num_lands << " lands, " << num_not_valid <<
 			" not valid balls, " << num_misses << " misses!" <<std::endl;
 	std::cout << "======================================================" << endl;
-}*/
+}
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -137,8 +136,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
-	arma_rng::set_seed_random();
-	//arma_rng::set_seed(5);
+	//arma_rng::set_seed_random();
+	arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,0); // init ball on the centre
 	double std_obs = 0.000; // std of the noisy observations
 	joint qact;
