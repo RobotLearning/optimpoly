@@ -35,19 +35,16 @@ interface:
 optim:
 	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
 						src/optim/lazyoptim.cpp \
-						src/optim/invkin.cpp \
+						src/optim/vhp.cpp \
 					    src/optim/kinematics.c \
 					    src/optim/utils.c \
 	                    -lm -o $(LIBDIR)/liboptim.so
 
 test:
-	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp -o unit_tests.o \
+	$(CC) $(TESTFLAGS) test/test_derivatives.cpp -o unit_tests.o \
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
-	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libfilter.so $(LIBDIR)/libplayer.so \
+	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
-
-roboptim: 
-	$(CC) $(TESTFLAGS) test/test_roboptim.cpp -o roboptim_tests.o
 					    
 clean:
 	rm -rf *.a *.o lib/*.so

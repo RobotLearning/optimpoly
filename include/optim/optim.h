@@ -23,8 +23,7 @@
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
-const double MAX_VEL = 200;
-const double MAX_ACC = 200;
+const double MAX_VEL = 10;
 
 using namespace arma;
 

@@ -36,14 +36,14 @@ static void interp_ball(const optim_des *params, const double T,
 
 
 LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
-                          : FocusedOptim(qrest_, lb_, ub_) {
+                          : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
 	w.R_net = 1e1;
 	w.R_hit = 2e4;
 	w.R_land = 1e2;
 
-	/*
+
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -64,7 +64,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
 		qrest[i] = qrest_[i];
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
-	}*/
+	}
 }
 
 /**

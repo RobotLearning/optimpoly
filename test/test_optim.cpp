@@ -46,6 +46,7 @@ inline void init_right_posture(vec7 & q0) {
 BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	cout << "Testing VHP Trajectory Optimizer...\n";
+	const double VHPY = -0.3;
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
@@ -72,7 +73,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	game game_state = AWAITING;
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	double time_land_des = 0.8;
-	BOOST_TEST(predict_hitting_point(ball_pred,time_pred,filter,game_state));
+	BOOST_TEST(predict_hitting_point(VHPY,ball_pred,time_pred,filter,game_state));
 	//cout << ball_pred << endl;
 	optim_des racket_params;
 	calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
@@ -82,7 +83,8 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	Optim *opt = new HittingPlane(qact.q.memptr(),lb,ub);
 	opt->set_des_params(&racket_params);
-	opt->update_init_state(qact,time_pred);
+	opt->fix_hitting_time(time_pred);
+	opt->update_init_state(qact);
 	opt->run();
 	bool update = opt->get_params(qact,poly);
 
@@ -127,7 +129,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub);
 	opt->set_des_params(&racket_params);
-	opt->update_init_state(qact,0.5);
+	opt->update_init_state(qact);
 	opt->run();
 	bool update = opt->get_params(qact,poly);
 
@@ -169,7 +171,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub);
 	opt->set_des_params(&ball_params);
-	opt->update_init_state(qact,0.5);
+	opt->update_init_state(qact);
 	opt->run();
 	bool update = opt->get_params(qact,poly);
 

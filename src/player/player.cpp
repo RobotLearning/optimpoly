@@ -357,7 +357,7 @@ void Player::optim_lazy_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
+			//calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			opt->set_des_params(&pred_params);
@@ -383,10 +383,10 @@ bool Player::check_update(const joint & qact) const {
 
 	static int firsttime = true;
 	static int counter;
-	static vec6 state_last = -10 * ones<vec>(6);
+	static vec6 state_last = zeros<vec>(6);
 	static wall_clock timer;
 	vec6 state_est;
-	bool update;
+	bool update = false;
 	racket robot_racket;
 	bool activate, passed_lim, incoming = false;
 
@@ -415,14 +415,15 @@ bool Player::check_update(const joint & qact) const {
 					&& (state_est(DY) > 0.5);
 		}
 		state_last = state_est;
+		if (update) {
+			//cout << num_updates++ << endl;
+			timer.tic();
+		}
 	}
 	catch (const std::exception & not_init_error) {
 		update = false;
 	}
-	if (update) {
-		//cout << num_updates++ << endl;
-		timer.tic();
-	}
+
 	return update;
 }
 
@@ -595,7 +596,6 @@ bool update_next_state(const spline_params & poly,
 	bool flag = true;
 
 	if (t <= poly.time2hit) {
-		cout << "Updating!!!\n";
 		a = poly.a;
 		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
 		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);

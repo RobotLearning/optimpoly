@@ -131,6 +131,13 @@ static double penalize_dist_to_limits(unsigned n, const double *x, double *grad,
 	double cost = 0.0;
 	HittingPlane * vhp = (HittingPlane*)my_func_params;
 
+	if (grad) {
+		for (int i = 0; i < NDOF; i++) {
+			grad[i] = 2 * (x[i] - vhp->limit_avg[i]);
+			grad[i+NDOF] = 2 * x[i+NDOF];
+		}
+	}
+
 	for (int i = 0; i < NDOF; i++) {
 		cost += pow(x[i] - vhp->limit_avg[i],2);
 		cost += pow(x[i + NDOF], 2);
