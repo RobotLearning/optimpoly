@@ -45,6 +45,9 @@ test:
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libfilter.so $(LIBDIR)/libplayer.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
+
+roboptim: 
+	$(CC) $(TESTFLAGS) test/test_roboptim.cpp -o roboptim_tests.o
 					    
 clean:
 	rm -rf *.a *.o lib/*.so
