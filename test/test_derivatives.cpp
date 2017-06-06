@@ -18,25 +18,57 @@
 
 #include <armadillo>
 #include "optim.h"
+#include "kinematics.h"
 #include "player.hpp"
 
-static double penalize_dist_to_limits(unsigned n, const double *x, double *grad, void *my_func_params) {
+#define OPTIM_DIM 2*NDOF + 1
 
-	double cost = 0.0;
-	HittingPlane * vhp = (HittingPlane*)my_func_params;
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *my_function_data) {
 
-	if (grad) {
-		for (int i = 0; i < NDOF; i++) {
-			grad[i] = 2 * (x[i] - vhp->limit_avg[i]);
-			grad[i+NDOF] = 2 * x[i+NDOF];
+	static double pos[NCART];
+	static double qfdot[NDOF];
+	static double vel[NCART];
+	static double normal[NCART];
+	static double qf[NDOF];
+
+	HittingPlane * vhp = (HittingPlane*)my_function_data;
+
+	// extract state information from optimization variables
+	for (int i = 0; i < NDOF; i++) {
+		qf[i] = x[i];
+		qfdot[i] = x[i+NDOF];
+	}
+
+	// compute the actual racket pos,vel and normal
+	calc_racket_state(qf,qfdot,pos,vel,normal);
+
+	// deviations from the desired racket frame
+	for (int i = 0; i < NCART; i++) {
+		result[i] = pos[i] - vhp->param_des->racket_pos(i);
+		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
+		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
+	}
+}
+
+static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM], const double mat2[EQ_CONSTR_DIM][OPTIM_DIM],
+		                    int m1, int m2, int n1, int n2) {
+
+	double maxdiff = 0.0;
+	double absdiff;
+	for (int i = m1; i < m2; i++) {
+		for (int j = n1; j < n2; j++) {
+			//printf("jac[%d,%d] = %f, numjac[%d,%d] = %f\n", i,j, mat1[i][j], i,j, mat2[i][j]);
+			absdiff = fabs(mat1[i][j] - mat2[i][j]);
+			if (absdiff > maxdiff) {
+				maxdiff = absdiff;
+			}
 		}
 	}
-
-	for (int i = 0; i < NDOF; i++) {
-		cost += pow(x[i] - vhp->limit_avg[i],2);
-		cost += pow(x[i + NDOF], 2);
-	}
-	return cost;
+	return maxdiff;
 }
 
 /*
@@ -44,47 +76,65 @@ static double penalize_dist_to_limits(unsigned n, const double *x, double *grad,
  */
 BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 
-	const int OPTIM_DIM = 2*NDOF;
-	double lb[2*NDOF+1], ub[2*NDOF+1];
+	double lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.0,1.0);
 	double q0[NDOF] = {1.0, -0.2, -0.1, 1.8, -1.57, 0.1, 0.3};
 	HittingPlane opt = HittingPlane(q0,lb,ub);
+	vec6 ball_pred = {0.0, -0.3, -1.0, -1.0, 3.0, -2.0};
+	vec2 ball_land_des = {0.0, -3.0};
+	optim_des pred_params;
+	calc_racket_strategy(ball_pred,ball_land_des,0.8,pred_params);
+	opt.set_des_params(&pred_params);
 
+	double constr1[EQ_CONSTR_DIM], constr2[EQ_CONSTR_DIM];
 	double x[OPTIM_DIM];
 	double xdiff[OPTIM_DIM];
-	double grad[OPTIM_DIM];
-	double numgrad[OPTIM_DIM];
+	double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
+	double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM];
+	double jac[NCART][NDOF];
 	double h = 0.001;
 
 	for (int i = 0; i < NDOF; i++) {
 		x[i] = xdiff[i] = q0[i];
 		x[i+NDOF] = xdiff[i+NDOF] = 0.0;
 	}
-	penalize_dist_to_limits(OPTIM_DIM,x,grad,(void*)&opt);
 
-	double val1,val2;
+	/*
+	 * Calculate exact derivatives
+	 */
+	get_jacobian(x,jac);
+
+	/*
+	 * Calculate numerical derivatives
+	 */
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		xdiff[i] = x[i] + h;
-		val1 = penalize_dist_to_limits(OPTIM_DIM,xdiff,nullptr,(void*)&opt);
+		kinematics_eq_constr(EQ_CONSTR_DIM,constr1,OPTIM_DIM,xdiff,nullptr,(void*)&opt);
 		xdiff[i] = x[i] - h;
-		val2 = penalize_dist_to_limits(OPTIM_DIM,xdiff,nullptr,(void*)&opt);
-		numgrad[i] = (val1 - val2)/(2*h);
+		kinematics_eq_constr(EQ_CONSTR_DIM,constr2,OPTIM_DIM,xdiff,nullptr,(void*)&opt);
+		for (int j = 0; j < EQ_CONSTR_DIM; j++) {
+			num_deriv[j][i] = (constr1[j] - constr2[j]) / (2*h);
+		}
 		xdiff[i] = x[i];
 	}
 
-	double maxdiff = 0.0;
-	double absdiff;
-	for (int i = 0; i < OPTIM_DIM; i++) {
-		//printf("grad[%d] = %f, numgrad[%d] = %f\n", i, grad[i], i, numgrad[i]);
-		absdiff = fabs(grad[i] - numgrad[i]);
-		if (absdiff > maxdiff) {
-			maxdiff = absdiff;
+	/*
+	 * Fill the big exact derivative matrix
+	 */
+	for (int i = 0; i < NCART; i++) {
+		for (int j = 0; j < NDOF; j++) {
+			deriv[i][j] = jac[i][j];
 		}
 	}
-	BOOST_TEST(maxdiff < 1e-3);
+	for (int i = NCART; i < 2*NCART; i++) {
+		for (int j = NDOF; j < 2*NDOF; j++) {
+			deriv[i][j] = jac[i-NCART][j-NDOF];
+		}
+	}
+
+	/*
+	 * Calculate the maximum difference between numerical and exact derivative matrices (big jacobian)
+	 */
+	BOOST_TEST(calc_max_diff(deriv,num_deriv,0,NCART,0,NDOF) < 1e-3);
+	BOOST_TEST(calc_max_diff(deriv,num_deriv,NCART,2*NCART,NDOF,2*NDOF) < 1e-3);
 }
-
-
-
-
-

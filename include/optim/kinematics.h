@@ -74,4 +74,7 @@ void calc_racket_state(const double q[NDOF],
 // loading joint limits from SL config files
 int read_joint_limits(double *lb, double *ub);
 
+// useful to test kinematics derivative
+void get_jacobian(const double q[NDOF], double jacobi[NCART][NDOF]);
+
 #endif /* KINEMATICS_H_ */

@@ -36,7 +36,8 @@ BOOST_AUTO_TEST_CASE( test_kinematics_calculations ) {
 		qdot[i] = 0.0;
 	}
 	vec7 q0_cpp = ones<vec>(NDOF);
-	joint q_cpp = {q0_cpp, zeros<vec>(NDOF), zeros<vec>(NDOF)};
+	joint q_cpp;
+	q_cpp.q = q0_cpp;
 	racket robot_racket;
 
 	// C version

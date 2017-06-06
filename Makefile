@@ -42,7 +42,7 @@ optim:
 
 test:
 	$(CC) $(TESTFLAGS) test/test_derivatives.cpp -o unit_tests.o \
-	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
+	                   $(LIBS) /is/ei/okoc/install/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
 					    
