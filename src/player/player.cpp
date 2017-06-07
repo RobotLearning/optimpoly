@@ -360,6 +360,7 @@ void Player::optim_lazy_param(const joint & qact) {
 			//calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
+			pred_params.Nmax = balls_pred.n_cols;
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
 			opt->run();
@@ -844,5 +845,5 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 	}
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
-	lb[2*NDOF] = 0.0;
+	lb[2*NDOF] = 0.001;
 }

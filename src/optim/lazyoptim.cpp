@@ -39,10 +39,9 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1e2;
+	w.R_net = 1e1;
 	w.R_hit = 1e2;
 	w.R_land = 1e2;
-
 
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
@@ -89,7 +88,7 @@ void LazyOptim::trigger_optim() {
 
 void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
 
-	if (x[2*NDOF] > 0.05) {
+	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
 		// initialize first dof entries to q0
 		for (int i = 0; i < NDOF; i++) {
 			qf[i] = x[i];
@@ -100,7 +99,7 @@ void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
 			T -= (time_elapsed/1e3);
 		update = true;
 	}
-	trigger_optim();
+	//trigger_optim();
 }
 
 
@@ -124,11 +123,8 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	static double pos[NCART];
 	static double ballpos[NCART];
 	static double ballvel[NCART];
-	static double table_z = floor_level - table_height + ball_radius;
 	static double g = -9.8;
 	static double net_y = dist_to_table - table_length/2.0;
-	double d; // distance from ball to table_z
-	double discr = 0;
 
 	if (!vec_is_equal(OPTIM_DIM,x,x_last)) {
 		// extract state information from optimization variables
@@ -253,8 +249,6 @@ static double punish_land_robot(const double *xland,
 	static double z_des_net = floor_level - table_height + net_height + 1.0;
 
 	return sqr(xnet[Z] - z_des_net)*Rnet + sqr(xnet[X] - x_des_net)*Rnet;
-			//sqr(xland[Y] - y_des_land)*Rland +
-			//sqr(xnet - z_des_net)*Rnet;
 
 }
 
@@ -281,11 +275,6 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[4] = -opt->x_net[Z] + net_z;
 	result[5] = opt->x_net[X] - table_xmax;
 	result[6] = -opt->x_net[X] - table_xmax;
-	/*result[6] = opt->t_net - opt->t_land;
-	result[7] = opt->x_land[X] - table_xmax;
-	result[8] = -opt->x_land[X] - table_xmax;
-	result[9] = opt->x_land[Y] - net_y;
-	result[10] = -opt->x_land[Y] + table_ymax;*/
 }
 
 /*
@@ -336,19 +325,17 @@ static void racket_contact_model(const double* racketVel,
 static void interp_ball(const optim_des *data, const double T, double *ballpos, double *ballvel) {
 
     const double dt = data->dt;
-	const int Nmax = data->Nmax;
-	int N = (int) (T/dt);
-	double Tdiff = T - N*dt;
-
 	if (std::isnan(T)) {
 		printf("Warning: T value is nan!\n");
-
 		for(int i = 0; i < NCART; i++) {
 			ballpos[i] = data->ball_pos(i,0);
 			ballvel[i] = data->ball_vel(i,0);
 		}
 	}
 	else {
+		const int Nmax = data->Nmax;
+		unsigned N = (int) (T/dt);
+		double Tdiff = T - N*dt;
 		for (int i = 0; i < NCART; i++) {
 			if (N < Nmax - 1) {
 				ballpos[i] = data->ball_pos(i,N) +

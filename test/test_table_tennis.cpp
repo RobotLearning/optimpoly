@@ -58,7 +58,7 @@ inline void init_posture(vec7 & q0, int posture) {
 }
 
 
-algo algs[] = {VHP,FOCUS};
+algo algs[] = {LAZY};
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -87,9 +87,8 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	player_flags flags;
 	flags.alg = alg;
 	flags.mpc = true;
-	flags.freq_mpc = 50;
-	flags.verbosity = 1;
-	//flags.verbosity = 0;
+	flags.freq_mpc = 5;
+	flags.verbosity = 2;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;

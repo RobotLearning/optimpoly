@@ -24,6 +24,10 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
+/**
+ * @brief Update the initial state of optimization to PLAYER's current joint states.
+ * @param qact
+ */
 void Optim::update_init_state(const joint & qact) {
 	for (int i = 0; i < NDOF; i++) {
 		q0[i] = qact.q(i);
@@ -31,27 +35,59 @@ void Optim::update_init_state(const joint & qact) {
 	}
 }
 
+/**
+ * @brief Tells the player optimization thread is still BUSY.
+ *
+ * If the (detached) thread is still running then table tennis player does not
+ * update/launch new trajectories.
+ * @return
+ */
 bool Optim::check_running() {
 	return running;
 }
 
+/**
+ * @brief If the optimization was successful notify the Player class
+ *
+ * If the optimization was successful, update is turned ON and the table tennis
+ * player can launch/update the polynomial trajectories.
+ * @return
+ */
 bool Optim::check_update() {
 	return update;
 }
 
+/**
+ * @brief If the robot starts moving the optimization is notified via this function
+ *
+ * If the robot is moving, this means last optimization was feasible, hence
+ * we can initialize the new optimization from the last optimized parameter values.
+ * @param flag_move
+ */
 void Optim::set_moving(bool flag_move) {
 	moving = flag_move;
 }
 
+/**
+ * @brief Detach the optimization thread.
+ *
+ * If the optimization is performed on SL or REAL_ROBOT then the optimization
+ * thread should be detached.
+ * @param flag_detach
+ */
 void Optim::set_detach(bool flag_detach) {
 	detach = flag_detach;
 }
 
+/**
+ * @brief Print verbose optimization output (detailed optimization results are printed)
+ * @param flag_verbose
+ */
 void Optim::set_verbose(bool flag_verbose) {
 	verbose = flag_verbose;
 }
 
-/*
+/**
  * @brief If optimization succeeded, update polynomial parameters p
  *
  * If the optimizers finished running and terminated successfully,
@@ -174,6 +210,8 @@ void FocusedOptim::init_last_soln(double x[]) const {
 		x[i+NDOF] = qfdot[i];
 	}
 	x[2*NDOF] = T;
+	//cout << "Initialization from T = " << T << endl;
+
 }
 
 void FocusedOptim::init_rest_soln(double x[]) const {
