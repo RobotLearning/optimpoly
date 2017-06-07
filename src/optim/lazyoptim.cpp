@@ -18,12 +18,12 @@
 #include "kinematics.h"
 #include "optim.h"
 
-#define INEQ_LAND_CONSTR_DIM 5 //11
+#define INEQ_LAND_CONSTR_DIM 7 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
 static double punish_land_robot(const double *xland,
-								const double xnet,
+								const double *xnet,
 								const double Rland,
 								const double Rnet);
 static void land_ineq_constr(unsigned m, double *result, unsigned n,
@@ -39,7 +39,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1e1;
+	w.R_net = 1e2;
 	w.R_hit = 1e2;
 	w.R_land = 1e2;
 
@@ -142,7 +142,8 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		calc_hit_distance(ballpos,pos,normal);
 		racket_contact_model(vel, normal, ballvel);
 		t_net = (net_y - ballpos[Y])/ballvel[Y];
-		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
+		x_net[Z] = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
+		x_net[X] = ballpos[X] + t_net * ballvel[X];
 
 		make_equal(OPTIM_DIM,x,x_last);
 	}
@@ -192,8 +193,8 @@ double LazyOptim::test_soln(const double x[]) const {
 	    //printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
 		printf("Below wall by : %f\n", -land_violation[3]);
 		printf("Above net by: %f\n", -land_violation[4]);
-		/*printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
-		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);*/
+		printf("X: between table limits by [%f, %f]\n", -land_violation[5], -land_violation[6]);
+		//printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF + 1);
@@ -211,7 +212,7 @@ double LazyOptim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static double J1, Jhit, Jland;
+	static double J1, Jhit, Jnet;
 	static double a1[NDOF], a2[NDOF];
 	double T = x[2*NDOF];
 
@@ -231,11 +232,11 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
 	Jhit = w.R_hit * opt->dist_b2r_proj;
-	Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+	Jnet = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
-	return J1 + Jhit + Jland;
+	return J1 + Jhit + Jnet;
 }
 
 /*
@@ -244,15 +245,14 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
  * The desired landing location chosen is the center of the table
  */
 static double punish_land_robot(const double *xland,
-								const double xnet,
+								const double *xnet,
 								const double Rland,
 								const double Rnet) {
 	// desired landing locations
-	static double x_des_land = 0.0;
-	static double y_des_land = dist_to_table - 3*table_length/4;
+	static double x_des_net = 0.0;
 	static double z_des_net = floor_level - table_height + net_height + 1.0;
 
-	return sqr(xnet - z_des_net)*Rnet; //sqr(xland[X] - x_des_land)*Rland +
+	return sqr(xnet[Z] - z_des_net)*Rnet + sqr(xnet[X] - x_des_net)*Rnet;
 			//sqr(xland[Y] - y_des_land)*Rland +
 			//sqr(xnet - z_des_net)*Rnet;
 
@@ -277,9 +277,10 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
 	result[2] = opt->dist_b2r_proj - racket_radius;
-	//result[3] = -opt->t_net;
-	result[3] = opt->x_net - wall_z;
-	result[4] = -opt->x_net + net_z;
+	result[3] = opt->x_net[Z] - wall_z;
+	result[4] = -opt->x_net[Z] + net_z;
+	result[5] = opt->x_net[X] - table_xmax;
+	result[6] = -opt->x_net[X] - table_xmax;
 	/*result[6] = opt->t_net - opt->t_land;
 	result[7] = opt->x_land[X] - table_xmax;
 	result[8] = -opt->x_land[X] - table_xmax;
