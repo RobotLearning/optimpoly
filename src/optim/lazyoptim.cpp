@@ -18,7 +18,7 @@
 #include "kinematics.h"
 #include "optim.h"
 
-#define INEQ_LAND_CONSTR_DIM 11
+#define INEQ_LAND_CONSTR_DIM 3 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
@@ -40,7 +40,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
 
 	const_vec(NDOF,1.0,w.R_strike);
 	w.R_net = 1e1;
-	w.R_hit = 2e4;
+	w.R_hit = 1e2;
 	w.R_land = 1e2;
 
 
@@ -150,7 +150,6 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
 		t_net = (net_y - ballpos[Y])/ballvel[Y];
 
-
 		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_land[X] = ballpos[X] + t_land * ballvel[X];
 		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
@@ -198,13 +197,13 @@ double LazyOptim::test_soln(const double x[]) const {
 		printf("Hitting constraints (b2r):\n");
 		printf("Distance along normal: %.2f\n",this->dist_b2r_norm);
 		printf("Distance along racket: %.2f\n",this->dist_b2r_proj);
-		printf("Landing constraints:\n");
+		/*printf("Landing constraints:\n");
 		printf("NetTime: %f\n", -land_violation[3]);
 	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
 		printf("Below wall by : %f\n", -land_violation[4]);
 		printf("Above net by: %f\n", -land_violation[5]);
 		printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
-		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
+		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);*/
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF + 1);
@@ -242,7 +241,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
 	Jhit = w.R_hit * opt->dist_b2r_proj;
-	Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+	//Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
@@ -263,9 +262,9 @@ static double punish_land_robot(const double *xland,
 	static double y_des_land = dist_to_table - 3*table_length/4;
 	static double z_des_net = floor_level - table_height + net_height + 1.0;
 
-	return sqr(xland[X] - x_des_land)*Rland +
-			sqr(xland[Y] - y_des_land)*Rland +
-			sqr(xnet - z_des_net)*Rnet;
+	return sqr(xnet - z_des_net)*Rnet; //sqr(xland[X] - x_des_land)*Rland +
+			//sqr(xland[Y] - y_des_land)*Rland +
+			//sqr(xnet - z_des_net)*Rnet;
 
 }
 
@@ -288,14 +287,14 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
 	result[2] = opt->dist_b2r_proj - racket_radius;
-	result[3] = -opt->t_net;
+	/*result[3] = -opt->t_net;
 	result[4] = opt->x_net - wall_z;
 	result[5] = -opt->x_net + net_z;
 	result[6] = opt->t_net - opt->t_land;
 	result[7] = opt->x_land[X] - table_xmax;
 	result[8] = -opt->x_land[X] - table_xmax;
 	result[9] = opt->x_land[Y] - net_y;
-	result[10] = -opt->x_land[Y] + table_ymax;
+	result[10] = -opt->x_land[Y] + table_ymax;*/
 }
 
 /*
