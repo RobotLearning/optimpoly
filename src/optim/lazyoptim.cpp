@@ -18,7 +18,7 @@
 #include "kinematics.h"
 #include "optim.h"
 
-#define INEQ_LAND_CONSTR_DIM 3 //11
+#define INEQ_LAND_CONSTR_DIM 5 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
@@ -140,19 +140,9 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		interp_ball(this->param_des, x[2*NDOF], ballpos, ballvel);
 		// calculate deviation of ball to racket - hitting constraints
 		calc_hit_distance(ballpos,pos,normal);
-		//if (fabs(dist_b2r_norm) < ball_radius	&& dist_b2r_proj < racket_radius) { // hit
 		racket_contact_model(vel, normal, ballvel);
-		//}
-		d = ballpos[Z] - table_z;
-		if (sqr(ballvel[Z]) > 2*g*d) {
-			discr = sqrt(sqr(ballvel[Z]) - 2*g*d);
-		}
-		t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
 		t_net = (net_y - ballpos[Y])/ballvel[Y];
-
 		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
-		x_land[X] = ballpos[X] + t_land * ballvel[X];
-		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
 
 		make_equal(OPTIM_DIM,x,x_last);
 	}
@@ -197,12 +187,12 @@ double LazyOptim::test_soln(const double x[]) const {
 		printf("Hitting constraints (b2r):\n");
 		printf("Distance along normal: %.2f\n",this->dist_b2r_norm);
 		printf("Distance along racket: %.2f\n",this->dist_b2r_proj);
-		/*printf("Landing constraints:\n");
-		printf("NetTime: %f\n", -land_violation[3]);
-	    printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
-		printf("Below wall by : %f\n", -land_violation[4]);
-		printf("Above net by: %f\n", -land_violation[5]);
-		printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
+		printf("Landing constraints:\n");
+		//printf("NetTime: %f\n", -land_violation[3]);
+	    //printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
+		printf("Below wall by : %f\n", -land_violation[3]);
+		printf("Above net by: %f\n", -land_violation[4]);
+		/*printf("X: between table limits by [%f, %f]\n", -land_violation[7], -land_violation[8]);
 		printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);*/
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
@@ -241,7 +231,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
 	Jhit = w.R_hit * opt->dist_b2r_proj;
-	//Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+	Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
@@ -287,10 +277,10 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
 	result[2] = opt->dist_b2r_proj - racket_radius;
-	/*result[3] = -opt->t_net;
-	result[4] = opt->x_net - wall_z;
-	result[5] = -opt->x_net + net_z;
-	result[6] = opt->t_net - opt->t_land;
+	//result[3] = -opt->t_net;
+	result[3] = opt->x_net - wall_z;
+	result[4] = -opt->x_net + net_z;
+	/*result[6] = opt->t_net - opt->t_land;
 	result[7] = opt->x_land[X] - table_xmax;
 	result[8] = -opt->x_land[X] - table_xmax;
 	result[9] = opt->x_land[Y] - net_y;
