@@ -113,7 +113,6 @@ void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
  * landTime and netTime variables and return these when the optimization
  * variable is the same (meaning optimization algorithm did not update it yet).
  *
- * TODO: simplify code! If landtime is not real, should we set it to -1.0?
  *
  */
 void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
@@ -129,7 +128,7 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	static double g = -9.8;
 	static double net_y = dist_to_table - table_length/2.0;
 	double d; // distance from ball to table_z
-	double discr;
+	double discr = 0;
 
 	if (!vec_is_equal(OPTIM_DIM,x,x_last)) {
 		// extract state information from optimization variables
@@ -141,15 +140,16 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		interp_ball(this->param_des, x[2*NDOF], ballpos, ballvel);
 		// calculate deviation of ball to racket - hitting constraints
 		calc_hit_distance(ballpos,pos,normal);
-		if (fabs(dist_b2r_norm) < ball_radius	&& dist_b2r_proj < racket_radius) { // hit
-			racket_contact_model(vel, normal, ballvel);
-		}
+		//if (fabs(dist_b2r_norm) < ball_radius	&& dist_b2r_proj < racket_radius) { // hit
+		racket_contact_model(vel, normal, ballvel);
+		//}
 		d = ballpos[Z] - table_z;
 		if (sqr(ballvel[Z]) > 2*g*d) {
 			discr = sqrt(sqr(ballvel[Z]) - 2*g*d);
-			t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
-			t_net = (net_y - ballpos[Y])/ballvel[Y];
 		}
+		t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
+		t_net = (net_y - ballpos[Y])/ballvel[Y];
+
 
 		x_net = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_land[X] = ballpos[X] + t_land * ballvel[X];
