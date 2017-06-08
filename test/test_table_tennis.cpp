@@ -33,35 +33,12 @@
 
 using namespace arma;
 namespace data = boost::unit_test::data;
-
-/*
- * Initialize robot posture
- */
-inline void init_posture(vec7 & q0, int posture) {
-
-	rowvec qinit;
-	switch (posture) {
-	case 0: // right
-		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	case 1: // center
-		qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
-		break;
-	case 2: // left
-		qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	default: // default is the right side
-		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	}
-	q0 = qinit.t();
-}
-
-
 algo algs[] = {LAZY};
+void init_posture(vec7 & q0, int posture);
 
 /*
  * Testing whether the ball can be returned to the opponents court
+ * WITH MPC
  *
  */
 BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
@@ -87,7 +64,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	player_flags flags;
 	flags.alg = alg;
 	flags.mpc = true;
-	flags.freq_mpc = 5;
+	flags.freq_mpc = 1;
 	flags.verbosity = 2;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -144,7 +121,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
-	flags.verbosity = 1;
+	flags.verbosity = 2;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -269,4 +246,27 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 	BOOST_TEST(err(N-1) < err(0), boost::test_tools::tolerance(0.01));
 	//cout << err;
 	//BOOST_TEST(filter_est[Z] == floor_level, boost::test_tools::tolerance(0.1));
+}
+
+/*
+ * Initialize robot posture
+ */
+void init_posture(vec7 & q0, int posture) {
+
+	rowvec qinit;
+	switch (posture) {
+	case 0: // right
+		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
+		break;
+	case 1: // center
+		qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
+		break;
+	case 2: // left
+		qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
+		break;
+	default: // default is the right side
+		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
+		break;
+	}
+	q0 = qinit.t();
 }

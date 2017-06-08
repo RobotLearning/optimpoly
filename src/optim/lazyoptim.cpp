@@ -18,7 +18,7 @@
 #include "kinematics.h"
 #include "optim.h"
 
-#define INEQ_LAND_CONSTR_DIM 7 //11
+#define INEQ_LAND_CONSTR_DIM 8 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
@@ -39,7 +39,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1e1;
+	w.R_net = 1e2;
 	w.R_hit = 1e2;
 	w.R_land = 1e2;
 
@@ -125,6 +125,9 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	static double ballvel[NCART];
 	static double g = -9.8;
 	static double net_y = dist_to_table - table_length/2.0;
+	static double table_z = floor_level - table_height;
+	double discr = 0.0;
+	double d;
 
 	if (!vec_is_equal(OPTIM_DIM,x,x_last)) {
 		// extract state information from optimization variables
@@ -141,9 +144,20 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		x_net[Z] = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_net[X] = ballpos[X] + t_net * ballvel[X];
 
+		// calculate ball planned landing
+		d = ballpos[Z] - table_z;
+		if (sqr(ballvel[Z]) > 2*g*d) {
+			discr = sqrt(sqr(ballvel[Z]) - 2*g*d);
+		}
+		t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
+		t_net = (net_y - ballpos[Y])/ballvel[Y];
+		x_land[X] = ballpos[X] + t_land * ballvel[X];
+		x_land[Y] = ballpos[Y] + t_land * ballvel[Y];
+
 		make_equal(OPTIM_DIM,x,x_last);
 	}
 }
+
 
 /**
  * @brief Calculate deviation and projection norms of ball to racket.
@@ -168,6 +182,11 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
 double LazyOptim::test_soln(const double x[]) const {
 
 	// give info on constraint violation
+	static double table_xmax = table_width/2.0;
+	static double table_ymax = dist_to_table - table_length;
+	static double wall_z = 1.0;
+	static double net_y = dist_to_table - table_length/2.0;
+	static double net_z = floor_level - table_height + net_height;
 	static int count = 0;
 	double *grad = 0;
 	static double land_violation[INEQ_LAND_CONSTR_DIM];
@@ -182,15 +201,15 @@ double LazyOptim::test_soln(const double x[]) const {
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
 		printf("Hitting constraints (b2r):\n");
-		printf("Distance along normal: %.2f\n",this->dist_b2r_norm);
-		printf("Distance along racket: %.2f\n",this->dist_b2r_proj);
+		printf("Distance along normal: %.2f\n",dist_b2r_norm);
+		printf("Distance along racket: %.2f\n",dist_b2r_proj);
 		printf("Landing constraints:\n");
-		//printf("NetTime: %f\n", -land_violation[3]);
-	    //printf("LandTime: %f\n", -land_violation[6]-land_violation[3]);
-		printf("Below wall by : %f\n", -land_violation[3]);
-		printf("Above net by: %f\n", -land_violation[4]);
-		printf("X: between table limits by [%f, %f]\n", -land_violation[5], -land_violation[6]);
-		//printf("Y: between table limits by [%f, %f]\n", -land_violation[9], -land_violation[10]);
+		printf("NetTime: %f\n", t_net);
+	    printf("LandTime: %f\n", t_land);
+		printf("Below wall by : %f\n", wall_z - x_net[Z]);
+		printf("Above net by: %f\n", x_net[Z] - net_z);
+		printf("X: between table limits by [%f, %f]\n", table_xmax - x_land[X], x_land[X] + table_xmax);
+		printf("Y: between table limits by [%f, %f]\n", net_y - x_land[Y], x_land[Y] - table_ymax);
 		for (int i = 0; i < INEQ_JOINT_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0) {
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i%NDOF + 1);
@@ -275,6 +294,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[4] = -opt->x_net[Z] + net_z;
 	result[5] = opt->x_net[X] - table_xmax;
 	result[6] = -opt->x_net[X] - table_xmax;
+	result[7] = -opt->t_net;
 }
 
 /*
