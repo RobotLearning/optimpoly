@@ -72,18 +72,36 @@ void calc_racket_state(const double q[NDOF],
 }
 
 /**
- * @brief Makes the input matrix equal to the jacobian at input q
+ * @brief Return racket positions and the jacobian
+ *
+ * Makes the input pos vector equal to racket positions for given joints q
+ * Makes the input matrix equal to the jacobian at input q
  *
  * Useful to test derivatives of kinematics
  */
-void get_jacobian(const double q[NDOF], double jacobi[NCART][NDOF]) {
+void get_racket_pos(const double q[NDOF], double pos[NCART], double jacobi[NCART][NDOF]) {
 
+	static const int PALM = 6;
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
 	kinematics(q,link,origin,axis,amats);
 	jacobian(link,origin,axis,jacobi);
+	for (int i = 0; i < NCART; i++) {
+		pos[i] = link[PALM][i+1];
+	}
+}
+
+/**
+ * @brief Returns the cartesian racket positions
+ */
+void get_position(double q[NDOF]) {
+	static double link[NLINK+1][3+1];
+	static double origin[NDOF+1][3+1];
+	static double axis[NDOF+1][3+1];
+	static double amats[NDOF+1][4+1][4+1];
+	kinematics(q,link,origin,axis,amats);
 }
 
 /*

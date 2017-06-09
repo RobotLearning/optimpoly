@@ -87,6 +87,7 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 	opt.set_des_params(&pred_params);
 
 	double constr1[EQ_CONSTR_DIM], constr2[EQ_CONSTR_DIM];
+	double racket_pos[NCART];
 	double x[OPTIM_DIM];
 	double xdiff[OPTIM_DIM];
 	double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
@@ -102,7 +103,7 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 	/*
 	 * Calculate exact derivatives
 	 */
-	get_jacobian(x,jac);
+	get_racket_pos(x,racket_pos,jac);
 
 	/*
 	 * Calculate numerical derivatives

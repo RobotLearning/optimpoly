@@ -45,6 +45,10 @@ test:
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
+	                   
+ipopt: # example for testing IPOPT optimization library
+	$(CC) $(TESTFLAGS) src/optim/ipopt_ex.cpp -o ipopt_ex -I/is/ei/okoc/Downloads/CoinIpopt/build/include/coin \
+						-L/is/ei/okoc/Downloads/CoinIpopt/build/lib -lipopt -lcoinmetis -lcoinmumps
 					    
 clean:
 	rm -rf *.a *.o lib/*.so

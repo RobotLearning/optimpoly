@@ -144,12 +144,13 @@ public:
 
 class LazyOptim : public FocusedOptim {
 
-protected:
+private:
 	virtual double test_soln(const double x[]) const;
-	void trigger_optim();
-	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
+	void set_land_constr();
+	void set_hit_constr();
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
+	bool land;
 	weights w;
 	double x_last[OPTIM_DIM] = {0.0};
 	double t_land = -1.0;
@@ -159,7 +160,8 @@ public:
 	double dist_b2r_norm = 1.0;
 	double dist_b2r_proj = 1.0;
 	void calc_times(const double x[]);
-	LazyOptim(double qrest[], double lb[], double ub[]);
+	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
+	LazyOptim(double qrest[], double lb[], double ub[], bool land = true);
 };
 
 // functions that all players use

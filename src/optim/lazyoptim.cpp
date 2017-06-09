@@ -18,6 +18,7 @@
 #include "kinematics.h"
 #include "optim.h"
 
+#define INEQ_HIT_CONSTR_DIM 3
 #define INEQ_LAND_CONSTR_DIM 8 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
@@ -29,13 +30,15 @@ static double punish_land_robot(const double *xland,
 static void land_ineq_constr(unsigned m, double *result, unsigned n,
 		                     const double *x, double *grad,
 		                     void *my_func_params);
+static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
+		                     void *my_func_params);
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal, double* ballVel);
 static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
 
-LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
+LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	const_vec(NDOF,1.0,w.R_strike);
@@ -43,33 +46,31 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[])
 	w.R_hit = 1e2;
 	w.R_land = 1e2;
 
-	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
-	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
-	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
-	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
-
-	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
-	nlopt_set_lower_bounds(opt, lb_);
-	nlopt_set_upper_bounds(opt, ub_);
-	nlopt_set_min_objective(opt, costfunc, this);
-	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
-			land_ineq_constr, this, tol_ineq_land);
-	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-			joint_limits_ineq_constr, this, tol_ineq_joint);
-	nlopt_set_xtol_rel(opt, 1e-2);
-
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
 	}
+
+	if (land_) {
+		land = true;
+		set_land_constr();
+	}
+	else {
+		land = false;
+		set_hit_constr();
+	}
 }
 
 /**
- * @brief Trigger LAZY optim AFTER FOCUSED OPTIM succeeds.
+ * @brief Setting LANDING constraints, i.e., not just hitting the ball.
+ *
+ * Here we consider the full landing constraints where the ball has
+ * to pass over the net and land on the opponent's court.
+ * We can study the simpler optimization problem of hitting the ball
+ * by switching to pure hitting constraints.
  */
-void LazyOptim::trigger_optim() {
+void LazyOptim::set_land_constr() {
 
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
@@ -85,6 +86,30 @@ void LazyOptim::trigger_optim() {
 			joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
+
+/**
+ * @brief Switch to only HITTING constraints, not landing.
+ *
+ * We can study the simpler optimization problem of hitting the ball
+ * by switching to pure hitting constraints.
+ */
+void LazyOptim::set_hit_constr() {
+
+	double tol_ineq_hit[INEQ_HIT_CONSTR_DIM];
+	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
+	const_vec(INEQ_HIT_CONSTR_DIM,1e-2,tol_ineq_hit);
+	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
+
+	// LN = does not require gradients //
+	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
+	nlopt_set_min_objective(opt, costfunc, this);
+	nlopt_add_inequality_mconstraint(opt, INEQ_HIT_CONSTR_DIM,
+			hit_ineq_constr, this, tol_ineq_hit);
+	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+			joint_limits_ineq_constr, this, tol_ineq_joint);
+	nlopt_set_xtol_rel(opt, 1e-2);
+}
+
 
 void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
 
@@ -181,6 +206,7 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
 
 double LazyOptim::test_soln(const double x[]) const {
 
+	double max_viol;
 	// give info on constraint violation
 	static double table_xmax = table_width/2.0;
 	static double table_ymax = dist_to_table - table_length;
@@ -217,8 +243,10 @@ double LazyOptim::test_soln(const double x[]) const {
 		}
 	}
 
-	return fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),
-			max_array(land_violation,INEQ_LAND_CONSTR_DIM));
+	max_viol = max_array(lim_violation,INEQ_JOINT_CONSTR_DIM);
+	if (land)
+		max_viol = fmax(max_viol,max_array(land_violation,INEQ_LAND_CONSTR_DIM));
+	return max_viol;
 }
 
 /*
@@ -227,7 +255,7 @@ double LazyOptim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static double J1, Jhit, Jnet;
+	static double J1, Jhit, Jland;
 	static double a1[NDOF], a2[NDOF];
 	double T = x[2*NDOF];
 
@@ -247,11 +275,13 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
 	Jhit = w.R_hit * opt->dist_b2r_proj;
-	Jnet = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+
+	if (opt->land)
+		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
 
-	return J1 + Jhit + Jnet;
+	return J1 + Jhit + Jland;
 }
 
 /*
@@ -296,6 +326,38 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	result[6] = -opt->x_net[X] - table_xmax;
 	result[7] = -opt->t_net;
 }
+
+/*
+ * This is the constraint that makes sure we only TOUCH the ball
+ *
+ */
+static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
+		                     void *my_func_params) {
+
+	static double qf[NDOF];
+	static double qfdot[NDOF];
+	static double vel[NCART];
+	static double normal[NCART];
+	static double pos[NCART];
+	static double ballpos[NCART];
+	static double ballvel[NCART];
+
+	LazyOptim* opt = (LazyOptim*)my_func_params;
+
+	for (int i = 0; i < NDOF; i++) {
+		qf[i] = x[i];
+		qfdot[i] = x[i + NDOF];
+	}
+	interp_ball(opt->param_des, x[2*NDOF], ballpos, ballvel);
+	calc_racket_state(qf, qfdot, pos, vel, normal);
+	// calculate deviation of ball to racket - hitting constraints
+	opt->calc_hit_distance(ballpos,pos,normal);
+
+	result[0] = -opt->dist_b2r_norm;
+	result[1] = opt->dist_b2r_norm - ball_radius;
+	result[2] = opt->dist_b2r_proj - racket_radius;
+}
+
 
 /*
  * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
