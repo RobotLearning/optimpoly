@@ -18,7 +18,7 @@
 #include "kinematics.h"
 
 // internal functions used in calculating racket quantities
-static void get_cart_velocity(double jac[NCART][NDOF],
+static void get_cart_velocity(double jac[2*NCART][NDOF],
 		               const double qdot[NDOF],
 					   double vel[NCART]);
 static void kinematics(const double state[NDOF],
@@ -29,7 +29,7 @@ static void kinematics(const double state[NDOF],
 static void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
-		double jac[NCART][NDOF]);
+		double jac[2*NCART][NDOF]);
 static void set_endeffector(double endeff_pos[NCART]);
 
 /**
@@ -57,7 +57,7 @@ void calc_racket_state(const double q[NDOF],
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
-	static double jacobi[NCART][NDOF];
+	static double jacobi[2*NCART][NDOF];
 
 	kinematics(q,link,origin,axis,amats);
 	//rotate_to_quat(amats.slice(PALM)(span(X,Z),span(X,Z)),quat);
@@ -79,7 +79,7 @@ void calc_racket_state(const double q[NDOF],
  *
  * Useful to test derivatives of kinematics
  */
-void get_racket_pos(const double q[NDOF], double pos[NCART], double jacobi[NCART][NDOF]) {
+void get_racket_pos(const double q[NDOF], double pos[NCART], double jacobi[2*NCART][NDOF]) {
 
 	static const int PALM = 6;
 	static double link[NLINK+1][3+1];
@@ -108,7 +108,7 @@ void get_position(double q[NDOF]) {
  * Find cartesian racket velocity given
  * joint velocities and Jacobian
  */
-static void get_cart_velocity(double jac[NCART][NDOF],
+static void get_cart_velocity(double jac[2*NCART][NDOF],
 		               const double qdot[NDOF],
 					   double vel[NCART]) {
 
@@ -691,13 +691,16 @@ static void jacobian(const double link[NLINK+1][4],
 		double jac[NCART][NDOF]) {
 
 	static const int PALM = 6;
-	static double c[NCART];
+	static double c[2*NCART];
 	for (int j = 1; j <= NDOF; ++j) {
 		c[0] = axis[j][2] * (link[PALM][3] - origin[j][3]) - axis[j][3] * (link[PALM][2]-origin[j][2]);
 		c[1] = axis[j][3] * (link[PALM][1] - origin[j][1]) - axis[j][1] * (link[PALM][3]-origin[j][3]);
 		c[2] = axis[j][1] * (link[PALM][2] - origin[j][2]) - axis[j][2] * (link[PALM][1]-origin[j][1]);
+		c[3] = axis[j][1];
+		c[4] = axis[j][2];
+		c[5] = axis[j][3];
 		//rev_geo_jac_col(lp[PALM], jop[j], jap[j], c);
-		for (int i = 0; i < NCART; i++)
+		for (int i = 0; i < 2*NCART; i++)
 			jac[i][j-1] = c[i];
 	}
 }

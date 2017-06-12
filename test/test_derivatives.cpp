@@ -72,6 +72,19 @@ static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM], const d
 }
 
 /*
+ * Find the cross products between columns of mat matrix and the given vector
+ */
+static double cross_prods(const double mat[NCART][NDOF], const double v[NCART], const double out[NCART][NDOF]) {
+
+	for (int i = 0; i < NDOF; i++) {
+		out[X][i] = mat[Y][i] * v[Z] - mat[Z][i] * v[Y];
+		out[Y][i] = mat[Z][i] * v[X] - mat[X][i] * v[Z];
+		out[Z][i] = mat[X][i] * v[Y] - mat[Y][i] * v[X];
+	}
+
+}
+
+/*
  * Compare derivatives with numerical differentiation
  */
 BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
@@ -92,18 +105,26 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 	double xdiff[OPTIM_DIM];
 	double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
 	double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM];
-	double jac[NCART][NDOF];
+	double jac[2*NCART][NDOF];
+	double jac_w[NCART][NDOF];
 	double h = 0.001;
 
 	for (int i = 0; i < NDOF; i++) {
 		x[i] = xdiff[i] = q0[i];
-		x[i+NDOF] = xdiff[i+NDOF] = 0.0;
+		x[i+NDOF] = xdiff[i+NDOF] = randn();
 	}
 
 	/*
 	 * Calculate exact derivatives
 	 */
 	get_racket_pos(x,racket_pos,jac);
+
+	// copy geometric jacobians angular velocity subblock to jac_w
+	for (int i = 0; i < NDOF; i++) {
+		for (int j = 0; j < NCART; j++) {
+			jac_w[j][i] = jac[j+NCART][i];
+		}
+	}
 
 	/*
 	 * Calculate numerical derivatives
@@ -133,9 +154,12 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 		}
 	}
 
+	// fill the normal joint derivative dn/dq
+	cross_prods(jac_w,)
+
 	/*
 	 * Calculate the maximum difference between numerical and exact derivative matrices (big jacobian)
 	 */
-	BOOST_TEST(calc_max_diff(deriv,num_deriv,0,NCART,0,NDOF) < 1e-3);
+	BOOST_TEST(calc_max_diff(deriv,num_deriv,0,NCART,0,2*NDOF) < 1e-3);
 	BOOST_TEST(calc_max_diff(deriv,num_deriv,NCART,2*NCART,NDOF,2*NDOF) < 1e-3);
 }
