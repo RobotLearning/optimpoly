@@ -75,6 +75,6 @@ void calc_racket_state(const double q[NDOF],
 int read_joint_limits(double *lb, double *ub);
 
 // useful to test kinematics positions and derivative
-void get_racket_pos(const double q[NDOF], double pos[NCART], double jacobi[NCART][NDOF]);
+void get_racket_state(const double q[NDOF], double pos[NCART], double normal[NCART], double jacobi[NCART][NDOF]);
 
 #endif /* KINEMATICS_H_ */
