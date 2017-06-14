@@ -56,7 +56,8 @@ test-autodiff: # example for testing automatic differentiation using ADOL-C libr
 	$(CC) $(TESTFLAGS) test/test_autodiff.cpp -o autodiff.o -I/is/ei/okoc/adolc_base/include \
 						-L/is/ei/okoc/adolc_base/lib64 -ladolc
 test-nlopt: # example for testing NLOPT + autodiff
-	$(CC) $(TESTLFAGS) test/test_nlopt.cpp -o nlopt_autodiff.o -lnlopt						
+	$(CC) $(TESTFLAGS) test/test_nlopt.cpp -o nlopt_autodiff.o -lnlopt -I/is/ei/okoc/adolc_base/include \
+						-L/is/ei/okoc/adolc_base/lib64 -ladolc				
 					    
 clean:
 	rm -rf *.a *.o lib/*.so

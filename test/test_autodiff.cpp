@@ -53,7 +53,7 @@ double calc_sum_jac_diff(const double xp[DIM], double **jac_auto) {
 
 int main() {
 
-    size_t tape_stats[STAT_SIZE];
+    //size_t tape_stats[STAT_SIZE];
 
     double *xp = new double[DIM];
     double *yp = new double[DIMY];
@@ -75,8 +75,8 @@ int main() {
     }
     trace_off(1);
 
-    tapestats(1,tape_stats);             // reading of tape statistics
-    cout<<"maxlive "<< tape_stats[NUM_MAX_LIVES]<<"\n";
+    //tapestats(1,tape_stats);             // reading of tape statistics
+    //cout<<"maxlive "<< tape_stats[NUM_MAX_LIVES]<<"\n";
     // ..... print other tape stats
 
     double **jac;
