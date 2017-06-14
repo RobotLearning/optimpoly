@@ -14,6 +14,7 @@ all: install interface lookup kinematics
 # for compiling only necessary stuff to play table tennis (in test mode)
 install: player filter tabletennis optim
 
+##### ALL SHARED LIBRARIES FOR POLYOPTIM
 tabletennis:
 	$(CC) $(INSTALLFLAGS) src/player/table_tennis.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libtennis.so
 
@@ -39,16 +40,23 @@ optim:
 					    src/optim/kinematics.c \
 					    src/optim/utils.c \
 	                    -lm -o $(LIBDIR)/liboptim.so
-
+	                    
+##### ALL TESTS ARE INCLUDED HERE
 test:
 	$(CC) $(TESTFLAGS) test/test_kinematics.cpp -o unit_tests.o \
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
 	                   
-ipopt: # example for testing IPOPT optimization library
-	$(CC) $(TESTFLAGS) src/optim/ipopt_ex.cpp -o ipopt_ex -I/is/ei/okoc/Downloads/CoinIpopt/build/include/coin \
+test-ipopt: # example for testing IPOPT optimization library
+	$(CC) $(TESTFLAGS) src/optim/test_ipopt.cpp -o ipopt_ex -I/is/ei/okoc/Downloads/CoinIpopt/build/include/coin \
 						-L/is/ei/okoc/Downloads/CoinIpopt/build/lib -lipopt -lcoinmetis -lcoinmumps
+
+test-autodiff: # example for testing automatic differentiation using ADOL-C library
+	$(CC) $(TESTFLAGS) test/test_autodiff.cpp -o autodiff.o -I/is/ei/okoc/adolc_base/include \
+						-L/is/ei/okoc/adolc_base/lib64 -ladolc
+test-nlopt: # example for testing NLOPT + autodiff
+	$(CC) $(TESTLFAGS) test/test_nlopt.cpp -o nlopt_autodiff.o -lnlopt						
 					    
 clean:
 	rm -rf *.a *.o lib/*.so

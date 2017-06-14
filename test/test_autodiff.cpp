@@ -28,7 +28,8 @@ using namespace std;
 #define DIM 2
 #define DIMY 2
 
-void my_function(const adouble x[DIM], adouble y[DIMY]) {
+template <class type>
+void my_function(const type x[DIM], type y[DIMY]) {
 
 	// some nonlinear function of x
 	y[0] = x[0] * x[1] * x[1];
@@ -67,6 +68,8 @@ int main() {
         x[i] <<= xp[i];                  // or  x <<= xp outside the loop
     }
     my_function(x,y);
+    my_function(xp,yp);
+    cout << "yp[0] = " << yp[0] << "\nyp[1] = " << yp[1] << endl;
     for(int i = 0; i < DIMY; i++) {
     	y[i] >>= yp[i];
     }
