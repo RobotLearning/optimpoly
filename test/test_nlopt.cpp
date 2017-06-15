@@ -151,7 +151,6 @@ double myfunc_auto(unsigned n, const double *x, double *grad, void *my_func_data
 
 /*
  * Cost function
- * Calculates also the gradient if grad is TRUE
  *
  */
 template <class type>

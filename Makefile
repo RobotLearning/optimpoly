@@ -8,6 +8,13 @@ INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++1
 TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3 -std=c++11
 
+# Definitions for ADOL-C and IPOPT example
+ADOLCPATH = $(HOME)/adolc_base/include
+ADOLCLIBDIR = $(HOME)/adolc_base/lib64
+IPOPTLIBS = -Wl,--rpath -Wl,$(ADOLCLIBDIR) -L$(ADOLCLIBDIR) -ladolc -L$(HOME)/Downloads/Ipopt-3.12.8/lib -lipopt
+IPOPTFLAGS = -I$(ADOLCPATH) -I$(HOME)/Downloads/Ipopt-3.12.8/include/coin -I$(HOME)/Downloads/Ipopt-3.12.8/include
+
+
 # for compiling everything 
 all: install interface lookup kinematics 
 
@@ -47,17 +54,18 @@ test:
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
-	                   
-test-ipopt: # example for testing IPOPT optimization library
-	$(CC) $(TESTFLAGS) src/optim/test_ipopt.cpp -o ipopt_ex -I/is/ei/okoc/Downloads/CoinIpopt/build/include/coin \
-						-L/is/ei/okoc/Downloads/CoinIpopt/build/lib -lipopt -lcoinmetis -lcoinmumps
+	         
 
-test-autodiff: # example for testing automatic differentiation using ADOL-C library
-	$(CC) $(TESTFLAGS) test/test_autodiff.cpp -o autodiff.o -I/is/ei/okoc/adolc_base/include \
-						-L/is/ei/okoc/adolc_base/lib64 -ladolc
+test-ipopt: # example for testing IPOPT optimization library 
+	$(CC) $(TESTFLAGS) test/test_ipopt.cpp -o ipopt_ex -I$(HOME)/Downloads/Ipopt-3.12.8/include/coin \
+						-L/home/okoc/Downloads/Ipopt-3.12.8/lib -lipopt 
+
+test-autodiff-ipopt: # example for testing IPOPT optimization library + AUTODIFF 	                   
+	$(CC) $(TESTFLAGS) test/test_auto_ipopt.cpp -o ipopt_autodiff.o $(IPOPTFLAGS) $(IPOPTLIBS)				
+
 test-nlopt: # example for testing NLOPT + autodiff
-	$(CC) $(TESTFLAGS) test/test_nlopt.cpp -o nlopt_autodiff.o -lnlopt -I/is/ei/okoc/adolc_base/include \
-						-L/is/ei/okoc/adolc_base/lib64 -ladolc				
+	$(CC) $(TESTFLAGS) test/test_nlopt.cpp -o nlopt_autodiff.o -lnlopt -I$(HOME)/adolc_base/include \
+						-L$(HOME)/adolc_base/lib64 -ladolc				
 					    
 clean:
 	rm -rf *.a *.o lib/*.so
