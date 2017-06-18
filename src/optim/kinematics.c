@@ -17,8 +17,10 @@
 #include "string.h"
 #include "kinematics.h"
 
+#include <adolc/adouble.h>            // use of active doubles
+
 // internal functions used in calculating racket quantities
-static void get_cart_velocity(double jac[2*NCART][NDOF],
+static void get_cart_velocity(const double jac[2*NCART][NDOF],
 		               const double qdot[NDOF],
 					   double vel[NCART]);
 static void kinematics(const double state[NDOF],
@@ -30,6 +32,18 @@ static void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
 		double jac[2*NCART][NDOF]);
+static void get_cart_velocity(const adouble jac[2*NCART][NDOF],
+		               const adouble qdot[NDOF],
+					   adouble vel[NCART]);
+static void kinematics(const adouble state[NDOF],
+		        adouble Xlink[NLINK+1][4],
+				adouble Xorigin[NDOF+1][4],
+				adouble Xaxis[NDOF+1][4],
+		        adouble Ahmat[NDOF+1][5][5]);
+static void jacobian(const adouble link[NLINK+1][4],
+		const adouble origin[NDOF+1][4],
+		const adouble axis[NDOF+1][4],
+		adouble jac[2*NCART][NDOF]);
 static void set_endeffector(double endeff_pos[NCART]);
 
 /**
@@ -49,7 +63,7 @@ void calc_racket_state(const double q[NDOF],
 		               const double qdot[NDOF],
 					   double pos[NCART],
 					   double vel[NCART],
-					   double normal[NCART]) {
+					   double normal[NCART]){
 
 	static const int PALM = 6;
 
@@ -58,6 +72,45 @@ void calc_racket_state(const double q[NDOF],
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
 	static double jacobi[2*NCART][NDOF];
+
+	kinematics(q,link,origin,axis,amats);
+	//rotate_to_quat(amats.slice(PALM)(span(X,Z),span(X,Z)),quat);
+	//calc_racket_orient(quat);
+	jacobian(link,origin,axis,jacobi);
+
+	for (int i = 0; i < NCART; i++) {
+		pos[i] = link[PALM][i+1];
+		normal[i] = amats[PALM][i+1][2];
+	}
+	get_cart_velocity(jacobi,qdot,vel);
+}
+
+/**
+ * @brief Calculates cartesian racket pos, vel and normal
+ * given joint positions and velocities.
+ *
+ * Calls the kinematics and the (geometric) jacobian functions
+ * to compute the racket quantities.
+ *
+ * @param q Joint positions.
+ * @param qdot Joint velocities.
+ * @param pos Racket positions.
+ * @param vel Racket velocities.
+ * @param normal Racket normals.
+ */
+void calc_racket_state(const adouble q[NDOF],
+		               const adouble qdot[NDOF],
+					   adouble pos[NCART],
+					   adouble vel[NCART],
+					   adouble normal[NCART]){
+
+	static const int PALM = 6;
+
+	static adouble link[NLINK+1][3+1];
+	static adouble origin[NDOF+1][3+1];
+	static adouble axis[NDOF+1][3+1];
+	static adouble amats[NDOF+1][4+1][4+1];
+	static adouble jacobi[2*NCART][NDOF];
 
 	kinematics(q,link,origin,axis,amats);
 	//rotate_to_quat(amats.slice(PALM)(span(X,Z),span(X,Z)),quat);
@@ -109,9 +162,25 @@ void get_position(double q[NDOF]) {
  * Find cartesian racket velocity given
  * joint velocities and Jacobian
  */
-static void get_cart_velocity(double jac[2*NCART][NDOF],
+static void get_cart_velocity(const double jac[2*NCART][NDOF],
 		               const double qdot[NDOF],
 					   double vel[NCART]) {
+
+	for (int i = 0; i < NCART; i++) {
+		vel[i] = 0.0;
+		for (int j = 0; j < NDOF; j++) {
+			vel[i] += jac[i][j] * qdot[j];
+		}
+	}
+}
+
+/*
+ * Find cartesian racket velocity given
+ * joint velocities and Jacobian
+ */
+static void get_cart_velocity(const adouble jac[2*NCART][NDOF],
+		               const adouble qdot[NDOF],
+					   adouble vel[NCART]) {
 
 	for (int i = 0; i < NCART; i++) {
 		vel[i] = 0.0;
@@ -687,6 +756,572 @@ static void kinematics(const double state[NDOF],
 
 }
 
+/*
+ *
+ * Kinematics from SL
+ * TODO: Get rid of 1-based indexing for the 2-5th arguments!
+ *
+ */
+static void kinematics(const adouble state[NDOF],
+		        adouble Xlink[NLINK+1][4],
+				adouble Xorigin[NDOF+1][4],
+				adouble Xaxis[NDOF+1][4],
+		        adouble Ahmat[NDOF+1][5][5]) {
+
+	static int firsttime = TRUE;
+	static double basec[3+1] = {0.0};
+	static double baseo[4+1] = {0.0};
+	static double eff_a[NCART+1];
+	static double eff_x[NCART+1];
+
+	if (firsttime) {
+		firsttime = FALSE;
+		eff_x[3] = 0.3; // attach the racket
+		baseo[2] = 1.0;
+	}
+
+	static adouble  sstate1th;
+	static adouble  cstate1th;
+	static adouble  sstate2th;
+	static adouble  cstate2th;
+	static adouble  sstate3th;
+	static adouble  cstate3th;
+	static adouble  sstate4th;
+	static adouble  cstate4th;
+	static adouble  sstate5th;
+	static adouble  cstate5th;
+	static adouble  sstate6th;
+	static adouble  cstate6th;
+	static adouble  sstate7th;
+	static adouble  cstate7th;
+
+	static adouble  rseff1a1;
+	static adouble  rceff1a1;
+	static adouble  rseff1a2;
+	static adouble  rceff1a2;
+	static adouble  rseff1a3;
+	static adouble  rceff1a3;
+
+	static adouble  Hi00[4+1][4+1];
+	static adouble  Hi01[4+1][4+1];
+	static adouble  Hi12[4+1][4+1];
+	static adouble  Hi23[4+1][4+1];
+	static adouble  Hi34[4+1][4+1];
+	static adouble  Hi45[4+1][4+1];
+	static adouble  Hi56[4+1][4+1];
+	static adouble  Hi67[4+1][4+1];
+	static adouble  Hi78[4+1][4+1];
+
+	static adouble  Ai01[4+1][4+1];
+	static adouble  Ai02[4+1][4+1];
+	static adouble  Ai03[4+1][4+1];
+	static adouble  Ai04[4+1][4+1];
+	static adouble  Ai05[4+1][4+1];
+	static adouble  Ai06[4+1][4+1];
+	static adouble  Ai07[4+1][4+1];
+	static adouble  Ai08[4+1][4+1];
+
+	/* Need [n_joints+1]x[3+1] matrices: Xorigin,Xmcog,Xaxis, and Xlink[nLinks+1][3+1] */
+
+	/* sine and cosine precomputation */
+	sstate1th=sin(state[0]);
+	cstate1th=cos(state[0]);
+
+	sstate2th=sin(state[1]);
+	cstate2th=cos(state[1]);
+
+	sstate3th=sin(state[2]);
+	cstate3th=cos(state[2]);
+
+	sstate4th=sin(state[3]);
+	cstate4th=cos(state[3]);
+
+	sstate5th=sin(state[4]);
+	cstate5th=cos(state[4]);
+
+	sstate6th=sin(state[5]);
+	cstate6th=cos(state[5]);
+
+	sstate7th=sin(state[6]);
+	cstate7th=cos(state[6]);
+
+	/* rotation matrix sine and cosine precomputation */
+
+
+	rseff1a1 = sin(eff_a[1]);
+	rceff1a1 = cos(eff_a[1]);
+
+	rseff1a2 = sin(eff_a[2]);
+	rceff1a2 = cos(eff_a[2]);
+
+	rseff1a3 = sin(eff_a[3]);
+	rceff1a3 = cos(eff_a[3]);
+
+
+
+	/* inverse homogeneous rotation matrices */
+	Hi00[1][1]=-1 + 2*baseo[1]*baseo[1] + 2*baseo[2]*baseo[2];
+	Hi00[1][2]=2*(baseo[2]*baseo[3] - baseo[1]*baseo[4]);
+	Hi00[1][3]=2*(baseo[1]*baseo[3] + baseo[2]*baseo[4]);
+	Hi00[1][4]=basec[1];
+
+	Hi00[2][1]=2*(baseo[2]*baseo[3] + baseo[1]*baseo[4]);
+	Hi00[2][2]=-1 + 2*baseo[1]*baseo[1] + 2*baseo[3]*baseo[3];
+	Hi00[2][3]=2*(-(baseo[1]*baseo[2]) + baseo[3]*baseo[4]);
+	Hi00[2][4]=basec[2];
+
+	Hi00[3][1]=2*(-(baseo[1]*baseo[3]) + baseo[2]*baseo[4]);
+	Hi00[3][2]=2*(baseo[1]*baseo[2] + baseo[3]*baseo[4]);
+	Hi00[3][3]=-1 + 2*baseo[1]*baseo[1] + 2*baseo[4]*baseo[4];
+	Hi00[3][4]=basec[3];
+
+
+	Hi01[1][1]=cstate1th;
+	Hi01[1][2]=-sstate1th;
+
+	Hi01[2][1]=sstate1th;
+	Hi01[2][2]=cstate1th;
+
+	Hi01[3][4]=ZSFE;
+
+
+	Hi12[2][1]=sstate2th;
+	Hi12[2][2]=cstate2th;
+
+	Hi12[3][1]=cstate2th;
+	Hi12[3][2]=-sstate2th;
+
+
+	Hi23[1][4]=ZHR;
+
+	Hi23[2][1]=sstate3th;
+	Hi23[2][2]=cstate3th;
+
+	Hi23[3][1]=-cstate3th;
+	Hi23[3][2]=sstate3th;
+
+
+	Hi34[2][1]=sstate4th;
+	Hi34[2][2]=cstate4th;
+	Hi34[2][4]=YEB;
+
+	Hi34[3][1]=cstate4th;
+	Hi34[3][2]=-sstate4th;
+	Hi34[3][4]=ZEB;
+
+
+	Hi45[1][4]=ZWR;
+
+	Hi45[2][1]=sstate5th;
+	Hi45[2][2]=cstate5th;
+	Hi45[2][4]=YWR;
+
+	Hi45[3][1]=-cstate5th;
+	Hi45[3][2]=sstate5th;
+
+
+	Hi56[2][1]=sstate6th;
+	Hi56[2][2]=cstate6th;
+
+	Hi56[3][1]=cstate6th;
+	Hi56[3][2]=-sstate6th;
+	Hi56[3][4]=ZWFE;
+
+
+	Hi67[2][1]=sstate7th;
+	Hi67[2][2]=cstate7th;
+
+	Hi67[3][1]=-cstate7th;
+	Hi67[3][2]=sstate7th;
+
+
+	Hi78[1][1]=rceff1a2*rceff1a3;
+	Hi78[1][2]=-(rceff1a2*rseff1a3);
+	Hi78[1][3]=rseff1a2;
+	Hi78[1][4]=eff_x[1];
+
+	Hi78[2][1]=rceff1a3*rseff1a1*rseff1a2 + rceff1a1*rseff1a3;
+	Hi78[2][2]=rceff1a1*rceff1a3 - rseff1a1*rseff1a2*rseff1a3;
+	Hi78[2][3]=-(rceff1a2*rseff1a1);
+	Hi78[2][4]=eff_x[2];
+
+	Hi78[3][1]=-(rceff1a1*rceff1a3*rseff1a2) + rseff1a1*rseff1a3;
+	Hi78[3][2]=rceff1a3*rseff1a1 + rceff1a1*rseff1a2*rseff1a3;
+	Hi78[3][3]=rceff1a1*rceff1a2;
+	Hi78[3][4]=eff_x[3];
+
+
+	/*print_mat("Hi00", Hi00);
+	print_mat("Hi01", Hi01);
+	print_mat("Hi12", Hi12);
+	print_mat("Hi23", Hi23);
+	print_mat("Hi34", Hi34);
+	print_mat("Hi45", Hi45);
+	print_mat("Hi56", Hi56);
+	print_mat("Hi67", Hi67);
+	print_mat("Hi78", Hi78);*/
+
+
+	/* per link inverse homogeneous rotation matrices */
+	Ai01[1][1]=Hi00[1][1]*Hi01[1][1] + Hi00[1][2]*Hi01[2][1];
+	Ai01[1][2]=Hi00[1][1]*Hi01[1][2] + Hi00[1][2]*Hi01[2][2];
+	Ai01[1][3]=Hi00[1][3];
+	Ai01[1][4]=Hi00[1][4] + Hi00[1][3]*Hi01[3][4];
+
+	Ai01[2][1]=Hi00[2][1]*Hi01[1][1] + Hi00[2][2]*Hi01[2][1];
+	Ai01[2][2]=Hi00[2][1]*Hi01[1][2] + Hi00[2][2]*Hi01[2][2];
+	Ai01[2][3]=Hi00[2][3];
+	Ai01[2][4]=Hi00[2][4] + Hi00[2][3]*Hi01[3][4];
+
+	Ai01[3][1]=Hi00[3][1]*Hi01[1][1] + Hi00[3][2]*Hi01[2][1];
+	Ai01[3][2]=Hi00[3][1]*Hi01[1][2] + Hi00[3][2]*Hi01[2][2];
+	Ai01[3][3]=Hi00[3][3];
+	Ai01[3][4]=Hi00[3][4] + Hi00[3][3]*Hi01[3][4];
+
+
+	Ai02[1][1]=Ai01[1][2]*Hi12[2][1] + Ai01[1][3]*Hi12[3][1];
+	Ai02[1][2]=Ai01[1][2]*Hi12[2][2] + Ai01[1][3]*Hi12[3][2];
+	Ai02[1][3]=-Ai01[1][1];
+	Ai02[1][4]=Ai01[1][4];
+
+	Ai02[2][1]=Ai01[2][2]*Hi12[2][1] + Ai01[2][3]*Hi12[3][1];
+	Ai02[2][2]=Ai01[2][2]*Hi12[2][2] + Ai01[2][3]*Hi12[3][2];
+	Ai02[2][3]=-Ai01[2][1];
+	Ai02[2][4]=Ai01[2][4];
+
+	Ai02[3][1]=Ai01[3][2]*Hi12[2][1] + Ai01[3][3]*Hi12[3][1];
+	Ai02[3][2]=Ai01[3][2]*Hi12[2][2] + Ai01[3][3]*Hi12[3][2];
+	Ai02[3][3]=-Ai01[3][1];
+	Ai02[3][4]=Ai01[3][4];
+
+
+	Ai03[1][1]=Ai02[1][2]*Hi23[2][1] + Ai02[1][3]*Hi23[3][1];
+	Ai03[1][2]=Ai02[1][2]*Hi23[2][2] + Ai02[1][3]*Hi23[3][2];
+	Ai03[1][3]=Ai02[1][1];
+	Ai03[1][4]=Ai02[1][4] + Ai02[1][1]*Hi23[1][4];
+
+	Ai03[2][1]=Ai02[2][2]*Hi23[2][1] + Ai02[2][3]*Hi23[3][1];
+	Ai03[2][2]=Ai02[2][2]*Hi23[2][2] + Ai02[2][3]*Hi23[3][2];
+	Ai03[2][3]=Ai02[2][1];
+	Ai03[2][4]=Ai02[2][4] + Ai02[2][1]*Hi23[1][4];
+
+	Ai03[3][1]=Ai02[3][2]*Hi23[2][1] + Ai02[3][3]*Hi23[3][1];
+	Ai03[3][2]=Ai02[3][2]*Hi23[2][2] + Ai02[3][3]*Hi23[3][2];
+	Ai03[3][3]=Ai02[3][1];
+	Ai03[3][4]=Ai02[3][4] + Ai02[3][1]*Hi23[1][4];
+
+
+	Ai04[1][1]=Ai03[1][2]*Hi34[2][1] + Ai03[1][3]*Hi34[3][1];
+	Ai04[1][2]=Ai03[1][2]*Hi34[2][2] + Ai03[1][3]*Hi34[3][2];
+	Ai04[1][3]=-Ai03[1][1];
+	Ai04[1][4]=Ai03[1][4] + Ai03[1][2]*Hi34[2][4] + Ai03[1][3]*Hi34[3][4];
+
+	Ai04[2][1]=Ai03[2][2]*Hi34[2][1] + Ai03[2][3]*Hi34[3][1];
+	Ai04[2][2]=Ai03[2][2]*Hi34[2][2] + Ai03[2][3]*Hi34[3][2];
+	Ai04[2][3]=-Ai03[2][1];
+	Ai04[2][4]=Ai03[2][4] + Ai03[2][2]*Hi34[2][4] + Ai03[2][3]*Hi34[3][4];
+
+	Ai04[3][1]=Ai03[3][2]*Hi34[2][1] + Ai03[3][3]*Hi34[3][1];
+	Ai04[3][2]=Ai03[3][2]*Hi34[2][2] + Ai03[3][3]*Hi34[3][2];
+	Ai04[3][3]=-Ai03[3][1];
+	Ai04[3][4]=Ai03[3][4] + Ai03[3][2]*Hi34[2][4] + Ai03[3][3]*Hi34[3][4];
+
+
+	Ai05[1][1]=Ai04[1][2]*Hi45[2][1] + Ai04[1][3]*Hi45[3][1];
+	Ai05[1][2]=Ai04[1][2]*Hi45[2][2] + Ai04[1][3]*Hi45[3][2];
+	Ai05[1][3]=Ai04[1][1];
+	Ai05[1][4]=Ai04[1][4] + Ai04[1][1]*Hi45[1][4] + Ai04[1][2]*Hi45[2][4];
+
+	Ai05[2][1]=Ai04[2][2]*Hi45[2][1] + Ai04[2][3]*Hi45[3][1];
+	Ai05[2][2]=Ai04[2][2]*Hi45[2][2] + Ai04[2][3]*Hi45[3][2];
+	Ai05[2][3]=Ai04[2][1];
+	Ai05[2][4]=Ai04[2][4] + Ai04[2][1]*Hi45[1][4] + Ai04[2][2]*Hi45[2][4];
+
+	Ai05[3][1]=Ai04[3][2]*Hi45[2][1] + Ai04[3][3]*Hi45[3][1];
+	Ai05[3][2]=Ai04[3][2]*Hi45[2][2] + Ai04[3][3]*Hi45[3][2];
+	Ai05[3][3]=Ai04[3][1];
+	Ai05[3][4]=Ai04[3][4] + Ai04[3][1]*Hi45[1][4] + Ai04[3][2]*Hi45[2][4];
+
+
+	Ai06[1][1]=Ai05[1][2]*Hi56[2][1] + Ai05[1][3]*Hi56[3][1];
+	Ai06[1][2]=Ai05[1][2]*Hi56[2][2] + Ai05[1][3]*Hi56[3][2];
+	Ai06[1][3]=-Ai05[1][1];
+	Ai06[1][4]=Ai05[1][4] + Ai05[1][3]*Hi56[3][4];
+
+	Ai06[2][1]=Ai05[2][2]*Hi56[2][1] + Ai05[2][3]*Hi56[3][1];
+	Ai06[2][2]=Ai05[2][2]*Hi56[2][2] + Ai05[2][3]*Hi56[3][2];
+	Ai06[2][3]=-Ai05[2][1];
+	Ai06[2][4]=Ai05[2][4] + Ai05[2][3]*Hi56[3][4];
+
+	Ai06[3][1]=Ai05[3][2]*Hi56[2][1] + Ai05[3][3]*Hi56[3][1];
+	Ai06[3][2]=Ai05[3][2]*Hi56[2][2] + Ai05[3][3]*Hi56[3][2];
+	Ai06[3][3]=-Ai05[3][1];
+	Ai06[3][4]=Ai05[3][4] + Ai05[3][3]*Hi56[3][4];
+
+
+	Ai07[1][1]=Ai06[1][2]*Hi67[2][1] + Ai06[1][3]*Hi67[3][1];
+	Ai07[1][2]=Ai06[1][2]*Hi67[2][2] + Ai06[1][3]*Hi67[3][2];
+	Ai07[1][3]=Ai06[1][1];
+	Ai07[1][4]=Ai06[1][4];
+
+	Ai07[2][1]=Ai06[2][2]*Hi67[2][1] + Ai06[2][3]*Hi67[3][1];
+	Ai07[2][2]=Ai06[2][2]*Hi67[2][2] + Ai06[2][3]*Hi67[3][2];
+	Ai07[2][3]=Ai06[2][1];
+	Ai07[2][4]=Ai06[2][4];
+
+	Ai07[3][1]=Ai06[3][2]*Hi67[2][1] + Ai06[3][3]*Hi67[3][1];
+	Ai07[3][2]=Ai06[3][2]*Hi67[2][2] + Ai06[3][3]*Hi67[3][2];
+	Ai07[3][3]=Ai06[3][1];
+	Ai07[3][4]=Ai06[3][4];
+
+
+	Ai08[1][1]=Ai07[1][1]*Hi78[1][1] + Ai07[1][2]*Hi78[2][1] + Ai07[1][3]*Hi78[3][1];
+	Ai08[1][2]=Ai07[1][1]*Hi78[1][2] + Ai07[1][2]*Hi78[2][2] + Ai07[1][3]*Hi78[3][2];
+	Ai08[1][3]=Ai07[1][1]*Hi78[1][3] + Ai07[1][2]*Hi78[2][3] + Ai07[1][3]*Hi78[3][3];
+	Ai08[1][4]=Ai07[1][4] + Ai07[1][1]*Hi78[1][4] + Ai07[1][2]*Hi78[2][4] + Ai07[1][3]*Hi78[3][4];
+
+	Ai08[2][1]=Ai07[2][1]*Hi78[1][1] + Ai07[2][2]*Hi78[2][1] + Ai07[2][3]*Hi78[3][1];
+	Ai08[2][2]=Ai07[2][1]*Hi78[1][2] + Ai07[2][2]*Hi78[2][2] + Ai07[2][3]*Hi78[3][2];
+	Ai08[2][3]=Ai07[2][1]*Hi78[1][3] + Ai07[2][2]*Hi78[2][3] + Ai07[2][3]*Hi78[3][3];
+	Ai08[2][4]=Ai07[2][4] + Ai07[2][1]*Hi78[1][4] + Ai07[2][2]*Hi78[2][4] + Ai07[2][3]*Hi78[3][4];
+
+	Ai08[3][1]=Ai07[3][1]*Hi78[1][1] + Ai07[3][2]*Hi78[2][1] + Ai07[3][3]*Hi78[3][1];
+	Ai08[3][2]=Ai07[3][1]*Hi78[1][2] + Ai07[3][2]*Hi78[2][2] + Ai07[3][3]*Hi78[3][2];
+	Ai08[3][3]=Ai07[3][1]*Hi78[1][3] + Ai07[3][2]*Hi78[2][3] + Ai07[3][3]*Hi78[3][3];
+	Ai08[3][4]=Ai07[3][4] + Ai07[3][1]*Hi78[1][4] + Ai07[3][2]*Hi78[2][4] + Ai07[3][3]*Hi78[3][4];
+
+
+
+	/* joint ID: 0 */
+	Xorigin[0][1]=Hi00[1][4];
+	Xorigin[0][2]=Hi00[2][4];
+	Xorigin[0][3]=Hi00[3][4];
+
+	/* link: {basec$0$$x[[1]], basec$0$$x[[2]], basec$0$$x[[3]]} */
+	Xlink[0][1]=Hi00[1][4];
+	Xlink[0][2]=Hi00[2][4];
+	Xlink[0][3]=Hi00[3][4];
+
+	Ahmat[0][1][1]=Hi00[1][1];
+	Ahmat[0][1][2]=Hi00[1][2];
+	Ahmat[0][1][3]=Hi00[1][3];
+	Ahmat[0][1][4]=Hi00[1][4];
+
+	Ahmat[0][2][1]=Hi00[2][1];
+	Ahmat[0][2][2]=Hi00[2][2];
+	Ahmat[0][2][3]=Hi00[2][3];
+	Ahmat[0][2][4]=Hi00[2][4];
+
+	Ahmat[0][3][1]=Hi00[3][1];
+	Ahmat[0][3][2]=Hi00[3][2];
+	Ahmat[0][3][3]=Hi00[3][3];
+	Ahmat[0][3][4]=Hi00[3][4];
+
+	Ahmat[0][4][4]=1;
+
+
+	/* joint ID: 1 */
+	Xorigin[1][1]=Ai01[1][4];
+	Xorigin[1][2]=Ai01[2][4];
+	Xorigin[1][3]=Ai01[3][4];
+
+	Xaxis[1][1]=Ai01[1][3];
+	Xaxis[1][2]=Ai01[2][3];
+	Xaxis[1][3]=Ai01[3][3];
+
+	/* link: {0, 0, ZSFE} */
+	Xlink[1][1]=Ai01[1][4];
+	Xlink[1][2]=Ai01[2][4];
+	Xlink[1][3]=Ai01[3][4];
+
+	Ahmat[1][1][1]=Ai02[1][1];
+	Ahmat[1][1][2]=Ai02[1][2];
+	Ahmat[1][1][3]=Ai02[1][3];
+	Ahmat[1][1][4]=Ai02[1][4];
+
+	Ahmat[1][2][1]=Ai02[2][1];
+	Ahmat[1][2][2]=Ai02[2][2];
+	Ahmat[1][2][3]=Ai02[2][3];
+	Ahmat[1][2][4]=Ai02[2][4];
+
+	Ahmat[1][3][1]=Ai02[3][1];
+	Ahmat[1][3][2]=Ai02[3][2];
+	Ahmat[1][3][3]=Ai02[3][3];
+	Ahmat[1][3][4]=Ai02[3][4];
+
+	Ahmat[1][4][4]=1;
+
+
+	/* joint ID: 2 */
+	Xorigin[2][1]=Ai02[1][4];
+	Xorigin[2][2]=Ai02[2][4];
+	Xorigin[2][3]=Ai02[3][4];
+
+	Xaxis[2][1]=Ai02[1][3];
+	Xaxis[2][2]=Ai02[2][3];
+	Xaxis[2][3]=Ai02[3][3];
+
+	/* joint ID: 3 */
+	Xorigin[3][1]=Ai03[1][4];
+	Xorigin[3][2]=Ai03[2][4];
+	Xorigin[3][3]=Ai03[3][4];
+
+	Xaxis[3][1]=Ai03[1][3];
+	Xaxis[3][2]=Ai03[2][3];
+	Xaxis[3][3]=Ai03[3][3];
+
+	/* link: {ZHR, 0, 0} */
+	Xlink[2][1]=Ai03[1][4];
+	Xlink[2][2]=Ai03[2][4];
+	Xlink[2][3]=Ai03[3][4];
+
+	Ahmat[2][1][1]=Ai03[1][1];
+	Ahmat[2][1][2]=Ai03[1][2];
+	Ahmat[2][1][3]=Ai03[1][3];
+	Ahmat[2][1][4]=Ai03[1][4];
+
+	Ahmat[2][2][1]=Ai03[2][1];
+	Ahmat[2][2][2]=Ai03[2][2];
+	Ahmat[2][2][3]=Ai03[2][3];
+	Ahmat[2][2][4]=Ai03[2][4];
+
+	Ahmat[2][3][1]=Ai03[3][1];
+	Ahmat[2][3][2]=Ai03[3][2];
+	Ahmat[2][3][3]=Ai03[3][3];
+	Ahmat[2][3][4]=Ai03[3][4];
+
+	Ahmat[2][4][4]=1;
+
+
+	/* joint ID: 4 */
+	Xorigin[4][1]=Ai04[1][4];
+	Xorigin[4][2]=Ai04[2][4];
+	Xorigin[4][3]=Ai04[3][4];
+
+	Xaxis[4][1]=Ai04[1][3];
+	Xaxis[4][2]=Ai04[2][3];
+	Xaxis[4][3]=Ai04[3][3];
+
+	/* link: {0, YEB, ZEB} */
+	Xlink[3][1]=Ai04[1][4];
+	Xlink[3][2]=Ai04[2][4];
+	Xlink[3][3]=Ai04[3][4];
+
+	Ahmat[3][1][1]=Ai04[1][1];
+	Ahmat[3][1][2]=Ai04[1][2];
+	Ahmat[3][1][3]=Ai04[1][3];
+	Ahmat[3][1][4]=Ai04[1][4];
+
+	Ahmat[3][2][1]=Ai04[2][1];
+	Ahmat[3][2][2]=Ai04[2][2];
+	Ahmat[3][2][3]=Ai04[2][3];
+	Ahmat[3][2][4]=Ai04[2][4];
+
+	Ahmat[3][3][1]=Ai04[3][1];
+	Ahmat[3][3][2]=Ai04[3][2];
+	Ahmat[3][3][3]=Ai04[3][3];
+	Ahmat[3][3][4]=Ai04[3][4];
+
+	Ahmat[3][4][4]=1;
+
+
+	/* joint ID: 5 */
+	Xorigin[5][1]=Ai05[1][4];
+	Xorigin[5][2]=Ai05[2][4];
+	Xorigin[5][3]=Ai05[3][4];
+
+	Xaxis[5][1]=Ai05[1][3];
+	Xaxis[5][2]=Ai05[2][3];
+	Xaxis[5][3]=Ai05[3][3];
+
+	/* link: {ZWR, YWR, 0} */
+	Xlink[4][1]=Ai05[1][4];
+	Xlink[4][2]=Ai05[2][4];
+	Xlink[4][3]=Ai05[3][4];
+
+	Ahmat[4][1][1]=Ai05[1][1];
+	Ahmat[4][1][2]=Ai05[1][2];
+	Ahmat[4][1][3]=Ai05[1][3];
+	Ahmat[4][1][4]=Ai05[1][4];
+
+	Ahmat[4][2][1]=Ai05[2][1];
+	Ahmat[4][2][2]=Ai05[2][2];
+	Ahmat[4][2][3]=Ai05[2][3];
+	Ahmat[4][2][4]=Ai05[2][4];
+
+	Ahmat[4][3][1]=Ai05[3][1];
+	Ahmat[4][3][2]=Ai05[3][2];
+	Ahmat[4][3][3]=Ai05[3][3];
+	Ahmat[4][3][4]=Ai05[3][4];
+
+	Ahmat[4][4][4]=1;
+
+
+	/* joint ID: 6 */
+	Xorigin[6][1]=Ai06[1][4];
+	Xorigin[6][2]=Ai06[2][4];
+	Xorigin[6][3]=Ai06[3][4];
+
+	Xaxis[6][1]=Ai06[1][3];
+	Xaxis[6][2]=Ai06[2][3];
+	Xaxis[6][3]=Ai06[3][3];
+
+	/* link: {0, 0, ZWFE} */
+	Xlink[5][1]=Ai06[1][4];
+	Xlink[5][2]=Ai06[2][4];
+	Xlink[5][3]=Ai06[3][4];
+
+	Ahmat[5][1][1]=Ai07[1][1];
+	Ahmat[5][1][2]=Ai07[1][2];
+	Ahmat[5][1][3]=Ai07[1][3];
+	Ahmat[5][1][4]=Ai07[1][4];
+
+	Ahmat[5][2][1]=Ai07[2][1];
+	Ahmat[5][2][2]=Ai07[2][2];
+	Ahmat[5][2][3]=Ai07[2][3];
+	Ahmat[5][2][4]=Ai07[2][4];
+
+	Ahmat[5][3][1]=Ai07[3][1];
+	Ahmat[5][3][2]=Ai07[3][2];
+	Ahmat[5][3][3]=Ai07[3][3];
+	Ahmat[5][3][4]=Ai07[3][4];
+
+	Ahmat[5][4][4]=1;
+
+
+	/* joint ID: 7 */
+	Xorigin[7][1]=Ai07[1][4];
+	Xorigin[7][2]=Ai07[2][4];
+	Xorigin[7][3]=Ai07[3][4];
+
+	Xaxis[7][1]=Ai07[1][3];
+	Xaxis[7][2]=Ai07[2][3];
+	Xaxis[7][3]=Ai07[3][3];
+
+	/* link: {eff$1$$x[[1]], eff$1$$x[[2]], eff$1$$x[[3]]} */
+	Xlink[6][1]=Ai08[1][4];
+	Xlink[6][2]=Ai08[2][4];
+	Xlink[6][3]=Ai08[3][4];
+
+	Ahmat[6][1][1]=Ai08[1][1];
+	Ahmat[6][1][2]=Ai08[1][2];
+	Ahmat[6][1][3]=Ai08[1][3];
+	Ahmat[6][1][4]=Ai08[1][4];
+
+	Ahmat[6][2][1]=Ai08[2][1];
+	Ahmat[6][2][2]=Ai08[2][2];
+	Ahmat[6][2][3]=Ai08[2][3];
+	Ahmat[6][2][4]=Ai08[2][4];
+
+	Ahmat[6][3][1]=Ai08[3][1];
+	Ahmat[6][3][2]=Ai08[3][2];
+	Ahmat[6][3][3]=Ai08[3][3];
+	Ahmat[6][3][4]=Ai08[3][4];
+
+	Ahmat[6][4][4]=1;
+
+}
+
 static void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
@@ -694,6 +1329,26 @@ static void jacobian(const double link[NLINK+1][4],
 
 	static const int PALM = 6;
 	static double c[2*NCART];
+	for (int j = 1; j <= NDOF; ++j) {
+		c[0] = axis[j][2] * (link[PALM][3] - origin[j][3]) - axis[j][3] * (link[PALM][2]-origin[j][2]);
+		c[1] = axis[j][3] * (link[PALM][1] - origin[j][1]) - axis[j][1] * (link[PALM][3]-origin[j][3]);
+		c[2] = axis[j][1] * (link[PALM][2] - origin[j][2]) - axis[j][2] * (link[PALM][1]-origin[j][1]);
+		c[3] = axis[j][1];
+		c[4] = axis[j][2];
+		c[5] = axis[j][3];
+		//rev_geo_jac_col(lp[PALM], jop[j], jap[j], c);
+		for (int i = 0; i < 2*NCART; i++)
+			jac[i][j-1] = c[i];
+	}
+}
+
+static void jacobian(const adouble link[NLINK+1][4],
+		const adouble origin[NDOF+1][4],
+		const adouble axis[NDOF+1][4],
+		adouble jac[2*NCART][NDOF]) {
+
+	static const int PALM = 6;
+	static adouble c[2*NCART];
 	for (int j = 1; j <= NDOF; ++j) {
 		c[0] = axis[j][2] * (link[PALM][3] - origin[j][3]) - axis[j][3] * (link[PALM][2]-origin[j][2]);
 		c[1] = axis[j][3] * (link[PALM][1] - origin[j][1]) - axis[j][1] * (link[PALM][3]-origin[j][3]);

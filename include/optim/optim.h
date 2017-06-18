@@ -90,11 +90,11 @@ protected:
 
 	virtual void init_last_soln(double *x) const = 0;
 	virtual void init_rest_soln(double *x) const = 0;
-	virtual double test_soln(const double *x) const = 0;
+	virtual double test_soln(const double *x) = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
 	void optim();
 public:
-	optim_des *param_des;
+	optim_des* param_des;
 	double lb[NDOF];
 	double ub[NDOF];
 	double qrest[NDOF] = {0.0};
@@ -118,14 +118,18 @@ class HittingPlane : public Optim {
 
 protected:
 	static const int OPTIM_DIM = 2*NDOF;
+	void generate_tape();
 	//virtual bool predict(EKF & filter);
 	virtual void init_last_soln(double x[]) const;
 	virtual void init_rest_soln(double x[]) const;
-	virtual double test_soln(const double x[]) const;
+	virtual double test_soln(const double x[]);
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
+	bool GRAD_BASED_OPT; // gradient-based optimization
+	double **jac;
 	double limit_avg[NDOF];
-	HittingPlane(double qrest[], double lb[], double ub[]);
+	~HittingPlane();
+	HittingPlane(double qrest[], double lb[], double ub[], bool grad = false);
 };
 
 class FocusedOptim : public Optim {
@@ -135,7 +139,7 @@ protected:
 	//virtual bool predict(EKF & filter);
 	virtual void init_last_soln(double x[]) const;
 	virtual void init_rest_soln(double x[]) const;
-	virtual double test_soln(const double x[]) const;
+	virtual double test_soln(const double x[]);
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	FocusedOptim() {}; // for lazy player
@@ -145,7 +149,7 @@ public:
 class LazyOptim : public FocusedOptim {
 
 private:
-	virtual double test_soln(const double x[]) const;
+	virtual double test_soln(const double x[]);
 	void set_land_constr();
 	void set_hit_constr();
 	virtual void finalize_soln(const double x[], const double time_elapsed);

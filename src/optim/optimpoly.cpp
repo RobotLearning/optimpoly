@@ -125,6 +125,7 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 }
 
 void Optim::set_des_params(optim_des *params_) {
+	delete param_des;
 	param_des = params_;
 }
 
@@ -239,7 +240,7 @@ void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 	}
 }
 
-double FocusedOptim::test_soln(const double x[]) const {
+double FocusedOptim::test_soln(const double x[]) {
 
 	// give info on constraint violation
 	double *grad = 0;
@@ -306,7 +307,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	double T = x[2*NDOF];
 
 	FocusedOptim *opt = (FocusedOptim*) my_function_data;
-	optim_des* racket_data = opt->param_des;
+	optim_des* racket_data(opt->param_des);
 
 	// interpolate at time T to get the desired racket parameters
 	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
@@ -337,7 +338,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const optim_des* data, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des * data, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	double deltat = data->dt;

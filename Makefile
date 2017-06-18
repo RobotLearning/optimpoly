@@ -4,6 +4,8 @@ HEADER2=$(DIR)/include/optim
 LIBDIR=$(DIR)/lib
 CC=g++
 LIBS=-larmadillo -lm
+ADOLCPATH = $(HOME)/adolc_base/include
+ADOLCLIBDIR = $(HOME)/adolc_base/lib64
 INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O0
 TESTFLAGS=-g --std=c++11 -pthread
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER2) -O3 -std=c++11
@@ -28,7 +30,7 @@ filter:
 	$(CC) $(INSTALLFLAGS) src/player/kalman.cpp src/player/extkalman.cpp $(LIBS) -o $(LIBDIR)/libfilter.so		  
 						  
 player:
-	$(CC) $(INSTALLFLAGS) src/player/player.cpp $(LIBS) -o $(LIBDIR)/libplayer.so
+	$(CC) $(INSTALLFLAGS) src/player/player.cpp $(LIBS) -o $(LIBDIR)/libplayer.so -I$(ADOLCPATH)
 
 interface:
 	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libinterface.so
@@ -39,14 +41,16 @@ optim:
 						src/optim/vhp.cpp \
 					    src/optim/kinematics.c \
 					    src/optim/utils.c \
-	                    -lm -o $(LIBDIR)/liboptim.so
+	                    -lm -o $(LIBDIR)/liboptim.so \
+	                    -I$(ADOLCPATH) -L$(ADOLCLIBDIR) -ladolc
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
 	$(CC) $(TESTFLAGS) test/test_optim.cpp -o unit_tests.o \
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
+	                   -I$(ADOLCPATH) -L$(ADOLCLIBDIR) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
-	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
+	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt -ladolc
 					    
 clean:
 	rm -rf *.a *.o lib/*.so

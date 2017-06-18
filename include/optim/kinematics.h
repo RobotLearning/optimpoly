@@ -11,6 +11,7 @@
 #define KINEMATICS_H_
 
 #include "math.h"
+#include <adolc/adouble.h>
 
 #define CONFIG   "config/"
 #define PREFS    "prefs/"
@@ -70,6 +71,12 @@ void calc_racket_state(const double q[NDOF],
 					   double pos[NCART],
 					   double vel[NCART],
 					   double normal[NCART]);
+
+void calc_racket_state(const adouble q[NDOF],
+		               const adouble qdot[NDOF],
+					   adouble pos[NCART],
+					   adouble vel[NCART],
+					   adouble normal[NCART]);
 
 // loading joint limits from SL config files
 int read_joint_limits(double *lb, double *ub);

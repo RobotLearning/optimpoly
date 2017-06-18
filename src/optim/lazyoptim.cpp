@@ -204,7 +204,7 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
 
 }
 
-double LazyOptim::test_soln(const double x[]) const {
+double LazyOptim::test_soln(const double x[]) {
 
 	double max_viol;
 	// give info on constraint violation
@@ -404,7 +404,7 @@ static void racket_contact_model(const double* racketVel,
  * relevant racket entries
  *
  */
-static void interp_ball(const optim_des *data, const double T, double *ballpos, double *ballvel) {
+static void interp_ball(const optim_des* data, const double T, double *ballpos, double *ballvel) {
 
     const double dt = data->dt;
 	if (std::isnan(T)) {

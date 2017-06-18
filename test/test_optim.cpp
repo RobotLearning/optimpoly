@@ -81,7 +81,8 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	vec3 normal_example = racket_params.racket_normal(span(X,Z),0);
 	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
-	Optim *opt = new HittingPlane(qact.q.memptr(),lb,ub);
+	bool grad_based_opt = true;
+	Optim *opt = new HittingPlane(qact.q.memptr(),lb,ub,grad_based_opt);
 	opt->set_des_params(&racket_params);
 	opt->fix_hitting_time(time_pred);
 	opt->update_init_state(qact);
@@ -94,7 +95,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 /*
  * Testing Fixed Player (or Focused Player)
- */
+
 BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	cout << "Testing FP Trajectory Optimizer...\n";
@@ -137,9 +138,9 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	delete opt;
 }
 
-/*
+
  * Testing Lazy Player (or Defensive Player)
- */
+
 BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	cout << "Testing LAZY Trajectory Optimizer...\n";
@@ -177,4 +178,4 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	BOOST_TEST(update);
 	delete opt;
-}
+}*/
