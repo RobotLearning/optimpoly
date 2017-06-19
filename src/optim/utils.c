@@ -197,6 +197,20 @@ double inner_prod(const int n, const double *a1, const double *a2) {
 }
 
 /*
+ * Returns the inner product between two vectors of size n
+ */
+adouble inner_prod(const int n, const adouble *a1, const adouble *a2) {
+
+	int i;
+	adouble val = 0.0;
+	for (i = 0; i < n; i++) {
+		val += a1[i]*a2[i];
+	}
+
+	return val;
+}
+
+/*
  * Returns the weighted inner product between two vectors of size given in last argument
  */
 double inner_w_prod(const int size, const double *w, const double *a1, const double *a2) {
@@ -205,6 +219,19 @@ double inner_w_prod(const int size, const double *w, const double *a1, const dou
 	double val = 0.0;
 	for (i = 0; i < size; i++) {
 		val += a1[i]*w[i]*a2[i];
+	}
+	return val;
+}
+
+/*
+ * Returns the weighted inner product between two vectors of size given in last argument
+ */
+adouble inner_winv_prod(const int size, const double *w, const adouble *a1, const adouble *a2) {
+
+	int i;
+	adouble val = 0.0;
+	for (i = 0; i < size; i++) {
+		val += a1[i]*a2[i]/w[i];
 	}
 	return val;
 }

@@ -95,7 +95,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 /*
  * Testing Fixed Player (or Focused Player)
-
+ */
 BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	cout << "Testing FP Trajectory Optimizer...\n";
@@ -127,8 +127,8 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	mat balls_pred = filter.predict_path(DT,N);
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-
-	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub);
+	bool grad_based_opt = false;
+	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub,grad_based_opt);
 	opt->set_des_params(&racket_params);
 	opt->update_init_state(qact);
 	opt->run();
@@ -138,9 +138,9 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	delete opt;
 }
 
-
+/*
  * Testing Lazy Player (or Defensive Player)
-
+ */
 BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	cout << "Testing LAZY Trajectory Optimizer...\n";
@@ -178,4 +178,4 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	BOOST_TEST(update);
 	delete opt;
-}*/
+}

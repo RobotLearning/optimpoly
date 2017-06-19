@@ -36,15 +36,19 @@ void Optim::fix_hitting_time(double time_pred) {
 		T = time_pred;
 }
 
-HittingPlane::HittingPlane(double qrest_[], double lb_[],
-						   double ub_[], bool grad_) : GRAD_BASED_OPT(grad_) {
+HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[], bool grad_) {
 
+	GRAD_BASED_OPT = grad_;
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	// set tolerances equal to second argument
 
 	if (GRAD_BASED_OPT) {
-		opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM);
+		printf("Using Gradient Based Optimizer!\n");
+		opt = nlopt_create(NLOPT_AUGLAG, OPTIM_DIM);
+		nlopt_opt local_opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
+		nlopt_set_xtol_rel(local_opt, 1e-2);
+		nlopt_set_local_optimizer(opt,local_opt);
 		param_des = new optim_des();
 		generate_tape();
 	}
@@ -145,7 +149,7 @@ void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 	}
 }
 
-double HittingPlane::test_soln(const double x[]) {
+double HittingPlane::test_soln(const double x[]) const {
 
 	double x_[2*NDOF+1];
 	for (int i = 0; i < 2*NDOF; i++)
@@ -156,16 +160,8 @@ double HittingPlane::test_soln(const double x[]) {
 	double *grad = 0;
 	double kin_violation[EQ_CONSTR_DIM];
 	double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	bool flag_temp = false;
-	if (GRAD_BASED_OPT) {
-		GRAD_BASED_OPT = false;
-		flag_temp = true;
-	}
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation, 2*NDOF,
 			             x, grad, (void*)this);
-	if (flag_temp)
-		GRAD_BASED_OPT = true;
-
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
 			                 2*NDOF, x_, grad, (void*)this);
 	//double cost = costfunc(OPTIM_DIM, x, grad, coparams);
@@ -234,17 +230,18 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double qf[NDOF];
 
 	HittingPlane * vhp = (HittingPlane*)my_function_data;
-	if (vhp->GRAD_BASED_OPT) {
+
+	if (grad) {
         jacobian(2,m,n,x,vhp->jac);
         int idx = 0;
         for(int i = 0; i < m; i++) {
         	for(int j = 0; j < n; j++) {
         		grad[idx++] = vhp->jac[i][j];
-        		cout << vhp->jac[i][j] << "\t";
+        		//printf("%.2f\t",vhp->jac[i][j]);
         	}
-        	cout << endl;
+        	//printf("\n");
         }
-        cout << endl;
+        //printf("\n");
 	}
 
 	// extract state information from optimization variables

@@ -13,6 +13,9 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
+#include <adolc/adouble.h>            // use of active doubles
+#include <adolc/drivers/drivers.h>    // use of "Easy to Use" drivers
+#include <adolc/taping.h>             // use of taping
 
 // termination
 static bool check_optim_result(const int res);
@@ -23,6 +26,11 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
 static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
+
+// autodiff versions
+static adouble costfunc(unsigned n, const adouble *x, double *grad, void *my_func_params);
+static void kinematics_eq_constr(unsigned m, adouble *result, unsigned n,
+		                  const adouble *x, double *grad, void *my_function_data);
 
 /**
  * @brief Update the initial state of optimization to PLAYER's current joint states.
@@ -179,27 +187,52 @@ void Optim::optim() {
 	running = false;
 }
 
-FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
+FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF], bool grad) {
 
+	GRAD_BASED_OPT = grad;
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	// set tolerances equal to second argument
 
-	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	if (GRAD_BASED_OPT) {
+		printf("Using Gradient Based Optimizer!\n");
+		opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
+		/*nlopt_opt local_opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
+		nlopt_set_xtol_rel(local_opt, 1e-2);
+		nlopt_set_local_optimizer(opt,local_opt);*/
+		param_des = new optim_des();
+		generate_tape();
+	}
+	else {	// LN = does not require gradients //
+		param_des = nullptr;
+		opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	}
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);
 	nlopt_set_min_objective(opt, costfunc, this);
-	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	//nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
+	}
+}
+
+/*
+ * Release auto-diff tape (jacobian double-pointer)
+ */
+FocusedOptim::~FocusedOptim() {
+
+	//nlopt_destroy(opt);
+	if (GRAD_BASED_OPT) {
+		for (int i = 0; i < EQ_CONSTR_DIM; i++)
+		    delete[] jac[i];
+		delete[] jac;
 	}
 }
 
@@ -240,7 +273,7 @@ void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 	}
 }
 
-double FocusedOptim::test_soln(const double x[]) {
+double FocusedOptim::test_soln(const double x[]) const {
 
 	// give info on constraint violation
 	double *grad = 0;
@@ -270,6 +303,47 @@ double FocusedOptim::test_soln(const double x[]) {
 }
 
 /*
+ * Initialize ADOLC operations
+ * Objective has easily computed gradients so no need to auto-diff
+ */
+void FocusedOptim::generate_tape() {
+
+	int n = OPTIM_DIM;
+	int m = EQ_CONSTR_DIM;
+
+	adouble *x_auto = new adouble[n];
+	adouble f_auto = 1;
+	adouble *g_auto = new adouble[m];
+	double *x = new double[n];
+	double dummy;
+	jac = new double*[m];
+	for (int i = 0; i < m; i++)
+		jac[i] = new double[n];
+
+	init_rest_soln(x);
+
+	trace_on(1);
+	for (int i = 0; i < n; i++)
+		x_auto[i] <<= x[i];
+	f_auto = costfunc(n,x_auto,nullptr,this);
+	f_auto >>= dummy;
+	trace_off();
+
+	trace_on(2);
+	for (int i = 0; i < n; i++)
+		x_auto[i] <<= x[i];
+
+	kinematics_eq_constr(m,g_auto,n,x_auto,nullptr,this);
+	for(int i = 0; i < m; i++)
+		g_auto[i] >>= dummy;
+	trace_off();
+
+	delete[] x_auto;
+	delete[] x;
+	delete[] g_auto;
+}
+
+/*
  * Calculates the cost function for table tennis trajectory generation optimization
  * to find spline (3rd order strike+return) polynomials
  */
@@ -278,6 +352,31 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	double a1[NDOF];
 	double a2[NDOF];
 	double T = x[2*NDOF];
+
+	FocusedOptim *opt = (FocusedOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+
+	if (grad) {
+		gradient(1,n,x,grad);
+	}
+
+	// calculate the polynomial coeffs which are used in the cost calculation
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
+
+	return T * (3*T*T*inner_prod(NDOF,a1,a1) +
+			3*T*inner_prod(NDOF,a1,a2) + inner_prod(NDOF,a2,a2));
+}
+
+/*
+ * Calculates the cost function for table tennis trajectory generation optimization
+ * to find spline (3rd order strike+return) polynomials
+ */
+static adouble costfunc(unsigned n, const adouble *x, double *grad, void *my_func_params) {
+
+	adouble a1[NDOF];
+	adouble a2[NDOF];
+	adouble T = x[2*NDOF];
 
 	FocusedOptim *opt = (FocusedOptim*) my_func_params;
 	double *q0 = opt->q0;
@@ -299,11 +398,18 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	static double racket_des_pos[NCART];
 	static double racket_des_vel[NCART];
 	static double racket_des_normal[NCART];
+	static double racket_des_pos_diff[NCART];
+	static double racket_des_vel_diff[NCART];
+	static double racket_des_normal_diff[NCART];
+	static double racket_des_pos_diff_pre[NCART];
+	static double racket_des_vel_diff_pre[NCART];
+	static double racket_des_normal_diff_pre[NCART];
 	static double pos[NCART];
 	static double qfdot[NDOF];
 	static double vel[NCART];
 	static double normal[NCART];
 	static double qf[NDOF];
+	static const double g = -9.8;
 	double T = x[2*NDOF];
 
 	FocusedOptim *opt = (FocusedOptim*) my_function_data;
@@ -311,6 +417,80 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	// interpolate at time T to get the desired racket parameters
 	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
+
+	if (grad) {
+        jacobian(2,m,n,x,opt->jac);
+        int idx = 0;
+        for(int i = 0; i < m; i++) {
+        	for(int j = 0; j < n; j++) {
+        		grad[idx++] = opt->jac[i][j];
+        		//printf("%.2f\t",vhp->jac[i][j]);
+        	}
+        	//printf("\n");
+        }
+        // change the T dependencies!
+        // last column all entries
+        double h = 1e-6;
+        first_order_hold(racket_data,T+h,racket_des_pos_diff,racket_des_vel_diff,racket_des_normal_diff);
+        first_order_hold(racket_data,T-h,racket_des_pos_diff_pre,racket_des_vel_diff_pre,racket_des_normal_diff_pre);
+        grad[(0+X)*n + n-1] = -((racket_des_pos_diff[X] - racket_des_pos_diff_pre[X]) / (2*h));
+        grad[(0+Y)*n + n-1] = -((racket_des_pos_diff[Y] - racket_des_pos_diff_pre[Y]) / (2*h));
+        grad[(0+Z)*n + n-1] = -((racket_des_pos_diff[Z] - racket_des_pos_diff_pre[Z]) / (2*h));
+        grad[(3+X)*n + n-1] = -((racket_des_vel_diff[X] - racket_des_vel_diff_pre[X]) / (2*h));
+        grad[(3+Y)*n + n-1] = -((racket_des_vel_diff[Y] - racket_des_vel_diff_pre[Y]) / (2*h));
+        grad[(3+Z)*n + n-1] = -((racket_des_vel_diff[Z] - racket_des_vel_diff_pre[Z]) / (2*h));
+        grad[(6+X)*n + n-1] = -((racket_des_normal_diff[X] - racket_des_normal_diff_pre[X]) / (2*h));
+        grad[(6+Y)*n + n-1] = -((racket_des_normal_diff[Y] - racket_des_normal_diff_pre[Y]) / (2*h));
+        grad[(6+Z)*n + n-1] = -((racket_des_normal_diff[Z] - racket_des_normal_diff_pre[Z]) / (2*h));
+        idx = 0;
+        for(int i = 0; i < m; i++) {
+        	for(int j = 0; j < n; j++) {
+        		printf("%.2f\t",grad[idx++]);
+        	}
+        	printf("\n");
+        }
+        printf("\n");
+	}
+
+	// extract state information from optimization variables
+	for (int i = 0; i < NDOF; i++) {
+		qf[i] = x[i];
+		qfdot[i] = x[i+NDOF];
+	}
+
+	// compute the actual racket pos,vel and normal
+	calc_racket_state(qf,qfdot,pos,vel,normal);
+
+	// deviations from the desired racket frame
+	for (int i = 0; i < NCART; i++) {
+		result[i] = pos[i] - racket_des_pos[i];
+		result[i + NCART] = vel[i] - racket_des_vel[i];
+		result[i + 2*NCART] = normal[i] - racket_des_normal[i];
+	}
+
+}
+
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m, adouble *result, unsigned n,
+		                  const adouble *x, double *grad, void *my_function_data) {
+
+	static double racket_des_pos[NCART];
+	static double racket_des_vel[NCART];
+	static double racket_des_normal[NCART];
+	static adouble pos[NCART];
+	static adouble qfdot[NDOF];
+	static adouble vel[NCART];
+	static adouble normal[NCART];
+	static adouble qf[NDOF];
+	adouble T = x[2*NDOF];
+
+	FocusedOptim *opt = (FocusedOptim*) my_function_data;
+	optim_des* racket_data(opt->param_des);
+
+	// interpolate at time T to get the desired racket parameters
+	//first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF; i++) {
@@ -430,6 +610,23 @@ void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double 
 
 	for (int i = 0; i < NDOF; i++) {
 		a1[i] = (2/pow(T,3))*(q0[i]-x[i]) + (1/(T*T))*(q0dot[i] + x[i+NDOF]);
+		a2[i] = (3/(T*T))*(x[i]-q0[i]) - (1/T)*(x[i+NDOF] + 2*q0dot[i]);
+	}
+
+	return;
+}
+
+/*
+ * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
+ * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
+ */
+void calc_strike_poly_coeff(const double *q0, const double *q0dot, const adouble *x,
+		                    adouble *a1, adouble *a2) {
+
+	adouble T = x[2*NDOF];
+
+	for (int i = 0; i < NDOF; i++) {
+		a1[i] = (2/(T*T*T))*(q0[i]-x[i]) + (1/(T*T))*(q0dot[i] + x[i+NDOF]);
 		a2[i] = (3/(T*T))*(x[i]-q0[i]) - (1/T)*(x[i+NDOF] + 2*q0dot[i]);
 	}
 

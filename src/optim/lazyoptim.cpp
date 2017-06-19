@@ -38,9 +38,11 @@ static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
 
-LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_)
+LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_, bool grad_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
+	GRAD_BASED_OPT = grad_;
+	param_des = nullptr;
 	const_vec(NDOF,1.0,w.R_strike);
 	w.R_net = 1e2;
 	w.R_hit = 1e2;
@@ -100,13 +102,25 @@ void LazyOptim::set_hit_constr() {
 	const_vec(INEQ_HIT_CONSTR_DIM,1e-2,tol_ineq_hit);
 	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
 
-	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
+	if (GRAD_BASED_OPT) {
+		printf("Using Gradient Based Optimizer!\n");
+		opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
+		/*nlopt_opt local_opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
+		nlopt_set_xtol_rel(local_opt, 1e-2);
+		nlopt_set_local_optimizer(opt,local_opt);*/
+		param_des = new optim_des();
+		generate_tape();
+	}
+	else {	// LN = does not require gradients //
+		param_des = nullptr;
+		opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	}
+
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_HIT_CONSTR_DIM,
 			hit_ineq_constr, this, tol_ineq_hit);
-	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-			joint_limits_ineq_constr, this, tol_ineq_joint);
+	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+	//		joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
 
@@ -204,7 +218,48 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
 
 }
 
-double LazyOptim::test_soln(const double x[]) {
+/*
+ * Initialize ADOLC operations
+ * Objective has easily computed gradients so no need to auto-diff
+ */
+void LazyOptim::generate_tape() {
+
+	int n = OPTIM_DIM;
+	int m = INEQ_HIT_CONSTR_DIM;
+
+	adouble *x_auto = new adouble[n];
+	adouble f_auto = 1;
+	adouble *g_auto = new adouble[m];
+	double *x = new double[n];
+	double dummy;
+	jac = new double*[m];
+	for (int i = 0; i < m; i++)
+		jac[i] = new double[n];
+
+	init_rest_soln(x);
+
+	trace_on(1);
+	for (int i = 0; i < n; i++)
+		x_auto[i] <<= x[i];
+	f_auto = costfunc(n,x_auto,nullptr,this);
+	f_auto >>= dummy;
+	trace_off();
+
+	trace_on(2);
+	for (int i = 0; i < n; i++)
+		x_auto[i] <<= x[i];
+
+	kinematics_eq_constr(m,g_auto,n,x_auto,nullptr,this);
+	for(int i = 0; i < m; i++)
+		g_auto[i] >>= dummy;
+	trace_off();
+
+	delete[] x_auto;
+	delete[] x;
+	delete[] g_auto;
+}
+
+double LazyOptim::test_soln(const double x[]) const {
 
 	double max_viol;
 	// give info on constraint violation
@@ -258,6 +313,41 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	static double J1, Jhit, Jland;
 	static double a1[NDOF], a2[NDOF];
 	double T = x[2*NDOF];
+
+	LazyOptim* opt = (LazyOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	weights w = opt->w;
+
+	// calculate the polynomial coeffs which are used in the cost calculation
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
+
+	// calculate the landing time
+	opt->calc_times(x);
+
+	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
+			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
+			inner_winv_prod(NDOF,w.R_strike,a2,a2));
+
+	Jhit = w.R_hit * opt->dist_b2r_proj;
+
+	if (opt->land)
+		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+
+	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
+
+	return J1 + Jhit + Jland;
+}
+
+/*
+ * Calculates the cost function for table tennis Lazy Player (LP)
+ * to find spline (3rd order strike+return) polynomials
+ */
+static adouble costfunc(unsigned n, const adouble *x, double *grad, void *my_func_params) {
+
+	static adouble J1, Jhit, Jland;
+	static adouble a1[NDOF], a2[NDOF];
+	adouble T = x[2*NDOF];
 
 	LazyOptim* opt = (LazyOptim*) my_func_params;
 	double *q0 = opt->q0;

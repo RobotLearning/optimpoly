@@ -83,17 +83,19 @@ protected:
 	bool running = false;
 	bool detach = false;
 	nlopt_opt opt;
-
 	double qf[NDOF] = {0.0};
 	double qfdot[NDOF] = {0.0};
 	double T = 1.0;
 
 	virtual void init_last_soln(double *x) const = 0;
 	virtual void init_rest_soln(double *x) const = 0;
-	virtual double test_soln(const double *x) = 0;
+	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
+	virtual void generate_tape() = 0;
 	void optim();
 public:
+	bool GRAD_BASED_OPT; // gradient-based optimization
+	double **jac;
 	optim_des* param_des;
 	double lb[NDOF];
 	double ub[NDOF];
@@ -118,15 +120,13 @@ class HittingPlane : public Optim {
 
 protected:
 	static const int OPTIM_DIM = 2*NDOF;
-	void generate_tape();
+	virtual void generate_tape();
 	//virtual bool predict(EKF & filter);
 	virtual void init_last_soln(double x[]) const;
 	virtual void init_rest_soln(double x[]) const;
-	virtual double test_soln(const double x[]);
+	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
-	bool GRAD_BASED_OPT; // gradient-based optimization
-	double **jac;
 	double limit_avg[NDOF];
 	~HittingPlane();
 	HittingPlane(double qrest[], double lb[], double ub[], bool grad = false);
@@ -136,20 +136,23 @@ class FocusedOptim : public Optim {
 
 protected:
 	static const int OPTIM_DIM = 2*NDOF + 1;
+	virtual void generate_tape();
 	//virtual bool predict(EKF & filter);
 	virtual void init_last_soln(double x[]) const;
 	virtual void init_rest_soln(double x[]) const;
-	virtual double test_soln(const double x[]);
+	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
 	FocusedOptim() {}; // for lazy player
-	FocusedOptim(double qrest[], double lb[], double ub[]);
+	~FocusedOptim();
+	FocusedOptim(double qrest[], double lb[], double ub[], bool grad = false);
 };
 
 class LazyOptim : public FocusedOptim {
 
 private:
-	virtual double test_soln(const double x[]);
+	virtual void generate_tape();
+	virtual double test_soln(const double x[]) const;
 	void set_land_constr();
 	void set_hit_constr();
 	virtual void finalize_soln(const double x[], const double time_elapsed);
@@ -165,7 +168,7 @@ public:
 	double dist_b2r_proj = 1.0;
 	void calc_times(const double x[]);
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
-	LazyOptim(double qrest[], double lb[], double ub[], bool land = true);
+	LazyOptim(double qrest[], double lb[], double ub[], bool land = true, bool grad = false);
 };
 
 // functions that all players use
@@ -174,6 +177,8 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 
 void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2);
+void calc_strike_poly_coeff(const double *q0, const double *q0dot, const adouble *x,
+		                    adouble *a1, adouble *a2);
 void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		                    const double *x, const double time2return,
 		                    double *a1, double *a2);

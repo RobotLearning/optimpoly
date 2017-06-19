@@ -13,6 +13,8 @@
 
 #include "stdio.h"
 
+#include <adolc/adouble.h>            // use of active doubles
+
 #define N_MAT_INFO 3
 #define NR       0
 #define NC       1
@@ -50,5 +52,9 @@ void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch);
 
 // io method from SL, one indexed
 int find_keyword(FILE *fp, char *name);
+
+// autodifferentiation versions of inner products
+adouble inner_prod(const int size, const adouble *a1, const adouble *a2);
+adouble inner_winv_prod(const int size, const double *w, const adouble *a1, const adouble *a2);
 
 #endif /* UTILS_H_ */
