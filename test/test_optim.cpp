@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	mat balls_pred = filter.predict_path(DT,N);
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
-	bool grad_based_opt = false;
+	bool grad_based_opt = true;
 	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub,grad_based_opt);
 	opt->set_des_params(&racket_params);
 	opt->update_init_state(qact);
@@ -169,8 +169,9 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	ball_params.ball_pos = balls_pred.rows(X,Z);
 	ball_params.ball_vel = balls_pred.rows(DX,DZ);
 	ball_params.Nmax = N;
-
-	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,false); //only touch the ball if false!
+	bool land = false;
+	bool grad_based_opt = false;
+	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,land,grad_based_opt);
 	opt->set_des_params(&ball_params);
 	opt->update_init_state(qact);
 	opt->run();

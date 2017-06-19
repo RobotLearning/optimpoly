@@ -224,6 +224,8 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
  */
 void LazyOptim::generate_tape() {
 
+	// TODO:
+	/*
 	int n = OPTIM_DIM;
 	int m = INEQ_HIT_CONSTR_DIM;
 
@@ -256,7 +258,7 @@ void LazyOptim::generate_tape() {
 
 	delete[] x_auto;
 	delete[] x;
-	delete[] g_auto;
+	delete[] g_auto;*/
 }
 
 double LazyOptim::test_soln(const double x[]) const {
@@ -313,41 +315,6 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	static double J1, Jhit, Jland;
 	static double a1[NDOF], a2[NDOF];
 	double T = x[2*NDOF];
-
-	LazyOptim* opt = (LazyOptim*) my_func_params;
-	double *q0 = opt->q0;
-	double *q0dot = opt->q0dot;
-	weights w = opt->w;
-
-	// calculate the polynomial coeffs which are used in the cost calculation
-	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-
-	// calculate the landing time
-	opt->calc_times(x);
-
-	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
-			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
-			inner_winv_prod(NDOF,w.R_strike,a2,a2));
-
-	Jhit = w.R_hit * opt->dist_b2r_proj;
-
-	if (opt->land)
-		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
-
-	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
-
-	return J1 + Jhit + Jland;
-}
-
-/*
- * Calculates the cost function for table tennis Lazy Player (LP)
- * to find spline (3rd order strike+return) polynomials
- */
-static adouble costfunc(unsigned n, const adouble *x, double *grad, void *my_func_params) {
-
-	static adouble J1, Jhit, Jland;
-	static adouble a1[NDOF], a2[NDOF];
-	adouble T = x[2*NDOF];
 
 	LazyOptim* opt = (LazyOptim*) my_func_params;
 	double *q0 = opt->q0;

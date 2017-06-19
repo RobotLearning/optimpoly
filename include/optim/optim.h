@@ -19,6 +19,7 @@
 #include <nlopt.h>
 #include "string.h" //for bzero
 #include "constants.h"
+#include <adolc/adouble.h>
 
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;

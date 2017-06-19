@@ -198,10 +198,10 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDO
 
 	if (GRAD_BASED_OPT) {
 		printf("Using Gradient Based Optimizer!\n");
-		opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
-		/*nlopt_opt local_opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
-		nlopt_set_xtol_rel(local_opt, 1e-2);
-		nlopt_set_local_optimizer(opt,local_opt);*/
+		opt = nlopt_create(NLOPT_LD_AUGLAG, OPTIM_DIM);
+		//nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM);
+		//nlopt_set_xtol_rel(local_opt, 1e-2);
+		//nlopt_set_local_optimizer(opt,local_opt);
 		param_des = new optim_des();
 		generate_tape();
 	}
@@ -424,32 +424,26 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
         for(int i = 0; i < m; i++) {
         	for(int j = 0; j < n; j++) {
         		grad[idx++] = opt->jac[i][j];
-        		//printf("%.2f\t",vhp->jac[i][j]);
         	}
-        	//printf("\n");
         }
         // change the T dependencies!
         // last column all entries
         double h = 1e-6;
         first_order_hold(racket_data,T+h,racket_des_pos_diff,racket_des_vel_diff,racket_des_normal_diff);
         first_order_hold(racket_data,T-h,racket_des_pos_diff_pre,racket_des_vel_diff_pre,racket_des_normal_diff_pre);
-        grad[(0+X)*n + n-1] = -((racket_des_pos_diff[X] - racket_des_pos_diff_pre[X]) / (2*h));
-        grad[(0+Y)*n + n-1] = -((racket_des_pos_diff[Y] - racket_des_pos_diff_pre[Y]) / (2*h));
-        grad[(0+Z)*n + n-1] = -((racket_des_pos_diff[Z] - racket_des_pos_diff_pre[Z]) / (2*h));
-        grad[(3+X)*n + n-1] = -((racket_des_vel_diff[X] - racket_des_vel_diff_pre[X]) / (2*h));
-        grad[(3+Y)*n + n-1] = -((racket_des_vel_diff[Y] - racket_des_vel_diff_pre[Y]) / (2*h));
-        grad[(3+Z)*n + n-1] = -((racket_des_vel_diff[Z] - racket_des_vel_diff_pre[Z]) / (2*h));
-        grad[(6+X)*n + n-1] = -((racket_des_normal_diff[X] - racket_des_normal_diff_pre[X]) / (2*h));
-        grad[(6+Y)*n + n-1] = -((racket_des_normal_diff[Y] - racket_des_normal_diff_pre[Y]) / (2*h));
-        grad[(6+Z)*n + n-1] = -((racket_des_normal_diff[Z] - racket_des_normal_diff_pre[Z]) / (2*h));
-        idx = 0;
+        for (int i = 0; i < 3; i++) {
+        	grad[i*n + (n-1)] = -((racket_des_pos_diff[i] - racket_des_pos_diff_pre[i]) / (2*h));
+        	grad[(3+i)*n + (n-1)] = -((racket_des_vel_diff[i] - racket_des_vel_diff_pre[i]) / (2*h));
+        	grad[(6+i)*n + (n-1)] = -((racket_des_normal_diff[i] - racket_des_normal_diff_pre[i]) / (2*h));
+        }
+        /*idx = 0;
         for(int i = 0; i < m; i++) {
         	for(int j = 0; j < n; j++) {
         		printf("%.2f\t",grad[idx++]);
         	}
         	printf("\n");
         }
-        printf("\n");
+        printf("\n");*/
 	}
 
 	// extract state information from optimization variables
