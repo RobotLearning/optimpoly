@@ -526,7 +526,7 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
  */
 optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   optim_des & racket_params) {
+							   optim_des & racket_params, bool grad_opt) {
 
 	//static wall_clock timer;
 	//timer.tic();
@@ -544,6 +544,10 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	racket_params.racket_pos = balls_predicted.rows(X,Z);
 	racket_params.racket_vel = racket_des_vel;
 	racket_params.racket_normal = racket_des_normal;
+
+	if (grad_opt) {
+		racket_params.racket_pos_der = balls_predicted.rows(DX,DZ);
+	}
 
 	//cout << timer.toc() << endl;
 	return racket_params;

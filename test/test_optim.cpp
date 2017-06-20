@@ -126,9 +126,9 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	double time_land_des = 0.8;
 	mat balls_pred = filter.predict_path(DT,N);
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
-	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 	bool grad_based_opt = true;
 	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub,grad_based_opt);
+	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params,grad_based_opt);
 	opt->set_des_params(&racket_params);
 	opt->update_init_state(qact);
 	opt->run();

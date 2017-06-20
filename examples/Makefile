@@ -17,7 +17,7 @@ auto-ipopt: # example for testing IPOPT optimization library + AUTODIFF
 
 auto-nlopt: # example for testing NLOPT + autodiff
 	$(CC) $(TESTFLAGS) ex_auto_nlopt.cpp -o nlopt_autodiff -lnlopt -I$(ADOLCPATH) \
-						-L$(ADOLCLIBDIR) -ladolc	
+						-L$(ADOLCLIBDIR) -ladolc			
 					    
 clean:
 	rm -rf *.a *.o 

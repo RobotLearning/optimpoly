@@ -35,6 +35,9 @@ typedef struct {
 	mat racket_pos = zeros<mat>(NCART,1);
 	mat racket_vel = zeros<mat>(NCART,1);
 	mat racket_normal = zeros<mat>(NCART,1);
+	mat racket_pos_der = zeros<mat>(NCART,1); // derivatives of des rackets to be used in
+	mat racket_vel_der = zeros<mat>(NCART,1); // grad based optim
+	mat racket_normal_der = zeros<mat>(NCART,1);
 	mat ball_pos = zeros<mat>(NCART,1);
 	mat ball_vel = zeros<mat>(NCART,1);
 	double dt = DT;
@@ -144,6 +147,7 @@ protected:
 	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
+	double **jac_ineq = nullptr;
 	FocusedOptim() {}; // for lazy player
 	~FocusedOptim();
 	FocusedOptim(double qrest[], double lb[], double ub[], bool grad = false);
@@ -175,7 +179,8 @@ public:
 // functions that all players use
 void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
-
+void joint_limits_ineq_constr(unsigned m, adouble *result,
+		                      unsigned n, const adouble *x, double *grad, void *data);
 void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
 		                    double *a1, double *a2);
 void calc_strike_poly_coeff(const double *q0, const double *q0dot, const adouble *x,
@@ -183,11 +188,20 @@ void calc_strike_poly_coeff(const double *q0, const double *q0dot, const adouble
 void calc_return_poly_coeff(const double *q0, const double *q0dot,
 		                    const double *x, const double time2return,
 		                    double *a1, double *a2);
+void calc_return_poly_coeff(const double *q0, const double *q0dot,
+		                    const adouble *x, const double time2return,
+		                    adouble *a1, adouble *a2);
 void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
 		                      const double *q0, const double *q0dot,
 							  double *joint_max_cand, double *joint_min_cand);
+void calc_strike_extrema_cand(const adouble *a1, const adouble *a2, const adouble T,
+		                      const double *q0, const double *q0dot,
+							  adouble *joint_max_cand, adouble *joint_min_cand);
 void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
+void calc_return_extrema_cand(const adouble *a1, const adouble *a2,
+		                      const adouble *x, const double time2return,
+							  adouble *joint_max_cand, adouble *joint_min_cand);
 
 #endif /* OPTIMPOLY_H_ */

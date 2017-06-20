@@ -21,7 +21,7 @@ tabletennis:
 	$(CC) $(INSTALLFLAGS) src/player/table_tennis.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libtennis.so
 
 kinematics:
-	$(CC) $(INSTALLFLAGS) src/player/kinematics.cpp $(LIBS) -o $(LIBDIR)/libkin.so
+	$(CC) $(INSTALLFLAGS) src/player/kinematics.cpp $(LIBS) -I$(ADOLCPATH) -o $(LIBDIR)/libkin.so
 
 lookup:
 	$(CC) $(INSTALLFLAGS) src/player/lookup.cpp $(LIBS) -o $(LIBDIR)/liblookup.so
@@ -33,7 +33,7 @@ player:
 	$(CC) $(INSTALLFLAGS) src/player/player.cpp $(LIBS) -o $(LIBDIR)/libplayer.so -I$(ADOLCPATH)
 
 interface:
-	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libinterface.so
+	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -I$(ADOLCPATH) -lboost_program_options -o $(LIBDIR)/libinterface.so
 
 optim:
 	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \

@@ -24,7 +24,7 @@ static bool check_optim_result(const int res);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[2*NCART],
 		               double racket_vel[NCART], double racket_n[NCART]);
 
 // autodiff versions
@@ -198,10 +198,10 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDO
 
 	if (GRAD_BASED_OPT) {
 		printf("Using Gradient Based Optimizer!\n");
-		opt = nlopt_create(NLOPT_LD_AUGLAG, OPTIM_DIM);
-		//nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM);
-		//nlopt_set_xtol_rel(local_opt, 1e-2);
-		//nlopt_set_local_optimizer(opt,local_opt);
+		opt = nlopt_create(NLOPT_AUGLAG, OPTIM_DIM);
+		nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, OPTIM_DIM);
+		nlopt_set_xtol_rel(local_opt, 1e-2);
+		nlopt_set_local_optimizer(opt,local_opt);
 		param_des = new optim_des();
 		generate_tape();
 	}
@@ -213,7 +213,7 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDO
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);
 	nlopt_set_min_objective(opt, costfunc, this);
-	//nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
@@ -232,7 +232,10 @@ FocusedOptim::~FocusedOptim() {
 	if (GRAD_BASED_OPT) {
 		for (int i = 0; i < EQ_CONSTR_DIM; i++)
 		    delete[] jac[i];
+		for (int i = 0; i < INEQ_CONSTR_DIM; i++)
+		    delete[] jac_ineq[i];
 		delete[] jac;
+		delete[] jac_ineq;
 	}
 }
 
@@ -308,17 +311,23 @@ double FocusedOptim::test_soln(const double x[]) const {
  */
 void FocusedOptim::generate_tape() {
 
+	double init_time = get_time();
 	int n = OPTIM_DIM;
 	int m = EQ_CONSTR_DIM;
+	int k = INEQ_CONSTR_DIM;
 
 	adouble *x_auto = new adouble[n];
 	adouble f_auto = 1;
-	adouble *g_auto = new adouble[m];
+	adouble *g_auto_eq = new adouble[m];
+	adouble *g_auto_ineq = new adouble[k];
 	double *x = new double[n];
 	double dummy;
 	jac = new double*[m];
 	for (int i = 0; i < m; i++)
 		jac[i] = new double[n];
+	jac_ineq = new double*[k];
+	for (int i = 0; i < k; i++)
+		jac_ineq[i] = new double[n];
 
 	init_rest_soln(x);
 
@@ -332,15 +341,25 @@ void FocusedOptim::generate_tape() {
 	trace_on(2);
 	for (int i = 0; i < n; i++)
 		x_auto[i] <<= x[i];
-
-	kinematics_eq_constr(m,g_auto,n,x_auto,nullptr,this);
+	kinematics_eq_constr(m,g_auto_eq,n,x_auto,nullptr,this);
 	for(int i = 0; i < m; i++)
-		g_auto[i] >>= dummy;
+		g_auto_eq[i] >>= dummy;
+	trace_off();
+
+	trace_on(3);
+	for (int i = 0; i < n; i++)
+		x_auto[i] <<= x[i];
+	joint_limits_ineq_constr(k,g_auto_ineq,n,x_auto,nullptr,this);
+	for(int i = 0; i < k; i++)
+		g_auto_ineq[i] >>= dummy;
 	trace_off();
 
 	delete[] x_auto;
 	delete[] x;
-	delete[] g_auto;
+	delete[] g_auto_eq;
+	delete[] g_auto_ineq;
+	double past_time = (get_time() - init_time)/1e3;
+	printf("Generating autodiff tape with ADOLC took %f ms\n", past_time);
 }
 
 /*
@@ -395,13 +414,13 @@ static adouble costfunc(unsigned n, const adouble *x, double *grad, void *my_fun
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data) {
 
-	static double racket_des_pos[NCART];
+	static double racket_des_pos[2*NCART];
 	static double racket_des_vel[NCART];
 	static double racket_des_normal[NCART];
-	static double racket_des_pos_diff[NCART];
+	static double racket_des_pos_diff[2*NCART];
 	static double racket_des_vel_diff[NCART];
 	static double racket_des_normal_diff[NCART];
-	static double racket_des_pos_diff_pre[NCART];
+	static double racket_des_pos_diff_pre[2*NCART];
 	static double racket_des_vel_diff_pre[NCART];
 	static double racket_des_normal_diff_pre[NCART];
 	static double pos[NCART];
@@ -432,7 +451,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
         first_order_hold(racket_data,T+h,racket_des_pos_diff,racket_des_vel_diff,racket_des_normal_diff);
         first_order_hold(racket_data,T-h,racket_des_pos_diff_pre,racket_des_vel_diff_pre,racket_des_normal_diff_pre);
         for (int i = 0; i < 3; i++) {
-        	grad[i*n + (n-1)] = -((racket_des_pos_diff[i] - racket_des_pos_diff_pre[i]) / (2*h));
+        	grad[i*n + (n-1)] = -((racket_des_pos_diff[i] - racket_des_pos_diff_pre[i]) / (2*h));//-racket_des_pos[i+NCART];
         	grad[(3+i)*n + (n-1)] = -((racket_des_vel_diff[i] - racket_des_vel_diff_pre[i]) / (2*h));
         	grad[(6+i)*n + (n-1)] = -((racket_des_normal_diff[i] - racket_des_normal_diff_pre[i]) / (2*h));
         }
@@ -442,8 +461,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
         		printf("%.2f\t",grad[idx++]);
         	}
         	printf("\n");
-        }
-        printf("\n");*/
+        }*/
 	}
 
 	// extract state information from optimization variables
@@ -512,7 +530,7 @@ static void kinematics_eq_constr(unsigned m, adouble *result, unsigned n,
  * relevant racket entries
  *
  */
-static void first_order_hold(const optim_des * data, const double T, double racket_pos[NCART],
+static void first_order_hold(const optim_des * data, const double T, double racket_pos[2*NCART],
 		               double racket_vel[NCART], double racket_n[NCART]) {
 
 	double deltat = data->dt;
@@ -524,13 +542,16 @@ static void first_order_hold(const optim_des * data, const double T, double rack
 			racket_vel[i] = data->racket_vel(i,0);
 			racket_n[i] = data->racket_normal(i,0);
 		}
+		for(int i = 0; i < NCART; i++) {
+			racket_pos[i+NCART] = data->racket_pos_der(i,0);
+		}
 	}
 	else {
 		int N = (int) (T/deltat);
 		double Tdiff = T - N*deltat;
 		int Nmax = data->Nmax;
 
-		for (int i = 0; i < NCART; i++) {
+		for (int i = 0; i < NCART; i++) { // interpolate pos,vel and normals
 			if (N < Nmax - 1) {
 				racket_pos[i] = data->racket_pos(i,N) +
 						(Tdiff/deltat) * (data->racket_pos(i,N+1) - data->racket_pos(i,N));
@@ -543,6 +564,15 @@ static void first_order_hold(const optim_des * data, const double T, double rack
 				racket_pos[i] = data->racket_pos(i,Nmax-1);
 				racket_vel[i] = data->racket_vel(i,Nmax-1);
 				racket_n[i] = data->racket_normal(i,Nmax-1);
+			}
+		}
+		for (int i = 0; i < NCART; i++) { // calculate the derivatives
+			if (N < Nmax - 1) {
+				racket_pos[i+NCART] = data->racket_pos_der(i,N) +
+						(Tdiff/deltat) * (data->racket_pos_der(i,N+1) - data->racket_pos_der(i,N));
+			}
+			else {
+				racket_pos[i+NCART] = data->racket_pos_der(i,Nmax-1);
 			}
 		}
 	}
@@ -565,6 +595,61 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	static double joint_strike_min_cand[NDOF];
 	static double joint_return_max_cand[NDOF];
 	static double joint_return_min_cand[NDOF];
+
+	FocusedOptim *opt = (FocusedOptim*) my_func_params;
+	double *q0 = opt->q0;
+	double *q0dot = opt->q0dot;
+	double *qrest = opt->qrest;
+	double *ub = opt->ub;
+	double *lb = opt->lb;
+	double Tret = opt->time2return;
+
+	if (grad) {
+        jacobian(3,m,n,x,opt->jac_ineq);
+        int idx = 0;
+        for(int i = 0; i < m; i++) {
+        	for(int j = 0; j < n; j++) {
+        		grad[idx++] = opt->jac_ineq[i][j];
+        	}
+        }
+	}
+
+	// calculate the polynomial coeffs which are used for checking joint limits
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
+	calc_return_poly_coeff(qrest,qdot_rest,x,Tret,a1ret,a2ret);
+	// calculate the candidate extrema both for strike and return
+	calc_strike_extrema_cand(a1,a2,x[2*NDOF],q0,q0dot,
+			joint_strike_max_cand,joint_strike_min_cand);
+	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
+
+	/* deviations from joint min and max */
+	for (int i = 0; i < NDOF; i++) {
+		result[i] = joint_strike_max_cand[i] - ub[i];
+		result[i+NDOF] = lb[i] - joint_strike_min_cand[i];
+		result[i+2*NDOF] = joint_return_max_cand[i] - ub[i];
+		result[i+3*NDOF] = lb[i] - joint_return_min_cand[i];
+		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
+	}
+
+}
+
+/*
+ * This is the inequality constraint that makes sure we never exceed the
+ * joint limits during the striking and returning motion
+ *
+ */
+void joint_limits_ineq_constr(unsigned m, adouble *result,
+		unsigned n, const adouble *x, double *grad, void *my_func_params) {
+
+	static adouble a1[NDOF];
+	static adouble a2[NDOF];
+	static adouble a1ret[NDOF]; // coefficients for the returning polynomials
+	static adouble a2ret[NDOF];
+	static double qdot_rest[NDOF];
+	static adouble joint_strike_max_cand[NDOF];
+	static adouble joint_strike_min_cand[NDOF];
+	static adouble joint_return_max_cand[NDOF];
+	static adouble joint_return_min_cand[NDOF];
 
 	FocusedOptim *opt = (FocusedOptim*) my_func_params;
 	double *q0 = opt->q0;
@@ -644,6 +729,22 @@ void calc_return_poly_coeff(const double *q0, const double *q0dot,
 }
 
 /*
+ * Calculate the returning polynomial coefficients from the optimized variables qf,qfdot
+ * and time to return constant Tret
+ * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
+ */
+void calc_return_poly_coeff(const double *q0, const double *q0dot,
+		                    const adouble *x, const double Tret,
+		                    adouble *a1, adouble *a2) {
+
+	for (int i = 0; i < NDOF; i++) {
+		a1[i] = (2/(Tret*Tret*Tret))*(x[i]-q0[i]) + (1/(Tret*Tret))*(q0dot[i] + x[i+NDOF]);
+		a2[i] = (3/(Tret*Tret))*(q0[i]-x[i]) - (1/Tret)*(2*x[i+NDOF] + q0dot[i]);
+	}
+
+}
+
+/*
  * Calculate the extrema candidates for each joint (2*7 candidates in total)
  * For the striking polynomial
  * Clamp to [0,T]
@@ -667,6 +768,28 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 
 /*
  * Calculate the extrema candidates for each joint (2*7 candidates in total)
+ * For the striking polynomial
+ * Clamp to [0,T]
+ *
+ */
+void calc_strike_extrema_cand(const adouble *a1, const adouble *a2, const adouble T,
+		                      const double *q0, const double *q0dot,
+		                      adouble *joint_max_cand, adouble *joint_min_cand) {
+
+	static adouble cand1, cand2;
+
+	for (int i = 0; i < NDOF; i++) {
+		cand1 = fmin(T,fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot[i]))/(3*a1[i])));
+		cand2 =  fmin(T,fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot[i]))/(3*a1[i])));
+		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + q0dot[i]*cand1 + q0[i];
+		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + q0dot[i]*cand2 + q0[i];
+		joint_max_cand[i] = fmax(cand1,cand2);
+		joint_min_cand[i] = fmin(cand1,cand2);
+	}
+}
+
+/*
+ * Calculate the extrema candidates for each joint (2*7 candidates in total)
  * For the return polynomial
  * Clamp to [0,TIME2RETURN]
  *
@@ -676,6 +799,28 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
 	static double cand1, cand2;
+
+	for (int i = 0; i < NDOF; i++) {
+		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF]))/(3*a1[i])));
+		cand2 =  fmin(Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF]))/(3*a1[i])));
+		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + x[i+NDOF]*cand1 + x[i];
+		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + x[i+NDOF]*cand2 + x[i];
+		joint_max_cand[i] = fmax(cand1,cand2);
+		joint_min_cand[i] = fmin(cand1,cand2);
+	}
+}
+
+/*
+ * Calculate the extrema candidates for each joint (2*7 candidates in total)
+ * For the return polynomial
+ * Clamp to [0,TIME2RETURN]
+ *
+ */
+void calc_return_extrema_cand(const adouble *a1, const adouble *a2,
+		                      const adouble *x, const double Tret,
+		                      adouble *joint_max_cand, adouble *joint_min_cand) {
+
+	static adouble cand1, cand2;
 
 	for (int i = 0; i < NDOF; i++) {
 		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF]))/(3*a1[i])));

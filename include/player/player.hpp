@@ -139,7 +139,7 @@ bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_
 		                   EKF & filter, game & game_state);
 optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
-							   optim_des & racket_params);
+							   optim_des & racket_params, bool grad_opt = false);
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
 
