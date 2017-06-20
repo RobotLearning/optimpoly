@@ -72,19 +72,24 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
  */
 void LazyOptim::set_land_constr() {
 
+	double max_opt_time = 0.03;
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
 	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
 
 	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
+	opt = nlopt_create(NLOPT_AUGLAG, 2*NDOF+1);
+	nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, 2*NDOF+1);
+	nlopt_set_xtol_rel(local_opt, 1e-2);
+	nlopt_set_local_optimizer(opt, local_opt);
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
 			land_ineq_constr, this, tol_ineq_land);
-	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-			joint_limits_ineq_constr, this, tol_ineq_joint);
+	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+	//		joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_maxtime(opt, max_opt_time);
 }
 
 /**
@@ -101,12 +106,12 @@ void LazyOptim::set_hit_constr() {
 	const_vec(INEQ_JOINT_CONSTR_DIM,1e-3,tol_ineq_joint);
 
 	// LN = does not require gradients //
-	opt = nlopt_create(NLOPT_LN_COBYLA, 2*NDOF+1);
+	opt = nlopt_create(NLOPT_LD_SLSQP, 2*NDOF+1);
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_HIT_CONSTR_DIM,
 			hit_ineq_constr, this, tol_ineq_hit);
-	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-			joint_limits_ineq_constr, this, tol_ineq_joint);
+	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+	//		joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
 
@@ -264,6 +269,22 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	double *q0dot = opt->q0dot;
 	weights w = opt->w;
 
+	if (grad) {
+		static double h = 1e-6;
+		static double val_plus, val_minus;
+		static double xx[2*NDOF+1];
+		for (int i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (int i = 0; i < n; i++) {
+			xx[i] += h;
+			val_plus = costfunc(n, xx, NULL, my_func_params);
+			xx[i] -= 2*h;
+			val_minus = costfunc(n, xx, NULL, my_func_params);
+			grad[i] = (val_plus - val_minus) / (2*h);
+			xx[i] += h;
+		}
+	}
+
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
 
@@ -317,6 +338,23 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	LazyOptim* opt = (LazyOptim*)my_func_params;
 	opt->calc_times(x);
 
+	if (grad) {
+		static double h = 1e-6;
+		static double res_plus[INEQ_LAND_CONSTR_DIM], res_minus[INEQ_LAND_CONSTR_DIM];
+		static double xx[2*NDOF+1];
+		for (int i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (int i = 0; i < n; i++) {
+			xx[i] += h;
+			land_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
+			xx[i] -= 2*h;
+			land_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
+			xx[i] += h;
+			for (int j = 0; j < m; j++)
+				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
+		}
+	}
+
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
 	result[2] = opt->dist_b2r_proj - racket_radius;
@@ -352,6 +390,23 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
 	calc_racket_state(qf, qfdot, pos, vel, normal);
 	// calculate deviation of ball to racket - hitting constraints
 	opt->calc_hit_distance(ballpos,pos,normal);
+
+	if (grad) {
+		static double h = 1e-6;
+		static double res_plus[INEQ_HIT_CONSTR_DIM], res_minus[INEQ_HIT_CONSTR_DIM];
+		static double xx[2*NDOF+1];
+		for (int i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (int i = 0; i < n; i++) {
+			xx[i] += h;
+			hit_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
+			xx[i] -= 2*h;
+			hit_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
+			xx[i] += h;
+			for (int j = 0; j < m; j++)
+				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
+		}
+	}
 
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;

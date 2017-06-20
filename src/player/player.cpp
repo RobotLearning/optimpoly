@@ -277,7 +277,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 			optim_vhp_param(qact);
 			break;
 		case LAZY:
-			optim_lazy_param(qact);
+			//optim_lazy_param(qact);
 			break;
 		default:
 			throw ("Algorithm is not recognized!\n");
@@ -358,12 +358,12 @@ void Player::optim_lazy_param(const joint & qact) {
 		predict_ball(2.0,balls_pred,filter);
 		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			//calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
-			pred_params.ball_pos = balls_pred.rows(X,Z);
-			pred_params.ball_vel = balls_pred.rows(DX,DZ);
-			pred_params.Nmax = balls_pred.n_cols;
-			opt->set_des_params(&pred_params);
-			opt->update_init_state(qact);
-			opt->run();
+			//pred_params.ball_pos = balls_pred.rows(X,Z);
+			//pred_params.ball_vel = balls_pred.rows(DX,DZ);
+			//pred_params.Nmax = balls_pred.n_cols;
+			//opt->set_des_params(&pred_params);
+			//opt->update_init_state(qact);
+			//opt->run();
 		}
 	}
 }
