@@ -65,7 +65,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 2;
+	flags.verbosity = 1;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
@@ -121,7 +121,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
-	flags.verbosity = 2;
+	flags.verbosity = 1;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -131,8 +131,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
 		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-		//robot.play(qact, obs, qdes);
-		robot.cheat(qact, tt.get_ball_state(), qdes);
+		robot.play(qact, obs, qdes);
+		//robot.cheat(qact, tt.get_ball_state(), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;

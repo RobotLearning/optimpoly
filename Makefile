@@ -43,7 +43,7 @@ optim:
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(TESTFLAGS) test/test_optim.cpp -o unit_tests.o \
+	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp -o unit_tests.o \
 	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a -I$(HEADER1) -I$(HEADER2) \
 	                   $(LIBDIR)/liblookup.so $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so -lnlopt
