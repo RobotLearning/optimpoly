@@ -162,6 +162,7 @@ void Optim::optim() {
 		if (verbose)
 			printf("NLOPT failed with exit code %d!\n", res);
 	    past_time = (get_time() - init_time)/1e3;
+	    printf("NLOPT took %f ms\n", past_time);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
@@ -178,7 +179,7 @@ void Optim::optim() {
 	running = false;
 }
 
-FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDOF]) {
+FocusedOptim::FocusedOptim(double qrest_[], double lb_[], double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
@@ -197,6 +198,8 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[NDOF], double ub_[NDO
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
+	}
+	for (int i = 0; i < OPTIM_DIM; i++) {
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
 	}
@@ -398,6 +401,23 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	double *ub = opt->ub;
 	double *lb = opt->lb;
 	double Tret = opt->time2return;
+
+	if (grad) {
+		static double h = 1e-6;
+		static double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
+		static double xx[2*NDOF+1];
+		for (int i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (int i = 0; i < n; i++) {
+			xx[i] += h;
+			joint_limits_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
+			xx[i] -= 2*h;
+			joint_limits_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
+			xx[i] += h;
+			for (int j = 0; j < m; j++)
+				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
+		}
+	}
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);

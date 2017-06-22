@@ -48,6 +48,8 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
+	}
+	for (int i = 0; i < OPTIM_DIM; i++) {
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
 	}
@@ -72,7 +74,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
  */
 void LazyOptim::set_land_constr() {
 
-	double max_opt_time = 0.03;
+	//double max_opt_time = 0.03;
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -80,16 +82,21 @@ void LazyOptim::set_land_constr() {
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_AUGLAG, 2*NDOF+1);
-	nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, 2*NDOF+1);
+	nlopt_opt local_opt = nlopt_create(NLOPT_LD_VAR2, 2*NDOF+1);
 	nlopt_set_xtol_rel(local_opt, 1e-2);
+	nlopt_set_lower_bounds(local_opt, lb);
+	nlopt_set_upper_bounds(local_opt, ub);
+	//nlopt_set_vector_storage(local_opt, 20);
 	nlopt_set_local_optimizer(opt, local_opt);
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
 			land_ineq_constr, this, tol_ineq_land);
 	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
 	//		joint_limits_ineq_constr, this, tol_ineq_joint);
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_maxtime(opt, max_opt_time);
+	//nlopt_set_maxtime(opt, max_opt_time);
 }
 
 /**
@@ -112,6 +119,8 @@ void LazyOptim::set_hit_constr() {
 			hit_ineq_constr, this, tol_ineq_hit);
 	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
 	//		joint_limits_ineq_constr, this, tol_ineq_joint);
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
 

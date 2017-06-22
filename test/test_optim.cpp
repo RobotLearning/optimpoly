@@ -55,8 +55,8 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	arma_rng::set_seed(2);
-	//arma_rng::set_seed_random();
+	//arma_rng::set_seed(2);
+	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);

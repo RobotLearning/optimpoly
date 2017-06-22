@@ -65,7 +65,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 1;
+	flags.verbosity = 2;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
@@ -112,8 +112,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(false,true);
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(5);
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,0); // init ball on the centre
 	double std_obs = 0.000; // std of the noisy observations
 	joint qact;
@@ -131,8 +131,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
 		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-		robot.play(qact, obs, qdes);
-		//robot.cheat(qact, tt.get_ball_state(), qdes);
+		//robot.play(qact, obs, qdes);
+		robot.cheat(qact, tt.get_ball_state(), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;

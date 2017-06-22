@@ -95,8 +95,8 @@ protected:
 	void optim();
 public:
 	optim_des *param_des;
-	double lb[NDOF];
-	double ub[NDOF];
+	double lb[2*NDOF+1];
+	double ub[2*NDOF+1];
 	double qrest[NDOF] = {0.0};
 	double q0[NDOF] = {0.0};
 	double q0dot[NDOF] = {0.0};
