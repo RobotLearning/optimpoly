@@ -23,6 +23,7 @@
 #include "tabletennis.h"
 
 using namespace arma;
+int randval;
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -55,8 +56,9 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	//arma_rng::set_seed(2);
 	arma_rng::set_seed_random();
+	randval = (randi(1).at(0));
+	arma_rng::set_seed(randval);
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -106,7 +108,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	arma_rng::set_seed(2);
+	arma_rng::set_seed(randval);
 	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
@@ -151,8 +153,8 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	//arma_rng::set_seed(3);
-	arma_rng::set_seed_random();
+	arma_rng::set_seed(randval);
+	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);

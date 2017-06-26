@@ -13,6 +13,7 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
+#include "lookup.h"
 
 // termination
 static bool check_optim_result(const int res);
@@ -128,6 +129,24 @@ void Optim::set_des_params(optim_des *params_) {
 	param_des = params_;
 }
 
+/** @brief Initialize optimization parameters using a lookup table.
+ *
+ * Call this function AFTER setting desired BALL parameters.
+ */
+void Optim::init_lookup_soln(double *x) {
+
+	vec::fixed<15> robot_params;;
+	vec6 ball_params;
+	for (int i = 0; i < NCART; i++) {
+		ball_params(i) = param_des->ball_pos(i,0);
+		ball_params(i+NCART) = param_des->ball_vel(i,0);
+	}
+	knn(lookup_table,ball_params,5,robot_params);
+	for (int i = 0; i < OPTIM_DIM; i++) {
+		x[i] = robot_params(i);
+	}
+}
+
 void Optim::run() {
 
 	std::thread t = std::thread(&Optim::optim,this);
@@ -150,7 +169,14 @@ void Optim::optim() {
 		init_last_soln(x);
 	}
 	else {
-		init_rest_soln(x);
+		if (lookup) {
+			init_lookup_soln(x);
+			//for (int i = 0; i < OPTIM_DIM; i++)
+			//	printf("x[%d] = %f\n", i, x[i]);
+		}
+		else {
+			init_rest_soln(x);
+		}
 	}
 
 	double init_time = get_time();
@@ -406,15 +432,15 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 		static double h = 1e-6;
 		static double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
 		static double xx[2*NDOF+1];
-		for (int i = 0; i < n; i++)
+		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
-		for (int i = 0; i < n; i++) {
+		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
 			joint_limits_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
 			xx[i] -= 2*h;
 			joint_limits_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
 			xx[i] += h;
-			for (int j = 0; j < m; j++)
+			for (unsigned j = 0; j < m; j++)
 				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
 		}
 	}

@@ -76,18 +76,21 @@ typedef struct {
 class Optim {
 
 protected:
-	static const int OPTIM_DIM = 2*NDOF;
+	static const int OPTIM_DIM = 2*NDOF + 1;
+	bool lookup = false;
 	bool verbose = true;
 	bool moving = false;
 	bool update = false;
 	bool running = false;
 	bool detach = false;
+	mat lookup_table;
 	nlopt_opt opt;
 
 	double qf[NDOF] = {0.0};
 	double qfdot[NDOF] = {0.0};
 	double T = 1.0;
 
+	void init_lookup_soln(double *x);
 	virtual void init_last_soln(double *x) const = 0;
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
@@ -161,7 +164,7 @@ public:
 	double dist_b2r_proj = 1.0;
 	void calc_times(const double x[]);
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
-	LazyOptim(double qrest[], double lb[], double ub[], bool land = true);
+	LazyOptim(double qrest[], double lb[], double ub[], bool land = true, bool lookup = false);
 };
 
 // functions that all players use

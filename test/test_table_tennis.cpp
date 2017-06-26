@@ -33,7 +33,7 @@
 
 using namespace arma;
 namespace data = boost::unit_test::data;
-algo algs[] = {LAZY};
+algo algs[] = {LAZY, FOCUS, VHP};
 void init_posture(vec7 & q0, int posture);
 
 /*
@@ -49,23 +49,23 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
-	int num_trials = 1;
+	int num_trials = 30;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
-	arma_rng::set_seed_random();
-	//arma_rng::set_seed(0);
-	double std_noise = 0.001;
+	//arma_rng::set_seed_random();
+	arma_rng::set_seed(0);
+	double std_noise = 0.0001;
 	double std_model = 0.3;
 	joint qact;
-	init_posture(qact.q,2);
+	init_posture(qact.q,1);
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
 	player_flags flags;
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 2;
+	flags.verbosity = 0;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes = qact;
@@ -74,7 +74,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
 		tt.reset_stats();
-		tt.set_ball_gun(0.05,1);
+		tt.set_ball_gun(0.05,2);
 		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
@@ -121,7 +121,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
-	flags.verbosity = 1;
+	flags.verbosity = 2;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;

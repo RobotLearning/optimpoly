@@ -17,6 +17,7 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
+#include "lookup.h"
 
 #define INEQ_HIT_CONSTR_DIM 3
 #define INEQ_LAND_CONSTR_DIM 8 //11
@@ -38,12 +39,14 @@ static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
 
-LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_)
+LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_, bool lookup_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
+	lookup = lookup_;
+	load_lookup_table(lookup_table);
 	const_vec(NDOF,1.0,w.R_strike);
 	w.R_net = 1e2;
-	w.R_hit = 1e2;
+	w.R_hit = 1e5;
 	w.R_land = 1e2;
 
 	for (int i = 0; i < NDOF; i++) {
@@ -91,8 +94,8 @@ void LazyOptim::set_land_constr() {
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_LAND_CONSTR_DIM,
 			land_ineq_constr, this, tol_ineq_land);
-	//nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
-	//		joint_limits_ineq_constr, this, tol_ineq_joint);
+	nlopt_add_inequality_mconstraint(opt, INEQ_JOINT_CONSTR_DIM,
+			joint_limits_ineq_constr, this, tol_ineq_joint);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
@@ -282,9 +285,9 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 		static double h = 1e-6;
 		static double val_plus, val_minus;
 		static double xx[2*NDOF+1];
-		for (int i = 0; i < n; i++)
+		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
-		for (int i = 0; i < n; i++) {
+		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
 			val_plus = costfunc(n, xx, NULL, my_func_params);
 			xx[i] -= 2*h;
@@ -304,7 +307,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
 
-	Jhit = w.R_hit * opt->dist_b2r_proj;
+	Jhit = w.R_hit * opt->dist_b2r_proj * opt->dist_b2r_proj;
 
 	if (opt->land)
 		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
@@ -326,8 +329,10 @@ static double punish_land_robot(const double *xland,
 	// desired landing locations
 	static double x_des_net = 0.0;
 	static double z_des_net = floor_level - table_height + net_height + 1.0;
+	static double y_des_land = dist_to_table - (3*table_length/4.0);
 
-	return sqr(xnet[Z] - z_des_net)*Rnet + sqr(xnet[X] - x_des_net)*Rnet;
+	return sqr(xnet[Z] - z_des_net)*Rnet + sqr(xnet[X] - x_des_net)*Rnet +
+			sqr(xland[X])*Rland + sqr(xland[Y] - y_des_land)*Rland;
 
 }
 
@@ -339,9 +344,9 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 		                     void *my_func_params) {
 
 	static double table_xmax = table_width/2.0;
-	static double table_ymax = dist_to_table - table_length;
+	//static double table_ymax = dist_to_table - table_length;
 	static double wall_z = 1.0;
-	static double net_y = dist_to_table - table_length/2.0;
+	//static double net_y = dist_to_table - table_length/2.0;
 	static double net_z = floor_level - table_height + net_height;
 
 	LazyOptim* opt = (LazyOptim*)my_func_params;
@@ -351,15 +356,15 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 		static double h = 1e-6;
 		static double res_plus[INEQ_LAND_CONSTR_DIM], res_minus[INEQ_LAND_CONSTR_DIM];
 		static double xx[2*NDOF+1];
-		for (int i = 0; i < n; i++)
+		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
-		for (int i = 0; i < n; i++) {
+		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
 			land_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
 			xx[i] -= 2*h;
 			land_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
 			xx[i] += h;
-			for (int j = 0; j < m; j++)
+			for (unsigned j = 0; j < m; j++)
 				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
 		}
 	}
@@ -391,7 +396,7 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
 
 	LazyOptim* opt = (LazyOptim*)my_func_params;
 
-	for (int i = 0; i < NDOF; i++) {
+	for (unsigned i = 0; i < NDOF; i++) {
 		qf[i] = x[i];
 		qfdot[i] = x[i + NDOF];
 	}
@@ -404,15 +409,15 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
 		static double h = 1e-6;
 		static double res_plus[INEQ_HIT_CONSTR_DIM], res_minus[INEQ_HIT_CONSTR_DIM];
 		static double xx[2*NDOF+1];
-		for (int i = 0; i < n; i++)
+		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
-		for (int i = 0; i < n; i++) {
+		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
 			hit_ineq_constr(m, res_plus, n, xx, NULL, my_func_params);
 			xx[i] -= 2*h;
 			hit_ineq_constr(m, res_minus, n, xx, NULL, my_func_params);
 			xx[i] += h;
-			for (int j = 0; j < m; j++)
+			for (unsigned j = 0; j < m; j++)
 				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
 		}
 	}
@@ -479,7 +484,7 @@ static void interp_ball(const optim_des *data, const double T, double *ballpos, 
 		}
 	}
 	else {
-		const int Nmax = data->Nmax;
+		const unsigned Nmax = data->Nmax;
 		unsigned N = (int) (T/dt);
 		double Tdiff = T - N*dt;
 		for (int i = 0; i < NCART; i++) {

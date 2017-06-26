@@ -18,6 +18,6 @@ using namespace arma;
 
 void load_lookup_table(mat & lookup);
 void lookup_random_entry(vec & coparams, vec & params);
-void knn(const mat & lookupt, const vec6 & ballstate, vec::fixed<15> & params, int k);
+void knn(const mat & lookupt, const vec & ballstate, const int k, vec & params);
 
 #endif /* PLAYER_INCLUDE_LOOKUP_H_ */

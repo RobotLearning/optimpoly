@@ -61,36 +61,36 @@ void lookup_random_entry(vec & coparams, vec & params) {
  * and lookup the corresponding qf,qfdot,T values
  * and average them.
  *
- * @param lookupt
- * @param datapoint Ball position and velocity estimates
- * @param val Optimization parameters to be loaded
+ * @param lookupt Training set with each row = [coparams,params]
+ * @param testpoint Test time co-parameters
+ * @param val Test parameters to be loaded
  * @param k Value of the K-nearest-neighbor
  *
  * TODO: hasnt been checked for correctness for k > 1!
  *
  */
-void knn(const mat & lookupt, const vec & datapoint, vec & val, int k) {
+void knn(const mat & lookupt, const vec & testpoint, const int k, vec & val) {
 
 	// find the closest entry
-	static int datalength = datapoint.n_cols;
+	static int coparam_length = testpoint.n_rows;
 	static bool firsttime = true;
-	static vec dots;
-	static mat A;
+	static vec dots = zeros<vec>(lookupt.n_rows);
+	static mat A = zeros<mat>(lookupt.n_rows,coparam_length);
 
 	if (firsttime) {
 		firsttime = false;
-		A = lookupt.cols(span(X,DZ));
+		A = lookupt.cols(span(0,coparam_length-1));
 		for (unsigned i = 0; i < A.n_rows; i++) {
 			dots(i) = dot(A.row(i), A.row(i));
 		}
 	}
 
-	uvec idx = sort_index(dots - 2*A.t()*datapoint, "descend");
+	uvec idx = sort_index(dots - 2*A*testpoint, "descend");
 	vec fullvec = zeros<vec>(lookupt.n_cols);
 	for (int i = 0; i < k; i++) {
-		fullvec += lookupt.row(idx(i));
+		fullvec += lookupt.row(idx(i)).t();
 	}
-	val = fullvec(span(datalength,lookupt.n_cols-1))/k;
+	val = fullvec(span(coparam_length,lookupt.n_cols-1))/k;
 }
 
 
