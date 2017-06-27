@@ -161,15 +161,18 @@ void TableTennis::set_ball_gun(double std, int ballgun_side) {
 	vec3 good_ball_vel;
 	switch (ballgun_side) {
 	case 0:
-		//cout << "Setting ballgun to left side..." << endl;
+		if (VERBOSE)
+			cout << "Setting ballgun to left side..." << endl;
 		good_ball_vel << -1.08 << endr << 4.80 << endr << 3.84 << endr;
 		ballgun(X) += +0.4;	break;
 	case 1:
-		//cout << "Setting ballgun to center..." << endl;
+		if (VERBOSE)
+			cout << "Setting ballgun to center..." << endl;
 		good_ball_vel << 0.0 << endr << 4.00 << endr << 3.84 << endr;
 		break;
 	case 2:
-		//cout << "Setting ballgun to right side..." << endl;
+		if (VERBOSE)
+			cout << "Setting ballgun to right side..." << endl;
 		good_ball_vel << +1.08 << endr << 4.80 << endr << 3.84 << endr;
 		ballgun(X) += -0.4; break;
 	default:

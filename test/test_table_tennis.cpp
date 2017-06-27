@@ -35,7 +35,7 @@ using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
 algo algs[] = {LAZY, FOCUS, VHP};
-void init_posture(vec7 & q0, int posture);
+void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
  * Testing whether the ball can be returned to the opponents court
@@ -54,9 +54,9 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
-	//arma_rng::set_seed_random();
-	arma_rng::set_seed(0);
-	double std_noise = 0.001;
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(0);
+	double std_noise = 0.0001;
 	double std_model = 0.3;
 	joint qact;
 	vec3 obs;
@@ -75,9 +75,9 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
-		ball_launch_side = (randi(1).at(0));
-		joint_init_pose = (randi(1).at(0));
-		init_posture(qact.q,joint_init_pose);
+		ball_launch_side = (randi(1,distr_param(0,2)).at(0));
+		joint_init_pose = (randi(1,distr_param(0,2)).at(0));
+		init_posture(qact.q,joint_init_pose,true);
 		robot = new Player(qact.q,filter,flags);
 		tt.reset_stats();
 		tt.set_ball_gun(0.05,ball_launch_side);
@@ -122,13 +122,13 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	arma_rng::set_seed_random();
 	//arma_rng::set_seed(5);
 	tt.set_ball_gun(0.05,0); // init ball on the centre
-	double std_obs = 0.000; // std of the noisy observations
+	double std_obs = 0.0001; // std of the noisy observations
 	joint qact;
-	init_posture(qact.q,1);
+	init_posture(qact.q,1,false);
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
-	flags.verbosity = 2;
+	flags.verbosity = 1;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -258,17 +258,23 @@ BOOST_AUTO_TEST_CASE( test_player_ekf_filter ) {
 /*
  * Initialize robot posture
  */
-void init_posture(vec7 & q0, int posture) {
+void init_posture(vec7 & q0, int posture, bool verbose) {
 
 	rowvec qinit;
 	switch (posture) {
 	case 2: // right
+		if (verbose)
+			cout << "Initializing robot on the right side.\n";
 		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
 		break;
 	case 1: // center
+		if (verbose)
+			cout << "Initializing robot on the center.\n";
 		qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
 		break;
 	case 0: // left
+		if (verbose)
+			cout << "Initializing robot on the left side\n";
 		qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
 		break;
 	default: // default is the right side

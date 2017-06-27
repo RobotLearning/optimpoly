@@ -45,9 +45,9 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
 	lookup = lookup_;
 	load_lookup_table(lookup_table);
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1e2;
-	w.R_hit = 1e5;
-	w.R_land = 1e2;
+	w.R_net = 1.0;
+	w.R_hit = 1.0;
+	w.R_land = 1.0;
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
@@ -281,6 +281,20 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	double *q0dot = opt->q0dot;
 	weights w = opt->w;
 
+	// calculate the polynomial coeffs which are used in the cost calculation
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
+
+	// calculate the landing time
+	opt->calc_times(x);
+
+	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
+			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
+			inner_winv_prod(NDOF,w.R_strike,a2,a2));
+	Jhit = w.R_hit * sqr(opt->dist_b2r_proj);
+
+	if (opt->land)
+		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+
 	if (grad) {
 		static double h = 1e-6;
 		static double val_plus, val_minus;
@@ -297,23 +311,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 		}
 	}
 
-	// calculate the polynomial coeffs which are used in the cost calculation
-	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-
-	// calculate the landing time
-	opt->calc_times(x);
-
-	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
-			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
-			inner_winv_prod(NDOF,w.R_strike,a2,a2));
-
-	Jhit = w.R_hit * opt->dist_b2r_proj * opt->dist_b2r_proj;
-
-	if (opt->land)
-		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
-
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
-
 	return J1 + Jhit + Jland;
 }
 
@@ -352,6 +350,15 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	LazyOptim* opt = (LazyOptim*)my_func_params;
 	opt->calc_times(x);
 
+	result[0] = -opt->dist_b2r_norm;
+	result[1] = opt->dist_b2r_norm - ball_radius;
+	result[2] = opt->dist_b2r_proj - racket_radius/2.0;
+	result[3] = opt->x_net[Z] - wall_z;
+	result[4] = -opt->x_net[Z] + net_z;
+	result[5] = opt->x_net[X] - table_xmax;
+	result[6] = -opt->x_net[X] - table_xmax;
+	result[7] = -opt->t_net;
+
 	if (grad) {
 		static double h = 1e-6;
 		static double res_plus[INEQ_LAND_CONSTR_DIM], res_minus[INEQ_LAND_CONSTR_DIM];
@@ -368,15 +375,6 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
 		}
 	}
-
-	result[0] = -opt->dist_b2r_norm;
-	result[1] = opt->dist_b2r_norm - ball_radius;
-	result[2] = opt->dist_b2r_proj - racket_radius;
-	result[3] = opt->x_net[Z] - wall_z;
-	result[4] = -opt->x_net[Z] + net_z;
-	result[5] = opt->x_net[X] - table_xmax;
-	result[6] = -opt->x_net[X] - table_xmax;
-	result[7] = -opt->t_net;
 }
 
 /*
