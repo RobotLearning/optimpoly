@@ -50,7 +50,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
-	int num_trials = 1;
+	int num_trials = 50;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -59,7 +59,6 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	double std_noise = 0.001;
 	double std_model = 0.3;
 	joint qact;
-	init_posture(qact.q,1);
 	vec3 obs;
 	EKF filter = init_filter(std_model,std_noise);
 	player_flags flags;
@@ -67,19 +66,25 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.mpc = true;
 	flags.freq_mpc = 1;
 	flags.verbosity = 0;
-	Player robot = Player(qact.q,filter,flags);
+	Player *robot;
 	int N = 2000;
 	joint qdes = qact;
 	racket robot_racket;
+	int ball_launch_side;
+	int joint_init_pose;
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
+		ball_launch_side = (randi(1).at(0));
+		joint_init_pose = (randi(1).at(0));
+		init_posture(qact.q,joint_init_pose);
+		robot = new Player(qact.q,filter,flags);
 		tt.reset_stats();
-		tt.set_ball_gun(0.05,1);
-		robot.reset_filter(std_model,std_noise);
+		tt.set_ball_gun(0.05,ball_launch_side);
+		//robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-			robot.play(qact, obs, qdes);
+			robot->play(qact, obs, qdes);
 			calc_racket_state(qdes,robot_racket);
 			tt.integrate_ball_state(robot_racket,DT);
 			qact.q = qdes.q;
@@ -92,6 +97,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 			num_not_valid++;
 		else
 			num_misses++;
+		delete robot;
 	}
 	std::cout << "======================================================" << endl;
 	std::cout << "Out of " << num_trials << " trials, "
