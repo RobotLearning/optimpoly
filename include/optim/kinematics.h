@@ -12,9 +12,6 @@
 
 #include "math.h"
 
-#define CONFIG   "config/"
-#define PREFS    "prefs/"
-
 #define NDOF 7
 #define NCART 3
 #define NQUAT 4
@@ -72,7 +69,7 @@ void calc_racket_state(const double q[NDOF],
 					   double normal[NCART]);
 
 // loading joint limits from SL config files
-int read_joint_limits(double *lb, double *ub, const char *home);
+int read_joint_limits(double *lb, double *ub);
 
 // useful to test kinematics positions and derivative
 void get_racket_state(const double q[NDOF], double pos[NCART], double normal[NCART], double jacobi[NCART][NDOF]);

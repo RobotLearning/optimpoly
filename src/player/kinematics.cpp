@@ -29,7 +29,7 @@ static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac
  *
  * C++ version of the same C-code using ARMADILLO library.
  * In the optimization we do not call this function, but stick to C version.
- * Can be used to calculate racket positions in player().
+ * Can be used to calculate racket positions in player class.
  *
  * @param robot_joint Robot joint positions, velocities and accelerations.
  * @param robot_racket Robot racket positions, velocities and normal.

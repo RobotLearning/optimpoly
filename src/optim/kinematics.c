@@ -729,7 +729,7 @@ static void set_endeffector(double endeff_pos[NCART]) {
  * @return If can load the joint limits successfully then returns 1.
  *
  */
-int read_joint_limits(double *lb, double *ub, const char * home) {
+int read_joint_limits(double *lb, double *ub) {
 
 	char joint_names[][20] = {
 			{"R_SFE"},
@@ -740,19 +740,15 @@ int read_joint_limits(double *lb, double *ub, const char * home) {
 			{"R_WFE"},
 			{"R_WAA"}
 	};
-	char fname[] = "SensorOffset.cf";
+	char fname[] = "./SensorOffset.cf";
 
 	/* find all joint variables and read them into the appropriate array */
-
-	char string[100];
 	FILE *in;
 
 	/* get the max, min of the position sensors */
-
-	sprintf(string,"%s/robolab/barrett/%s%s",home,CONFIG,fname);
-	in = fopen(string,"r");
+	in = fopen(fname,"r");
 	if (in == NULL) {
-		printf("ERROR: Cannot open file >%s<!\n",string);
+		printf("ERROR: Cannot open file >%s<!\n",fname);
 		return FALSE;
 	}
 

@@ -834,9 +834,9 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then
  */
-void set_bounds(double *lb, double *ub, double SLACK, double Tmax, const char *home) {
+void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
-	read_joint_limits(lb,ub,home);
+	read_joint_limits(lb,ub);
 	// lower bounds and upper bounds for qf are the joint limits
 	for (int i = 0; i < NDOF; i++) {
 		ub[i] -= SLACK;

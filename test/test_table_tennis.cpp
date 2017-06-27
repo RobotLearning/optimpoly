@@ -35,7 +35,6 @@ using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
 algo algs[] = {LAZY, FOCUS, VHP};
-string home = "/is/ei/okoc";
 void init_posture(vec7 & q0, int posture);
 
 /*
