@@ -12,7 +12,8 @@
 
 #define LOOKUP_TABLE_SIZE 4002 //769
 #define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
-#define LOOKUP_TABLE_NAME "LookupTable-16-May-2016" //"LookupTable-March-2016" //"LookupTable-April-2016"
+
+static const std::string LOOKUP_TABLE_NAME = "LookupTable-16-May-2016";
 
 using namespace arma;
 
