@@ -13,6 +13,7 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
+#include "tabletennis.h"
 #include "lookup.h"
 
 // termination
@@ -141,6 +142,10 @@ void Optim::init_lookup_soln(double *x) {
 		ball_params(i) = param_des->ball_pos(i,0);
 		ball_params(i+NCART) = param_des->ball_vel(i,0);
 	}
+	//cout << "Init ball est:" << ball_params << endl;
+	predict_till_net(ball_params);
+	//cout << "Net ball est:" << ball_params << endl;
+	// k = 5 nearest neighbour regression
 	knn(lookup_table,ball_params,5,robot_params);
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		x[i] = robot_params(i);
@@ -185,10 +190,11 @@ void Optim::optim() {
 	int res; // error code
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (verbose)
+		if (verbose) {
 			printf("NLOPT failed with exit code %d!\n", res);
+		    printf("NLOPT took %f ms\n", past_time);
+		}
 	    past_time = (get_time() - init_time)/1e3;
-	    printf("NLOPT took %f ms\n", past_time);
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;

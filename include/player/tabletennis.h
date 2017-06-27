@@ -148,9 +148,12 @@ public:
 			                 const mat & racket_normal, mat & racket_vel) const;
 };
 
-// interface to the outside world (e.g. player)
+// Functions set as pointers for Extended Kalman Filtering
 vec calc_next_ball(const vec & xnow, double dt);
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
 vec calc_spin_ball(const vec & xnow, double dt);
+
+// Used for lookup table
+void predict_till_net(vec6 & ball_est);
 
 #endif /* end of TABLETENNIS_H_ */

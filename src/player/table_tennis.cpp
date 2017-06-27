@@ -814,3 +814,24 @@ vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 	tennis.integrate_ball_state(robot,dt);
 	return tennis.get_ball_state();
 }
+
+/**
+ * @brief Predict ball state FORWARDS till net
+ *
+ * Predict the ball forwards till the net so that we can look up the
+ * corresponding robot joint parameters qf, qfdot, T around net.
+ *
+ * TODO: would it work backwards?
+ * @param ball_est
+ */
+void predict_till_net(vec6 & ball_est) {
+
+	const double net_y = dist_to_table - (table_length/2.0);
+	TableTennis tennis = TableTennis(ball_est,false,false);
+	while (ball_est(Y) < net_y) {
+		tennis.integrate_ball_state(DT);
+		ball_est = tennis.get_ball_state();
+		//cout << ball_est << endl;
+	}
+}
+

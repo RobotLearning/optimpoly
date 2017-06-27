@@ -77,7 +77,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
  */
 void LazyOptim::set_land_constr() {
 
-	//double max_opt_time = 0.03;
+	double max_opt_time = 0.05;
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
 	const_vec(INEQ_LAND_CONSTR_DIM,1e-2,tol_ineq_land);
@@ -99,7 +99,7 @@ void LazyOptim::set_land_constr() {
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	//nlopt_set_maxtime(opt, max_opt_time);
+	nlopt_set_maxtime(opt, max_opt_time);
 }
 
 /**

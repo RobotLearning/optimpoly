@@ -55,7 +55,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	int num_not_valid = 0;
 	//arma_rng::set_seed_random();
 	arma_rng::set_seed(0);
-	double std_noise = 0.0001;
+	double std_noise = 0.001;
 	double std_model = 0.3;
 	joint qact;
 	init_posture(qact.q,1);
@@ -74,7 +74,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
 		tt.reset_stats();
-		tt.set_ball_gun(0.05,2);
+		tt.set_ball_gun(0.05,1);
 		robot.reset_filter(std_model,std_noise);
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
@@ -117,7 +117,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	tt.set_ball_gun(0.05,0); // init ball on the centre
 	double std_obs = 0.000; // std of the noisy observations
 	joint qact;
-	init_posture(qact.q,0);
+	init_posture(qact.q,1);
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
@@ -131,8 +131,8 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	mat Qdes = zeros<mat>(NDOF,N);
 	for (int i = 0; i < N; i++) {
 		obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-		//robot.play(qact, obs, qdes);
-		robot.cheat(qact, tt.get_ball_state(), qdes);
+		robot.play(qact, obs, qdes);
+		//robot.cheat(qact, tt.get_ball_state(), qdes);
 		Qdes.col(i) = qdes.q;
 		calc_racket_state(qdes,robot_racket);
 		//cout << "robot ball dist\t" << norm(robot_racket.pos - tt.get_ball_position()) << endl;
@@ -255,13 +255,13 @@ void init_posture(vec7 & q0, int posture) {
 
 	rowvec qinit;
 	switch (posture) {
-	case 0: // right
+	case 2: // right
 		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
 		break;
 	case 1: // center
 		qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
 		break;
-	case 2: // left
+	case 0: // left
 		qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
 		break;
 	default: // default is the right side
