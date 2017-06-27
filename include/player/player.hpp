@@ -12,6 +12,7 @@
 
 #include "kalman.h"
 #include "optim.h"
+#include "stdlib.h"
 
 using namespace arma;
 
@@ -131,7 +132,7 @@ bool update_next_state(const spline_params & poly,
 				   const double time2return, double & t_poly, joint & qdes);
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
 		     mat & Q, mat & Qd, mat & Qdd);
-void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
+void set_bounds(double *lb, double *ub, double SLACK, double Tmax, const char *home = getenv("HOME"));
 
 // racket calculations
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);

@@ -32,8 +32,10 @@
 #include "kalman.h"
 
 using namespace arma;
+using namespace std;
 namespace data = boost::unit_test::data;
 algo algs[] = {LAZY, FOCUS, VHP};
+string home = "/is/ei/okoc";
 void init_posture(vec7 & q0, int posture);
 
 /*
@@ -49,7 +51,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
-	int num_trials = 30;
+	int num_trials = 1;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
