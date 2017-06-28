@@ -846,5 +846,5 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 	}
 	// constraints on final time
 	ub[2*NDOF] = Tmax;
-	lb[2*NDOF] = 0.001;
+	lb[2*NDOF] = 0.01;
 }

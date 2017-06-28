@@ -45,9 +45,9 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
 	lookup = lookup_;
 	load_lookup_table(lookup_table);
 	const_vec(NDOF,1.0,w.R_strike);
-	w.R_net = 1.0;
-	w.R_hit = 1.0;
-	w.R_land = 1.0;
+	w.R_net = 1e1;
+	w.R_hit = 1e3;
+	w.R_land = 1e1;
 
 	for (int i = 0; i < NDOF; i++) {
 		qrest[i] = qrest_[i];
@@ -290,10 +290,10 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
 			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
 			inner_winv_prod(NDOF,w.R_strike,a2,a2));
-	Jhit = w.R_hit * sqr(opt->dist_b2r_proj);
+	Jhit = w.R_hit * sqr(opt->dist_b2r_proj) / T;
 
 	if (opt->land)
-		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net);
+		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net) / T;
 
 	if (grad) {
 		static double h = 1e-6;
@@ -352,7 +352,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 
 	result[0] = -opt->dist_b2r_norm;
 	result[1] = opt->dist_b2r_norm - ball_radius;
-	result[2] = opt->dist_b2r_proj - racket_radius/2.0;
+	result[2] = opt->dist_b2r_proj - racket_radius;
 	result[3] = opt->x_net[Z] - wall_z;
 	result[4] = -opt->x_net[Z] + net_z;
 	result[5] = opt->x_net[X] - table_xmax;

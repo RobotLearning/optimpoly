@@ -211,13 +211,16 @@ void Optim::optim() {
 	running = false;
 }
 
-FocusedOptim::FocusedOptim(double qrest_[], double lb_[], double ub_[]) {
+FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	// set tolerances equal to second argument
+
+	for (int i = 0; i < 2*NDOF+1; i++)
+		printf("ub[%d] = %d, lb[%d] = %d\n", ub_[i], i, lb_[i], i);
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);

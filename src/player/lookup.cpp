@@ -24,8 +24,8 @@ using namespace std;
 void load_lookup_table(mat & lookup) {
 
 	lookup = zeros<mat>(LOOKUP_TABLE_SIZE * LOOKUP_COLUMN_SIZE, 1);
-	//string env = getenv("HOME");
-	string filename = LOOKUP_TABLE_NAME + ".txt";
+	string env = getenv("HOME");
+	string filename = env + "/polyoptim/" + LOOKUP_TABLE_NAME + ".txt";
 
 	lookup.load(filename);
 	lookup.reshape(LOOKUP_TABLE_SIZE,LOOKUP_COLUMN_SIZE);

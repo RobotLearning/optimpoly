@@ -740,15 +740,19 @@ int read_joint_limits(double *lb, double *ub) {
 			{"R_WFE"},
 			{"R_WAA"}
 	};
-	char fname[] = "./SensorOffset.cf";
+	char fname[] = "SensorOffset.cf";
 
 	/* find all joint variables and read them into the appropriate array */
+	char string[100];
 	FILE *in;
 
 	/* get the max, min of the position sensors */
-	in = fopen(fname,"r");
+
+	sprintf(string,"%s/polyoptim/%s",getenv("HOME"),fname);
+	/* get the max, min of the position sensors */
+	in = fopen(string,"r");
 	if (in == NULL) {
-		printf("ERROR: Cannot open file >%s<!\n",fname);
+		printf("ERROR: Cannot open file >%s<!\n",string);
 		return FALSE;
 	}
 

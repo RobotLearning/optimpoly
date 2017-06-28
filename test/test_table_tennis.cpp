@@ -34,7 +34,7 @@
 using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
-algo algs[] = {LAZY, FOCUS, VHP};
+algo algs[] = {LAZY};
 void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
@@ -50,7 +50,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
-	int num_trials = 50;
+	int num_trials = 5;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;
@@ -65,7 +65,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 0;
+	flags.verbosity = 2;
 	Player *robot;
 	int N = 2000;
 	joint qdes = qact;
@@ -85,6 +85,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 		for (int i = 0; i < N; i++) { // one trial
 			obs = tt.get_ball_position() + std_noise * randn<vec>(3);
 			robot->play(qact, obs, qdes);
+			//robot->cheat(qact, obs, qdes);
 			calc_racket_state(qdes,robot_racket);
 			tt.integrate_ball_state(robot_racket,DT);
 			qact.q = qdes.q;
