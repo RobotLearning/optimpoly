@@ -303,7 +303,7 @@ void Player::optim_vhp_param(const joint & qact) {
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		if (predict_hitting_point(pflags.VHPY,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
+		if (predict_hitting_point(pflags.VHPY,pflags.check_bounce,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
 			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
 			opt->fix_hitting_time(time_pred);
@@ -330,11 +330,14 @@ void Player::optim_fixedp_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
-		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
+		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
 			opt->run();
+		}
+		else {
+			//cout << "Ball is not legal!\n";
 		}
 	}
 }
@@ -356,7 +359,7 @@ void Player::optim_lazy_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
-		if (check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
+		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
@@ -418,6 +421,7 @@ bool Player::check_update(const joint & qact) const {
 		}
 		state_last = state_est;
 		if (update) {
+			//cout << "Consider reacting to ball: " << state_est.t() << endl;
 			//cout << num_updates++ << endl;
 			timer.tic();
 		}
@@ -481,7 +485,8 @@ void Player::reset_filter(double std_model, double std_noise) {
  * The location of the VHP is given as an argument (vhp-y-location vhpy)
  *
  */
-bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_pred,
+bool predict_hitting_point(const double & vhpy, const bool & check_bounce,
+		                   vec6 & ball_pred, double & time_pred,
 		                   EKF & filter, game & game_state) {
 
 	const double time_min = 0.05;
@@ -491,7 +496,7 @@ bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_
 	uvec vhp_index;
 	unsigned idx;
 
-	if (check_legal_ball(filter.get_mean(),balls_path,game_state)) {
+	if (!check_bounce || check_legal_ball(filter.get_mean(),balls_path,game_state)) { // ball is legal
 		vhp_index = find(balls_path.row(Y) >= vhpy, 1);
 		if (vhp_index.n_elem == 1) {
 			idx = as_scalar(vhp_index);
@@ -660,46 +665,54 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 /*
  *
  * Checks for legal bounce
- * If an incoming ball has bounced before or bounces on opponents' court
+ * If an incoming ball has bounced before
  * it is declared ILLEGAL (legal_bounce as DATA MEMBER of player class)
  *
  * Bounce variable is static variable of estimate_ball_state method of player class
  * which is reset each time an incoming ball from ball gun is detected.
  *
  * TODO: also consider detecting HIT by robot racket
+ * We can turn this off in configuration file
  *
  */
 void check_legal_bounce(const vec6 & ball_est, game & game_state) {
 
-
+	static double last_y_pos = 0.0;
 	static double last_z_vel = 0.0;
-	bool ball_is_incoming = ball_est(DY) > 0.0;
+	bool incoming = (ball_est(DY) > 0.0);
 	bool on_opp_court = (ball_est(Y) < (dist_to_table - (table_length/2.0)));
+	bool bounce = (last_z_vel < 0.0 && ball_est(DZ) > 0.0)
+			       && (fabs(ball_est(Y) - last_y_pos) < 0.1);
 
-	if (last_z_vel < 0.0 && ball_est(DZ) > 0.0) { // bounce must have occurred
-		if (ball_is_incoming) {
-			if (game_state == LEGAL || on_opp_court) {
-				game_state = ILLEGAL;
-			}
-			else {
-				//cout << "Legal bounce occurred!" << endl;
-				game_state = LEGAL;
-			}
+	if (bounce && incoming) {
+		// incoming ball has bounced
+		if (game_state == LEGAL) {
+			cout << "Ball bounced twice\n";
+			game_state = ILLEGAL;
+		}
+		else if (game_state == AWAITING && on_opp_court) {
+			cout << "Ball bounced on opponents court!\n";
+			game_state = ILLEGAL;
+		}
+		else {
+			cout << "Legal bounce occurred!" << endl;
+			game_state = LEGAL;
 		}
 	}
-
+	last_y_pos = ball_est(Y);
 	last_z_vel = ball_est(DZ);
 }
 
 /*
  * Check if the table tennis trial is LEGAL (hence motion planning can be started).
  *
- * If it is exactly one ball when in awaiting mode
+ * If it is exactly one predicted bounce when in awaiting mode
  * (before an actual legal bounce was detected) trial will be legal!
  *
  * If ball has bounced legally bounce, then there should be no more bounces.
  *
  * TODO: no need to check after ball passes table
+ * We can turn this check off in the configuration file
  *
  */
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
@@ -711,7 +724,7 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 
 	// if sign of z-velocity changes then the ball bounces
 	for (int i = 0; i < N-1; i++) {
-		if (balls_predicted(DZ,i) < 0 && balls_predicted(DZ,i+1) > 0) {
+		if (balls_predicted(DZ,i) < 0.0 && balls_predicted(DZ,i+1) > 0.0) {
 			num_bounces++;
 		}
 	}

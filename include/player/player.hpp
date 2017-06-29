@@ -34,6 +34,7 @@ enum game { //trial state
 struct player_flags { //! player flags
 	algo alg = FOCUS; //! algorithm for trajectory generation
 	bool detach = false;
+	bool check_bounce = false;
 	bool outlier_detection = false;
 	bool mpc = false; //! turn on/off corrections
 	int verbosity = 0; //! OFF, LOW, HIGH
@@ -135,7 +136,8 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 // racket calculations
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
-bool predict_hitting_point(const double & vhpy, vec6 & ball_pred, double & time_pred,
+bool predict_hitting_point(const double & vhpy, const bool & check_b,
+		                   vec6 & ball_pred, double & time_pred,
 		                   EKF & filter, game & game_state);
 optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,

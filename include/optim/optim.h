@@ -23,7 +23,8 @@
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
-const double MAX_VEL = 5;
+const double MAX_VEL = 10;
+const double MAX_ACC = 200;
 
 using namespace arma;
 
@@ -182,5 +183,7 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-
+double calc_max_acc_violation(const double x[2*NDOF+1],
+								const double q0[NDOF],
+								const double q0dot[NDOF]);
 #endif /* OPTIMPOLY_H_ */

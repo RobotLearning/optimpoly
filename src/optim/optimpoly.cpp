@@ -219,8 +219,8 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	// set tolerances equal to second argument
 
-	for (int i = 0; i < 2*NDOF+1; i++)
-		printf("ub[%d] = %d, lb[%d] = %d\n", ub_[i], i, lb_[i], i);
+	//for (int i = 0; i < 2*NDOF+1; i++)
+	//	printf("ub[%d] = %d, lb[%d] = %d\n", ub_[i], i, lb_[i], i);
 
 	// LN = does not require gradients //
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
@@ -281,6 +281,7 @@ double FocusedOptim::test_soln(const double x[]) const {
 
 	// give info on constraint violation
 	double *grad = 0;
+	static double max_acc_violation; // at hitting time
 	static double kin_violation[EQ_CONSTR_DIM];
 	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
@@ -301,9 +302,11 @@ double FocusedOptim::test_soln(const double x[]) const {
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF + 1);
 		}
 	}
+	max_acc_violation = calc_max_acc_violation(x,q0,q0dot);
 
-	return fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
-			    max_array(lim_violation,INEQ_CONSTR_DIM));
+	return fmax(fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+			    max_array(lim_violation,INEQ_CONSTR_DIM)),
+			    max_acc_violation);
 }
 
 /*
@@ -548,6 +551,35 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 		joint_max_cand[i] = fmax(cand1,cand2);
 		joint_min_cand[i] = fmin(cand1,cand2);
 	}
+}
+
+/*
+ * Since the accelerations of third order polynomials
+ * are linear functions of time we check the values
+ * at start of traj, t = 0 and end of traj, t = T_hit
+ * which are given by 6*a1*T + a2 and a2 respectively
+ *
+ * Returns the max acc
+ */
+double calc_max_acc_violation(const double x[2*NDOF+1],
+		const double q0[NDOF],
+		const double q0dot[NDOF]) {
+
+	double T = x[2*NDOF];
+	double a1[NDOF], a2[NDOF];
+	double acc_abs_max = 0.0;
+	double acc_max_cand;
+
+	calc_strike_poly_coeff(q0,q0dot,x,a1,a2); // get a1,a2 out
+
+	for (int i = 0; i < NDOF; i++) {
+		acc_max_cand = fmax(fabs(6*a1[i]*T + a2[i]),fabs(a2[i]));
+		//printf("qdd_max[%d] = %f\n", i, acc_max_cand);
+		if (acc_max_cand > MAX_ACC && acc_max_cand > acc_abs_max) {
+			acc_abs_max = acc_max_cand;
+		}
+	}
+	return acc_abs_max;
 }
 
 /*

@@ -232,6 +232,7 @@ double LazyOptim::test_soln(const double x[]) const {
 	static double net_z = floor_level - table_height + net_height;
 	static int count = 0;
 	double *grad = 0;
+	static double max_acc_violation; // at hitting time
 	static double land_violation[INEQ_LAND_CONSTR_DIM];
 	static double lim_violation[INEQ_JOINT_CONSTR_DIM]; // joint limit violations on strike and return
 	joint_limits_ineq_constr(INEQ_JOINT_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, (void*)this);
@@ -259,8 +260,8 @@ double LazyOptim::test_soln(const double x[]) const {
 			}
 		}
 	}
-
-	max_viol = max_array(lim_violation,INEQ_JOINT_CONSTR_DIM);
+	max_acc_violation = calc_max_acc_violation(x,q0,q0dot);
+	max_viol = fmax(max_array(lim_violation,INEQ_JOINT_CONSTR_DIM),max_acc_violation);
 	if (land)
 		max_viol = fmax(max_viol,max_array(land_violation,INEQ_LAND_CONSTR_DIM));
 	return max_viol;

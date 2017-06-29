@@ -121,6 +121,8 @@ void load_options() {
 		config.add_options()
 		    ("outlier_detection", po::value<bool>(&flags.outlier_detection)->default_value(true),
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
+			("check_bounce", po::value<bool>(&flags.check_bounce),
+			      "checking bounce before moving!")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
