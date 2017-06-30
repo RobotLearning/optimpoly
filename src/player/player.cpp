@@ -116,7 +116,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 			opt = new HittingPlane(qrest,lb,ub);
 			break;
 		case LAZY:
-			opt = new LazyOptim(qrest,lb,ub,true,true);
+			opt = new LazyOptim(qrest,lb,ub,true,true); // use lookup
 			pred_params.Nmax = 1000;
 			break;
 		default:
@@ -402,6 +402,8 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
+		feasible = (state_est(DY) > 0.5) &&
+				   (state_est(Y) > (dist_to_table - table_length + pflags.optim_offset));
 		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
 		if (pflags.mpc) {// && t_poly > 0.0) {
@@ -410,14 +412,10 @@ bool Player::check_update(const joint & qact) const {
 					                        timer.toc() > (1.0/pflags.freq_mpc);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
 			incoming = state_est(Y) > state_last(Y);
-			feasible = (state_est(DY) > 0.5);
 			update = update && valid_obs && activate && feasible && !passed_lim && incoming;
 		}
 		else {
-			feasible = (state_est(DY) > 0.5);
-			update = update && (t_poly == 0.0) && feasible &&
-					 (state_est(Y) > (dist_to_table - table_length/2.0 + pflags.optim_offset));
-
+			update = update && (t_poly == 0.0) && feasible; // only once
 		}
 		state_last = state_est;
 		if (update) {

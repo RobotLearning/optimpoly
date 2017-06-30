@@ -236,8 +236,8 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],flags.verbosity) ||
-			check_blob_validity(blobs[1],flags.verbosity)) {
+	if (check_blob_validity(blobs[3],flags.verbosity > 2) ||
+			check_blob_validity(blobs[1],flags.verbosity > 2)) {
 		status = true;
 		if (blobs[3].status) {
 			for (int i = X; i <= Z; i++)

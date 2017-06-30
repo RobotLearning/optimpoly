@@ -37,7 +37,7 @@ struct player_flags { //! player flags
 	bool check_bounce = false;
 	bool outlier_detection = false;
 	bool mpc = false; //! turn on/off corrections
-	int verbosity = 0; //! OFF, LOW, HIGH
+	int verbosity = 0; //! OFF, LOW, HIGH, ALL
 	bool save = false; //! saving ball/robot data
 	double ball_land_des_offset[2] = {0.0};
 	double time_land_des = 0.8;
