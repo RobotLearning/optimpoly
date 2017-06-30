@@ -76,7 +76,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	for (int n = 0; n < num_trials; n++) { // for each trial
 		std::cout << "Trial: " << n+1 << std::endl;
 		ball_launch_side = (randi(1,distr_param(0,2)).at(0));
-		joint_init_pose = 2; //(randi(1,distr_param(0,2)).at(0));
+		joint_init_pose = (randi(1,distr_param(0,2)).at(0));
 		init_posture(qact.q,joint_init_pose,true);
 		robot = new Player(qact.q,filter,flags);
 		tt.reset_stats();
