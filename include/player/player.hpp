@@ -48,8 +48,6 @@ struct player_flags { //! player flags
 	int min_obs = 5;
 	double std_noise = 0.001;
 	double std_model = 0.001;
-	double mult_mu_init = 1.0;
-	double mult_p_init = 1.0;
 	double t_reset_thresh = 0.3;
 	double VHPY = -0.3;
 	bool reset = true; //! reinitializing player class
@@ -116,9 +114,7 @@ public:
 EKF init_filter(double std_model = 0.001, double std_noise = 0.001, bool spin = false);
 void estimate_prior(const mat & observations,
 		            const vec & times,
-					EKF & filter,
-					double mult_mu,
-					double mult_p);
+					EKF & filter);
 bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 

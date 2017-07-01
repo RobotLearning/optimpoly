@@ -160,22 +160,21 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		filter = init_filter(pflags.std_model,pflags.std_noise,pflags.spin);
 		num_obs = 0;
 		game_state = AWAITING;
+		//cout << obs << endl;
 		t_obs = 0.0; // t_cumulative
 	}
 
-	if (num_obs < pflags.min_obs) {
-		if (newball) {
-			times(num_obs) = t_obs;
-			observations.col(num_obs) = obs;
-			num_obs++;
-			if (num_obs == pflags.min_obs) {
-				if (pflags.verbosity >= 1)
-					cout << "Estimating initial ball state\n";
-				estimate_prior(observations,times,filter,
-						pflags.mult_mu_init, pflags.mult_p_init);
-				//cout << OBS << TIMES << filter.get_mean() << endl;
-			}
+	if (num_obs < pflags.min_obs && newball) {
+		times(num_obs) = t_obs;
+		observations.col(num_obs) = obs;
+		num_obs++;
+		if (num_obs == pflags.min_obs) {
+			if (pflags.verbosity >= 1)
+				cout << "Estimating initial ball state\n";
+			estimate_prior(observations,times,filter);
+			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
+
 	}
 	else { // comes here if there are enough balls to start filter
 		filter.predict(DT,true); //true);
@@ -771,9 +770,7 @@ bool check_new_obs(const vec3 & obs, double tol) {
  */
 void estimate_prior(const mat & observations,
 		            const vec & times,
-					EKF & filter,
-					double mult_mu,
-					double mult_p) {
+					EKF & filter) {
 
 	vec6 x; mat66 P;
 	int num_samples = times.n_elem;
@@ -787,15 +784,12 @@ void estimate_prior(const mat & observations,
 		M(i,2) = times_z(i) * times_z(i);
 	}
 	// solving for the parameters
-	//cout << "Data matrix:" << endl << M << endl;
 	mat Beta = solve(M,observations.t());
-	//cout << "Parameters:" << endl << Beta << endl;
-	x = join_horiz(Beta.row(0),Beta.row(1)).t(); //vectorise(Beta.rows(0,1));
+	x = join_horiz(Beta.row(0),Beta.row(1)).t();
 	P.eye(6,6);
-	x(span(DX,DZ)) *= mult_mu;
-	P *= mult_p;
-	//cout << "Data:\n" << observations << endl;
-	//cout << "Initial est:\n" << x << endl;
+	cout << "Times:\n" << times << endl;
+	cout << "Data:\n" << observations << endl;
+	cout << "Initial est:\n" << x << endl;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
@@ -805,9 +799,6 @@ void estimate_prior(const mat & observations,
 		filter.predict(dt,true);
 		filter.update(observations.col(i));
 	}
-	//x = filter.get_mean();
-	//x(span(DX,DZ)) = x(span(DX,DZ)) % vel_multiplier;
-	//filter.set_prior(x,P);
 }
 
 /*

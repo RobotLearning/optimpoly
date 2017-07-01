@@ -1,6 +1,8 @@
 CC=g++
 TESTFLAGS=-g --std=c++11 -pthread
-
+DIR=$(HOME)/polyoptim
+HEADER1=$(DIR)/include/player
+HEADER2=$(DIR)/include/optim
 # Definitions for ADOL-C and IPOPT example
 IPOPTBUILD = $(HOME)/Downloads/CoinIpopt/build
 ADOLCPATH = $(HOME)/adolc_base/include
@@ -18,6 +20,10 @@ test-auto-ipopt: # example for testing IPOPT optimization library + AUTODIFF
 test-auto-nlopt: # example for testing NLOPT + autodiff
 	$(CC) $(TESTFLAGS) ex_auto_nlopt.cpp -o nlopt_autodiff -lnlopt -I$(ADOLCPATH) \
 						-L$(ADOLCLIBDIR) -ladolc	
+
+test-est-init: # example for testing NLOPT + ball initial state estimation
+	$(CC) $(TESTLAGS) ex_estimate_prior.cpp -o est_prior -I$(HEADER1) -I$(HEADER2) \
+	                  -lm -larmadillo -lnlopt ../lib/libtennis.so				
 					    
 clean:
 	rm -rf *.a *.o 

@@ -147,8 +147,6 @@ void load_options() {
 		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
 		    ("std_noise", po::value<double>(&flags.std_noise), "std of filter obs noise")
 		    ("std_model", po::value<double>(&flags.std_model), "std of filter process noise")
-		    ("mu_est_mult", po::value<double>(&flags.mult_mu_init), "initial filter mean est. multiplier")
-		    ("P_est_mult", po::value<double>(&flags.mult_p_init), "initial filter var est. multiplier")
 		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
 		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP");
         po::variables_map vm;

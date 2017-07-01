@@ -287,39 +287,44 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 
 	std::cout << "**************************************\n";
 	std::cout << "Testing filtering on REAL BALL DATA!\n";
+	vec3 blob1, blob3, obs;
 	bool status1, status3;
-	//double time_data = 0.0;
-	int head = 0; //3300;
-	static vec3 blob1, blob3, obs;
 	mat real_ball_data;
+	bool outlier_detection, predict_with_spin;
 	std::string home = std::getenv("HOME");
 	std::string trial;
 	try {
 		cout << "Which trial data to filter?\n";
 		cin >> trial;
-		//real_ball_data.load(home + "/Dropbox/data/realBallData_030516.txt", raw_ascii);
+		cout << "Outlier detection? " << endl;
+		cin >> outlier_detection;
+		cout << "Predict with spin?" << endl;
+		cin >> predict_with_spin;
+		cout << "Filtering trial: " << trial << endl;
 		real_ball_data.load(home + "/Dropbox/data/real_ball_data_0317/balls_" + trial + ".txt", raw_ascii);
 	}
 	catch (const char * exception) {
 		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
 	}
-	int N = real_ball_data.n_rows; //4000;
-	mat ball_states = zeros<mat>(N-head,6);
-	EKF filter = init_filter(0.03,0.001,true); // spin turned on
-	Player cp = Player(zeros<vec>(7),filter,FIXED,false,1,REAL_ROBOT); //TEST_SIM);
-	for (int i = head; i < N; i++) {
+	mat ball_states = zeros<mat>(real_ball_data.n_rows,6);
+	player_flags flags;
+	flags.outlier_detection = outlier_detection;
+	flags.spin = predict_with_spin;
+	flags.verbosity = 2;
+	flags.std_model = 0.03;
+	flags.std_noise = 0.0001;
+	EKF filter = init_filter(flags.std_model,flags.std_noise,predict_with_spin);
+	Player cp = Player(zeros<vec>(7),filter,flags);
+	for (int i = 0; i < real_ball_data.n_rows; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
-		fuse_blobs(blob1,blob3,status1,status3,obs);
-		//time_data = real_ball_data(i,10);
-		ball_states.row(i-head) = cp.filt_ball_state(obs).t();
+		fuse_blobs(blob1,blob3,status1,status3,obs); // get observation
+		ball_states.row(i) = cp.filt_ball_state(obs).t();
 		usleep(2000);
 	}
-	//ball_states.save(home + "/Dropbox/data/realBallData_filtered.txt", raw_ascii);
 	ball_states.save(home + "/Dropbox/data/real_ball_data_0317/balls_" + trial + "_filtered.txt", raw_ascii);
-
 }
 
 /*
