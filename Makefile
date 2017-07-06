@@ -8,6 +8,13 @@ INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++1
 TESTFLAGS=-g --std=c++11 -pthread -I$(HEADER1) -I$(HEADER2)
 OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER1) -I$(HEADER2) -O3 -std=c++11
 
+HOST=$(shell hostname)
+ifeq ($(HOST),sill) # new machine in the new MPI building
+	BOOSTL=$(HOME)/install/lib
+else
+	BOOSTL=/usr/local/lib
+endif
+
 # for compiling everything 
 all: install interface lookup kinematics 
 
@@ -43,8 +50,8 @@ optim:
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(TESTFLAGS) test/test_kalman.cpp -o unit_tests.o \
-	                   $(LIBS) /usr/local/lib/libboost_unit_test_framework.a \
+	$(CC) $(TESTFLAGS) test/test_optim.cpp -o unit_tests.o \
+	                   $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a \
 	                   $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so \
 	                   $(LIBDIR)/liblookup.so -lnlopt

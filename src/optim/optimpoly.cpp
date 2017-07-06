@@ -133,6 +133,7 @@ void Optim::set_des_params(optim_des *params_) {
 /** @brief Initialize optimization parameters using a lookup table.
  *
  * Call this function AFTER setting desired BALL parameters.
+ * TODO: include k as a parameter
  */
 void Optim::init_lookup_soln(double *x) {
 
@@ -149,6 +150,7 @@ void Optim::init_lookup_soln(double *x) {
 	knn(lookup_table,ball_params,5,robot_params);
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		x[i] = robot_params(i);
+		//	printf("x[%d] = %f\n", i, x[i]);
 	}
 }
 
@@ -175,9 +177,10 @@ void Optim::optim() {
 	}
 	else {
 		if (lookup) {
+			if (verbose) {
+				cout << "Looking up good initial parameters with k = 5\n"; // kNN parameter k = 5
+			}
 			init_lookup_soln(x);
-			//for (int i = 0; i < OPTIM_DIM; i++)
-			//	printf("x[%d] = %f\n", i, x[i]);
 		}
 		else {
 			init_rest_soln(x);
@@ -211,8 +214,16 @@ void Optim::optim() {
 	running = false;
 }
 
+/**
+ * Initialize the optimization procedure here
+ * @param qrest_
+ * @param lb_
+ * @param ub_
+ */
 FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
 
+	//lookup = true;
+	//load_lookup_table(lookup_table);
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
@@ -223,6 +234,13 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_
 	//	printf("ub[%d] = %d, lb[%d] = %d\n", ub_[i], i, lb_[i], i);
 
 	// LN = does not require gradients //
+	/*opt = nlopt_create(NLOPT_AUGLAG_EQ, 2*NDOF+1);
+	nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, 2*NDOF+1);
+	nlopt_set_xtol_rel(local_opt, 1e-2);
+	nlopt_set_lower_bounds(local_opt, lb_);
+	nlopt_set_upper_bounds(local_opt, ub_);
+	nlopt_add_inequality_mconstraint(local_opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	nlopt_set_local_optimizer(opt, local_opt);*/
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
@@ -319,6 +337,22 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	double a2[NDOF];
 	double T = x[2*NDOF];
 
+	if (grad) {
+		static double h = 1e-6;
+		static double val_plus, val_minus;
+		static double xx[2*NDOF+1];
+		for (unsigned i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (unsigned i = 0; i < n; i++) {
+			xx[i] += h;
+			val_plus = costfunc(n, xx, NULL, my_func_params);
+			xx[i] -= 2*h;
+			val_minus = costfunc(n, xx, NULL, my_func_params);
+			grad[i] = (val_plus - val_minus) / (2*h);
+			xx[i] += h;
+		}
+	}
+
 	FocusedOptim *opt = (FocusedOptim*) my_func_params;
 	double *q0 = opt->q0;
 	double *q0dot = opt->q0dot;
@@ -348,6 +382,23 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	FocusedOptim *opt = (FocusedOptim*) my_function_data;
 	optim_des* racket_data = opt->param_des;
+
+	if (grad) {
+		static double h = 1e-6;
+		static double res_plus[EQ_CONSTR_DIM], res_minus[EQ_CONSTR_DIM];
+		static double xx[2*NDOF+1];
+		for (unsigned i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (unsigned i = 0; i < n; i++) {
+			xx[i] += h;
+			kinematics_eq_constr(m, res_plus, n, xx, NULL, my_function_data);
+			xx[i] -= 2*h;
+			kinematics_eq_constr(m, res_minus, n, xx, NULL, my_function_data);
+			xx[i] += h;
+			for (unsigned j = 0; j < m; j++)
+				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
+		}
+	}
 
 	// interpolate at time T to get the desired racket parameters
 	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);

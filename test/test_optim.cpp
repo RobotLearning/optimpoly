@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	game game_state = AWAITING;
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	double time_land_des = 0.8;
-	BOOST_TEST(predict_hitting_point(VHPY,ball_pred,time_pred,filter,game_state));
+	BOOST_TEST(predict_hitting_point(VHPY,true,ball_pred,time_pred,filter,game_state));
 	//cout << ball_pred << endl;
 	optim_des racket_params;
 	calc_racket_strategy(ball_pred,ball_land_des,time_land_des,racket_params);
@@ -171,7 +171,8 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	ball_params.ball_vel = balls_pred.rows(DX,DZ);
 	ball_params.Nmax = N;
 	bool land = true;
-	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,land); //only touch the ball if false!
+	bool lookup = true;
+	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
 	opt->set_des_params(&ball_params);
 	opt->update_init_state(qact);
 	opt->run();
