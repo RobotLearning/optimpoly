@@ -50,7 +50,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	vec7 lbvec(lb);
 	vec7 ubvec(ub);
 	TableTennis tt = TableTennis(true,true);
-	int num_trials = 5;
+	int num_trials = 1;
 	int num_lands = 0;
 	int num_misses = 0;
 	int num_not_valid = 0;

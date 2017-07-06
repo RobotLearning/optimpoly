@@ -171,7 +171,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		if (num_obs == pflags.min_obs) {
 			if (pflags.verbosity >= 1)
 				cout << "Estimating initial ball state\n";
-			estimate_prior(observations,times,filter);
+			estimate_prior(observations,times,pflags.verbosity > 2, filter);
 			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
 
@@ -181,7 +181,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		if (newball) {
 			valid_obs = true;
 			if (pflags.outlier_detection)
-				valid_obs = !filter.check_outlier(obs,pflags.verbosity);
+				valid_obs = !filter.check_outlier(obs,pflags.verbosity > 2);
 		}
 		if (valid_obs) {
 			filter.update(obs);
@@ -770,6 +770,7 @@ bool check_new_obs(const vec3 & obs, double tol) {
  */
 void estimate_prior(const mat & observations,
 		            const vec & times,
+					const bool verbose,
 					EKF & filter) {
 
 	vec6 x; mat66 P;
@@ -787,9 +788,6 @@ void estimate_prior(const mat & observations,
 	mat Beta = solve(M,observations.t());
 	x = join_horiz(Beta.row(0),Beta.row(1)).t();
 	P.eye(6,6);
-	cout << "Times:\n" << times << endl;
-	cout << "Data:\n" << observations << endl;
-	cout << "Initial est:\n" << x << endl;
 	filter.set_prior(x,P);
 	filter.update(observations.col(0));
 
@@ -798,6 +796,12 @@ void estimate_prior(const mat & observations,
 		dt = times_z(i) - times_z(i-1);
 		filter.predict(dt,true);
 		filter.update(observations.col(i));
+	}
+
+	if (verbose) {
+		cout << "Times:\n" << times << endl;
+		cout << "Data:\n" << observations << endl;
+		cout << "Initial est:\n" << x << endl;
 	}
 }
 
