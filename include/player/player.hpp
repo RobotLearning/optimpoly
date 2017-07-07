@@ -32,25 +32,26 @@ enum game { //trial state
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
 struct player_flags { //! player flags
-	algo alg = FOCUS; //! algorithm for trajectory generation
 	bool detach = false;
 	bool check_bounce = false;
 	bool outlier_detection = false;
 	bool mpc = false; //! turn on/off corrections
-	int verbosity = 0; //! OFF, LOW, HIGH, ALL
+	bool reset = true; //! reinitializing player class
 	bool save = false; //! saving ball/robot data
+	bool spin = false; //! turn on and off spin-based prediction models
+	bool lookup = false; //! turn off moving based on lookup before optimization terminates
+	algo alg = FOCUS; //! algorithm for trajectory generation
+	int verbosity = 0; //! OFF, LOW, HIGH, ALL
+	int freq_mpc = 1; //! frequency of mpc updates if turned on
+	int min_obs = 5;
 	double ball_land_des_offset[2] = {0.0};
 	double time_land_des = 0.8;
 	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
 	double time2return = 1.0; //! time to return to starting posture after hit
-	int freq_mpc = 1; //! frequency of mpc updates if turned on
-	bool spin = false; //! turn on and off spin-based prediction models
-	int min_obs = 5;
 	double std_noise = 0.001;
 	double std_model = 0.001;
 	double t_reset_thresh = 0.3;
 	double VHPY = -0.3;
-	bool reset = true; //! reinitializing player class
 };
 
 /**
@@ -79,6 +80,7 @@ private:
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
 	spline_params poly;
+	mat lookup_table;
 	Optim *opt; // optimizer
 
 	// ball estimation
@@ -92,6 +94,7 @@ private:
 	void calc_opt_params(const joint & qact);
 	bool check_update(const joint & qact) const; // flag for (re)running optimization
 	void calc_next_state(const joint & qact, joint & qdes);
+	void lookup_soln(const vec6 & ball_state, const int k, const joint & qact);
 
 public:
 

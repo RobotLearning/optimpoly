@@ -67,6 +67,7 @@
 #include "tabletennis.h"
 #include "utils.h"
 #include "optim.h"
+#include "lookup.h"
 
 using namespace arma;
 
@@ -95,6 +96,8 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	q_rest_des = q0;
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
+	if (flags.lookup)
+		load_lookup_table(lookup_table);
 
 	double lb[2*NDOF+1];
 	double ub[2*NDOF+1];
@@ -330,6 +333,7 @@ void Player::optim_fixedp_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
+			lookup_soln(filter.get_mean(),1,qact);
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			opt->set_des_params(&pred_params);
 			opt->update_init_state(qact);
@@ -359,6 +363,7 @@ void Player::optim_lazy_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
+			lookup_soln(filter.get_mean(),1,qact);
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
@@ -472,6 +477,44 @@ void Player::reset_filter(double std_model, double std_noise) {
 	num_obs = 0;
 	game_state = AWAITING;
 	t_obs = 0.0;
+}
+
+/**
+ * @brief Initialize optimization parameters using a lookup table if lookup flag is turned ON.
+ *
+ */
+void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qact) {
+
+	if (t_poly == 0.0 && pflags.lookup) {
+		if (pflags.verbosity) {
+			cout << "Starting movement based on lookup, k = 5\n"; // kNN parameter k = 5
+		}
+		vec::fixed<15> robot_params;
+		vec6 ball_est = ball_state;
+		//cout << "Init ball est:" << ball_params << endl;
+		predict_till_net(ball_est);
+		//cout << "Net ball est:" << ball_params << endl;
+		knn(lookup_table,ball_est,k,robot_params);
+		vec7 qf, qfdot;
+		for (int i = 0; i < NDOF; i++) {
+			qf(i) = robot_params(i);
+			qfdot(i) = robot_params(i+NDOF);
+		}
+		double T = robot_params(2*NDOF);
+		vec7 qnow = qact.q;
+		vec7 qdnow = qact.qd;
+		poly.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		poly.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		poly.a.col(2) = qdnow;
+		poly.a.col(3) = qnow;
+		//cout << "A = \n" << p.a << endl;
+		poly.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		poly.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		poly.b.col(2) = qfdot;
+		poly.b.col(3) = qf;
+		poly.time2hit = T;
+		t_poly = DT;
+	}
 }
 
 /*

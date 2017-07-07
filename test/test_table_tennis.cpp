@@ -131,6 +131,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	player_flags flags;
 	flags.verbosity = 1;
 	flags.alg = alg;
+	flags.lookup = true;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes;

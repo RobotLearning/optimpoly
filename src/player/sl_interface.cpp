@@ -123,6 +123,7 @@ void load_options() {
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
 			("check_bounce", po::value<bool>(&flags.check_bounce),
 			      "checking bounce before moving!")
+			("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")
 			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
