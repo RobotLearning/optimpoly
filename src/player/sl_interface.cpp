@@ -195,8 +195,8 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 	static double yCenter = dist_to_table - table_length/2.0;
 
 	if (blob.status == false) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball status is false!\n");
+		//if (verbose)
+		//	printf("BLOB NOT VALID! Ball status is false!\n");
 		valid = false;
 	}
 	else if (blob.blob.x[3] > zMax) {

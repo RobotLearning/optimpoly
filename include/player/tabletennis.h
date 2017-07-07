@@ -63,7 +63,7 @@ struct ball_params {
 	/* coefficient of lift for the magnus force */
 	double Clift = 0.001;
 	/* dynamic coefficient of friction */
-	double mu = 0.05;
+	double mu = 0.10;
 	/* initial topspin amount */
 	double init_topspin = -50.0;
 };

@@ -338,20 +338,16 @@ vec3 TableTennis::drag_flight_model() const {
  */
 vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
 
+	static double alpha;
 	vec3 ball_vel_out;
 
 	if (SPIN_MODE) { // if spin mode is on ballvec is not a null pointer
 		//cout << "Using a spin model for bounce..." << endl;
-		static double e_t = params.CRT;
-		static double alpha = 0.4; // roll
 		vec3 vbT = {ball_vel_in(X) - ball_radius*ball_spin(Y),
 				    ball_vel_in(Y) + ball_radius*ball_spin(X),
 					0.0};
-		double nu_s = 1 - 0.4 * params.mu * (1 + e_t) * abs(ball_vel_in(Z))/norm(vbT);
-		if (nu_s > 0) { // slide
-			alpha = params.mu * (1 + e_t) * abs(ball_vel_in(Z))/norm(vbT);
-		}
-		vec3 v = {1.2-alpha,1.1-alpha,-e_t};
+		alpha = params.mu * (1 + params.CRT) * abs(ball_vel_in(Z))/norm(vbT);
+		vec3 v = {1.0-alpha,1.0-alpha,-params.CRT};
 		mat Av = diagmat(v);
 		mat Bv = {{0, alpha * ball_radius, 0}, {-alpha*ball_radius, 0, 0}, {0, 0, 0}};
 		//cout << ball_vel;
