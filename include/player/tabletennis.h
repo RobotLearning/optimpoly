@@ -92,7 +92,7 @@ private:
 	vec3 ball_spin; // ball angular velocity = 0 if spin mode is turned OFF
 
 	// init topspin function useful in spin initialization
-	void init_topspin(double val = -50);
+	void init_topspin(const double val = -50);
 
 	vec3 flight_model() const;
 	vec3 drag_flight_model() const;
@@ -131,7 +131,7 @@ public:
 	vec3 get_ball_velocity() const;
 	vec6 get_ball_state() const;
 	void set_ball_state(const vec6 & ball_state);
-
+	void set_topspin(const double val);
 	// set reasonable ball positions and velocities for table tennis
 	void set_ball_gun(double std, int ballgun_side = 1);
 

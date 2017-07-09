@@ -66,17 +66,26 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity) :
  * for the spinning ball.
  *
  */
-void TableTennis::init_topspin(double val) {
+void TableTennis::init_topspin(const double val) {
 
 	if (SPIN_MODE) {
 		//std::cout << "Initializing with spin" << std::endl;
-		ball_spin(X) = val*2*datum::pi; // constant 3000 rpm topsin
+		ball_spin(X) = val*2*datum::pi;
 		// others are zero
 	}
 	else {
 		//std::cout << "Initializing without spin" << std::endl;
  		// do nothing, they are all zero - spinless model
 	}
+}
+
+/**
+ * @brief Set topspin equal to val revolutions/sec
+ * @param val
+ */
+void TableTennis::set_topspin(const double val) {
+	SPIN_MODE = true;
+	ball_spin(X) = val*2*datum::pi;
 }
 
 /**

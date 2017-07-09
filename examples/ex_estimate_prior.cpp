@@ -21,7 +21,7 @@
 
 using namespace arma;
 
-#define DIM 6
+#define DIM 7
 #define SAMPLES 12
 #define DT 0.016
 
@@ -29,7 +29,7 @@ vec times;
 mat obs;
 
 void nlopt_optimize(vec6 & est);
-void generate_ball_samples(const bool spin,
+void generate_ball_samples(const double topspin,
 		vec & times, mat & obs, vec6 & act_state);
 void estimate_ball_linear(const int num_samples,
 		                  const mat & obs,
@@ -39,11 +39,11 @@ double costfunc(unsigned n, const double *x,
 		        double *grad, void *my_func_data);
 long get_time();
 void actual_ball_example();
-void synthetic_ball_example(bool spin);
+void synthetic_ball_example(const double topspin);
 
 int main() {
 
-	synthetic_ball_example(true);
+	synthetic_ball_example(-50);
 	//actual_ball_example();
 }
 
@@ -54,19 +54,18 @@ void actual_ball_example() {
 		<< -3.7870 << -3.6840 << -3.6240 << -3.2770 << -3.2270 << endr
 		<< -0.4147 << -0.3595 << -0.3327 << -0.2147 << -0.2052 << endr;
 	vec6 init_state_est;
-	bool spin = true;
 	estimate_ball_linear(SAMPLES,obs,times,init_state_est);
 	cout << "LS estimate:" << init_state_est.t();
 	nlopt_optimize(init_state_est);
 	cout << "NLS estimate:" << init_state_est.t();
 }
 
-void synthetic_ball_example(bool spin) {
+void synthetic_ball_example(const double topspin) {
 	times = zeros<vec>(SAMPLES);
 	obs = zeros<mat>(3,SAMPLES);
 	vec6 init_state_est;
 	vec6 actual_state;
-	generate_ball_samples(spin,times,obs,actual_state);
+	generate_ball_samples(topspin,times,obs,actual_state);
 	estimate_ball_linear(SAMPLES,obs,times,init_state_est);
 	cout << "Actual state:" << actual_state.t();
 	cout << "LS estimate:" << init_state_est.t();
@@ -87,9 +86,10 @@ void nlopt_optimize(vec6 & est) {
 	nlopt_set_min_objective(opt, costfunc, nullptr);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
-	for(int i = 0; i < DIM; i++) {
+	for(int i = 0; i < DIM-1; i++) {
 		x[i] = est(i);
 	}
+	x[DIM-1] = -0.0;
 
 	init_time = get_time();
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
@@ -98,9 +98,10 @@ void nlopt_optimize(vec6 & est) {
 	else {
 		printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
 	    printf("Found minimum at f = %0.10g\n", minf);
-		for(int i = 0; i < DIM; i++) {
+		for(int i = 0; i < DIM-1; i++) {
 			est(i) = x[i];
 		}
+		printf("Topspin est: %f\n", 100*x[DIM-1]);
 	}
 	nlopt_destroy(opt);
 }
@@ -108,11 +109,12 @@ void nlopt_optimize(vec6 & est) {
 /*
  * Generate ball samples using a ball model and random ballgun loc.
  */
-void generate_ball_samples(const bool spin,
+void generate_ball_samples(const double topspin,
 		        vec & times, mat & obs, vec6 & act_state) {
 
 	arma_rng::set_seed_random();
-	TableTennis tt = TableTennis(spin,false);
+	TableTennis tt = TableTennis(true,false);
+	tt.set_topspin(topspin);
 	int ball_launch_side = (randi(1,distr_param(0,2)).at(0));
 	tt.set_ball_gun(0.05,ball_launch_side);
 	act_state = tt.get_ball_state();
@@ -153,6 +155,7 @@ void estimate_ball_linear(const int num_samples,
 double costfunc(unsigned n, const double *x, double *grad, void *data) {
 
     static TableTennis tt = TableTennis(true,false);
+    tt.set_topspin(100*x[DIM-1]);
 
     if (grad) {
 		static double h = 1e-6;
@@ -170,7 +173,8 @@ double costfunc(unsigned n, const double *x, double *grad, void *data) {
 		}
     }
 
-    vec6 init_state(x);
+    vec7 state(x);
+    vec6 init_state = state.head(DIM-1);
     tt.set_ball_state(init_state);
     tt.integrate_ball_state(times(0));
     double dt;
