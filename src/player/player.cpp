@@ -669,22 +669,6 @@ bool update_next_state(const spline_params & poly,
 }
 
 /*
- * Initialize an Extended Kalman Filter
- * useful for passing to Player constructor
- *
- */
-EKF init_filter(double std_model, double std_noise, bool spin) {
-
-	mat C = eye<mat>(3,6);
-	mat66 Q = std_model * eye<mat>(6,6);
-	mat33 R = std_noise * eye<mat>(3,3);
-	if (spin)
-		return EKF(calc_spin_ball,C,Q,R);
-	else
-		return EKF(calc_next_ball,C,Q,R);
-}
-
-/*
  * Generate matrix of joint angles, velocities and accelerations
  */
 void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
@@ -779,104 +763,6 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 	}
 
 	return false;
-}
-
-/*
- * Checks to see if the observation is new (updated)
- *
- * The blobs need to be at least tol apart from each other in distance
- *
- */
-bool check_new_obs(const vec3 & obs, double tol) {
-
-	static vec3 last_obs = zeros<vec>(3);
-
-	if (norm(obs - last_obs) > tol) {
-		last_obs = obs;
-		return true;
-	}
-	return false;
-}
-
-/*
- * Least squares to estimate prior given
- * matrix of observations Y of column length N, each row
- * corresponding to one
- *
- * If observations arrive as column vectors then we take
- * transpose of it.
- *
- * Velocity estimation is biased, we multiply velocities by 0.8
- * since LSE often overestimates the model with spin.
- *
- *
- */
-void estimate_prior(const mat & observations,
-		            const vec & times,
-					const bool verbose,
-					EKF & filter) {
-
-	vec6 x; mat66 P;
-	int num_samples = times.n_elem;
-	mat M = zeros<mat>(num_samples,3);
-	vec times_z = times - times(0); // times zeroed
-
-	// and create the data matrix
-	for (int i = 0; i < num_samples; i++) {
-		M(i,0) = 1.0;
-		M(i,1) = times_z(i);
-		M(i,2) = times_z(i) * times_z(i);
-	}
-	// solving for the parameters
-	mat Beta = solve(M,observations.t());
-	x = join_horiz(Beta.row(0),Beta.row(1)).t();
-	P.eye(6,6);
-	filter.set_prior(x,P);
-	filter.update(observations.col(0));
-
-	double dt;
-	for (unsigned i = 1; i < times.n_elem; i++) {
-		dt = times_z(i) - times_z(i-1);
-		filter.predict(dt,true);
-		filter.update(observations.col(i));
-	}
-
-	if (verbose) {
-		cout << "Times:" << times.t() << endl;
-		cout << "Data:\n" << observations.t() << endl;
-		cout << "Initial est:" << x.t() << endl;
-	}
-}
-
-/*
- * Check to see if we want to reset the filter.
- *
- * Basically if a new ball appears 300 ms later than the last new ball
- * we reset the filter.
- *
- */
-bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
-
-	bool reset = false;
-	static int reset_cnt = 0;
-	static bool firsttime = true;
-	static wall_clock timer;
-
-	if (firsttime) {
-		firsttime = false;
-		timer.tic();
-	}
-
-	if (newball) {
-		if (timer.toc() > threshold) {
-			reset = true;
-			if (verbose > 0) {
-				std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
-			}
-		}
-		timer.tic();
-	}
-	return reset;
 }
 
 /*

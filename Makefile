@@ -35,7 +35,8 @@ filter:
 	$(CC) $(INSTALLFLAGS) src/player/kalman.cpp src/player/extkalman.cpp $(LIBS) -o $(LIBDIR)/libfilter.so		  
 						  
 player:
-	$(CC) $(INSTALLFLAGS) src/player/player.cpp $(LIBS) -o $(LIBDIR)/libplayer.so
+	$(CC) $(INSTALLFLAGS) src/player/player.cpp \
+	                      src/player/estimate_ball.cpp $(LIBS) -o $(LIBDIR)/libplayer.so
 
 interface:
 	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libinterface.so
