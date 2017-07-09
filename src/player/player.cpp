@@ -140,6 +140,14 @@ Player::~Player() {
 	delete opt;
 }
 
+/**
+ * If filter is initialized returns true
+ * @return
+ */
+bool Player::filter_is_initialized() const {
+	return init_ball_state;
+}
+
 /*
  * Filter the blob information with a Kalman Filter.
  * (Extended) KF is used both in simulation mode and for real robot.

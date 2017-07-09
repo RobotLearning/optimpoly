@@ -277,7 +277,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static int firsttime = true;
 
 	if (firsttime && flags.save) {
-		stream_balls.open(ball_file,ios::out | ios::app);
+		stream_balls.open(ball_file,std::ofstream::out | std::ofstream::app);
 		firsttime = false;
 	}
 
@@ -300,7 +300,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
-		save_ball_data(blobs,filter,stream_balls);
+		save_ball_data(blobs,robot,filter,stream_balls);
 	}
 
 	// update desired joint state
@@ -319,23 +319,21 @@ void play(const SL_Jstate joint_state[NDOF+1],
  *
  *
  */
-static void save_ball_data(const SL_VisionBlob blobs[4], const KF & filter, std::ofstream & stream) {
+static void save_ball_data(const SL_VisionBlob blobs[4], const Player *robot, const KF & filter, std::ofstream & stream) {
 
 	static rowvec ball_full;
-	static vec6 ball_est = zeros<vec>(6);
+	vec6 ball_est = zeros<vec>(6);
 	int status1 = (int)blobs[1].status;
 	int status3 = (int)blobs[3].status;
 
 	if (flags.save && (status1 || status3)) {
-		try {
+
+		if (robot->filter_is_initialized()) {
 			ball_est = filter.get_mean();
 		}
-		catch (const char * exception) {
-			// do nothing
-		}
-
 		ball_full << 1 << status1  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
 				  << 3 << status3  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
+		//cout << ball_full << endl;
 		ball_full = join_horiz(ball_full,ball_est.t());
 		if (stream.is_open()) {
 			stream << ball_full;

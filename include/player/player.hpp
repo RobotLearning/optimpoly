@@ -104,6 +104,7 @@ public:
 
 	// auxiliary function, public interface for filter test performance
 	vec6 filt_ball_state(const vec3 & obs);
+	bool filter_is_initialized() const ;
 	void reset_filter(double std_model, double std_noise);
 
 	// main function

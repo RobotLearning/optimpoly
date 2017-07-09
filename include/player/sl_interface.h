@@ -32,7 +32,7 @@ extern void load_options();
 // internal c++ functions
 static bool fuse_blobs(const SL_VisionBlob blobs[], vec3 & obs);
 static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose);
-static void save_ball_data(const SL_VisionBlob blobs[4], const KF & filter, std::ofstream & stream);
+static void save_ball_data(const SL_VisionBlob blobs[4], const Player *robot, const KF & filter, std::ofstream & stream);
 static void set_algorithm(const int alg_num);
 
 #endif
