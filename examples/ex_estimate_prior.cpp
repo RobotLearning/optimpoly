@@ -22,7 +22,7 @@
 using namespace arma;
 
 #define DIM 6
-#define SAMPLES 5
+#define SAMPLES 12
 #define DT 0.016
 
 vec times;
@@ -43,8 +43,8 @@ void synthetic_ball_example(bool spin);
 
 int main() {
 
-	//synthetic_ball_example(true);
-	actual_ball_example();
+	synthetic_ball_example(true);
+	//actual_ball_example();
 }
 
 void actual_ball_example() {
@@ -83,7 +83,7 @@ void nlopt_optimize(vec6 & est) {
 	double init_time;
 	int res; // error code
 	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LN_BOBYQA, DIM);
+	opt = nlopt_create(NLOPT_LD_TNEWTON, DIM);
 	nlopt_set_min_objective(opt, costfunc, nullptr);
 	nlopt_set_xtol_rel(opt, 1e-2);
 

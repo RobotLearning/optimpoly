@@ -842,9 +842,9 @@ void estimate_prior(const mat & observations,
 	}
 
 	if (verbose) {
-		cout << "Times:\n" << times << endl;
-		cout << "Data:\n" << observations << endl;
-		cout << "Initial est:\n" << x << endl;
+		cout << "Times:" << times.t() << endl;
+		cout << "Data:\n" << observations.t() << endl;
+		cout << "Initial est:" << x.t() << endl;
 	}
 }
 

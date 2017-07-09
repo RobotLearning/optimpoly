@@ -22,7 +22,7 @@ test-auto-nlopt: # example for testing NLOPT + autodiff
 						-L$(ADOLCLIBDIR) -ladolc	
 
 test-est-init: # example for testing NLOPT + ball initial state estimation
-	$(CC) $(TESTLAGS) ex_estimate_prior.cpp -o est_prior -I$(HEADER1) -I$(HEADER2) \
+	$(CC) $(TESTFLAGS) ex_estimate_prior.cpp -o est_prior -I$(HEADER1) -I$(HEADER2) \
 	                  -lm -larmadillo -lnlopt ../lib/libtennis.so				
 					    
 clean:
