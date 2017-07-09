@@ -270,7 +270,15 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // centered player
+	static std::ofstream stream_balls;
+	static std::string home = std::getenv("HOME");
+	static std::string ball_file = home + "/polyoptim/balls.txt";
 	static EKF filter = init_filter(0.3,0.001,flags.spin);
+	static int firsttime = true;
+
+	if (firsttime) {
+		stream_balls.open(ball_file,ios::out | ios::app);
+	}
 
 	if (flags.reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -291,7 +299,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
-		save_data(qact,qdes,blobs,ball_obs,filter);
+		save_ball_data(blobs,filter,stream_balls);
 	}
 
 	// update desired joint state
@@ -305,25 +313,19 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 /*
  *
- * Saves actual and desired joints to one file if save flag is set to TRUE
+ * Saves actual ball data if save flag is set to TRUE
  * and the ball observations and estimated ball state one another
  *
- * TODO: no need to open close each time!
  *
  */
-static void save_data(const joint & qact, const joint & qdes,
-		       const SL_VisionBlob blobs[4], const vec3 & ball_obs, const KF & filter) {
+static void save_ball_data(const SL_VisionBlob blobs[4], const KF & filter, std::ofstream & stream) {
 
 	static rowvec ball_full;
-    static rowvec rq; // joints in rowvector form
-	static std::string home = std::getenv("HOME");
-	static std::string joint_file = home + "/polyoptim/joints.txt";
-	static std::string ball_file = home + "/polyoptim/balls.txt";
-	static std::ofstream stream_joints;
-	static std::ofstream stream_balls;
 	static vec6 ball_est = zeros<vec>(6);
+	int status1 = (int)blobs[1].status;
+	int status3 = (int)blobs[3].status;
 
-	if (flags.save) {
+	if (flags.save && (status1 || status3)) {
 		try {
 			ball_est = filter.get_mean();
 		}
@@ -331,25 +333,13 @@ static void save_data(const joint & qact, const joint & qdes,
 			// do nothing
 		}
 
-		rq = join_horiz(qdes.q.t(),qact.q.t());
-		//qdes_full = join_horiz(join_horiz(qdes.q.t(),qdes.qd.t()),qdes.qdd.t());
-		//qact_full = join_horiz(join_horiz(qact.q.t(),qact.qd.t()),qact.qdd.t());
-		stream_joints.open(joint_file,ios::out | ios::app);
-		if (stream_joints.is_open()) {
-			stream_joints << rq; //qdes_full << qact_full << endr;
+		ball_full << 1 << status1  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
+				  << 3 << status3  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
+		ball_full = join_horiz(ball_full,ball_est.t());
+		if (stream.is_open()) {
+			stream << ball_full;
 		}
-
-		stream_balls.open(ball_file,ios::out | ios::app);
-		ball_full << 1 << ((int)blobs[1].status)
-				  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
-				  << 3 << ((int)blobs[3].status)
-				  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
-		ball_full = join_horiz(join_horiz(ball_full,ball_obs.t()),ball_est.t());
-		if (stream_balls.is_open()) {
-			stream_balls << ball_full;
-		}
-		//stream_joints.close();
-		stream_balls.close();
+		//stream_balls.close();
 	}
 }
 
