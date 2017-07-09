@@ -36,7 +36,7 @@ using namespace arma;
  * @param Qin Process noise covariance Q.
  * @param Rin Observation noise covariance R.
  */
-EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(Cin,Qin,Rin) {
+EKF::EKF(vec (*fp)(const vec &, const double, const void *p), mat & Cin, mat & Qin, mat & Rin) : KF(Cin,Qin,Rin) {
 
 	this->f = fp;
 
@@ -54,7 +54,7 @@ EKF::EKF(vec (*fp)(const vec &, double), mat & Cin, mat & Qin, mat & Rin) : KF(C
  * Using 'TWO-SIDED-SECANT' to do a stable linearization
  *
  */
-mat EKF::linearize(double dt, double h) const {
+mat EKF::linearize(const double dt, const double h) const {
 
 	int dimx = x.n_elem;
 	static mat delta = h * eye<mat>(dimx,dimx);
@@ -62,8 +62,8 @@ mat EKF::linearize(double dt, double h) const {
 	static mat fPlus = zeros<mat>(dimx,dimx);
 	static mat fMinus = zeros<mat>(dimx,dimx);
 	for (int i = 0; i < dimx; i++) {
-		fPlus.col(i) = this->f(x + delta.col(i),dt);
-		fMinus.col(i) = this->f(x - delta.col(i),dt);
+		fPlus.col(i) = this->f(x + delta.col(i),dt, fparams);
+		fMinus.col(i) = this->f(x - delta.col(i),dt, fparams);
 	}
 	return (fPlus - fMinus) / (2*h);
 }
@@ -76,9 +76,9 @@ mat EKF::linearize(double dt, double h) const {
  * around current x and make the covariance update
  *
  */
-void EKF::predict(double dt, bool lin_flag) {
+void EKF::predict(const double dt, const bool lin_flag) {
 
-	x = this->f(x,dt);
+	x = this->f(x,dt,fparams);
 	if (lin_flag) {
 		//cout << "A = \n" << linearize(dt,0.01);
 		mat A = linearize(dt,0.0001);
@@ -97,7 +97,7 @@ void EKF::predict(double dt, bool lin_flag) {
  * @return Matrix of ball mean and variances as columns.
  *
  */
-mat EKF::predict_path(double dt, int N) {
+mat EKF::predict_path(const double dt, const int N) {
 
 	int dimx = x.n_elem;
 	mat X(dimx,N);

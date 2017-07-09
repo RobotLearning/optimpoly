@@ -35,6 +35,6 @@ static const double stand_y       = -0.59;
 static const double stand_z	    = 0.9;
 
 /* Floor */
-static const double floor_level = -1.66;
+static const double floor_level = -1.67;
 
 #endif /* TABLE_H_ */

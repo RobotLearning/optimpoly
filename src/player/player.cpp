@@ -162,6 +162,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	if (check_reset_filter(newball,pflags.verbosity,pflags.t_reset_thresh)) {
 		filter = init_filter(pflags.std_model,pflags.std_noise,pflags.spin);
 		num_obs = 0;
+		init_ball_state = false;
 		game_state = AWAITING;
 		//cout << obs << endl;
 		t_obs = 0.0; // t_cumulative
@@ -174,12 +175,21 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		if (num_obs == pflags.min_obs) {
 			if (pflags.verbosity >= 1)
 				cout << "Estimating initial ball state\n";
-			estimate_prior(observations,times,pflags.verbosity > 2, filter);
+			std::thread t = std::thread(estimate_prior,
+			std::ref(observations),std::ref(times),std::ref(pflags.verbosity),std::ref(init_ball_state),std::ref(filter));
+			if (pflags.detach) {
+				cout << "Detaching ball estimation!\n";
+				t.detach();
+			}
+			else {
+				t.join();
+			}
+			//estimate_prior(observations,times,pflags.verbosity > 2,filter);
 			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
 
 	}
-	else { // comes here if there are enough balls to start filter
+	else if (init_ball_state) { // comes here if there are enough balls to start filter
 		filter.predict(DT,true); //true);
 		if (newball) {
 			valid_obs = true;
@@ -474,6 +484,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 void Player::reset_filter(double std_model, double std_noise) {
 
 	filter = init_filter(std_model,std_noise,pflags.spin);
+	init_ball_state = false;
 	num_obs = 0;
 	game_state = AWAITING;
 	t_obs = 0.0;

@@ -93,22 +93,27 @@ class EKF : public KF {
 
 private:
 
+	// parameters to function
+	void *fparams = nullptr;
+
 	// function pointer
-	vec (*f)(const vec &,double);
+	vec (*f)(const vec &, const double, const void *p);
 
 	// linearize function to get Ad matrix
-	mat linearize(double dt, double h) const;
+	mat linearize(const double dt, const double h) const;
 
 public:
 
 	// initializing with a function pointer
-	EKF(vec (*fp)(const vec &,double), mat & Cin, mat & Qin, mat & Rin);
+	EKF(vec (*fp)(const vec & state, const double dt, const void *p), mat & Cin, mat & Qin, mat & Rin);
+
+	void set_fun_params(void *params) { fparams = params; };
 
 	// overriding predict() of KF superclass
-	void predict(double dt, bool lin_flag = true);
+	void predict(const double dt, const bool lin_flag = true);
 
 	// predict future path
-	mat predict_path(double dt, int N);
+	mat predict_path(const double dt, const int N);
 
 	// check observation for outlier (used after prediction)
 	bool check_outlier(const vec & obs, const bool verbose = false) const;

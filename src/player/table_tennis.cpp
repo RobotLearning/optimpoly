@@ -774,7 +774,7 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
  * @param dt Prediction horizon.
  * @return Next ball positions and velocities.
  */
-vec calc_next_ball(const vec & xnow, double dt) {
+vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
 	tennis.integrate_ball_state(dt);
@@ -793,9 +793,13 @@ vec calc_next_ball(const vec & xnow, double dt) {
  * @param dt Prediction horizon.
  * @return Next ball positions and velocities.
  */
-vec calc_spin_ball(const vec & xnow, double dt) {
+vec calc_spin_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,true,false);
+	if (fp != nullptr) {
+		double *topspin = (double*)fp;
+		tennis.set_topspin(*topspin);
+	}
 	//tennis.set_ball_state(xnow);
 	tennis.integrate_ball_state(dt);
 	return tennis.get_ball_state();

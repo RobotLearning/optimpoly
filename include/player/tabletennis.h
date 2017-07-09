@@ -149,9 +149,9 @@ public:
 };
 
 // Functions set as pointers for Extended Kalman Filtering
-vec calc_next_ball(const vec & xnow, double dt);
-vec calc_next_ball(const racket & robot, const vec & xnow, double dt);
-vec calc_spin_ball(const vec & xnow, double dt);
+vec calc_next_ball(const vec & xnow, const double dt, const void *fp);
+vec calc_next_ball(const racket & robot, const vec & xnow, const double dt);
+vec calc_spin_ball(const vec & xnow, const double dt, const void *fp);
 
 // Used for lookup table
 void predict_till_net(vec6 & ball_est);

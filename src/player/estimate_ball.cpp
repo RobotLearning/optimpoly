@@ -17,7 +17,7 @@ static void estimate_ball_linear(const mat & observations,
 		                  const vec & times,
 					      const bool verbose,
 					      vec6 & init_est);
-static void nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est);
+static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est);
 static double calc_residual(unsigned n, const double *x, double *grad, void *data);
 static long get_time();
 
@@ -26,18 +26,30 @@ struct init_ball_data {
 	mat obs;
 };
 
+/**
+ * Estimates initial ball state + ball topspin (uncomment two lines)
+ *
+ * @param observations
+ * @param times
+ * @param verbose
+ * @param filter
+ */
 void estimate_prior(const mat & observations,
-        			const vec & times,
-					const bool verbose,
+        			const mat & times,
+					const int & verbose,
+					bool & NLOPT_FINISHED,
 					EKF & filter) {
 
+	NLOPT_FINISHED = false;
+	static double topspin;
 	vec6 x;
 	vec times_z = times - times(0); // times zeroed
-	estimate_ball_linear(observations,times_z,verbose,x);
-	nlopt_estimate_ball(observations,times_z,verbose,x);
+	estimate_ball_linear(observations,times_z,verbose > 2,x);
+	topspin = nlopt_estimate_ball(observations,times_z,verbose > 2,x);
 	mat P;
 	P.eye(6,6);
 	filter.set_prior(x,P);
+	filter.set_fun_params((void*)&topspin);
 	filter.update(observations.col(0));
 
 	double dt;
@@ -46,6 +58,8 @@ void estimate_prior(const mat & observations,
 		filter.predict(dt,true);
 		filter.update(observations.col(i));
 	}
+	//cout << "Detached ball state estimation finished!\n";
+	NLOPT_FINISHED = true;
 }
 
 /*
@@ -86,8 +100,13 @@ static void estimate_ball_linear(const mat & observations,
 	}
 }
 
-static void nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est) {
+/*
+ * Returns the estimated topspin value
+ */
+static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est) {
 
+	static const int TS = 6;
+	double lb[7], ub[7];
 	double x[7];  /* some initial guess */
 	double minf; /* the minimum objective value, upon return */
 	double init_time;
@@ -97,14 +116,19 @@ static void nlopt_estimate_ball(const mat & obs, const vec & times, const bool v
 	data.obs = obs;
 	data.times = times;
 
+	ub[X] = 1.0; ub[Y] = 0.5; ub[Z] = 2.0; ub[DX] = 2.0; ub[DY] = 5.0; ub[DZ] = 4.0; ub[TS] = 1.0;
+	lb[X] = -1.0; lb[Y] = -5.0; lb[Z] = -2.0; lb[DX] = -2.0; lb[DY] = -5.0; lb[DZ] = -4.0; lb[TS] = -1.0;
+
 	opt = nlopt_create(NLOPT_LD_TNEWTON, 7);
 	nlopt_set_min_objective(opt, calc_residual, (void*)&data);
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
-
+	//nlopt_set_maxtime(opt, 0.002);
 	for(int i = 0; i < 6; i++) {
 		x[i] = est(i);
 	}
-	x[6] = -0.0;
+	x[6] = -0.5;
 
 	init_time = get_time();
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
@@ -117,11 +141,12 @@ static void nlopt_estimate_ball(const mat & obs, const vec & times, const bool v
 		if (verbose) {
 			printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
 			printf("Found minimum at f = %0.10g\n", minf);
-			cout << "Initial state est:" << est.t() << endl;
+			cout << "Initial state est:" << est.t();
 			printf("Topspin est: %f\n", 100*x[6]);
 		}
 	}
 	nlopt_destroy(opt);
+	return 100*x[6];
 }
 
 /*
@@ -131,6 +156,8 @@ static void nlopt_estimate_ball(const mat & obs, const vec & times, const bool v
  */
 static double calc_residual(unsigned n, const double *x, double *grad, void *void_data) {
 
+	static const double lambda_spin = 1e-5;
+	static const double lambda_zvel = 5e-4;
     static TableTennis tt = TableTennis(true,false);
     tt.set_topspin(100*x[6]);
     init_ball_data *data = (init_ball_data*) void_data;
@@ -163,6 +190,8 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
     	tt.integrate_ball_state(dt);
     	residual += pow(norm(tt.get_ball_position() - data->obs.col(i)),2);
     }
+    // add regularization to prevent overfitting in spin estimation
+    //residual += lambda_spin * (x[6]*x[6]) + lambda_zvel * (x[DZ]*x[DZ]);
 
     return residual;
 
@@ -221,15 +250,20 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
  * useful for passing to Player constructor
  *
  */
-EKF init_filter(double std_model, double std_noise, bool spin) {
+EKF init_filter(const double std_model, const double std_noise, const bool spin, const double *topspin) {
 
 	mat C = eye<mat>(3,6);
 	mat66 Q = std_model * eye<mat>(6,6);
 	mat33 R = std_noise * eye<mat>(3,3);
-	if (spin)
-		return EKF(calc_spin_ball,C,Q,R);
-	else
-		return EKF(calc_next_ball,C,Q,R);
+	if (spin) {
+		EKF filter = EKF(calc_spin_ball,C,Q,R);
+		filter.set_fun_params((void*)topspin);
+		return filter;
+	}
+	else {
+		EKF filter = EKF(calc_next_ball,C,Q,R);
+		return filter;
+	}
 }
 
 /*

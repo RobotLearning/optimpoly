@@ -65,6 +65,7 @@ class Player {
 private:
 
 	// data fields
+	bool init_ball_state = false;
 	EKF & filter; // filter for the ball estimation
 	vec2 ball_land_des = zeros<vec>(2); // desired landing position
 	double time_land_des = 0.8;
@@ -114,16 +115,17 @@ public:
 };
 
 // ball estimation and filter constructor/state initialization
-EKF init_filter(double std_model = 0.001, double std_noise = 0.001, bool spin = false);
+EKF init_filter(const double std_model = 0.001, const double std_noise = 0.001,
+		        const bool spin = false, const double *topspin = nullptr);
 void estimate_prior(const mat & observations,
-		            const vec & times,
-					const bool verbose,
+		            const mat & times,
+					const int & verbose,
+					bool & init_ball,
 					EKF & filter);
 bool check_new_obs(const vec3 & obs, double tol);
 bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 
 // movement generation
-
 void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
 		             const vec7 & q_rest_des, const double time2return,
 		            mat & Q, mat & Qd, mat & Qdd);
