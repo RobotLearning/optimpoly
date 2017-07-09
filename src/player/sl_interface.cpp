@@ -276,8 +276,9 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static EKF filter = init_filter(0.3,0.001,flags.spin);
 	static int firsttime = true;
 
-	if (firsttime) {
+	if (firsttime && flags.save) {
 		stream_balls.open(ball_file,ios::out | ios::app);
+		firsttime = false;
 	}
 
 	if (flags.reset) {
