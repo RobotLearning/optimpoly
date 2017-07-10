@@ -44,12 +44,13 @@ struct player_flags { //! player flags
 	int verbosity = 0; //! OFF, LOW, HIGH, ALL
 	int freq_mpc = 1; //! frequency of mpc updates if turned on
 	int min_obs = 5;
+	double out_reject_mult = 2.0;
 	double ball_land_des_offset[2] = {0.0};
 	double time_land_des = 0.8;
 	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
 	double time2return = 1.0; //! time to return to starting posture after hit
-	double std_noise = 0.001;
-	double std_model = 0.001;
+	double var_noise = 0.001;
+	double var_model = 0.001;
 	double t_reset_thresh = 0.3;
 	double VHPY = -0.3;
 };
@@ -116,8 +117,8 @@ public:
 };
 
 // ball estimation and filter constructor/state initialization
-EKF init_filter(const double std_model = 0.001, const double std_noise = 0.001,
-		        const bool spin = false, const double *topspin = nullptr);
+EKF init_filter(const double var_model = 0.001, const double var_noise = 0.001,
+		        const bool spin = false, const double out_reject_mult = 2.0, const double *topspin = nullptr);
 void estimate_prior(const mat & observations,
 		            const mat & times,
 					const int & verbose,

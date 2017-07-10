@@ -121,6 +121,8 @@ void load_options() {
 		config.add_options()
 		    ("outlier_detection", po::value<bool>(&flags.outlier_detection)->default_value(true),
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
+		    ("rejection multiplier", po::value<double>(&flags.out_reject_mult)->default_value(2.0),
+				"OUTLIER DETECTION MULTIPLIER FOR REAL ROBOT!")
 			("check_bounce", po::value<bool>(&flags.check_bounce),
 			      "checking bounce before moving!")
 			("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
@@ -146,8 +148,8 @@ void load_options() {
 						 "time to return to start posture")
 			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates")
 		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
-		    ("std_noise", po::value<double>(&flags.std_noise), "std of filter obs noise")
-		    ("std_model", po::value<double>(&flags.std_model), "std of filter process noise")
+		    ("var_noise", po::value<double>(&flags.var_noise), "std of filter obs noise")
+		    ("var_model", po::value<double>(&flags.var_model), "std of filter process noise")
 		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
 		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP");
         po::variables_map vm;

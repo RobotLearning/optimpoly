@@ -312,10 +312,10 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	flags.spin = predict_with_spin;
 	flags.verbosity = 3;
 	flags.min_obs = 12;
-	flags.std_model = 0.001;
-	flags.std_noise = 0.001;
+	flags.var_model = 0.01;
+	flags.var_noise = 0.001;
 	flags.detach = true;
-	EKF filter = init_filter(flags.std_model,flags.std_noise,predict_with_spin);
+	EKF filter = init_filter(flags.var_model,flags.var_noise,predict_with_spin);
 	Player cp = Player(zeros<vec>(7),filter,flags);
 	for (int i = 0; i < real_ball_data.n_rows; i++) {
 		status1 = real_ball_data(i,1);

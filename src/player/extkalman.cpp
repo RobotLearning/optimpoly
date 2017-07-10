@@ -35,11 +35,12 @@ using namespace arma;
  * @param Cin Observation matrix C.
  * @param Qin Process noise covariance Q.
  * @param Rin Observation noise covariance R.
+ * @param out_rej_mult Outlier rejection standard deviation multiplier
  */
-EKF::EKF(vec (*fp)(const vec &, const double, const void *p), mat & Cin, mat & Qin, mat & Rin) : KF(Cin,Qin,Rin) {
+EKF::EKF(vec (*fp)(const vec &, const double, const void *p), mat & Cin, mat & Qin, mat & Rin, double out_rej_mult) : KF(Cin,Qin,Rin) {
 
 	this->f = fp;
-
+	outlier_reject_mult = out_rej_mult;
 	/*if (x(0) == datum::inf) {
 		std::cout
 		<< "EKF not initialized! Call set_prior before filtering!"
@@ -131,23 +132,22 @@ mat EKF::predict_path(const double dt, const int N) {
  */
 bool EKF::check_outlier(const vec & y, const bool verbose) const {
 
-	static bool outlier = true;
 	static int dim_y = y.n_elem;
-	static double std_dev_mult = 3.0;
-	vec threshold = std_dev_mult * arma::sqrt(P.diag());
+	bool outlier = true;
+	vec threshold = outlier_reject_mult * arma::sqrt(P.diag());
 	vec inno = clamp(y - C * x, -10, 10);
+	//std::cout << "INNO:" << inno.t() << "THRESH:" << threshold.t();
 
-	if (all(inno < threshold.head(dim_y))) {
+	if (all(abs(inno) < threshold.head(dim_y))) {
 		outlier = false;
 	}
 	else {
 		if (verbose) {
-			std::cout << "Outlier detected at: \t" << y.t()
+			std::cout << "Outlier:" << y.t()
 					  //<< "State: \t" << x.t()
-			          << "Inno: \t" << inno.t()
-					  << "Thresh: \t" << threshold.t();
+			          << "Inno:  " << inno.t()
+					  << "Thresh: " << threshold.head(dim_y).t();
 		}
 	}
-
 	return outlier;
 }

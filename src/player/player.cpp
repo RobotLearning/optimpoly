@@ -164,11 +164,14 @@ bool Player::filter_is_initialized() const {
  */
 void Player::estimate_ball_state(const vec3 & obs) {
 
+	using std::thread;
+	using std::ref;
+	int verb = pflags.verbosity;
 	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
-	if (check_reset_filter(newball,pflags.verbosity,pflags.t_reset_thresh)) {
-		filter = init_filter(pflags.std_model,pflags.std_noise,pflags.spin);
+	if (check_reset_filter(newball,verb,pflags.t_reset_thresh)) {
+		filter = init_filter(pflags.var_model,pflags.var_noise,pflags.spin,pflags.out_reject_mult);
 		num_obs = 0;
 		init_ball_state = false;
 		game_state = AWAITING;
@@ -181,12 +184,10 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		observations.col(num_obs) = obs;
 		num_obs++;
 		if (num_obs == pflags.min_obs) {
-			if (pflags.verbosity >= 1)
+			if (verb >= 1)
 				cout << "Estimating initial ball state\n";
-			std::thread t = std::thread(estimate_prior,
-			std::ref(observations),std::ref(times),std::ref(pflags.verbosity),std::ref(init_ball_state),std::ref(filter));
+			thread t = thread(estimate_prior,ref(observations),ref(times),ref(pflags.verbosity),ref(init_ball_state),ref(filter));
 			if (pflags.detach) {
-				cout << "Detaching ball estimation!\n";
 				t.detach();
 			}
 			else {
@@ -202,12 +203,13 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		if (newball) {
 			valid_obs = true;
 			if (pflags.outlier_detection)
-				valid_obs = !filter.check_outlier(obs,pflags.verbosity > 2);
+				valid_obs = !filter.check_outlier(obs,verb > 2);
 		}
 		if (valid_obs) {
 			filter.update(obs);
-			//cout << "Updating...\n"
-			//     << "OBS\t" << obs.t() << "FILT\t" << filter.get_mean().t();
+			//vec x = filter.get_mean();
+			//mat P = (filter.get_covar());
+			//cout << "OBS:" << obs.t() << "STATE:" << x.t() << "VAR:" << P.diag().t() << endl;
 		}
 
 	}
@@ -489,9 +491,9 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
  * Setting a time threshold as a resetting condition won't work in this case.
  *
  */
-void Player::reset_filter(double std_model, double std_noise) {
+void Player::reset_filter(double var_model, double var_noise) {
 
-	filter = init_filter(std_model,std_noise,pflags.spin);
+	filter = init_filter(var_model,var_noise,pflags.spin,pflags.out_reject_mult);
 	init_ball_state = false;
 	num_obs = 0;
 	game_state = AWAITING;

@@ -250,18 +250,19 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
  * useful for passing to Player constructor
  *
  */
-EKF init_filter(const double std_model, const double std_noise, const bool spin, const double *topspin) {
+EKF init_filter(const double var_model, const double var_noise, const bool spin,
+			    const double out_reject_mult, const double *topspin) {
 
 	mat C = eye<mat>(3,6);
-	mat66 Q = std_model * eye<mat>(6,6);
-	mat33 R = std_noise * eye<mat>(3,3);
+	mat66 Q = var_model * eye<mat>(6,6);
+	mat33 R = var_noise * eye<mat>(3,3);
 	if (spin) {
-		EKF filter = EKF(calc_spin_ball,C,Q,R);
+		EKF filter = EKF(calc_spin_ball,C,Q,R,out_reject_mult);
 		filter.set_fun_params((void*)topspin);
 		return filter;
 	}
 	else {
-		EKF filter = EKF(calc_next_ball,C,Q,R);
+		EKF filter = EKF(calc_next_ball,C,Q,R,out_reject_mult);
 		return filter;
 	}
 }

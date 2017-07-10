@@ -96,6 +96,9 @@ private:
 	// parameters to function
 	void *fparams = nullptr;
 
+	// standard deviation multiplier to reject outliers
+	double outlier_reject_mult;
+
 	// function pointer
 	vec (*f)(const vec &, const double, const void *p);
 
@@ -105,7 +108,7 @@ private:
 public:
 
 	// initializing with a function pointer
-	EKF(vec (*fp)(const vec & state, const double dt, const void *p), mat & Cin, mat & Qin, mat & Rin);
+	EKF(vec (*fp)(const vec & state, const double dt, const void *p), mat & Cin, mat & Qin, mat & Rin, double rej_mult = 2.0);
 
 	void set_fun_params(void *params) { fparams = params; };
 
