@@ -10,10 +10,9 @@
 #ifndef PLAYER_INCLUDE_LOOKUP_H_
 #define PLAYER_INCLUDE_LOOKUP_H_
 
-#define LOOKUP_TABLE_SIZE 4002 //769
-#define LOOKUP_COLUMN_SIZE 2*NDOF + 1 + 2*NCART // ball state and optimization parameters (6 + 15)
+#define LOOKUP_COLUMN_SIZE (2*NDOF + 1 + 2*NCART) // ball state and optimization parameters (6 + 15)
 
-static const std::string LOOKUP_TABLE_NAME = "LookupTable-16-May-2016";
+static const std::string LOOKUP_TABLE_NAME = "lookup_March_2016";
 
 using namespace arma;
 

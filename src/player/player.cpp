@@ -501,7 +501,7 @@ void Player::reset_filter(double var_model, double var_noise) {
 }
 
 /**
- * @brief Initialize optimization parameters using a lookup table if lookup flag is turned ON.
+ * @brief Start moving pre-optim based on lookup if lookup flag is turned ON.
  *
  */
 void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qact) {
