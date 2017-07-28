@@ -121,7 +121,7 @@ void load_options() {
 		config.add_options()
 		    ("outlier_detection", po::value<bool>(&flags.outlier_detection)->default_value(true),
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
-		    ("rejection multiplier", po::value<double>(&flags.out_reject_mult)->default_value(2.0),
+		    ("rejection_multiplier", po::value<double>(&flags.out_reject_mult)->default_value(2.0),
 				"OUTLIER DETECTION MULTIPLIER FOR REAL ROBOT!")
 			("check_bounce", po::value<bool>(&flags.check_bounce),
 			      "checking bounce before moving!")
