@@ -83,15 +83,14 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	vec3 normal_example = racket_params.racket_normal(span(X,Z),0);
 	BOOST_TEST(arma::norm(normal_example) == 1.0, boost::test_tools::tolerance(0.01));
 
-	Optim *opt = new HittingPlane(qact.q.memptr(),lb,ub);
-	opt->set_des_params(&racket_params);
-	opt->fix_hitting_time(time_pred);
-	opt->update_init_state(qact);
-	opt->run();
-	bool update = opt->get_params(qact,poly);
+	HittingPlane opt = HittingPlane(qact.q.memptr(),lb,ub);
+	opt.set_des_params(&racket_params);
+	opt.fix_hitting_time(time_pred);
+	opt.update_init_state(qact);
+	opt.run();
+	bool update = opt.get_params(qact,poly);
 
 	BOOST_TEST(update);
-	delete opt;
 }
 
 /*
@@ -129,14 +128,13 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
 	racket_params = calc_racket_strategy(balls_pred,ball_land_des,time_land_des,racket_params);
 
-	Optim *opt = new FocusedOptim(qact.q.memptr(),lb,ub);
-	opt->set_des_params(&racket_params);
-	opt->update_init_state(qact);
-	opt->run();
-	bool update = opt->get_params(qact,poly);
+	FocusedOptim opt = FocusedOptim(qact.q.memptr(),lb,ub);
+	opt.set_des_params(&racket_params);
+	opt.update_init_state(qact);
+	opt.run();
+	bool update = opt.get_params(qact,poly);
 
 	BOOST_TEST(update);
-	delete opt;
 }
 
 /*
@@ -172,13 +170,12 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	ball_params.Nmax = N;
 	bool land = true;
 	bool lookup = true;
-	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
-	opt->set_des_params(&ball_params);
-	opt->update_init_state(qact);
-	opt->set_verbose(true);
-	opt->run();
-	bool update = opt->get_params(qact,poly);
+	LazyOptim opt = LazyOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
+	opt.set_des_params(&ball_params);
+	opt.update_init_state(qact);
+	opt.set_verbose(true);
+	opt.run();
+	bool update = opt.get_params(qact,poly);
 
 	BOOST_TEST(update);
-	delete opt;
 }

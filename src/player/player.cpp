@@ -253,13 +253,13 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	switch (pflags.alg) {
 		case FOCUS:
-			optim_fixedp_param(qact);
+			optim_fp_param(qact);
 			break;
 		case VHP:
 			optim_vhp_param(qact);
 			break;
 		case LAZY:
-			optim_lazy_param(qact);
+			optim_dp_param(qact);
 			break;
 		default:
 			throw ("Algorithm is not recognized!\n");

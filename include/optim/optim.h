@@ -149,9 +149,9 @@ protected:
 	virtual void init_rest_soln(double x[]) const;
 	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
-	void fix_hitting_time(double time_pred);
 public:
 	double limit_avg[NDOF];
+	void fix_hitting_time(double time_pred);
 	HittingPlane(double qrest_[], double lb_[], double ub_[]);
 };
 
