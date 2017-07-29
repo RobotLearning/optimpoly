@@ -165,7 +165,7 @@ void KF::check_models(const mat & Ain, const mat & Bin, const mat & Cin) const {
 	//	cerr << "C and D must have same row size!" << endl;
 }
 
-/*
+/**
  * Check if the matrix is symmetric positive semidefinite
  *
  * For positive definiteness we look at the value of smallest
@@ -187,7 +187,7 @@ void KF::check_spd(const mat & M) const {
 	}
 }
 
-/*
+/**
  * Takes cholesky of a positive semi-definite matrix
  * if an eigenvalue is 0 then it leaves 0 be!
  *
@@ -246,20 +246,19 @@ void KF::discretize(const mat & Ac, const mat & Bc, double dt) {
 
 }
 
-/*
+/**
  *
  * Kalman smoothing using a backwards Rauch-recursion
  * Assumes that the KF has been initialized and priors set
  *
  * Returns smoothened observations.
  *
- * TODO: Only one iteration?
- *
+ * TODO: Not implemented yet.
  *
  */
 mat KF::smoothen(const mat & observations) {
 
-	// TODO:
+	// TODO: Only one iteration?
 	throw std::runtime_error("Unimplemented!");
 
 }

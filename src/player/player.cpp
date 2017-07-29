@@ -33,7 +33,7 @@
  * test scenarios. For instance
  *
  * 1. Does the ball land on the other side?
- * 2. Which method (1 = VHP, 2 = FP, 3 = LAZY) can land more balls?
+ * 2. Which method (1 = VHP, 2 = FP, 3 = DP) can land more balls?
  * 3. Is correction of trajectories useful when you have observation noise
  *    or  ball prediction error?
  * 4. Are the filters stable? Can we estimate ball state better as we get more data?
@@ -81,10 +81,8 @@ using namespace arma;
  *
  * @param q0 Initial joint positions.
  * @param filter_ Reference to an input filter (must be initialized in a separate line).
- * @param alg_ The algorithm for running trajectory optimization: VHP, FP, LP
- * @param mpc_ Flag for turning on/off model predictive control (i.e. corrections).
- * @param verbose_ Flag for changing verbosity level (0 = OFF, 1 = PLAYER, 2 = PLAYER + OPTIM).
- * @param mode_ Mode of running player (0 = SIM FOR UNIT TESTS, 1 = SL SIM, 2 = REAL ROBOT!)
+ * @param flags Flags/options for player class, initialized with c++11 (see player.hpp)
+ *              or through player.cfg file (see sl_interface)
  */
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
                : filter(filter_), pflags(flags) {
@@ -281,7 +279,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
  * Useful for debugging the internal filter used.
  *
  * @param qact Actual joint positions, velocities, accelerations.
- * @param ball_obs Ball observations (positions as 3-vector).
+ * @param ballstate Ball state (positions AND velocities).
  * @param qdes Desired joint positions, velocities, accelerations.
  */
 void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
@@ -293,13 +291,13 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	switch (pflags.alg) {
 		case FOCUS:
-			optim_fixedp_param(qact);
+			optim_fp_param(qact);
 			break;
 		case VHP:
 			optim_vhp_param(qact);
 			break;
 		case LAZY:
-			optim_lazy_param(qact);
+			optim_dp_param(qact);
 			break;
 		default:
 			throw ("Algorithm is not recognized!\n");
@@ -327,16 +325,17 @@ void Player::optim_vhp_param(const joint & qact) {
 	if (check_update(qact)) {
 		if (predict_hitting_point(pflags.VHPY,pflags.check_bounce,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
 			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
-			opt->set_des_params(&pred_params);
-			opt->fix_hitting_time(time_pred);
-			opt->update_init_state(qact);
-			opt->run();
+			HittingPlane *vhp = static_cast<HittingPlane*>(opt);
+			vhp->set_des_params(&pred_params);
+			vhp->fix_hitting_time(time_pred);
+			vhp->update_init_state(qact);
+			vhp->run();
 		}
 	}
 }
 
 /*
- * FIXED PLAYER
+ * FOCUSED PLAYER
  *
  * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
@@ -345,7 +344,7 @@ void Player::optim_vhp_param(const joint & qact) {
  * assuming T_return and q0 are fixed
  *
  */
-void Player::optim_fixedp_param(const joint & qact) {
+void Player::optim_fp_param(const joint & qact) {
 
 	mat balls_pred;
 
@@ -355,9 +354,10 @@ void Player::optim_fixedp_param(const joint & qact) {
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			lookup_soln(filter.get_mean(),1,qact);
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
-			opt->set_des_params(&pred_params);
-			opt->update_init_state(qact);
-			opt->run();
+			FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
+			fp->set_des_params(&pred_params);
+			fp->update_init_state(qact);
+			fp->run();
 		}
 		else {
 			//cout << "Ball is not legal!\n";
@@ -375,7 +375,7 @@ void Player::optim_fixedp_param(const joint & qact) {
  *
  *
  */
-void Player::optim_lazy_param(const joint & qact) {
+void Player::optim_dp_param(const joint & qact) {
 
 	mat balls_pred;
 
@@ -388,9 +388,10 @@ void Player::optim_lazy_param(const joint & qact) {
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			pred_params.Nmax = balls_pred.n_cols;
-			opt->set_des_params(&pred_params);
-			opt->update_init_state(qact);
-			opt->run();
+			LazyOptim *dp = static_cast<LazyOptim*>(opt);
+			dp->set_des_params(&pred_params);
+			dp->update_init_state(qact);
+			dp->run();
 		}
 	}
 }
@@ -538,10 +539,11 @@ void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qac
 	}
 }
 
-/*
- * Predict hitting point on the Virtual Hitting Plane (VHP)
- * if the ball is legal (legal detected bounce or legal predicted bounce)
- * and there is enough time (50 ms threshold)
+/**
+ * @brief Predict hitting point on the Virtual Hitting Plane (VHP)
+ *
+ * If the ball is legal (legal detected bounce or legal predicted bounce)
+ * and there is enough time (50 ms threshold) predict loc. on VHP.
  *
  * The location of the VHP is given as an argument (vhp-y-location vhpy)
  *
@@ -571,8 +573,8 @@ bool predict_hitting_point(const double & vhpy, const bool & check_bounce,
 	return valid_hp;
 }
 
-/*
- * Predict ball with the models fed into the filter
+/**
+ * @brief Predict ball with the models fed into the filter
  *
  * Number of prediction steps is given by Nmax in racket
  * parameters
@@ -584,7 +586,8 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
 	balls_pred = filter.predict_path(DT,N);
 }
 
-/*
+/**
+ * @brief Compute desired racket pos,vel,normals and/or ball positions, vels.
  * Function that calculates a racket strategy : positions, velocities and racket normal
  * for each point on the predicted ball trajectory (ballMat)
  * to return it a desired point (ballLand) at a desired time (landTime)
@@ -616,100 +619,10 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	return racket_params;
 }
 
-/*
- * Generate batch 3rd order polynomials
- * based on hitting and returning joint state parameters
+
+/**
  *
- */
-void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
-		             const vec7 & q_rest_des, const double time2return,
-		            mat & Q, mat & Qd, mat & Qdd) {
-
-	// first create hitting polynomials
-	vec7 qnow = qact.q;
-	vec7 qdnow = qact.qd;
-	vec7 a3 = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
-	vec7 a2 = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
-	vec7 b3 = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
-	vec7 b2 = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
-
-	int N_hit = T/DT;
-	rowvec times_hit = linspace<rowvec>(DT,T,N_hit);
-	int N_return = time2return/DT;
-	rowvec times_ret = linspace<rowvec>(DT,time2return,N_return);
-
-	mat Q_hit, Qd_hit, Qdd_hit, Q_ret, Qd_ret, Qdd_ret;
-	Q_hit = Qd_hit = Qdd_hit = zeros<mat>(NDOF,N_hit);
-	Q_ret = Qd_ret = Qdd_ret = zeros<mat>(NDOF,N_return);
-
-	gen_3rd_poly(times_hit,a3,a2,qdnow,qnow,Q_hit,Qd_hit,Qdd_hit);
-	gen_3rd_poly(times_ret,b3,b2,qfdot,qf,Q_ret,Qd_ret,Qdd_ret);
-	Q = join_horiz(Q_hit,Q_ret);
-	Qd = join_horiz(Qd_hit,Qd_ret);
-	Qdd = join_horiz(Qdd_hit,Qdd_ret);
-}
-
-/*
- * Given polynomial parameters
- * Move on to the next desired state (joint pos,vel,acc)
- *
- */
-bool update_next_state(const spline_params & poly,
-		           const vec7 & q_rest_des,
-				   const double time2return,
-				   double & t,
-				   joint & qdes) {
-	mat a,b;
-	double tbar;
-	bool flag = true;
-
-	if (t <= poly.time2hit) {
-		a = poly.a;
-		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
-		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
-		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
-		t += DT;
-		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
-	}
-	else if (t <= poly.time2hit + time2return) {
-		b = poly.b;
-		tbar = t - poly.time2hit;
-		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
-		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
-		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
-		t += DT;
-	}
-	else {
-		t = 0.0; // hitting finished
-		flag = false;
-		qdes.q = q_rest_des;
-		qdes.qd = zeros<vec>(NDOF);
-		qdes.qdd = zeros<vec>(NDOF);
-	}
-	return flag;
-}
-
-/*
- * Generate matrix of joint angles, velocities and accelerations
- */
-void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
-		     mat & Q, mat & Qd, mat & Qdd) {
-
-	// IN MATLAB:
-	//	qStrike(m,:) = a(1)*t.^3 + a(2)*t.^2 + a(3)*t + a(4);
-	//	qdStrike(m,:) = 3*a(1)*t.^2 + 2*a(2)*t + a(3);
-	//	qddStrike(m,:) = 6*a(1)*t + 2*a(2);
-
-	for(int i = 0; i < NDOF; i++) {
-		Q.row(i) = a3(i) * pow(times,3) + a2(i) * pow(times,2) + a1(i) * times + a0(i);
-		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
-		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
-	}
-}
-
-/*
- *
- * Checks for legal bounce
+ * @brief Checks for legal ball bounce
  * If an incoming ball has bounced before
  * it is declared ILLEGAL (legal_bounce as DATA MEMBER of player class)
  *
@@ -748,8 +661,8 @@ void check_legal_bounce(const vec6 & ball_est, game & game_state) {
 	last_z_vel = ball_est(DZ);
 }
 
-/*
- * Check if the table tennis trial is LEGAL (hence motion planning can be started).
+/**
+ * @brief Check if the table tennis trial is LEGAL (hence motion planning can be started).
  *
  * If it is exactly one predicted bounce when in awaiting mode
  * (before an actual legal bounce was detected) trial will be legal!
@@ -784,23 +697,4 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 	}
 
 	return false;
-}
-
-/*
- * Set upper and lower bounds on the optimization.
- * First loads the joint limits and then
- */
-void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
-
-	read_joint_limits(lb,ub);
-	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < NDOF; i++) {
-		ub[i] -= SLACK;
-		lb[i] += SLACK;
-		ub[i+NDOF] = MAX_VEL;
-		lb[i+NDOF] = -MAX_VEL;
-	}
-	// constraints on final time
-	ub[2*NDOF] = Tmax;
-	lb[2*NDOF] = 0.01;
 }

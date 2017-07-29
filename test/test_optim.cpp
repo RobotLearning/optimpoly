@@ -175,6 +175,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	Optim *opt = new LazyOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
 	opt->set_des_params(&ball_params);
 	opt->update_init_state(qact);
+	opt->set_verbose(true);
 	opt->run();
 	bool update = opt->get_params(qact,poly);
 

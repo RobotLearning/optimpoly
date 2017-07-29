@@ -15,44 +15,50 @@
 
 using namespace arma;
 
+/**
+ * @brief Optimizer for Player class.
+ */
 enum algo {
-	VHP,
-	FOCUS,
-	LAZY,
+	VHP,  //!< VHP
+	FOCUS,//!< FOCUS
+	LAZY, //!< LAZY
 };
 
+/**
+ * Finite State machine for Table Tennis
+ */
 enum game { //trial state
-	AWAITING,
-	ILLEGAL,
-	LEGAL,
-	HIT,
+	AWAITING,//!< AWAITING
+	ILLEGAL, //!< ILLEGAL
+	LEGAL,   //!< LEGAL
+	HIT,     //!< HIT
 };
 
 /**
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
-struct player_flags { //! player flags
-	bool detach = false;
-	bool check_bounce = false;
-	bool outlier_detection = false;
-	bool mpc = false; //! turn on/off corrections
-	bool reset = true; //! reinitializing player class
-	bool save = false; //! saving ball/robot data
-	bool spin = false; //! turn on and off spin-based prediction models
-	bool lookup = false; //! turn off moving based on lookup before optimization terminates
-	algo alg = FOCUS; //! algorithm for trajectory generation
-	int verbosity = 0; //! OFF, LOW, HIGH, ALL
-	int freq_mpc = 1; //! frequency of mpc updates if turned on
-	int min_obs = 5;
-	double out_reject_mult = 2.0;
-	double ball_land_des_offset[2] = {0.0};
-	double time_land_des = 0.8;
-	double optim_offset = 0.0; //! offset after net for starting optim (if mpc is off)
-	double time2return = 1.0; //! time to return to starting posture after hit
-	double var_noise = 0.001;
-	double var_model = 0.001;
-	double t_reset_thresh = 0.3;
-	double VHPY = -0.3;
+struct player_flags {
+	bool detach = false; //!< detach optimizations in another thread
+	bool check_bounce = false; //!< check bounce to detect legal incoming ball (turn off for real robot exp.)
+	bool outlier_detection = false; //!< outlier detection for real robot
+	bool mpc = false; //!< turn on/off corrections
+	bool reset = true; //!< reinitializing player class
+	bool save = false; //!< saving ball/robot data
+	bool spin = false; //!< turn on and off spin-based prediction models
+	bool lookup = false; //!< turn off moving based on lookup before optimization terminates
+	algo alg = FOCUS; //!< algorithm for trajectory generation
+	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
+	int freq_mpc = 1; //!< frequency of mpc updates if turned on
+	int min_obs = 5; //!< number of observations to initialize filter
+	double out_reject_mult = 2.0; //!< multiplier of variance for outlier detection
+	double ball_land_des_offset[2] = {0.0}; //!< desired ball landing offsets (w.r.t center of opponent court)
+	double time_land_des = 0.8; //!< desired ball landing time
+	double optim_offset = 0.0; //!< offset after net for starting optim (if mpc is off)
+	double time2return = 1.0; //!< time to return to starting posture after hit
+	double var_noise = 0.001; //!< variance of noise process (R)
+	double var_model = 0.001; //!< variance of process noise (Q)
+	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
+	double VHPY = -0.3; //!< location of hitting plane for VHP method
 };
 
 /**
@@ -89,8 +95,8 @@ private:
 	void estimate_ball_state(const vec3 & obs);
 
 	// optimization for different players
-	void optim_fixedp_param(const joint & qact); // run optimizer for FIXED player
-	void optim_lazy_param(const joint & qact);
+	void optim_fp_param(const joint & qact); // run optimizer for Focused player
+	void optim_dp_param(const joint & qact); // optim for Defensive Player
 	void optim_vhp_param(const joint & qact); // run VHP player
 
 	void calc_opt_params(const joint & qact);

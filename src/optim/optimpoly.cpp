@@ -28,7 +28,7 @@ static void first_order_hold(const optim_des* racketdata, const double T, double
 
 /**
  * @brief Update the initial state of optimization to PLAYER's current joint states.
- * @param qact
+ * @param qact Initial joint states acquired from sensors
  */
 void Optim::update_init_state(const joint & qact) {
 	for (int i = 0; i < NDOF; i++) {
@@ -42,7 +42,7 @@ void Optim::update_init_state(const joint & qact) {
  *
  * If the (detached) thread is still running then table tennis player does not
  * update/launch new trajectories.
- * @return
+ * @return running
  */
 bool Optim::check_running() {
 	return running;
@@ -53,7 +53,7 @@ bool Optim::check_running() {
  *
  * If the optimization was successful, update is turned ON and the table tennis
  * player can launch/update the polynomial trajectories.
- * @return
+ * @return update
  */
 bool Optim::check_update() {
 	return update;
@@ -126,6 +126,12 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 	return flag;
 }
 
+/**
+ * @brief Set desired optimization parameters before running optim.
+ *
+ * @param params_ Desired optimization parameters are racket and/or ball values
+ * predicted or computed by player class.
+ */
 void Optim::set_des_params(optim_des *params_) {
 	param_des = params_;
 }
@@ -134,6 +140,7 @@ void Optim::set_des_params(optim_des *params_) {
  *
  * Call this function AFTER setting desired BALL parameters.
  * TODO: include k as a parameter
+ * @param x Array of robot parameters qf,qfdot,T to be updated
  */
 void Optim::init_lookup_soln(double *x) {
 
@@ -154,6 +161,12 @@ void Optim::init_lookup_soln(double *x) {
 	}
 }
 
+/**
+ * @brief Runs the optimization.
+ *
+ * Detaches the optimization if detach is set to TRUE. The
+ * optimization method is shared by all Optim class descendants (VHP,FP,DP).
+ */
 void Optim::run() {
 
 	std::thread t = std::thread(&Optim::optim,this);
@@ -165,7 +178,9 @@ void Optim::run() {
 	}
 }
 
-
+/**
+ * @brief NLOPT optimization happens here.
+ */
 void Optim::optim() {
 
 	update = false;
@@ -215,10 +230,10 @@ void Optim::optim() {
 }
 
 /**
- * Initialize the optimization procedure here
- * @param qrest_
- * @param lb_
- * @param ub_
+ * @brief Initialize the NLOPT optimization procedure here for FP
+ * @param qrest_ Fixed resting posture
+ * @param lb_ Fixed joint lower limits
+ * @param ub_ Fixed joint upper limits
  */
 FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
 
@@ -258,6 +273,10 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_
 	}
 }
 
+/**
+ * @brief Initialize the optimization parameters the last optimized solution values.
+ * @param x Optim params
+ */
 void FocusedOptim::init_last_soln(double x[]) const {
 
 	// initialize first dof entries to q0
@@ -270,6 +289,13 @@ void FocusedOptim::init_last_soln(double x[]) const {
 
 }
 
+/**
+ * @brief Initialize the optim params to fixed resting posture.
+ *
+ * Initializes the optim params to qf fixed to q_rest, zero velocites,
+ * and 0.5 hitting time.
+ * @param x Optim params
+ */
 void FocusedOptim::init_rest_soln(double x[]) const {
 
 	// initialize first dof entries to q0
@@ -280,6 +306,11 @@ void FocusedOptim::init_rest_soln(double x[]) const {
 	x[2*NDOF] = 0.5;
 }
 
+/**
+ * @brief Finalize solution if more than 50 ms is available for hitting.
+ * @param x Optim params
+ * @param time_elapsed Time elapsed during optimization
+ */
 void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 
 	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
@@ -295,6 +326,14 @@ void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 	}
 }
 
+/**
+ * @brief Test solution with hard kinematics constraints
+ *
+ * If constraints are violated then do not update/init. trajectories!
+ *
+ * @param x Optim params
+ * @return Maximum value of constraint violations.
+ */
 double FocusedOptim::test_soln(const double x[]) const {
 
 	// give info on constraint violation

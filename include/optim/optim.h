@@ -30,66 +30,84 @@ using namespace arma;
 
 /**
  * @brief Desired racket/ball positions, vels and racket normals for dt*Nmax seconds.
+ *
+ * This is the structure passed to Optimization class Optim
+ * and its descendants.
+ * For FP, we compute desired racket positions, velocities and normals
+ * based on predicted ball path inside robot workspace.
+ * For DP, we only use the ball predicted positions and velocities.
  */
-typedef struct {
-	mat racket_pos = zeros<mat>(NCART,1);
-	mat racket_vel = zeros<mat>(NCART,1);
-	mat racket_normal = zeros<mat>(NCART,1);
-	mat ball_pos = zeros<mat>(NCART,1);
-	mat ball_vel = zeros<mat>(NCART,1);
-	double dt = DT;
-	int Nmax = 1; // max column length
-} optim_des;
+struct optim_des {
+	mat racket_pos = zeros<mat>(NCART,1); //!< racket desired pos
+	mat racket_vel = zeros<mat>(NCART,1); //!< racket desired vel
+	mat racket_normal = zeros<mat>(NCART,1); //!< racket desired normals
+	mat ball_pos = zeros<mat>(NCART,1); //!< incoming ball predicted pos.
+	mat ball_vel = zeros<mat>(NCART,1); //!< incoming ball predicted vels.
+	double dt = DT; //!< time step between each prediction
+	int Nmax = 1; //!< max number of time steps for prediction
+};
 
 /**
- * @brief Optimization parameters returned from optimizer.
+ * @brief 3rd order spline parameters returned from optimizer.
  *
- * When running is TRUE, player does not update trajectories.
- * IF update is TRUE and running is FALSE, then player can update trajectories.
+ * If optimization is still running, player does not update trajectories.
+ * IF optimization was successful (update is TRUE) and
+ * it has terminated (running is FALSE), then player class can update trajectories.
  */
-typedef struct {
-	double time2hit = 1.0;
-	mat a = zeros<mat>(NDOF,4); // strike
-	mat b = zeros<mat>(NDOF,4); // return
-} spline_params; // optimization variables
+struct spline_params {
+	double time2hit = 1.0; //!< free-final time (for hitting ball)
+	mat a = zeros<mat>(NDOF,4); //!< strike poly params of 3rd order
+	mat b = zeros<mat>(NDOF,4); //!< return poly params of 3rd order
+};
 
 /**
  * @brief Desired/actual joint positions, velocities, accelerations.
  *
- * output of main Player function play()
+ * Main Player function play() updates desired joint values
+ * every 2ms for Barrett WAM.
  */
-typedef struct {
-	vec7 q = zeros<vec>(NDOF);
-	vec7 qd = zeros<vec>(NDOF);
-	vec7 qdd = zeros<vec>(NDOF);
-} joint;
+struct joint {
+	vec7 q = zeros<vec>(NDOF); //!< desired joint pos
+	vec7 qd = zeros<vec>(NDOF); //!< desired joint vels
+	vec7 qdd = zeros<vec>(NDOF); //!< desired joint accs
+};
 
 /**
- * @brief Weights for optimization penalties used by LP.
+ * @brief Weights for optimization penalties used by DP only.
+ *
+ * These weights are NOT used in any interesting way so far.
+ * It would be interesting to learn/update these weights based on
+ * successful returns in real robot experiments.
  */
-typedef struct {
-	double R_strike[NDOF] = {0.0};
-	double R_hit = 0.0; // radial
-	double R_land = 0.0; // radial dist from centre punished
-	double R_net = 0.0;
-} weights; // weights for optimization penalties
+struct weights {
+	double R_strike[NDOF] = {0.0}; //!< acceleration weights for running cost
+	double R_hit = 0.0; //!< euclid. dist from racket centre to hit location
+	double R_land = 0.0; //!< euclid. dist from landing pos to centre punished
+	double R_net = 0.0; //!< euclid. dist from net pos to a suitable pos above net punished
+};
 
+/**
+ * @brief Base class for all optimizers.
+ *
+ * Containts base class methods, members and virtual methods
+ * to be implemented.
+ */
 class Optim {
 
 protected:
-	static const int OPTIM_DIM = 2*NDOF + 1;
-	bool lookup = false;
-	bool verbose = true;
-	bool moving = false;
-	bool update = false;
-	bool running = false;
-	bool detach = false;
-	mat lookup_table;
-	nlopt_opt opt;
+	static const int OPTIM_DIM = 2*NDOF + 1; //!< dim. of optim problem
+	bool lookup = false; //!< use lookup table methods to init. optim params.
+	bool verbose = true; //!< verbose output printed
+	bool moving = false; //!< robot is already moving so use last computed values to init.
+	bool update = false; //!< optim finished and soln. seems valid
+	bool running = false; //!< optim still RUNNING
+	bool detach = false; //!< detach optim in another thread
+	mat lookup_table; //!< lookup table used to init. optim values
+	nlopt_opt opt; //!< optimizer from NLOPT library
 
-	double qf[NDOF] = {0.0};
-	double qfdot[NDOF] = {0.0};
-	double T = 1.0;
+	double qf[NDOF] = {0.0}; //!< saved joint positions after optim
+	double qfdot[NDOF] = {0.0}; //!< saved joint velocities after optim
+	double T = 1.0; //!< saved hitting time after optim terminates
 
 	void init_lookup_soln(double *x);
 	virtual void init_last_soln(double *x) const = 0;
@@ -98,13 +116,13 @@ protected:
 	virtual void finalize_soln(const double *x, const double dt) = 0;
 	void optim();
 public:
-	optim_des *param_des;
-	double lb[2*NDOF+1];
-	double ub[2*NDOF+1];
-	double qrest[NDOF] = {0.0};
-	double q0[NDOF] = {0.0};
-	double q0dot[NDOF] = {0.0};
-	double time2return = 1.0;
+	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
+	double lb[2*NDOF+1]; //!< Joint lower limits, joint vel. lower limit and min. hitting time
+	double ub[2*NDOF+1]; //!< Joint upper limits, joint vel. upper limit and max. hitting time
+	double qrest[NDOF] = {0.0}; //!< FIXED Resting posture for optimizers to compute return traj.
+	double q0[NDOF] = {0.0}; //!< Initial joint state needed to compute traj. acc.
+	double q0dot[NDOF] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
+	double time2return = 1.0; //!< FIXED Time to return
 	virtual ~Optim() {};
 	bool check_update();
 	bool check_running();
@@ -113,11 +131,15 @@ public:
 	void set_verbose(bool flag);
 	bool get_params(const joint & qact, spline_params & p);
 	void update_init_state(const joint & qact);
-	void fix_hitting_time(double time_pred);
 	void set_des_params(optim_des *params);
 	void run();
 };
 
+/**
+ * @brief Optimizer for Virtual Hitting Plane player.
+ *
+ * Fixes hitting plane and ALSO fixes desired landing position and time.
+ */
 class HittingPlane : public Optim {
 
 protected:
@@ -127,25 +149,36 @@ protected:
 	virtual void init_rest_soln(double x[]) const;
 	virtual double test_soln(const double x[]) const;
 	virtual void finalize_soln(const double x[], const double time_elapsed);
+	void fix_hitting_time(double time_pred);
 public:
 	double limit_avg[NDOF];
-	HittingPlane(double qrest[], double lb[], double ub[]);
+	HittingPlane(double qrest_[], double lb_[], double ub_[]);
 };
 
+/**
+ * @brief Optimizer for Focused Player
+ *
+ * Focused Player fixes a desired landing position and time for the ball.
+ */
 class FocusedOptim : public Optim {
 
 protected:
-	static const int OPTIM_DIM = 2*NDOF + 1;
+	static const int OPTIM_DIM = 2*NDOF + 1; //!< dim. of optim
 	//virtual bool predict(EKF & filter);
-	virtual void init_last_soln(double x[]) const;
-	virtual void init_rest_soln(double x[]) const;
-	virtual double test_soln(const double x[]) const;
-	virtual void finalize_soln(const double x[], const double time_elapsed);
+	virtual void init_last_soln(double x[]) const; //!< see derived class
+	virtual void init_rest_soln(double x[]) const; //!< see derived class
+	virtual double test_soln(const double x[]) const; //!< see derived class
+	virtual void finalize_soln(const double x[], const double time_elapsed); //!< see derived class
 public:
 	FocusedOptim() {}; // for lazy player
-	FocusedOptim(double qrest[], double lb[], double ub[]);
+	FocusedOptim(double qrest_[], double lb_[], double ub_[]);
 };
 
+/**
+ * @brief Optimizer for Defensive Player (a.k.a. lazy)
+ *
+ * Defensive Player doesn't fix desired ball pos. or time!
+ */
 class LazyOptim : public FocusedOptim {
 
 private:
@@ -154,18 +187,18 @@ private:
 	void set_hit_constr();
 	virtual void finalize_soln(const double x[], const double time_elapsed);
 public:
-	bool land;
-	weights w;
-	double x_last[OPTIM_DIM] = {0.0};
-	double t_land = -1.0;
-	double t_net = -1.0;
-	double x_land[NCART] = {0.0};
-	double x_net[NCART] = {0.0};
-	double dist_b2r_norm = 1.0;
-	double dist_b2r_proj = 1.0;
+	bool land; //!< compute strikes for landing if true or hitting only if false
+	weights w; //!< weights of optimization
+	double x_last[OPTIM_DIM] = {0.0}; //!< last iteration values
+	double t_land = -1.0; //!< computed landing time
+	double t_net = -1.0; //!< computed net passing time
+	double x_land[NCART] = {0.0}; //!< computed ball landing pos.
+	double x_net[NCART] = {0.0}; //!< computed ball net pass. pos.
+	double dist_b2r_norm = 1.0; //!< normal dist. from ball to racket
+	double dist_b2r_proj = 1.0; //!< dist. from ball to racket proj. to racket plane
 	void calc_times(const double x[]);
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
-	LazyOptim(double qrest[], double lb[], double ub[], bool land = true, bool lookup = false);
+	LazyOptim(double qrest_[], double lb_[], double ub_[], bool land_ = true, bool lookup_ = false);
 };
 
 // functions that all players use

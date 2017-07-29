@@ -38,7 +38,14 @@ static void racket_contact_model(const double* racketVel,
 static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
-
+/**
+ * Initialize Defensive Player (also known as LAZY)
+ * @param qrest_ FIXED resting posture
+ * @param lb_ Lower joint pos,vel limits and min. hitting time
+ * @param ub_ Upper joint pos,vel limits and max. hitting time
+ * @param land_ Optimize for returning the ball (true) or only hitting (false)
+ * @param lookup_ Lookup optim params from table if true
+ */
 LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_, bool lookup_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
@@ -127,7 +134,11 @@ void LazyOptim::set_hit_constr() {
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
 
-
+/**
+ * @brief Finalize solution if more than 50 ms is available for hitting.
+ * @param x Optim params
+ * @param time_elapsed Time elapsed during optimization
+ */
 void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
 
 	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {

@@ -21,18 +21,22 @@ static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool
 static double calc_residual(unsigned n, const double *x, double *grad, void *data);
 static long get_time();
 
+/**
+ * @brief Initial ball data time stamps and position observations
+ */
 struct init_ball_data {
 	vec times;
 	mat obs;
 };
 
 /**
- * Estimates initial ball state + ball topspin (uncomment two lines)
+ * @brief Estimates initial ball state + ball topspin (uncomment two lines)
  *
- * @param observations
- * @param times
- * @param verbose
- * @param filter
+ * @param observations Ball positions
+ * @param times Ball time stamps for each position observation
+ * @param verbose Verbose output for estimation if true
+ * @param NLOPT_FINISHED If detached, the thread will communicate that it has finished
+ * @param filter Filter state will be initialized after estimation
  */
 void estimate_prior(const mat & observations,
         			const mat & times,
@@ -62,17 +66,13 @@ void estimate_prior(const mat & observations,
 	NLOPT_FINISHED = true;
 }
 
-/*
- * Least squares to estimate prior given
+/**
+ * @brief Least squares to estimate prior given
  * matrix of observations Y of column length N, each row
  * corresponding to one
  *
  * If observations arrive as column vectors then we take
  * transpose of it.
- *
- * Velocity estimation is biased, we multiply velocities by 0.8
- * since LSE often overestimates the model with spin.
- *
  *
  */
 static void estimate_ball_linear(const mat & observations,
@@ -197,8 +197,8 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
 
 }
 
-/*
- * Checks to see if the observation is new (updated)
+/**
+ * @brief Checks to see if the observation is new (updated)
  *
  * The blobs need to be at least tol apart from each other in distance
  *
@@ -214,8 +214,8 @@ bool check_new_obs(const vec3 & obs, double tol) {
 	return false;
 }
 
-/*
- * Check to see if we want to reset the filter.
+/**
+ * @brief Check to see if we want to reset the filter.
  *
  * Basically if a new ball appears 300 ms later than the last new ball
  * we reset the filter.
@@ -245,10 +245,19 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
 	return reset;
 }
 
-/*
- * Initialize an Extended Kalman Filter
- * useful for passing to Player constructor
+
+/**
+ * @brief Initialize an EKF
  *
+ * Called generally when ball state needs to be reset
+ * Useful for passing to Player constructor.
+ * @param var_model Process noise multiplier for identity matrix.
+ * @param var_noise Observation noise mult. for identity matrix.
+ * @param spin Use spin model if true
+ * @param out_reject_mult Mult. for outlier rejection.
+ * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction
+ * if spin is TRUE
+ * @return EKF Extended Kalman Filter (state uninitialized!)
  */
 EKF init_filter(const double var_model, const double var_noise, const bool spin,
 			    const double out_reject_mult, const double *topspin) {

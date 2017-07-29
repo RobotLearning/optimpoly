@@ -112,12 +112,12 @@ public:
 				 IpoptCalculatedQuantities* ip_cq);
   //@}
 
-//***************    start ADOL-C part ***********************************
+//****************** start ADOL-C part ***********************************
 
  /** Method to generate the required tapes */
   virtual void generate_tapes(Index n, Index m);
 
-//***************    end   ADOL-C part ***********************************
+//****************** end ADOL-C part ***********************************
 
 private:
   /**@name Methods to block default compiler methods.

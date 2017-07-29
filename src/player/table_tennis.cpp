@@ -772,6 +772,7 @@ static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_no
  *
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.
+ * @param fp Function parameters, not used.
  * @return Next ball positions and velocities.
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
@@ -791,6 +792,7 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
  *
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.
+ * @param fp Function parameters are in this case the topspin value.
  * @return Next ball positions and velocities.
  */
 vec calc_spin_ball(const vec & xnow, const double dt, const void *fp) {
@@ -815,6 +817,7 @@ vec calc_spin_ball(const vec & xnow, const double dt, const void *fp) {
  *
  * Warning: spin is turned OFF!
  *
+ * @param robot Interactions with the robot will be checked in integration.
  * @param xnow Consists of current ball position and velocity.
  * @param dt Prediction horizon.
  * @return Next ball positions and velocities.

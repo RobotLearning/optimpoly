@@ -1,8 +1,8 @@
 /**
- * @file invkin.cpp
+ * @file vhp.cpp
  *
- * @brief Inverse Kinematics optimization to find qf, qfdot joint angles
- * and velocities at Virtual Hitting Plane (VHP).
+ * @brief Fixing a virtual hitting plane to find qf, qfdot joint angles
+ * and velocities.
  *
  *  Created on: Mar 5, 2017
  *      Author: okoc
@@ -23,14 +23,13 @@ static double const_costfunc(unsigned n, const double *x,
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data);
 
-/*
- * This is actually only used by Virtual Hitting Plane!
- */
-void Optim::fix_hitting_time(double time_pred) {
-	if (time_pred > 0.05)
-		T = time_pred;
-}
 
+/**
+ * @brief Initialize VHP optimizer
+ * @param qrest_ FIXED rest posture
+ * @param lb_ Joint lower limits (pos,vel limits and time limits incl.)
+ * @param ub_ Joint upper limits (pos,vel limits and time limits incl.)
+ */
 HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
@@ -53,6 +52,24 @@ HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 	}
 }
 
+/**
+ * @brief FIX desired hitting time for VHP trajectories!
+ * This is actually only used by Virtual Hitting Plane!
+ * @param time_pred If this is more than 50 ms, set desired
+ * hitting time at virtual hitting plane to this value.
+ */
+void HittingPlane::fix_hitting_time(double time_pred) {
+	if (time_pred > 0.05)
+		T = time_pred;
+}
+
+/**
+ * @brief Initialize solution using already computed soln. from prev. optim
+ *
+ * If robot is already moving, use the last optimized solution
+ * to initialize current optim
+ * @param x
+ */
 void HittingPlane::init_last_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
@@ -62,6 +79,13 @@ void HittingPlane::init_last_soln(double x[2*NDOF]) const {
 	}
 }
 
+/**
+ * @brief Initialize solution using a rest posture
+ *
+ * Resting posture and zero-velocities and 0.5 hitting time
+ * is used to initialize optim params.
+ * @param x
+ */
 void HittingPlane::init_rest_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
@@ -71,6 +95,12 @@ void HittingPlane::init_rest_soln(double x[2*NDOF]) const {
 	}
 }
 
+/**
+ * If predicted hitting time using the virtual hitting plane
+ * is more than 50 ms, then update!
+ * @param x
+ * @param time_elapsed
+ */
 void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 
 	if (T > 0.05) {
@@ -86,6 +116,14 @@ void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 	}
 }
 
+/**
+ * @brief Check kinematics constraints
+ *
+ * Before updating trajectory, we need to make sure that
+ * the hitting constraints and joint limits are not violated.
+ * @param x
+ * @return Maximum violation
+ */
 double HittingPlane::test_soln(const double x[]) const {
 
 	double x_[2*NDOF+1];

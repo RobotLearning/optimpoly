@@ -29,14 +29,18 @@ struct racket {
 
 /**
  * @brief Information about the status of the game
+ *
+ * This information is useful in SIMULATION. For instance
+ * when we're running tests for performance of optimizers, these
+ * are useful to collect statistics.
  */
 struct status {
-	bool hit = false;
-	bool has_bounced = false;
-	bool legal_bounce = false;
-	bool has_landed = false;
-	bool legal_land = false;
-	bool touched_ground = false;
+	bool hit = false; //!< robot hit the incoming ball
+	bool has_bounced = false; //!< the ball has bounced on robot court (without checking for legal bounce)
+	bool legal_bounce = false; //!< the ball has bounced only once on the robot court
+	bool has_landed = false; //!< the ball has landed on the other side (without checking for legal land)
+	bool legal_land = false; //!< ball has landed legally on the other side (bounced once only on robot court)
+	bool touched_ground = false; //!< the ball touched the ground level (vel. zeroed)
 };
 
 /**
@@ -46,26 +50,16 @@ struct status {
 struct ball_params {
 
 	/* Contact Coefficients */
-	/* coefficient of restitution for the table (i.e. rebound z-velocity multiplier) */
-	double CRT = 0.88;
-	/* coefficient of table contact model on Y-direction */
-	double CFTY = 0.72;
-	/* coefficient of table contact model on X-direction */
-	double CFTX = 0.68;
-	/* coefficent of restitution for racket */
-	double CRR = 0.78;
+	double CRT = 0.88; //!< coefficient of restitution for the table (i.e. rebound z-velocity multiplier)
+	double CFTY = 0.72; //!< coefficient of table contact model on Y-direction
+	double CFTX = 0.68; //!< coefficient of table contact model on X-direction
+	double CRR = 0.78; //!< coefficent of restitution for racket
 
-	/* Air drag coefficient */
-	double Cdrag = 0.1414;
-
-	/* for simulating different gravities */
-	double gravity = -9.802;
-	/* coefficient of lift for the magnus force */
-	double Clift = 0.001;
-	/* dynamic coefficient of friction */
-	double mu = 0.10;
-	/* initial topspin amount */
-	double init_topspin = -50.0;
+	double Cdrag = 0.1414; 	//!< Air drag coefficient
+	double gravity = -9.802; //!< gravity
+	double Clift = 0.001; //!< coefficient of lift for the magnus force
+	double mu = 0.10; //!< dynamic coefficient of friction
+	double init_topspin = -50.0; //!< initial topspin amount
 };
 
 // flags for table tennis players

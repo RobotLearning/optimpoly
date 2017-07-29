@@ -34,12 +34,12 @@ private:
 
 protected:
 
-	vec x; // state
-	mat P; // covariance of the state
-	mat C; // observation matrix that EKF can also borrow
+	vec x; //!< state
+	mat P; //!< covariance of the state
+	mat C; //!< observation matrix that EKF can also borrow
 
-	mat Q; // covariance of the process noise (discrete)
-	mat R; // covariance of the observation noise (discrete)
+	mat Q; //!< covariance of the process noise (discrete)
+	mat R; //!< covariance of the observation noise (discrete)
 
 	void check_spd(const mat & M) const;
 	mat chol_semi(const mat & M) const;
@@ -110,6 +110,7 @@ public:
 	// initializing with a function pointer
 	EKF(vec (*fp)(const vec & state, const double dt, const void *p), mat & Cin, mat & Qin, mat & Rin, double rej_mult = 2.0);
 
+	/** Set function co-parameters for predicting */
 	void set_fun_params(void *params) { fparams = params; };
 
 	// overriding predict() of KF superclass

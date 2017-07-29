@@ -54,14 +54,14 @@ struct SL_Cstate {
 };
 
 /**
- * @brief Vision blob coming from SL.
+ * @brief Vision blob info coming from SL (after calibration).
  */
 struct SL_VisionBlob {
-	char       status;
-	SL_Cstate  blob;
+	char       status; //!< was ball detected reliably?
+	SL_Cstate  blob; //!< ball center cartesian positions (after calibration)
 };
 
-player_flags flags; //! global structure for setting Player options
+player_flags flags; //!< global structure for setting Player options
 
 #include "sl_interface.h"
 
