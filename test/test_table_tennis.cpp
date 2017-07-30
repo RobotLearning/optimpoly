@@ -34,7 +34,7 @@
 using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
-algo algs[] = {LAZY, FOCUS};
+algo algs[] = {LAZY};
 void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
@@ -65,7 +65,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 0;
+	flags.verbosity = 1;
 	Player *robot;
 	int N = 2000;
 	joint qdes = qact;
@@ -129,7 +129,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	vec3 obs;
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
-	flags.verbosity = 1;
+	flags.verbosity = 3;
 	flags.alg = alg;
 	flags.lookup = false;
 	Player robot = Player(qact.q,filter,flags);

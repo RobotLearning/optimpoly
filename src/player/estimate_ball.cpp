@@ -184,11 +184,11 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
     tt.set_ball_state(init_state);
     tt.integrate_ball_state(data->times(0));
     double dt;
-    double residual = pow(norm(tt.get_ball_position() - data->obs.col(0)),2);
+    double residual = norm(tt.get_ball_position() - data->obs.col(0),1);
     for (int i = 1; i < num_samples; i++) {
     	dt = data->times(i) - data->times(i-1);
     	tt.integrate_ball_state(dt);
-    	residual += pow(norm(tt.get_ball_position() - data->obs.col(i)),2);
+    	residual += norm(tt.get_ball_position() - data->obs.col(i),1);
     }
     // add regularization to prevent overfitting in spin estimation
     //residual += lambda_spin * (x[6]*x[6]) + lambda_zvel * (x[DZ]*x[DZ]);
