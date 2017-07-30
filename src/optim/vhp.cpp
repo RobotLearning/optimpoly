@@ -30,7 +30,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * @param lb_ Joint lower limits (pos,vel limits and time limits incl.)
  * @param ub_ Joint upper limits (pos,vel limits and time limits incl.)
  */
-HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
+HittingPlane::HittingPlane(const vec7 & qrest_, double lb_[], double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
@@ -45,7 +45,7 @@ HittingPlane::HittingPlane(double qrest_[], double lb_[], double ub_[]) {
 	nlopt_add_equality_mconstraint(opt,EQ_CONSTR_DIM,kinematics_eq_constr,this,tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = qrest_[i];
+		qrest[i] = qrest_(i);
 		ub[i] = ub_[i];
 		lb[i] = lb_[i];
 		limit_avg[i] = (ub[i] + lb[i])/2.0;

@@ -125,6 +125,8 @@ void load_options() {
 				"OUTLIER DETECTION MULTIPLIER FOR REAL ROBOT!")
 			("check_bounce", po::value<bool>(&flags.check_bounce),
 			      "checking bounce before moving!")
+		    ("weights", po::value<std::vector<double>>(&flags.weights)->multitoken(), "hit,net,land weights for DP")
+			("mult_vel", po::value<std::vector<double>>(&flags.mult_vel)->multitoken(), "velocity mult. for DP")
 			//("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")

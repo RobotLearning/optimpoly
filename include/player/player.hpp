@@ -59,6 +59,8 @@ struct player_flags {
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
 	double VHPY = -0.3; //!< location of hitting plane for VHP method
+	std::vector<double> weights = {0.0, 0.0, 0.0}; //!< hit,net,land weights for DP (lazy player)
+	std::vector<double> mult_vel = {0.9, 0.8, 0.83}; //!< vel. mult. for DP
 };
 
 /**

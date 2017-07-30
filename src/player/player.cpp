@@ -99,27 +99,25 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 
 	double lb[2*NDOF+1];
 	double ub[2*NDOF+1];
-	double qrest[NDOF];
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(lb,ub,SLACK,Tmax);
 
-	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = q0(i);
-	}
-
 	switch (pflags.alg) {
-		case FOCUS:
-			opt = new FocusedOptim(qrest,lb,ub);
+		case FOCUS: {
+			opt = new FocusedOptim(q0,lb,ub);
 			pred_params.Nmax = 1000;
-			break;
-		case VHP:
-			opt = new HittingPlane(qrest,lb,ub);
-			break;
-		case LAZY:
-			opt = new LazyOptim(qrest,lb,ub,true,true); // use lookup
+			break; }
+		case VHP: {
+			opt = new HittingPlane(q0,lb,ub);
+			break; }
+		case LAZY: {
+			opt = new LazyOptim(q0,lb,ub,true,true); // use lookup
+			LazyOptim *dp = static_cast<LazyOptim*>(opt);
+			dp->set_weights(pflags.weights);
+			dp->set_velocity_multipliers(pflags.mult_vel);
 			pred_params.Nmax = 1000;
-			break;
+			break; }
 		default:
 			throw ("Algorithm is not recognized!\n");
 	}

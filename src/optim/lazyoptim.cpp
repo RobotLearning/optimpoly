@@ -34,7 +34,9 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n,
 static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
 		                     void *my_func_params);
 static void racket_contact_model(const double* racketVel,
-		                         const double* racketNormal, double* ballVel);
+		                         const double* racketNormal,
+								 const std::vector<double> & mult_vel,
+								 double* ballVel);
 static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
@@ -46,7 +48,7 @@ static void interp_ball(const optim_des *params, const double T,
  * @param land_ Optimize for returning the ball (true) or only hitting (false)
  * @param lookup_ Lookup optim params from table if true
  */
-LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_, bool lookup_)
+LazyOptim::LazyOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_, bool lookup_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	lookup = lookup_;
@@ -57,7 +59,7 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
 	w.R_land = 1e1;
 
 	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = qrest_[i];
+		qrest[i] = qrest_(i);
 	}
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		ub[i] = ub_[i];
@@ -72,6 +74,28 @@ LazyOptim::LazyOptim(double qrest_[NDOF], double lb_[], double ub_[], bool land_
 		land = false;
 		set_hit_constr();
 	}
+}
+
+/**
+ * @brief Set weights for Defensive Player
+ * @param weights weights for hitting, net and landing penalties in cost function
+ */
+void LazyOptim::set_weights(const std::vector<double> weights) {
+
+	w.R_net = weights[1];
+	w.R_hit = weights[0];
+	w.R_land = weights[2];
+}
+
+/**
+ * @brief Ball velocity post-multiplier is set here
+ *
+ * This is useful for parameterizing Defensive Player for REAL ROBOT
+ * to compensate for any errors
+ * @param mult
+ */
+void LazyOptim::set_velocity_multipliers(const std::vector<double> & mult) {
+	mult_vel = mult;
 }
 
 /**
@@ -192,7 +216,7 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 		interp_ball(this->param_des, x[2*NDOF], ballpos, ballvel);
 		// calculate deviation of ball to racket - hitting constraints
 		calc_hit_distance(ballpos,pos,normal);
-		racket_contact_model(vel, normal, ballvel);
+		racket_contact_model(vel, normal, mult_vel, ballvel);
 		t_net = (net_y - ballpos[Y])/ballvel[Y];
 		x_net[Z] = ballpos[Z] + t_net * ballvel[Z] + 0.5*g*t_net*t_net;
 		x_net[X] = ballpos[X] + t_net * ballvel[X];
@@ -299,9 +323,9 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	// calculate the landing time
 	opt->calc_times(x);
 
-	J1 = T * (3*T*T*inner_winv_prod(NDOF,w.R_strike,a1,a1) +
-			3*T*inner_winv_prod(NDOF,w.R_strike,a1,a2) +
-			inner_winv_prod(NDOF,w.R_strike,a2,a2));
+	J1 = T * (3*T*T*inner_w_prod(NDOF,w.R_strike,a1,a1) +
+			3*T*inner_w_prod(NDOF,w.R_strike,a1,a2) +
+			inner_w_prod(NDOF,w.R_strike,a2,a2));
 	Jhit = w.R_hit * sqr(opt->dist_b2r_proj) / T;
 
 	if (opt->land)
@@ -453,9 +477,8 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
  *
  */
 static void racket_contact_model(const double* racketVel,
-		const double* racketNormal, double* ballVel) {
+		const double* racketNormal, const std::vector<double> & mult_vel, double* ballVel) {
 
-	static const double mult_vel[NCART] = {0.9,0.8,0.83};
 	static const double racket_param = 0.78;
 	static double diffVel[NCART];
 	static double normalMultSpeed[NCART];

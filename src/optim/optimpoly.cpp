@@ -235,7 +235,7 @@ void Optim::optim() {
  * @param lb_ Fixed joint lower limits
  * @param ub_ Fixed joint upper limits
  */
-FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
+FocusedOptim::FocusedOptim(const vec7 & qrest_, double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
 
 	//lookup = true;
 	//load_lookup_table(lookup_table);
@@ -265,7 +265,7 @@ FocusedOptim::FocusedOptim(double qrest_[NDOF], double lb_[2*NDOF+1], double ub_
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF; i++) {
-		qrest[i] = qrest_[i];
+		qrest[i] = qrest_(i);
 	}
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		ub[i] = ub_[i];

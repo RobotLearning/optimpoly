@@ -81,9 +81,9 @@ struct joint {
  */
 struct weights {
 	double R_strike[NDOF] = {0.0}; //!< acceleration weights for running cost
-	double R_hit = 0.0; //!< euclid. dist from racket centre to hit location
-	double R_land = 0.0; //!< euclid. dist from landing pos to centre punished
-	double R_net = 0.0; //!< euclid. dist from net pos to a suitable pos above net punished
+	double R_hit = 0.0; //!< weight of dist from racket centre to hit location
+	double R_land = 0.0; //!< weight of dist from landing pos to centre
+	double R_net = 0.0; //!< weight of dist from net pos to a suitable pos above net
 };
 
 /**
@@ -152,7 +152,7 @@ protected:
 public:
 	double limit_avg[NDOF];
 	void fix_hitting_time(double time_pred);
-	HittingPlane(double qrest_[], double lb_[], double ub_[]);
+	HittingPlane(const vec7 & qrest_, double lb_[], double ub_[]);
 };
 
 /**
@@ -171,7 +171,7 @@ protected:
 	virtual void finalize_soln(const double x[], const double time_elapsed); //!< see derived class
 public:
 	FocusedOptim() {}; // for lazy player
-	FocusedOptim(double qrest_[], double lb_[], double ub_[]);
+	FocusedOptim(const vec7 & qrest_, double lb_[], double ub_[]);
 };
 
 /**
@@ -186,6 +186,7 @@ private:
 	void set_land_constr();
 	void set_hit_constr();
 	virtual void finalize_soln(const double x[], const double time_elapsed);
+	std::vector<double> mult_vel = {0.9,0.8,0.83};
 public:
 	bool land; //!< compute strikes for landing if true or hitting only if false
 	weights w; //!< weights of optimization
@@ -196,9 +197,11 @@ public:
 	double x_net[NCART] = {0.0}; //!< computed ball net pass. pos.
 	double dist_b2r_norm = 1.0; //!< normal dist. from ball to racket
 	double dist_b2r_proj = 1.0; //!< dist. from ball to racket proj. to racket plane
+	void set_velocity_multipliers(const std::vector<double> & mult);
+	void set_weights(const std::vector<double> weights);
 	void calc_times(const double x[]);
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
-	LazyOptim(double qrest_[], double lb_[], double ub_[], bool land_ = true, bool lookup_ = false);
+	LazyOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_ = true, bool lookup_ = false);
 };
 
 // functions that all players use
