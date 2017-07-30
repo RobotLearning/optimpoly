@@ -179,3 +179,19 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 
 	BOOST_TEST(update);
 }
+
+/*
+ * Find a qf such that J(qf) has minimal Frobenius norm
+ */
+BOOST_AUTO_TEST_CASE(find_rest_posture) {
+
+	#include "kinematics.hpp"
+	static mat::fixed<3,7> origin = zeros<mat>(3,7);
+	static mat::fixed<3,7> axis = zeros<mat>(3,7);
+	static mat::fixed<3,6> link = zeros<mat>(3,6);
+	static mat::fixed<6,7> jac = zeros<mat>(6,7);
+	static cube::fixed<4,4,7> amats = zeros<cube>(4,4,7);
+
+	vec7 q_rest = randu<vec>(7);
+	get_jacobian(q_rest);
+}
