@@ -54,17 +54,20 @@ void calc_racket_state(const joint & robot_joint,
 
 /**
  * @brief Return the Jacobian (linear) matrix at joint values q
- * @param q
+ *
+ * Returns the jacobian and the cartesian coordinates of endeffector
+ * @param q joint values q
+ * @param jac Jacobian matrix to be updated
  */
-void get_jacobian(const vec7 & q) {
+vec3 get_jacobian(const vec7 & q, mat::fixed<6,7> & jac) {
 
 	static mat::fixed<3,7> origin = zeros<mat>(3,7);
 	static mat::fixed<3,7> axis = zeros<mat>(3,7);
 	static mat::fixed<3,6> link = zeros<mat>(3,6);
-	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	static cube::fixed<4,4,7> amats = zeros<cube>(4,4,7);
 	kinematics(q,link,origin,axis,amats);
 	jacobian(link,origin,axis,jac);
+	return link.col(PALM);
 }
 
 /**

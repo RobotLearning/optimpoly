@@ -52,6 +52,6 @@ struct pose {
 void calc_racket_state(const joint & robot_joint,
 		               racket & robot_racket);
 void calc_racket_orient(vec4 & quat);
-void get_jacobian(const vec7 & q);
+vec3 get_jacobian(const vec7 & q, mat::fixed<6,7> & jac);
 
 #endif /* _KINEMATICS_HPP_ */

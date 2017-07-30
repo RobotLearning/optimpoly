@@ -21,9 +21,15 @@
 #include "lookup.h"
 #include "player.hpp"
 #include "tabletennis.h"
+#include "kinematics.hpp"
 
 using namespace arma;
 int randval;
+
+static double cost_fnc(unsigned n, const double *x,
+		                   double *grad, void *data);
+static void interp_ball(const mat & ballpred,
+		                const double T, vec3 & ballpos);
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -181,17 +187,110 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 }
 
 /*
- * Find a qf such that J(qf) has minimal Frobenius norm
+ * Find a qf and t such that J(qf) has minimal Frobenius norm
+ * while being close to predicted ball state b(t)
  */
 BOOST_AUTO_TEST_CASE(find_rest_posture) {
 
-	#include "kinematics.hpp"
-	static mat::fixed<3,7> origin = zeros<mat>(3,7);
-	static mat::fixed<3,7> axis = zeros<mat>(3,7);
-	static mat::fixed<3,6> link = zeros<mat>(3,6);
-	static mat::fixed<6,7> jac = zeros<mat>(6,7);
-	static cube::fixed<4,4,7> amats = zeros<cube>(4,4,7);
+	cout << "\nOptimizing resting posture based on jacobian...\n";
 
-	vec7 q_rest = randu<vec>(7);
-	get_jacobian(q_rest);
+	double lb[NDOF+1], ub[NDOF+1];
+	double x[NDOF] = {0.0};
+	for(int i = 0; i < NDOF; i++)
+		x[i] = as_scalar(randn(1)); // joint estimates
+	x[NDOF] = 1.0; // time estimate
+
+	// update initial parameters from lookup table
+	std::cout << "Looking up a random ball entry..." << std::endl;
+	arma_rng::set_seed(randval);
+	//arma_rng::set_seed_random();
+	vec::fixed<15> strike_params;
+	vec6 ball_state;
+	lookup_random_entry(ball_state,strike_params);
+	int N = 1000;
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	mat balls_pred = filter.predict_path(DT,N);
+
+	read_joint_limits(lb,ub);
+	lb[NDOF] = 0.0;
+	ub[NDOF] = 2.0;
+	nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, NDOF+1);
+	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_lower_bounds(opt, lb);
+	nlopt_set_upper_bounds(opt, ub);
+	nlopt_set_min_objective(opt, cost_fnc, (void*)&balls_pred);
+
+	double init_time = get_time();
+	double past_time = 0.0;
+	double minf; // the minimum objective value, upon return //
+	int res; // error code
+
+	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+		printf("NLOPT failed with exit code %d!\n", res);
+	    past_time = (get_time() - init_time)/1e3;
+		printf("NLOPT took %f ms\n", past_time);
+	}
+	else {
+		past_time = (get_time() - init_time)/1e3;
+		printf("NLOPT success with exit code %d!\n", res);
+		printf("NLOPT took %f ms\n", past_time);
+		printf("Found minimum at f = %0.10g\n", minf);
+		for (int i = 0; i < NDOF; i++) {
+			printf("q_rest[%d] = %f\n", i, x[i]);
+		}
+		/*mat::fixed<6,7> jac = zeros<mat>(6,7);
+		vec3 pos = get_jacobian(q,jac);
+		cout << "cart_pos:\n" << pos;
+		cout << "jac:\n" << jac;*/
+	}
+
 }
+
+static double cost_fnc(unsigned n, const double *x,
+		                   double *grad, void *data) {
+
+	mat *ballpred = (mat*)data;
+	static mat::fixed<6,7> jac = zeros<mat>(6,7);
+	vec q_rest(x,NDOF);
+	double T = x[NDOF];
+	vec3 robot_pos = get_jacobian(q_rest,jac);
+	vec3 ball_pos;
+
+	if (grad) {
+		static double h = 1e-6;
+		static double val_plus, val_minus;
+		static double xx[NDOF+1];
+		for (unsigned i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (unsigned i = 0; i < n; i++) {
+			xx[i] += h;
+			val_plus = cost_fnc(n, xx, NULL, data);
+			xx[i] -= 2*h;
+			val_minus = cost_fnc(n, xx, NULL, data);
+			grad[i] = (val_plus - val_minus) / (2*h);
+			xx[i] += h;
+		}
+	}
+
+	interp_ball(*ballpred,T,ball_pos);
+	return norm(jac,"fro") + norm(robot_pos - ball_pos);
+}
+
+static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos) {
+
+    const double dt = DT;
+	if (std::isnan(T)) {
+		printf("Warning: T value is nan!\n");
+		ballpos = ballpred.col(0).head(3);
+	}
+	else {
+		unsigned N = (int) (T/dt);
+		double Tdiff = T - N*dt;
+		ballpos = ballpred.col(N).head(3) +
+				(Tdiff/dt) * (ballpred.col(N+1).head(3) - ballpred.col(N).head(3));
+	}
+}
+
+

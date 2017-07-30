@@ -208,11 +208,11 @@ void Optim::optim() {
 	int res; // error code
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+		past_time = (get_time() - init_time)/1e3;
 		if (verbose) {
 			printf("NLOPT failed with exit code %d!\n", res);
 		    printf("NLOPT took %f ms\n", past_time);
 		}
-	    past_time = (get_time() - init_time)/1e3;
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
