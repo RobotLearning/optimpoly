@@ -186,9 +186,14 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	BOOST_TEST(update);
 }
 
+struct rest_optim_data {
+	mat ball_pred;
+	vec7 q_hit;
+};
+
 /*
  * Find a qf and t such that J(qf) has minimal Frobenius norm
- * while being close to predicted ball state b(t)
+ * while being close to predicted ball state b(t) and being close to q_hit
  */
 BOOST_AUTO_TEST_CASE(find_rest_posture) {
 
@@ -202,17 +207,19 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 
 	// update initial parameters from lookup table
 	std::cout << "Looking up a random ball entry..." << std::endl;
-	arma_rng::set_seed(randval);
-	//arma_rng::set_seed_random();
+	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
+	vec7 q_hit = strike_params.head(NDOF);
 	int N = 1000;
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
-
+	rest_optim_data rest_data;
+	rest_data.ball_pred = balls_pred;
+	rest_data.q_hit = q_hit;
 	read_joint_limits(lb,ub);
 	lb[NDOF] = 0.0;
 	ub[NDOF] = 2.0;
@@ -220,7 +227,7 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb);
 	nlopt_set_upper_bounds(opt, ub);
-	nlopt_set_min_objective(opt, cost_fnc, (void*)&balls_pred);
+	nlopt_set_min_objective(opt, cost_fnc, (void*)&rest_data);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -240,6 +247,7 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 		for (int i = 0; i < NDOF; i++) {
 			printf("q_rest[%d] = %f\n", i, x[i]);
 		}
+		printf("Time: %f\n", x[NDOF]);
 		/*mat::fixed<6,7> jac = zeros<mat>(6,7);
 		vec3 pos = get_jacobian(q,jac);
 		cout << "cart_pos:\n" << pos;
@@ -251,7 +259,7 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 static double cost_fnc(unsigned n, const double *x,
 		                   double *grad, void *data) {
 
-	mat *ballpred = (mat*)data;
+	rest_optim_data *rest_data = (rest_optim_data*)data;
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	vec q_rest(x,NDOF);
 	double T = x[NDOF];
@@ -274,8 +282,9 @@ static double cost_fnc(unsigned n, const double *x,
 		}
 	}
 
-	interp_ball(*ballpred,T,ball_pos);
-	return norm(jac,"fro") + norm(robot_pos - ball_pos);
+	interp_ball(rest_data->ball_pred,T,ball_pos);
+	double move_cost = 12 * pow(norm(q_rest - rest_data->q_hit),2);
+	return pow(norm(jac,"fro"),2) + pow(norm(robot_pos - ball_pos),2) + move_cost;
 }
 
 static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos) {
