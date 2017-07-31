@@ -46,13 +46,14 @@ optim:
 	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
 						src/optim/lazyoptim.cpp \
 						src/optim/vhp.cpp \
+						src/optim/optimrest.cpp \
 					    src/optim/kinematics.c \
 					    src/optim/utils.c \
 	                    $(LIBS) -o $(LIBDIR)/liboptim.so
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(TESTFLAGS) test/test_optim.cpp -o unit_tests.o \
+	$(CC) $(TESTFLAGS) test/test_table_tennis.cpp -o unit_tests.o \
 	                   $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a \
 	                   $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
 	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so \

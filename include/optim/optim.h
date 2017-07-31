@@ -87,6 +87,17 @@ struct weights {
 };
 
 /**
+ * @brief Data needed for resting state optimization
+ *
+ * Optimization tries to find a good resting posture close to the predicted ball locations ball_pred
+ * and a given hitting state q_hit with low jacobian norm (Frobenius)
+ */
+struct rest_optim_data {
+	mat ball_pred;
+	vec7 q_hit;
+};
+
+/**
  * @brief Base class for all optimizers.
  *
  * Containts base class methods, members and virtual methods
@@ -114,6 +125,8 @@ protected:
 	virtual void init_rest_soln(double *x) const = 0;
 	virtual double test_soln(const double *x) const = 0;
 	virtual void finalize_soln(const double *x, const double dt) = 0;
+	void optim_rest_posture(vec7 & q_rest_des);
+	void update_rest_state(const vec7 & q_rest_new);
 	void optim();
 public:
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
@@ -130,6 +143,7 @@ public:
 	void set_detach(bool flag);
 	void set_verbose(bool flag);
 	bool get_params(const joint & qact, spline_params & p);
+	void run_qrest_optim(vec7 & q_rest_des);
 	void update_init_state(const joint & qact);
 	void set_des_params(optim_des *params);
 	void run();

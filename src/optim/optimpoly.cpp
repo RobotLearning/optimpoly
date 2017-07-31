@@ -127,6 +127,19 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 }
 
 /**
+ * @brief Update the rest state from outside
+ *
+ * If there is an additional optimization somewhere else
+ * that optimizes for the resting posture, notify the optim classes
+ * @param q_rest_new
+ */
+void Optim::update_rest_state(const vec7 & q_rest_new) {
+
+	for (int i = 0; i < NDOF; i++)
+		qrest[i] = q_rest_new(i);
+}
+
+/**
  * @brief Set desired optimization parameters before running optim.
  *
  * @param params_ Desired optimization parameters are racket and/or ball values

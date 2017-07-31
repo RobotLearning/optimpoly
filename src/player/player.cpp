@@ -183,12 +183,10 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			if (verb >= 1)
 				cout << "Estimating initial ball state\n";
 			thread t = thread(estimate_prior,ref(observations),ref(times),ref(pflags.verbosity),ref(init_ball_state),ref(filter));
-			if (pflags.detach) {
+			if (pflags.detach)
 				t.detach();
-			}
-			else {
+			else
 				t.join();
-			}
 			//estimate_prior(observations,times,pflags.verbosity > 2,filter);
 			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
@@ -465,6 +463,8 @@ bool Player::check_update(const joint & qact) const {
  */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
+	using std::thread;
+	using std::ref;
 	// this should be only for MPC?
 	if (opt->get_params(qact,poly)) {
 		if (pflags.verbosity) {
@@ -478,6 +478,8 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 	if (t_poly > 0.0) {
 		if (!update_next_state(poly,q_rest_des,time2return,t_poly,qdes)) {
 			opt->set_moving(false);
+			// optimize to find a better resting state close to predicted balls
+			opt->run_qrest_optim(q_rest_des);
 		}
 	}
 
