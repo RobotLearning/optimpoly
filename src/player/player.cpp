@@ -348,7 +348,7 @@ void Player::optim_fp_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			lookup_soln(filter.get_mean(),1,qact);
+			//lookup_soln(filter.get_mean(),1,qact);
 			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
 			fp->set_des_params(&pred_params);
@@ -379,7 +379,7 @@ void Player::optim_dp_param(const joint & qact) {
 	if (check_update(qact)) {
 		predict_ball(2.0,balls_pred,filter);
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
-			lookup_soln(filter.get_mean(),1,qact);
+			//lookup_soln(filter.get_mean(),1,qact);
 			//calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
@@ -582,11 +582,11 @@ bool predict_hitting_point(const double & vhpy, const bool & check_bounce,
  */
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
 
-	static wall_clock timer;
-	timer.tic();
+	//static wall_clock timer;
+	//timer.tic();
 	int N = (int)(time_pred/DT);
 	balls_pred = filter.predict_path(DT,N);
-	cout << "Pred. ball time: " << 1000 * timer.toc() << " ms." << endl;
+	//cout << "Pred. ball time: " << 1000 * timer.toc() << " ms." << endl;
 }
 
 /**
@@ -601,8 +601,8 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 		                       const vec2 & ball_land_des, const double time_land_des,
 							   optim_des & racket_params) {
 
-	static wall_clock timer;
-	timer.tic();
+	//static wall_clock timer;
+	//timer.tic();
 	TableTennis tennis = TableTennis(false,false);
 
 	int N = balls_predicted.n_cols;
@@ -618,7 +618,7 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	racket_params.racket_vel = racket_des_vel;
 	racket_params.racket_normal = racket_des_normal;
 
-	cout << "Pred. racket time: " << 1000 * timer.toc() << " ms." << endl;
+	//cout << "Pred. racket time: " << 1000 * timer.toc() << " ms." << endl;
 	return racket_params;
 }
 

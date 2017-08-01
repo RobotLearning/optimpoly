@@ -64,7 +64,7 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 		printf("q_rest_old[%d] = %f\n", i, x[i]);
 	}
 
-	opt = nlopt_create(NLOPT_LN_COBYLA, NDOF+1);
+	nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, NDOF+1);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);

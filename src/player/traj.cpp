@@ -100,6 +100,7 @@ bool update_next_state(const spline_params & poly,
 		t += DT;
 	}
 	else {
+		printf("Hitting finished!\n");
 		t = 0.0; // hitting finished
 		flag = false;
 		qdes.q = q_rest_des;
