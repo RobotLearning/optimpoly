@@ -100,8 +100,8 @@ bool update_next_state(const spline_params & poly,
 		t += DT;
 	}
 	else {
-		printf("Hitting finished!\n");
-		t = 0.0; // hitting finished
+		//printf("Hitting finished!\n");
+		t = 0.0;
 		flag = false;
 		qdes.q = q_rest_des;
 		qdes.qd = zeros<vec>(NDOF);

@@ -127,6 +127,8 @@ void load_options() {
 			      "checking bounce before moving!")
 		    ("weights", po::value<std::vector<double>>(&flags.weights)->multitoken(), "hit,net,land weights for DP")
 			("mult_vel", po::value<std::vector<double>>(&flags.mult_vel)->multitoken(), "velocity mult. for DP")
+			("rest_posture_optim", po::value<bool>(&flags.optim_rest_posture)->default_value(false),
+				"turn on resting state optimization")
 			//("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")

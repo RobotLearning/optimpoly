@@ -9,12 +9,14 @@
 
 #include <armadillo>
 #include "optim.h"
+#include "utils.h"
 #include "kinematics.hpp"
 
 using namespace arma;
 
 static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos);
-static long get_time();
+static void intersect_ball_path(unsigned m, double *result,
+		unsigned n, const double *x, double *grad, void *data);
 static double cost_fnc(unsigned n, const double *x,
 		                   double *grad, void *data);
 
@@ -47,6 +49,8 @@ void Optim::run_qrest_optim(vec7 & q_rest_des) {
 void Optim::optim_rest_posture(vec7 & q_rest_des) {
 
 	double x[NDOF+1];
+	double tol_eq[NCART];
+	const_vec(NCART,1e-2,tol_eq);
 	rest_optim_data rest_data;
 	rest_data.ball_pred = param_des->ball_pos;
 	double lb_[NDOF+1], ub_[NDOF+1];
@@ -60,15 +64,16 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 	ub_[NDOF] = ub[2*NDOF];
 	x[NDOF] = 1.0; // time estimate
 
-	for (int i = 0; i < NDOF; i++) {
+	/*for (int i = 0; i < NDOF; i++) {
 		printf("q_rest_old[%d] = %f\n", i, x[i]);
-	}
+	}*/
 
 	nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, NDOF+1);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
 	nlopt_set_upper_bounds(opt, ub_);
 	nlopt_set_min_objective(opt, cost_fnc, (void*)&rest_data);
+	nlopt_add_inequality_mconstraint(opt, NCART, intersect_ball_path, (void*)&rest_data, tol_eq);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -86,7 +91,7 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 		printf("NLOPT took %f ms\n", past_time);
 		printf("Found minimum at f = %0.10g\n", minf);
 		for (int i = 0; i < NDOF; i++) {
-			printf("q_rest_new[%d] = %f\n", i, x[i]);
+			//printf("q_rest_new[%d] = %f\n", i, x[i]);
 			q_rest_des(i) = x[i];
 		}
 		printf("Time: %f\n", x[NDOF]);
@@ -99,25 +104,15 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 }
 
 /*
- * Return time of day as micro seconds
+ * Cost function for the resting posture optim
  */
-static long get_time() {
-	struct timeval tv;
-	if (gettimeofday(&tv, (struct timezone *)0) == 0)
-		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
-	return 0.;
-}
-
-
 static double cost_fnc(unsigned n, const double *x,
 		                   double *grad, void *data) {
 
 	rest_optim_data *rest_data = (rest_optim_data*)data;
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	vec q_rest(x,NDOF);
-	double T = x[NDOF];
-	vec3 robot_pos = get_jacobian(q_rest,jac);
-	vec3 ball_pos;
+	get_jacobian(q_rest,jac);
 
 	if (grad) {
 		static double h = 1e-6;
@@ -135,9 +130,28 @@ static double cost_fnc(unsigned n, const double *x,
 		}
 	}
 
-	interp_ball(rest_data->ball_pred,T,ball_pos);
 	double move_cost = pow(norm(q_rest - rest_data->q_hit),2);
-	return pow(norm(jac,"fro"),2) + pow(norm(robot_pos - ball_pos),2) + move_cost;
+	return pow(norm(jac,"fro"),2) +  + move_cost;
+}
+
+/**
+ * @brief Make sure that the robot resting posture
+ * touches the ball path at some point.
+ */
+static void intersect_ball_path(unsigned m, double *result,
+		unsigned n, const double *x, double *grad, void *data) {
+
+	rest_optim_data *rest_data = (rest_optim_data*)data;
+	vec3 ball_pos;
+	vec q_rest(x,NDOF);
+	double T = x[NDOF];
+	static mat::fixed<6,7> jac = zeros<mat>(6,7);
+	vec3 robot_pos = get_jacobian(q_rest,jac);
+	interp_ball(rest_data->ball_pred,T,ball_pos);
+
+	for (int i = 0; i < NCART; i++) {
+		result[i] = robot_pos(i) - ball_pos(i);
+	}
 }
 
 static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos) {

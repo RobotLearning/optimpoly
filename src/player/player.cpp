@@ -94,8 +94,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	q_rest_des = q0;
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
-	if (flags.lookup)
-		load_lookup_table(lookup_table);
+	//load_lookup_table(lookup_table);
 
 	double lb[2*NDOF+1];
 	double ub[2*NDOF+1];
@@ -479,7 +478,8 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		if (!update_next_state(poly,q_rest_des,time2return,t_poly,qdes)) {
 			opt->set_moving(false);
 			// optimize to find a better resting state close to predicted balls
-			opt->run_qrest_optim(q_rest_des);
+			if (pflags.optim_rest_posture)
+				opt->run_qrest_optim(q_rest_des);
 		}
 	}
 
@@ -507,7 +507,7 @@ void Player::reset_filter(double var_model, double var_noise) {
  */
 void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qact) {
 
-	if (t_poly == 0.0 && pflags.lookup) {
+	if (t_poly == 0.0) {
 		if (pflags.verbosity) {
 			cout << "Starting movement based on lookup, k = 5\n"; // kNN parameter k = 5
 		}

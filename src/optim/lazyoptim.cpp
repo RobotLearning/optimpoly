@@ -326,7 +326,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	J1 = T * (3*T*T*inner_w_prod(NDOF,w.R_strike,a1,a1) +
 			3*T*inner_w_prod(NDOF,w.R_strike,a1,a2) +
 			inner_w_prod(NDOF,w.R_strike,a2,a2));
-	Jhit = w.R_hit * sqr(opt->dist_b2r_proj) / T;
+	Jhit = w.R_hit * sqr(opt->dist_b2r_proj);
 
 	if (opt->land)
 		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net) / T;

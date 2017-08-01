@@ -45,7 +45,7 @@ struct player_flags {
 	bool reset = true; //!< reinitializing player class
 	bool save = false; //!< saving ball/robot data
 	bool spin = false; //!< turn on and off spin-based prediction models
-	bool lookup = false; //!< turn off moving based on lookup before optimization terminates
+	bool optim_rest_posture = false; //!< turn on rest posture optimization
 	algo alg = FOCUS; //!< algorithm for trajectory generation
 	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
 	int freq_mpc = 1; //!< frequency of mpc updates if turned on
