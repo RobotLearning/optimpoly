@@ -1,13 +1,3 @@
-DIR=$(HOME)/polyoptim
-HEADER1=$(DIR)/include/player
-HEADER2=$(DIR)/include/optim
-LIBDIR=$(DIR)/lib
-CC=g++
-LIBS=-larmadillo -lm
-INSTALLFLAGS=-fPIC -g -Wall -I$(HEADER1) -I$(HEADER2) -shared -pthread -std=c++11 -O0
-TESTFLAGS=-g --std=c++11 -pthread -I$(HEADER1) -I$(HEADER2)
-OPTIMFLAGS=-fPIC -g -Wall -shared -I$(HEADER1) -I$(HEADER2) -O3 -std=c++11
-
 HOST=$(shell hostname)
 ifeq ($(HOST),sill) # new machine in the new MPI building
 	BOOSTL=$(HOME)/install/lib
@@ -15,52 +5,66 @@ else
 	BOOSTL=/usr/local/lib
 endif
 
-# for compiling everything 
-all: install interface lookup kinematics 
+DIR=$(HOME)/polyoptim
+HEADER1=$(DIR)/include/player
+HEADER2=$(DIR)/include/optim
+LIBDIR=$(DIR)/lib
+CC=g++
+LIBS=-larmadillo -lm -lboost_program_options
+FLAGS=-I$(HEADER1) -I$(HEADER2) -pthread -std=c++11
+RELEASE=-O3 -DNDEBUG
+DEBUG=-DDEBUG -g -Wall -Werror -Wextra -Weffc++ -pedantic -pedantic-errors \
+-Waggregate-return -Wcast-align -Wcast-qual -Wconversion \
+-Wdisabled-optimization -Wfloat-equal\
+-Wformat=2 -Wformat-nonliteral -Wformat-security -Wformat-y2k \
+-Wimport  -Winline -Winvalid-pch -Wlong-long \
+-Wmissing-field-initializers -Wmissing-format-attribute   \
+-Wmissing-include-dirs -Wmissing-noreturn \
+-Wpacked  -Wpadded -Wpointer-arith \
+-Wredundant-decls -Wshadow -Wstack-protector \
+-Wstrict-aliasing=2 -Wswitch-default \
+-Wswitch-enum -Wunreachable-code -Wunused -Wundef \
+-Wvariadic-macros -Wwrite-strings
+SHARED_OBJECT = $(LIBDIR)/libplayer.so
+PLAYER_DIR = $(DIR)/src/player
+OPTIM_DIR = $(DIR)/src/optim
+OBJ_PLAYER_DIR = $(DIR)/obj/player
+OBJ_OPTIM_DIR = $(DIR)/obj/optim
+SRC_PLAYER = $(wildcard $(PLAYER_DIR)/*.cpp)
+SRC_OPTIM = $(wildcard $(OPTIM_DIR)/*.cpp $(OPTIM_DIR)/*.c))
+OBJS_PLAYER = $(addprefix $(OBJ_PLAYER_DIR)/,$(basename $(notdir $(SRC_PLAYER))))
+OBJS_OPTIM = $(addprefix $(OBJ_OPTIM_DIR)/,$(basename $(notdir $(SRC_OPTIM))))
+OBJS = $(addsuffix .o,$(OBJS_PLAYER) $(OBJS_OPTIM))
+#$(info $$OBJS_PLAYER is [${OBJS}])
 
-# for compiling only necessary stuff to play table tennis (in test mode)
-install: player filter tabletennis optim
+# for compiling everything, release and debug modes
+release: FLAGS += $(RELEASE)
+release: all
+debug: FLAGS += $(DEBUG)
+debug: all
 
-##### ALL SHARED LIBRARIES FOR POLYOPTIM
-tabletennis:
-	$(CC) $(INSTALLFLAGS) src/player/table_tennis.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libtennis.so
+all: $(SHARED_OBJECT)
 
-kinematics:
-	$(CC) $(INSTALLFLAGS) src/player/kinematics.cpp $(LIBS) -o $(LIBDIR)/libkin.so
+$(SHARED_OBJECT) : $(OBJS)
+	$(CC) -shared $(FLAGS) -o $@ $^ $(LIBS)
 
-lookup:
-	$(CC) $(INSTALLFLAGS) src/player/lookup.cpp $(LIBS) -o $(LIBDIR)/liblookup.so
+# ADD HEADER PREREQUISITES!
+$(OBJ_PLAYER_DIR)/%.o : $(PLAYER_DIR)/%.cpp
+	$(CC) -c -fPIC $(FLAGS) -o $@ $<
+
+$(OBJ_OPTIM_DIR)/%.o : $(OPTIM_DIR)/%.cpp
+	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
-filter:
-	$(CC) $(INSTALLFLAGS) src/player/kalman.cpp src/player/extkalman.cpp $(LIBS) -o $(LIBDIR)/libfilter.so		  
-						  
-player:
-	$(CC) $(INSTALLFLAGS) src/player/player.cpp \
-						  src/player/traj.cpp \
-	                      src/player/estimate_ball.cpp $(LIBS) -o $(LIBDIR)/libplayer.so
+$(OBJ_OPTIM_DIR)/%.o : $(OPTIM_DIR)/%.c
+	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 
-interface:
-	$(CC) $(INSTALLFLAGS) src/player/sl_interface.cpp $(LIBS) -lboost_program_options -o $(LIBDIR)/libinterface.so
-
-optim:
-	$(CC) $(OPTIMFLAGS) src/optim/optimpoly.cpp \
-						src/optim/lazyoptim.cpp \
-						src/optim/vhp.cpp \
-						src/optim/optimrest.cpp \
-					    src/optim/kinematics.c \
-					    src/optim/utils.c \
-	                    $(LIBS) -o $(LIBDIR)/liboptim.so
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(TESTFLAGS) test/test_optim.cpp -o unit_tests.o \
-	                   $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a \
-	                   $(LIBDIR)/libplayer.so $(LIBDIR)/libfilter.so \
-	                   $(LIBDIR)/libtennis.so $(LIBDIR)/libkin.so $(LIBDIR)/liboptim.so \
-	                   $(LIBDIR)/liblookup.so -lnlopt
+	$(CC) $(FLAGS) test/test_optim.cpp -o unit_tests.o \
+	               $(SHARED_OBJECT) $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a -lnlopt
 					    
 clean:
-	rm -rf *.a *.o lib/*.so
+	rm -rf obj/player/*.o obj/optim/*.o lib/*.so
 
-.PHONY: all test clean player optim
-
+.PHONY: all release debug test

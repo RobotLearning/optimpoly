@@ -215,6 +215,11 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 			printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
 		valid = false;
 	}
+	else if (blob.blob.x[2] < yMin || blob.blob.x[2] > yMax) {
+		if (verbose)
+			printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
+		valid = false;
+	}
 	// on the table blob should not appear under the table
 	else if (fabs(blob.blob.x[1]) < xMax && fabs(blob.blob.x[2] - yCenter) < table_length/2.0
 			&& blob.blob.x[3] < zMin) {
