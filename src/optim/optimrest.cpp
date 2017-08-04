@@ -81,20 +81,24 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 	int res; // error code
 
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		printf("NLOPT failed with exit code %d!\n", res);
-	    past_time = (get_time() - init_time)/1e3;
-		printf("NLOPT took %f ms\n", past_time);
+		past_time = (get_time() - init_time)/1e3;
+		if (verbose) {
+			printf("NLOPT failed with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+		}
 	}
 	else {
 		past_time = (get_time() - init_time)/1e3;
-		printf("NLOPT success with exit code %d!\n", res);
-		printf("NLOPT took %f ms\n", past_time);
-		printf("Found minimum at f = %0.10g\n", minf);
+		if (verbose) {
+			printf("NLOPT success with exit code %d!\n", res);
+			printf("NLOPT took %f ms\n", past_time);
+			printf("Found minimum at f = %0.10g\n", minf);
+			//printf("Time of ball predicted: %f\n", x[NDOF]);
+		}
 		for (int i = 0; i < NDOF; i++) {
 			//printf("q_rest_new[%d] = %f\n", i, x[i]);
 			q_rest_des(i) = x[i];
 		}
-		printf("Time: %f\n", x[NDOF]);
 		update_rest_state(q_rest_des);
 		/*mat::fixed<6,7> jac = zeros<mat>(6,7);
 		vec3 pos = get_jacobian(q,jac);

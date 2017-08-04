@@ -181,7 +181,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		if (num_obs == pflags.min_obs) {
 			if (verb >= 1)
 				cout << "Estimating initial ball state\n";
-			thread t = thread(estimate_prior,ref(observations),ref(times),ref(pflags.verbosity),ref(init_ball_state),ref(filter));
+			thread t = thread(estimate_prior,ref(observations),ref(times),
+					          ref(pflags.verbosity),ref(init_ball_state),ref(filter));
 			if (pflags.detach)
 				t.detach();
 			else
@@ -614,6 +615,8 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
 
 	// place racket centre on the predicted ball
+	racket_params.ball_pos = balls_predicted.rows(X,Z);
+	racket_params.ball_vel = balls_predicted.rows(DX,DZ);
 	racket_params.racket_pos = balls_predicted.rows(X,Z);
 	racket_params.racket_vel = racket_des_vel;
 	racket_params.racket_normal = racket_des_normal;

@@ -25,7 +25,7 @@ using namespace std;
 using namespace arma;
 
 static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
-		               const bool & status1, const bool & status3, const int idx, vec3 & obs);
+		               const bool & status1, const bool & status3, const vec6 & ball_est, vec3 & obs);
 static bool check_blob_validity(const vec3 & blob, const bool & status);
 
 /*
@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	flags.spin = predict_with_spin;
 	flags.verbosity = 3;
 	flags.min_obs = 12;
-	flags.var_model = 0.01;
+	flags.var_model = 0.03;
 	flags.var_noise = 0.001;
 	flags.detach = true;
 	EKF filter = init_filter(flags.var_model,flags.var_noise,predict_with_spin);
@@ -322,7 +322,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		blob1 = real_ball_data(i,span(2,4)).t();
 		status3 = real_ball_data(i,6);
 		blob3 = real_ball_data(i,span(7,9)).t();
-		fuse_blobs(blob1,blob3,status1,status3,i,obs); // get observation
+		fuse_blobs(blob1,blob3,status1,status3,ball_states.row(i).t(),obs); // get observation
 		ball_states.row(i) = cp.filt_ball_state(obs).t();
 		usleep(2000);
 	}
@@ -337,15 +337,20 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
  *
  */
 static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
-		               const bool & status1, const bool & status3, const int idx, vec3 & obs) {
+		               const bool & status1, const bool & status3, const vec6 & ball_est, vec3 & obs) {
 
-	static bool status = false;
+	bool status = false;
+	bool filter_init = ball_est(DY) > 1.0;
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blob3,status3) || (check_blob_validity(blob1,status1) && idx > 10)) {
+	if (check_blob_validity(blob3,status3) || (check_blob_validity(blob1,status1) && filter_init)) {
 		status = true;
-		obs = (status3) ? blob3 : blob1;
+		if (status3 && status1 && filter_init)
+			obs = (blob3 + blob1) / 2;
+		else
+			obs = (status3) ? blob3 : blob1;
+
 	}
 	return status;
 }

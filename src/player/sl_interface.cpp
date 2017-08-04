@@ -242,7 +242,7 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
  */
 static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
 
-	static bool status = false;
+	bool status = false;
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1

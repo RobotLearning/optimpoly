@@ -13,6 +13,8 @@
 
 using namespace arma;
 
+#define fitnorm 2
+
 static void estimate_ball_linear(const mat & observations,
 		                  const vec & times,
 					      const bool verbose,
@@ -105,7 +107,7 @@ static void estimate_ball_linear(const mat & observations,
  */
 static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est) {
 
-	static const int TS = 6;
+	static const int TS = 6; // topspin
 	double lb[7], ub[7];
 	double x[7];  /* some initial guess */
 	double minf; /* the minimum objective value, upon return */
@@ -157,7 +159,8 @@ static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool
 static double calc_residual(unsigned n, const double *x, double *grad, void *void_data) {
 
 	static const double lambda_spin = 1e-5;
-	static const double lambda_zvel = 5e-4;
+	static const double lambda_zvel = 5e-2;
+	static const double lambda_yvel = 5e-2;
     static TableTennis tt = TableTennis(true,false);
     tt.set_topspin(100*x[6]);
     init_ball_data *data = (init_ball_data*) void_data;
@@ -184,14 +187,14 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
     tt.set_ball_state(init_state);
     tt.integrate_ball_state(data->times(0));
     double dt;
-    double residual = norm(tt.get_ball_position() - data->obs.col(0),1);
+    double residual = norm(tt.get_ball_position() - data->obs.col(0),fitnorm);
     for (int i = 1; i < num_samples; i++) {
     	dt = data->times(i) - data->times(i-1);
     	tt.integrate_ball_state(dt);
-    	residual += norm(tt.get_ball_position() - data->obs.col(i),1);
+    	residual += norm(tt.get_ball_position() - data->obs.col(i),fitnorm);
     }
     // add regularization to prevent overfitting in spin estimation
-    //residual += lambda_spin * (x[6]*x[6]) + lambda_zvel * (x[DZ]*x[DZ]);
+    residual += lambda_spin * pow(x[6] - 0.5,2) + lambda_zvel * pow(x[DZ]-2.5,2) + lambda_yvel * pow(x[DY]-4.5,2);
 
     return residual;
 

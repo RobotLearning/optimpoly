@@ -74,7 +74,7 @@ mat EKF::linearize(const double dt, const double h) const {
  *
  * @param dt Prediction horizon.
  * @param lin_flag If true, will linearize the nonlinear function
- * around current x and make the covariance update
+ * around current x and make the covariance update. Useful to turn off for debugging.
  *
  */
 void EKF::predict(const double dt, const bool lin_flag) {

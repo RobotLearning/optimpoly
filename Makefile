@@ -12,8 +12,7 @@ LIBDIR=$(DIR)/lib
 CC=g++
 LIBS=-larmadillo -lm -lboost_program_options
 FLAGS=-I$(HEADER1) -I$(HEADER2) -pthread -std=c++11
-RELEASE=-O3 -DNDEBUG
-DEBUG=-DDEBUG -g -Wall -Werror -Wextra -Weffc++ -pedantic -pedantic-errors \
+EXTRA_WARNINGS=-Werror -Wextra -Weffc++ -pedantic -pedantic-errors \
 -Waggregate-return -Wcast-align -Wcast-qual -Wconversion \
 -Wdisabled-optimization -Wfloat-equal\
 -Wformat=2 -Wformat-nonliteral -Wformat-security -Wformat-y2k \
@@ -25,6 +24,8 @@ DEBUG=-DDEBUG -g -Wall -Werror -Wextra -Weffc++ -pedantic -pedantic-errors \
 -Wstrict-aliasing=2 -Wswitch-default \
 -Wswitch-enum -Wunreachable-code -Wunused -Wundef \
 -Wvariadic-macros -Wwrite-strings
+RELEASE=-O3 -DNDEBUG
+DEBUG=-DDEBUG -g -Wall -pedantic -Wextra #$(EXTRA_WARNINGS)
 SHARED_OBJECT = $(LIBDIR)/libplayer.so
 PLAYER_DIR = $(DIR)/src/player
 OPTIM_DIR = $(DIR)/src/optim
@@ -61,7 +62,7 @@ $(OBJ_OPTIM_DIR)/%.o : $(OPTIM_DIR)/%.c
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(FLAGS) test/test_optim.cpp -o unit_tests.o \
+	$(CC) $(FLAGS) test/test_kalman.cpp -o unit_tests.o \
 	               $(SHARED_OBJECT) $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a -lnlopt
 					    
 clean:
