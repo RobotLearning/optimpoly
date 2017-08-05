@@ -189,11 +189,11 @@ public:
 };
 
 /**
- * @brief Optimizer for Defensive Player (a.k.a. lazy)
+ * @brief Optimizer for Defensive Player
  *
  * Defensive Player doesn't fix desired ball pos. or time!
  */
-class LazyOptim : public FocusedOptim {
+class DefensiveOptim : public FocusedOptim {
 
 private:
 	virtual double test_soln(const double x[]) const;
@@ -211,11 +211,14 @@ public:
 	double x_net[NCART] = {0.0}; //!< computed ball net pass. pos.
 	double dist_b2r_norm = 1.0; //!< normal dist. from ball to racket
 	double dist_b2r_proj = 1.0; //!< dist. from ball to racket proj. to racket plane
+	std::vector<double> penalty_loc = {0.0, 0.23, 0.0, -3.22}; //!< penalty locations for landing and net
 	void set_velocity_multipliers(const std::vector<double> & mult);
-	void set_weights(const std::vector<double> weights);
+	void set_weights(const std::vector<double> & weights);
+	void set_penalty_loc(const std::vector<double> & penalty_loc_);
+	double calc_punishment();
 	void calc_times(const double x[]);
 	void calc_hit_distance(const double bp[], const double rp[], const double n[]);
-	LazyOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_ = true, bool lookup_ = false);
+	DefensiveOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_ = true, bool lookup_ = false);
 };
 
 // functions that all players use

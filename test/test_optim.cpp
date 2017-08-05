@@ -176,7 +176,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	ball_params.Nmax = N;
 	bool land = true;
 	bool lookup = true;
-	LazyOptim opt = LazyOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
+	DefensiveOptim opt = DefensiveOptim(qact.q.memptr(),lb,ub,land,lookup); //only touch the ball if false!
 	opt.set_des_params(&ball_params);
 	opt.update_init_state(qact);
 	opt.set_verbose(true);
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 	ball_params.ball_pos = balls_pred.rows(X,Z);
 	ball_params.ball_vel = balls_pred.rows(DX,DZ);
 	ball_params.Nmax = N;
-	LazyOptim opt = LazyOptim(q_rest_des,lb,ub,true,true);
+	DefensiveOptim opt = DefensiveOptim(q_rest_des,lb,ub,true,true);
 	opt.set_verbose(false);
 	opt.set_des_params(&ball_params);
 	opt.update_init_state(qact);

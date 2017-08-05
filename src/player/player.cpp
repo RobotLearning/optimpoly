@@ -110,11 +110,12 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 		case VHP: {
 			opt = new HittingPlane(q0,lb,ub);
 			break; }
-		case LAZY: {
-			opt = new LazyOptim(q0,lb,ub,true,true); // use lookup
-			LazyOptim *dp = static_cast<LazyOptim*>(opt);
+		case DP: {
+			opt = new DefensiveOptim(q0,lb,ub,true,true); // use lookup
+			DefensiveOptim *dp = static_cast<DefensiveOptim*>(opt);
 			dp->set_weights(pflags.weights);
 			dp->set_velocity_multipliers(pflags.mult_vel);
+			dp->set_penalty_loc(pflags.penalty_loc);
 			pred_params.Nmax = 1000;
 			break; }
 		default:
@@ -254,7 +255,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 		case VHP:
 			optim_vhp_param(qact);
 			break;
-		case LAZY:
+		case DP:
 			optim_dp_param(qact);
 			break;
 		default:
@@ -292,7 +293,7 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 		case VHP:
 			optim_vhp_param(qact);
 			break;
-		case LAZY:
+		case DP:
 			optim_dp_param(qact);
 			break;
 		default:
@@ -384,7 +385,7 @@ void Player::optim_dp_param(const joint & qact) {
 			pred_params.ball_pos = balls_pred.rows(X,Z);
 			pred_params.ball_vel = balls_pred.rows(DX,DZ);
 			pred_params.Nmax = balls_pred.n_cols;
-			LazyOptim *dp = static_cast<LazyOptim*>(opt);
+			DefensiveOptim *dp = static_cast<DefensiveOptim*>(opt);
 			dp->set_des_params(&pred_params);
 			dp->update_init_state(qact);
 			dp->run();

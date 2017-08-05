@@ -93,6 +93,7 @@ static void estimate_ball_linear(const mat & observations,
 	}
 	// solving for the parameters
 	mat Beta = solve(M,observations.t());
+	//mat Beta = pinv(M,0.01) * observations.t();
 	init_est = join_horiz(Beta.row(0),Beta.row(1)).t();
 
 	if (verbose) {
@@ -194,7 +195,7 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
     	residual += norm(tt.get_ball_position() - data->obs.col(i),fitnorm);
     }
     // add regularization to prevent overfitting in spin estimation
-    residual += lambda_spin * pow(x[6] - 0.5,2) + lambda_zvel * pow(x[DZ]-2.5,2) + lambda_yvel * pow(x[DY]-4.5,2);
+    //residual += lambda_spin * pow(x[6] - 0.5,2) + lambda_zvel * pow(x[DZ]-2.5,2) + lambda_yvel * pow(x[DY]-4.5,2);
 
     return residual;
 

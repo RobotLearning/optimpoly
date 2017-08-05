@@ -1,7 +1,7 @@
 /**
  * @file lazyoptim.cpp
  *
- * @brief NLOPT polynomial optimization functions for LAZY PLAYER are stored here.
+ * @brief NLOPT polynomial optimization functions for DEFENSIVE PLAYER are stored here.
  *
  *
  *  Created on: Sep 11, 2016
@@ -41,14 +41,14 @@ static void interp_ball(const optim_des *params, const double T,
 		                double *ballpos, double *ballvel);
 
 /**
- * Initialize Defensive Player (also known as LAZY)
+ * Initialize Defensive Player
  * @param qrest_ FIXED resting posture
  * @param lb_ Lower joint pos,vel limits and min. hitting time
  * @param ub_ Upper joint pos,vel limits and max. hitting time
  * @param land_ Optimize for returning the ball (true) or only hitting (false)
  * @param lookup_ Lookup optim params from table if true
  */
-LazyOptim::LazyOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_, bool lookup_)
+DefensiveOptim::DefensiveOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_, bool lookup_)
                           : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	lookup = lookup_;
@@ -80,7 +80,7 @@ LazyOptim::LazyOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_
  * @brief Set weights for Defensive Player
  * @param weights weights for hitting, net and landing penalties in cost function
  */
-void LazyOptim::set_weights(const std::vector<double> weights) {
+void DefensiveOptim::set_weights(const std::vector<double> & weights) {
 
 	w.R_net = weights[1];
 	w.R_hit = weights[0];
@@ -94,9 +94,14 @@ void LazyOptim::set_weights(const std::vector<double> weights) {
  * to compensate for any errors
  * @param mult
  */
-void LazyOptim::set_velocity_multipliers(const std::vector<double> & mult) {
+void DefensiveOptim::set_velocity_multipliers(const std::vector<double> & mult) {
 	mult_vel = mult;
 }
+
+void DefensiveOptim::set_penalty_loc(const std::vector<double> & loc) {
+	penalty_loc = loc;
+}
+
 
 /**
  * @brief Setting LANDING constraints, i.e., not just hitting the ball.
@@ -106,7 +111,7 @@ void LazyOptim::set_velocity_multipliers(const std::vector<double> & mult) {
  * We can study the simpler optimization problem of hitting the ball
  * by switching to pure hitting constraints.
  */
-void LazyOptim::set_land_constr() {
+void DefensiveOptim::set_land_constr() {
 
 	double max_opt_time = 0.05;
 	double tol_ineq_land[INEQ_LAND_CONSTR_DIM];
@@ -139,7 +144,7 @@ void LazyOptim::set_land_constr() {
  * We can study the simpler optimization problem of hitting the ball
  * by switching to pure hitting constraints.
  */
-void LazyOptim::set_hit_constr() {
+void DefensiveOptim::set_hit_constr() {
 
 	double tol_ineq_hit[INEQ_HIT_CONSTR_DIM];
 	double tol_ineq_joint[INEQ_JOINT_CONSTR_DIM];
@@ -163,7 +168,7 @@ void LazyOptim::set_hit_constr() {
  * @param x Optim params
  * @param time_elapsed Time elapsed during optimization
  */
-void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
+void DefensiveOptim::finalize_soln(const double x[], double time_elapsed) {
 
 	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
 		// initialize first dof entries to q0
@@ -191,7 +196,7 @@ void LazyOptim::finalize_soln(const double x[], double time_elapsed) {
  *
  *
  */
-void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
+void DefensiveOptim::calc_times(const double x[]) { // ball projected to racket plane
 
 	static double qf[NDOF];
 	static double qfdot[NDOF];
@@ -235,6 +240,26 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
 	}
 }
 
+/**
+ * @brief Calculate punishment for hitting, net and landing.
+ *
+ * Calculate the costs for hitting the ball, and then if land variable is set to true
+ * also calculate the costs for passing it over to a desired net location (x,z loc)
+ * and landing to a desired landing point (x,y loc.)
+ * @return hitting and landing penalties (if land is turned on combined, else only hitting)
+ */
+double DefensiveOptim::calc_punishment() {
+
+	double Jhit = 0;
+	double Jland = 0;
+	if (land) {
+		Jland = sqr(x_net[X] - penalty_loc[0])*w.R_net + sqr(x_net[Z] - penalty_loc[1])*w.R_net +
+				sqr(x_land[X] - penalty_loc[2]*w.R_land + sqr(x_land[Y] - penalty_loc[3])*w.R_land);
+	}
+	Jhit = w.R_hit * sqr(dist_b2r_proj); // punish for hitting properly
+	return Jhit + land;
+}
+
 
 /**
  * @brief Calculate deviation and projection norms of ball to racket.
@@ -243,7 +268,7 @@ void LazyOptim::calc_times(const double x[]) { // ball projected to racket plane
  * For satisfying hitting constraints.
  *
  */
-void LazyOptim::calc_hit_distance(const double ball_pos[],
+void DefensiveOptim::calc_hit_distance(const double ball_pos[],
 		                          const double racket_pos[],
 								  const double racket_normal[]) {
 
@@ -256,7 +281,7 @@ void LazyOptim::calc_hit_distance(const double ball_pos[],
 
 }
 
-double LazyOptim::test_soln(const double x[]) const {
+double DefensiveOptim::test_soln(const double x[]) const {
 
 	double max_viol;
 	// give info on constraint violation
@@ -308,11 +333,11 @@ double LazyOptim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static double J1, Jhit, Jland;
+	static double J1, Jland;
 	static double a1[NDOF], a2[NDOF];
 	double T = x[2*NDOF];
 
-	LazyOptim* opt = (LazyOptim*) my_func_params;
+	DefensiveOptim* opt = (DefensiveOptim*) my_func_params;
 	double *q0 = opt->q0;
 	double *q0dot = opt->q0dot;
 	weights w = opt->w;
@@ -323,13 +348,12 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	// calculate the landing time
 	opt->calc_times(x);
 
+	// calculate the punishments;
+	Jland = opt->calc_punishment();
+
 	J1 = T * (3*T*T*inner_w_prod(NDOF,w.R_strike,a1,a1) +
 			3*T*inner_w_prod(NDOF,w.R_strike,a1,a2) +
 			inner_w_prod(NDOF,w.R_strike,a2,a2));
-	Jhit = w.R_hit * sqr(opt->dist_b2r_proj);
-
-	if (opt->land)
-		Jland = punish_land_robot(opt->x_land,opt->x_net,w.R_land, w.R_net) / T;
 
 	if (grad) {
 		static double h = 1e-6;
@@ -348,26 +372,7 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	}
 
 	//std::cout << J1 << "\t" << Jhit << "\t" << Jland << std::endl;
-	return J1 + Jhit + Jland;
-}
-
-/*
- * Punish the robot sufficiently as to induce proper landing behaviour
- *
- * The desired landing location chosen is the center of the table
- */
-static double punish_land_robot(const double *xland,
-								const double *xnet,
-								const double Rland,
-								const double Rnet) {
-	// desired landing locations
-	static double x_des_net = 0.0;
-	static double z_des_net = floor_level - table_height + net_height + 1.0;
-	static double y_des_land = dist_to_table - (3*table_length/4.0);
-
-	return sqr(xnet[Z] - z_des_net)*Rnet + sqr(xnet[X] - x_des_net)*Rnet +
-			sqr(xland[X])*Rland + sqr(xland[Y] - y_des_land)*Rland;
-
+	return J1 + Jland;
 }
 
 /*
@@ -383,7 +388,7 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	//static double net_y = dist_to_table - table_length/2.0;
 	static double net_z = floor_level - table_height + net_height;
 
-	LazyOptim* opt = (LazyOptim*)my_func_params;
+	DefensiveOptim* opt = (DefensiveOptim*)my_func_params;
 	opt->calc_times(x);
 
 	result[0] = -opt->dist_b2r_norm;
@@ -428,7 +433,7 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
 	static double ballpos[NCART];
 	static double ballvel[NCART];
 
-	LazyOptim* opt = (LazyOptim*)my_func_params;
+	DefensiveOptim* opt = (DefensiveOptim*)my_func_params;
 
 	for (unsigned i = 0; i < NDOF; i++) {
 		qf[i] = x[i];

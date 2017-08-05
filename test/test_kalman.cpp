@@ -312,7 +312,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 	flags.spin = predict_with_spin;
 	flags.verbosity = 3;
 	flags.min_obs = 12;
-	flags.var_model = 0.03;
+	flags.var_model = 0.1;
 	flags.var_noise = 0.001;
 	flags.detach = true;
 	EKF filter = init_filter(flags.var_model,flags.var_noise,predict_with_spin);

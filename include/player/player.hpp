@@ -20,8 +20,8 @@ using namespace arma;
  */
 enum algo {
 	VHP,  //!< VHP
-	FOCUS,//!< FOCUS
-	LAZY, //!< LAZY
+	FOCUS,//!< FOCUSED PLAYER
+	DP, //!< DEFENSIVE PLAYER
 };
 
 /**
@@ -61,6 +61,7 @@ struct player_flags {
 	double VHPY = -0.3; //!< location of hitting plane for VHP method
 	std::vector<double> weights = {0.0, 0.0, 0.0}; //!< hit,net,land weights for DP (lazy player)
 	std::vector<double> mult_vel = {0.9, 0.8, 0.83}; //!< vel. mult. for DP
+	std::vector<double> penalty_loc = {0.0, 0.23, 0.0, -3.22}; //!< penalty locations for DP
 };
 
 /**
