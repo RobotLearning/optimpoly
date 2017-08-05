@@ -145,6 +145,7 @@ public:
 	bool get_params(const joint & qact, spline_params & p);
 	void run_qrest_optim(vec7 & q_rest_des);
 	void update_init_state(const joint & qact);
+	void set_return_time(const double & time);
 	void set_des_params(optim_des *params);
 	void run();
 };

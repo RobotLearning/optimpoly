@@ -82,6 +82,14 @@ void Optim::set_detach(bool flag_detach) {
 }
 
 /**
+ * Set the final time for the returning trajectory
+ * @param ret_time
+ */
+void Optim::set_return_time(const double & ret_time) {
+	time2return = ret_time;
+}
+
+/**
  * @brief Print verbose optimization output (detailed optimization results are printed)
  * @param flag_verbose
  */

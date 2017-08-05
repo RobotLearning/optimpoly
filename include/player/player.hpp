@@ -78,8 +78,6 @@ private:
 	bool init_ball_state = false;
 	EKF & filter; // filter for the ball estimation
 	vec2 ball_land_des = zeros<vec>(2); // desired landing position
-	double time_land_des = 0.8;
-	double time2return = 1.0;
 	vec7 q_rest_des; // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	double t_poly = 0.0; // time passed on the hitting spline

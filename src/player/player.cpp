@@ -89,8 +89,6 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 
 	ball_land_des(X) += pflags.ball_land_des_offset[X];
 	ball_land_des(Y) = dist_to_table - 3*table_length/4 + pflags.ball_land_des_offset[Y];
-	time_land_des = pflags.time_land_des;
-	time2return = pflags.time2return;
 	q_rest_des = q0;
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
@@ -121,6 +119,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 		default:
 			throw ("Algorithm is not recognized!\n");
 	}
+	opt->set_return_time(pflags.time2return);
 	opt->set_verbose(pflags.verbosity > 1);
 	opt->set_detach(pflags.detach);
 }
@@ -321,7 +320,7 @@ void Player::optim_vhp_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		if (predict_hitting_point(pflags.VHPY,pflags.check_bounce,ball_pred,time_pred,filter,game_state)) { // ball is legal and reaches VHP
-			calc_racket_strategy(ball_pred,ball_land_des,time_land_des,pred_params);
+			calc_racket_strategy(ball_pred,ball_land_des,pflags.time_land_des,pred_params);
 			HittingPlane *vhp = static_cast<HittingPlane*>(opt);
 			vhp->set_des_params(&pred_params);
 			vhp->fix_hitting_time(time_pred);
@@ -350,7 +349,7 @@ void Player::optim_fp_param(const joint & qact) {
 		predict_ball(2.0,balls_pred,filter);
 		if (!pflags.check_bounce || check_legal_ball(filter.get_mean(),balls_pred,game_state)) { // ball is legal
 			//lookup_soln(filter.get_mean(),1,qact);
-			calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
+			calc_racket_strategy(balls_pred,ball_land_des,pflags.time_land_des,pred_params);
 			FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
 			fp->set_des_params(&pred_params);
 			fp->update_init_state(qact);
@@ -477,7 +476,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// make sure we update after optim finished
 	if (t_poly > 0.0) {
-		if (!update_next_state(poly,q_rest_des,time2return,t_poly,qdes)) {
+		if (!update_next_state(poly,q_rest_des,pflags.time2return,t_poly,qdes)) {
 			opt->set_moving(false);
 			// optimize to find a better resting state close to predicted balls
 			if (pflags.optim_rest_posture)
@@ -509,6 +508,7 @@ void Player::reset_filter(double var_model, double var_noise) {
  */
 void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qact) {
 
+	double time2return = pflags.time2return;
 	if (t_poly == 0.0) {
 		if (pflags.verbosity) {
 			cout << "Starting movement based on lookup, k = 5\n"; // kNN parameter k = 5

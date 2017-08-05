@@ -68,7 +68,7 @@ player_flags flags; //!< global structure for setting Player options
 /**
  * @brief Set algorithm to initialize Player with.
  *
- * @param alg_num Select between three algorithms: VHP/FIXED/LAZY.
+ * @param alg_num Select between three algorithms: VHP/FOCUSED/DEFENSIVE.
  */
 void set_algorithm(const int alg_num) {
 
@@ -78,7 +78,7 @@ void set_algorithm(const int alg_num) {
 			flags.alg = FOCUS;
 			break;
 		case 1:
-			std::cout << "Setting to LAZY player..." << std::endl;
+			std::cout << "Setting to DEFENSIVE player..." << std::endl;
 			flags.alg = DP;
 			break;
 		case 2:
@@ -89,13 +89,6 @@ void set_algorithm(const int alg_num) {
 			flags.alg = FOCUS;
 	}
 }
-
-// A helper function to simplify the main part.
-//template<class T>
-//std::ostream& operator<<(std::ostream& os, const std::vector<T>& v) {
-//    copy(v.begin(), v.end(), std::ostream_iterator<T>(os, " "));
-//    return os;
-//}
 
 /**
  * @brief Set algorithm and options to initialize Player with.
