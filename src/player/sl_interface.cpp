@@ -79,7 +79,7 @@ void set_algorithm(const int alg_num) {
 			break;
 		case 1:
 			std::cout << "Setting to LAZY player..." << std::endl;
-			flags.alg = LAZY;
+			flags.alg = DP;
 			break;
 		case 2:
 			std::cout << "Setting to VHP player..." << std::endl;
