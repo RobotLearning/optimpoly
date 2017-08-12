@@ -62,7 +62,7 @@ $(OBJ_OPTIM_DIR)/%.o : $(OPTIM_DIR)/%.c
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(FLAGS) test/test_optim.cpp -o unit_tests.o \
+	$(CC) $(FLAGS) test/test_table_tennis.cpp -o unit_tests.o \
 	               $(SHARED_OBJECT) $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a -lnlopt
 					    
 clean:

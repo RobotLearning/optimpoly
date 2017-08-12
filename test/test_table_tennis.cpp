@@ -34,7 +34,7 @@
 using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
-algo algs[] = {LAZY};
+algo algs[] = {DP};
 void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
@@ -131,7 +131,6 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	player_flags flags;
 	flags.verbosity = 3;
 	flags.alg = alg;
-	flags.lookup = false;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
 	joint qdes;
