@@ -55,10 +55,11 @@ struct SL_Cstate {
 
 /**
  * @brief Vision blob info coming from SL (after calibration).
+ *
  */
-struct SL_VisionBlob {
-	char       status; //!< was ball detected reliably?
-	SL_Cstate  blob; //!< ball center cartesian positions (after calibration)
+struct blob_state {
+	int status; //!< was ball detected reliably in cameras
+	double pos[NCART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
 };
 
 player_flags flags; //!< global structure for setting Player options
@@ -176,17 +177,17 @@ void load_options() {
  * to assess validity so do not rely on it as the sole source of outlier detection!
  *
  *
- * @param blob Blob structure from SL (one-indexed). Contains a status boolean
- * variable and cartesian coordinates (indices one-to-three).
+ * @param blob Blob structure. Contains a status boolean
+ * variable and cartesian coordinates (indices zero-to-two).
  * @param verbose If verbose is TRUE, then detecting obvious outliers will
  * print to standard output.
  * @return valid If ball is valid (status is TRUE and not an obvious outlier)
  * return true.
  */
-static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
+static bool check_blob_validity(const blob_state & blob, bool verbose) {
 
 	bool valid = true;
-	static double last_blob[NCART+1];
+	static double last_blob[NCART];
 	static double zMax = 0.5;
 	static double zMin = floor_level - table_height;
 	static double xMax = table_width/2.0;
@@ -194,62 +195,65 @@ static bool check_blob_validity(const SL_VisionBlob & blob, bool verbose) {
 	static double yMin = dist_to_table - table_length - 1.0;
 	static double yCenter = dist_to_table - table_length/2.0;
 
+	// if both blobs are valid
+	// then check for both
+	// else check only one
+
 	if (blob.status == false) {
-		//if (verbose)
-		//	printf("BLOB NOT VALID! Ball status is false!\n");
 		valid = false;
 	}
-	else if (blob.blob.x[3] > zMax) {
+	else if (blob.pos[Z] > zMax) {
 		if (verbose)
 			printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
 		valid = false;
 	}
-	else if (last_blob[2] < yCenter && blob.blob.x[2] > dist_to_table) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
-		valid = false;
-	}
-	else if (blob.blob.x[2] < yMin || blob.blob.x[2] > yMax) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
-		valid = false;
-	}
 	// on the table blob should not appear under the table
-	else if (fabs(blob.blob.x[1]) < xMax && fabs(blob.blob.x[2] - yCenter) < table_length/2.0
-			&& blob.blob.x[3] < zMin) {
+	else if (fabs(blob.pos[X]) < xMax && fabs(blob.pos[Y] - yCenter) < table_length/2.0
+			&& blob.pos[Z] < zMin) {
 		if (verbose)
 			printf("BLOB NOT VALID! Ball appears under the table!\n");
 		valid = false;
 	}
-	last_blob[1] = blob.blob.x[1];
-	last_blob[2] = blob.blob.x[2];
-	last_blob[3] = blob.blob.x[3];
+	else if (last_blob[Y] < yCenter && blob.pos[Y] > dist_to_table) {
+		if (verbose)
+			printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
+		valid = false;
+	}
+	else if (blob.pos[Y] < yMin || blob.pos[Y] > yMax) {
+		if (verbose)
+			printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
+		valid = false;
+	}
+
+	last_blob[X] = blob.pos[X];
+	last_blob[Y] = blob.pos[Y];
+	last_blob[Z] = blob.pos[Z];
 	return valid;
 }
 
 /*
  *
- * Fusing the blobs
- * If both blobs are valid blob3 is preferred
+ * Fusing the two blobs
+ * If both blobs are valid last blob is preferred
  * Only updates if the blobs are valid, i.e. not obvious outliers
  *
  */
-static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
+static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
 
 	bool status = false;
 
 	// if ball is detected reliably
 	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[3],flags.verbosity > 2) ||
+	if (check_blob_validity(blobs[0],flags.verbosity > 2) ||
 			check_blob_validity(blobs[1],flags.verbosity > 2)) {
 		status = true;
-		if (blobs[3].status) {
+		if (blobs[1].status) { //cameras 3 and 4
 			for (int i = X; i <= Z; i++)
-				obs(i) = blobs[3].blob.x[i+1];
+				obs(i) = blobs[1].pos[i];
 		}
-		else {
+		else { // cameras 1 and 2
 			for (int i = X; i <= Z; i++)
-				obs(i) = blobs[1].blob.x[i+1];
+				obs(i) = blobs[0].pos[i];
 		}
 	}
 	return status;
@@ -267,7 +271,7 @@ static bool fuse_blobs(const SL_VisionBlob blobs[4], vec3 & obs) {
  * @param joint_des_state Desired joint position, velocity and acceleration commands.
  */
 void play(const SL_Jstate joint_state[NDOF+1],
-		  const SL_VisionBlob blobs[4],
+		  const blob_state blobs[NBLOBS],
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
 	static vec7 q0;
@@ -324,20 +328,18 @@ void play(const SL_Jstate joint_state[NDOF+1],
  *
  *
  */
-static void save_ball_data(const SL_VisionBlob blobs[4], const Player *robot, const KF & filter, std::ofstream & stream) {
+static void save_ball_data(const blob_state blobs[NBLOBS], const Player *robot, const KF & filter, std::ofstream & stream) {
 
 	static rowvec ball_full;
 	vec6 ball_est = zeros<vec>(6);
-	int status1 = (int)blobs[1].status;
-	int status3 = (int)blobs[3].status;
 
-	if (flags.save && (status1 || status3)) {
+	if (flags.save && (blobs[0].status || blobs[1].status)) {
 
 		if (robot->filter_is_initialized()) {
 			ball_est = filter.get_mean();
 		}
-		ball_full << 1 << status1  << blobs[1].blob.x[1] << blobs[1].blob.x[2] << blobs[1].blob.x[3]
-				  << 3 << status3  << blobs[3].blob.x[1] << blobs[3].blob.x[2] << blobs[3].blob.x[3] << endr;
+		ball_full << 1 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
+				  << 3 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
 		//cout << ball_full << endl;
 		ball_full = join_horiz(ball_full,ball_est.t());
 		if (stream.is_open()) {

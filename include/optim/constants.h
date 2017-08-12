@@ -17,10 +17,11 @@
 #define X 0
 #define Y 1
 #define Z 2
-#define W 3 // for quaternion, not used
+#define W 3 //!< for quaternion, not used
 #define DX 3
 #define DY 4
 #define DZ 5
+#define NBLOBS 2 //!< In the table tennis setup, we have 4 cameras = 2 blobs.
 #define NCART 3
 #define NDOF 7
 
