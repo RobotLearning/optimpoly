@@ -19,10 +19,6 @@
 #include "SL_filters.h"
 #include "time.h"
 #include "table.h"
-#include "trajectories.h"
-#include "quat_tools.h"
-#include "newton.h"
-#include "inverse_kinematics.h"
 
 /**************************** defines ***********************/
 

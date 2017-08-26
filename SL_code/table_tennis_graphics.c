@@ -15,8 +15,7 @@
 #include "math.h"
 #include "table.h"
 
-void display_ball_gun(void *b)
-{
+void display_table_tennis(void *b) {
   double vars[14];
   double x,y,lx,ly;
 
@@ -90,6 +89,6 @@ void display_ball_gun(void *b)
 }
 
 void add_table_tennis_graphics() {
-  	addToUserGraphics("ball_gun", "Display Table, Ball and Racket", &(display_ball_gun), 14*sizeof(double));
+  	addToUserGraphics("table_tennis", "Display Table, Ball and Racket", &(display_table_tennis), 14*sizeof(double));
 }
 

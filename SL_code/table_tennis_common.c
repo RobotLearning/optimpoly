@@ -57,7 +57,7 @@ void display_sim_ball(void) {
 	pos[12] = sim_ball_state.x[_Y_];
 	pos[13] = sim_ball_state.x[_Z_];
 
-	sendUserGraphics("ball_gun", &(pos[0]), 14*sizeof(double));
+	sendUserGraphics("table_tennis", &(pos[0]), 14*sizeof(double));
 }
 
 /*
@@ -80,7 +80,7 @@ void display_pred_ball(void) {
 	pos[12] = ballPred.x[_Y_];
 	pos[13] = ballPred.x[_Z_];
 
-	sendUserGraphics("ball_gun", &(pos[0]), 14*sizeof(double));
+	sendUserGraphics("table_tennis", &(pos[0]), 14*sizeof(double));
 }
 
 /*

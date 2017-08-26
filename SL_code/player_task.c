@@ -1,5 +1,5 @@
 /*
- * table_tennis_task.c
+ * player_task.c
  *
  *  Created on: Feb 6, 2017
  *      Author: okoc
@@ -33,10 +33,10 @@
 #include "table_tennis_common.h"
 #include "sl_interface.h"
 
-void add_table_tennis_task( void );
-static int change_table_tennis_task(void);
-static int init_table_tennis_task(void);
-static int run_table_tennis_task(void);
+void add_player_task( void );
+static int change_player_task(void);
+static int init_player_task(void);
+static int run_player_task(void);
 static void display_ball();
 static void compute_torques();
 static void check_safety();
@@ -55,17 +55,17 @@ blob_state ball_obs[NBLOBS];
 /*
  * Adds the task to the task menu
  */
-void add_table_tennis_task( void ) {
+void add_player_task( void ) {
 	int i;
 	char varname[30];
 
-	addTask("PLAYER task", init_table_tennis_task, run_table_tennis_task, change_table_tennis_task);
+	addTask("PLAYER task", init_player_task, run_player_task, change_player_task);
 }
 
 /*
  * Changes task parameters
  */
-static int change_table_tennis_task(void) {
+static int change_player_task(void) {
 	int i,j;
 	return TRUE;
 }
@@ -74,7 +74,7 @@ static int change_table_tennis_task(void) {
  * Initialization for task
  *
  */
-static int init_table_tennis_task(void) {
+static int init_player_task(void) {
 
 	int posture, ready; // flags
 	bzero((char *)&(ball_obs[0]), NBLOBS * sizeof(ball_obs[0]));
@@ -122,7 +122,7 @@ static int init_table_tennis_task(void) {
  * Runs the task from the task servo: REAL TIME requirements!
  *
  */
-static int run_table_tennis_task(void) {
+static int run_player_task(void) {
 
 	// update blobs every 2ms (instead of every 20 ms)
 	update_ball_obs();

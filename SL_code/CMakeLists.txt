@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(TASKNAME table_tennis)
+set(TASKNAME player)
 
 project(${TASKNAME})
 
@@ -19,7 +19,7 @@ include_directories(
 # for executables
 set(ADD_SRCS_TASK
     #EXAMPLE_sim.c
-    table_tennis_task.c
+    player_task.c
     table_tennis_common.c
     # any other additional file needed
 )
