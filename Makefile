@@ -1,8 +1,10 @@
 HOST=$(shell hostname)
 ifeq ($(HOST),sill) # new machine in the new MPI building
-	BOOSTL=$(HOME)/install/lib
+	LIBPATH=$(HOME)/install/lib
+else ifeq ($(HOST),lein) # new WAM machine
+	LIBPATH=$(HOME)/software/lib
 else
-	BOOSTL=/usr/local/lib
+	LIBPATH=/usr/local/lib
 endif
 
 DIR=$(HOME)/polyoptim
@@ -47,7 +49,7 @@ debug: all
 all: $(SHARED_OBJECT)
 
 $(SHARED_OBJECT) : $(OBJS)
-	$(CC) -shared $(FLAGS) -o $@ $^ $(LIBS)
+	$(CC) -shared $(FLAGS) -o $@ $^ -L$(LIBPATH) $(LIBS)
 
 # ADD HEADER PREREQUISITES!
 $(OBJ_PLAYER_DIR)/%.o : $(PLAYER_DIR)/%.cpp
@@ -62,8 +64,8 @@ $(OBJ_OPTIM_DIR)/%.o : $(OPTIM_DIR)/%.c
 	                    
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(FLAGS) test/test_table_tennis.cpp -o unit_tests.o \
-	               $(SHARED_OBJECT) $(LIBS) $(BOOSTL)/libboost_unit_test_framework.a -lnlopt
+	$(CC) $(FLAGS) test/test_optim.cpp -o unit_tests \
+	               $(SHARED_OBJECT) -L$(LIBPATH) $(LIBS) $(LIBPATH)/libboost_unit_test_framework.a -lnlopt
 					    
 clean:
 	rm -rf obj/player/*.o obj/optim/*.o lib/*.so
