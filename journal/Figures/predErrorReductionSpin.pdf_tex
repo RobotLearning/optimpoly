@@ -1,0 +1,77 @@
+%% Creator: Inkscape inkscape 0.91, www.inkscape.org
+%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010
+%% Accompanies image file 'predErrorReductionSpin.pdf' (pdf, eps, ps)
+%%
+%% To include the image in your LaTeX document, write
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics{<filename>.pdf}
+%% To scale the image, write
+%%   \def\svgwidth{<desired width>}
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics[width=<desired width>]{<filename>.pdf}
+%%
+%% Images with a different path to the parent latex file can
+%% be accessed with the `import' package (which may need to be
+%% installed) using
+%%   \usepackage{import}
+%% in the preamble, and then including the image with
+%%   \import{<path to file>}{<filename>.pdf_tex}
+%% Alternatively, one can specify
+%%   \graphicspath{{<path to file>/}}
+%% 
+%% For more information, please see info/svg-inkscape on CTAN:
+%%   http://tug.ctan.org/tex-archive/info/svg-inkscape
+%%
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{614.4bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.75)%
+    \put(0,0){\includegraphics[width=\unitlength,page=1]{predErrorReductionSpin.pdf}}%
+    \put(0.12565104,0.06145833){\makebox(0,0)[lb]{\smash{0}}}%
+    \put(0.22249349,0.06145833){\makebox(0,0)[lb]{\smash{5}}}%
+    \put(0.31477865,0.06145833){\makebox(0,0)[lb]{\smash{10}}}%
+    \put(0.41162109,0.06145833){\makebox(0,0)[lb]{\smash{15}}}%
+    \put(0.50846354,0.06145833){\makebox(0,0)[lb]{\smash{20}}}%
+    \put(0.60530599,0.06145833){\makebox(0,0)[lb]{\smash{25}}}%
+    \put(0.70214844,0.06145833){\makebox(0,0)[lb]{\smash{30}}}%
+    \put(0.79899089,0.06145833){\makebox(0,0)[lb]{\smash{35}}}%
+    \put(0.89583333,0.06145833){\makebox(0,0)[lb]{\smash{40}}}%
+    \put(0.35872435,0.0310763){\makebox(0,0)[lb]{\smash{Number of observations}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=2]{predErrorReductionSpin.pdf}}%
+    \put(0.09140625,0.07682292){\makebox(0,0)[lb]{\smash{0.02}}}%
+    \put(0.09140625,0.14482057){\makebox(0,0)[lb]{\smash{0.04}}}%
+    \put(0.09140625,0.21281823){\makebox(0,0)[lb]{\smash{0.06}}}%
+    \put(0.09140625,0.28081602){\makebox(0,0)[lb]{\smash{0.08}}}%
+    \put(0.10052083,0.34881367){\makebox(0,0)[lb]{\smash{0.1}}}%
+    \put(0.09140625,0.41681133){\makebox(0,0)[lb]{\smash{0.12}}}%
+    \put(0.09140625,0.48480898){\makebox(0,0)[lb]{\smash{0.14}}}%
+    \put(0.09140625,0.55280664){\makebox(0,0)[lb]{\smash{0.16}}}%
+    \put(0.09140625,0.62080443){\makebox(0,0)[lb]{\smash{0.18}}}%
+    \put(0.10052083,0.68880208){\makebox(0,0)[lb]{\smash{0.2}}}%
+    \put(0.0796875,0.25716172){\rotatebox{90}{\makebox(0,0)[lb]{\smash{Mean Squared Error}}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=3]{predErrorReductionSpin.pdf}}%
+  \end{picture}%
+\endgroup%

@@ -1,0 +1,177 @@
+\section{The Focused Player}\label{method}
+
+A higher-level strategy in table tennis could, based on a perceived state of the opponent, command to return an incoming ball to a desired location. A reliable trajectory generation algorithm for that purpose should be flexible and easily find safe joint movements. The optimal control based approach penalizing sum of squared accelerations, in this regard, leads to a flexible optimization problem where it is easy to find good hitting postures, while satisfying additional safety constraints. 
+
+\subsection{Racket Constraints}
+%
+The optimal control problem introduced in~\eqref{costFnc1} can be solved efficiently under additional racket constraints
+%
+%Fixing a desired landing position $\ballLand$ and time $\landTime$ converts the table tennis task constraints into Cartesian equality constraints. By running the ball flight model backwards and inverting the ball-racket contact model we get the following equalities
+%
+\begin{align}
+& \kin_p(\joint(T)) = \ballPred(T), \label{transCond1} \\
+& \kin_n(\joint(T)) = \normal_{\mathrm{des}}(T), \label{transCond2}\\
+& \jac(\joint(T))\dot{\joint}(T) = \racketVel_{\mathrm{des}}(T), \label{transCond3}
+\end{align}
+%
+that guarantee the return of the incoming ball to a desired location at a desired landing time. The racket center position $\racket(\hitTime)$ and the racket normal $\normal(\hitTime)$ at hitting time $\hitTime$ are computed using the kinematics functions $\kin_p(\cdot)$ and $\kin_n(\cdot)$, respectively. The Jacobian $\jac(\cdot) \in \mathbb{R}^{3 \times n}$ \citep{Spong06} at hitting time transforms the joint velocities in \eqref{transCond3} into racket velocities $\racketVel(T)$. 
+
+The Cartesian task constraints~\mbox{\eqref{transCond1} -- \eqref{transCond3}} can satisfy and hence effectively replace the table tennis task constraints \mbox{\eqref{hitFunc} -- \eqref{landFunc}} for suitable $\normal_{\mathrm{des}}(T), \racketVel_{\mathrm{des}}(T)$. To maximize the probability of hitting the ball, the desired racket center is set at hitting time equal to the mean ball position estimate in \eqref{transCond1}, i.e., $\racket(T) = \ballPred(T)$. To return the ball to the opponent's court, the constraints on the racket normal $\normal(\hitTime)$ and velocity at hitting time $\racketVel(\hitTime)$ are imposed. 
+%
+%
+\paragraph{\textbf{Calculating Desired Racket Parameters}.}\label{calcDesRacket} After predicting the future ball path $\ballPred(t)$, the next step is to compute desired racket velocities $\racketVel_{\mathrm{des}}(t)$ and desired racket normals on this path $\normal_{\mathrm{des}}(t)$. These desired racket parameters will give the incoming ball during the impact, a desired outgoing ball velocity according to~\eqref{contactModel}. They are calculated by first specifying a desired landing point $\ballLand$ and a desired time duration $\landTime$. A desired ball outgoing velocity is then found by solving the boundary value problem for the flight model~\eqref{flightModel} with the boundary values
+%
+\begin{gather}
+\begin{aligned}
+&\ball_{\mathrm{out}}(0) = \ballPred(t), \\
+&\ball_{\mathrm{out}}(\landTime) = \ballLand,
+\label{bvp}
+\end{aligned}
+\end{gather}
+%
+\noindent for each $t$. Afterwards, $\racketVel_{\mathrm{des}}(t)$ and $\normal_{\mathrm{des}}(t)$ are calculated by inverting the racket contact model~\eqref{contactModel} given the outgoing ball velocities $\dot{\ball}_{\mathrm{out}}$ at impact.
+% TODO: talk about the inversion in more detail.
+
+In practice, \eqref{bvp} can be solved very fast for each $t$ by initializing it with the closed form solution of the ballistic flight model (i.e., zero drag and spin). 
+%
+%The vector-valued functions $\kin_p(\cdot), \kin_n(\cdot) \in \mathbb{R}^{3 \times 1}$ are the relevant submatrices of the direct kinematics function~\citep{Spong06} giving the racket center position $\racket(T)$ and the racket normal $\normal(T)$ at striking time $T$ respectively.
+%
+\subsection{Nonlinear Constrained Optimization}\label{nco1}
+%
+We briefly show here that the solution $\joint(t)$ to the optimal control problem posed in \eqref{costFnc1} under additional racket constraints~\mbox{\eqref{transCond1} -- \eqref{transCond3}} is a third order polynomial for each degree of freedom, $i = 1, \ldots, n$. 
+%
+\paragraph{\textbf{Derivation from Maximum Principle}.} Using the maximum principle for unconstrained inputs $\sysInput(t) = \ddot{\joint}(t) \in \mathbb{R}^{n}$, the Hamiltonian 
+%
+\begin{align}
+\hamiltonian(\sysInput,\dot{\joint},t) = \sysInput^{\mathrm{T}}\vec{R}\sysInput(t) + \momentaPos^{\mathrm{T}}\dot{\joint} + \momentaVel^{\mathrm{T}}\sysInput
+\end{align}
+%
+\noindent for the momenta $[\momentaPos(t),\momentaVel(t)] \in \mathbb{R}^{2n}$ is minimized at 
+%
+\begin{align}
+\sysInput^{*}(t) = -\frac{1}{2} \vec{R}^{-1}\momentaVel^{*}(t).
+\label{HamiltonianMaxInput}
+\end{align}
+%
+Costate equation for the momenta gives
+%
+\begin{align}
+\dot{\momentaPos}^{*}(t) &= \vec{0}, \\
+\dot{\momentaVel}^{*}(t) &= -\momentaPos^{*}(t),
+\end{align}
+%
+\noindent or in other terms, $\momentaVel^{*} = -2\vec{R}(6\vec{a}_3t - 2\vec{a}_2)$, for some constant vectors $\ \vec{a}_i \in \mathbb{R}^{n}, \ i = 2, 3$. Plugging it into \eqref{HamiltonianMaxInput} we get
+%
+\begin{align}
+\ddot{\joint}^{*}(t) = 6\vec{a}_3t + 2\vec{a}_2,
+\end{align}
+%
+\noindent which shows that the optimal accelerations are linear functions of time. The joint positions $\joint(t)$ are then third order polynomials with $4n$ coefficients to be determined using $\joint_0, \dot{\joint}_0$ and $\normal_{\mathrm{des}}(T), \ballPred(T), \racketVel_{\mathrm{des}}(T)$ at free final time $T$ as another variable. The transversality condition resulting from the joint position, velocity and time boundary constraints can be written as
+%
+\begin{align}
+\begin{bmatrix}
+\mathcal{H}(T) \\
+-\momentaPos(T) \\
+-\momentaVel(T)
+\end{bmatrix} &= D\vec{\Psi}^{\mathrm{T}}\vec{\nu} = \begin{bmatrix}
+D_{T}\vec{\Psi} & D_{\joint}\vec{\Psi} & D_{\dot{\joint}}\vec{\Psi}
+\end{bmatrix}^{\mathrm{T}}\vec{\nu}, \label{transversality}\\
+\vec{\Psi} &= \begin{bmatrix}
+\kin_{p}(\joint(T)) - \ballPred(T) \\ \kin_n(\joint(T)) - \normal_{\mathrm{des}}(T) \\ \jac(\joint(T))\dot{\joint}(T) - \racketVel_{\mathrm{des}}(T)
+\end{bmatrix}, \nonumber
+\end{align}
+%
+\noindent for some $\vec{\nu} \in \mathbb{R}^{9}$. \eqref{transversality} supplies the additional $4n + 1 - 2n - 9 = 2n - 8$ equations to determine all the variables.
+%A nonlinear equation solver, e.g. $\mathtt{fsolve}$ in MATLAB can be used for this purpose. The optimization \eqref{costFnc3} can be seen as a direct way to solve this problem when inequality constraints are additionally imposed. 
+%
+\paragraph{\textbf{Parameter Optimization}.} The optimal trajectories are third order polynomials in joint-space for each degree of freedom of the robot, where the coefficients of the polynomials can be parameterized in terms of final joint positions $\joint_f$, final joint velocities $\dot{\joint}_f$ and hitting time $T$. That is, along with the hitting time $T$ as a free parameter, the optimization problem is $2n+1$ dimensional with nonlinear equality constraints. The integrand in~\eqref{costFnc1} can be rewritten (i.e., weighted sum of squared accelerations) in terms of these free parameters and integrated over time to form the following optimization problem
+%
+\begin{align} %^{\scalebox{0.5}[1.0]{\( - \)}1}
+\min_{\joint_f,\dot{\joint}_f, T} & 3T^3 \vec{a}_3^{\mathrm{T}}\vec{R}\vec{a}_3 + 3T^2 \vec{a}_3^{\mathrm{T}}\vec{R}\vec{a}_2  +  T\vec{a}_2^{\mathrm{T}}\vec{R}\vec{a}_2 \label{costFnc3} \\
+\textrm{s.t. \ }
+& \kin_p(\joint_f) = \ballPred(T), \\
+& \kin_n(\joint_f) = \normal_{\mathrm{des}}(T), \\
+&\jac(\joint_f)\dot{\joint}_f = \racketVel_{\mathrm{des}}(T), \\
+& \jointMin \leq \joint_f \leq \jointMax, \label{jointLimPointwise}\\
+& \jointMin \leq \joint_{\mathrm{ext}} \leq \jointMax \label{jointLimTraj}.
+%& \jointMin \leq \joint_{\mathrm{strike}}(\vec{t}_{\mathrm{ext}}^{i}) \leq \jointMax, \, i = 1,2, \\
+%& \jointMin \leq \joint_{\mathrm{return}}(\vec{t}_{\mathrm{ext}}^{i}) \leq \jointMax, \, i = 3,4,
+\end{align}
+%
+The returning trajectories that bring the robot from striking joint positions $\joint_f$ to the fixed rest position $\joint_0$ in joint space are also taken as third order polynomials
+%
+\begin{align}
+\joint_{\mathrm{return}}(t)= \vec{\tilde{a}}_3 t^3  + \vec{\tilde{a}}_2 t^2 + \dot{\joint}_f t + \joint_f, \label{returnTraj}
+\end{align}
+%
+\noindent for a fixed return time $\restTime$, $0 \leq t \leq \restTime$. The coefficients $\vec{\tilde{a}}_3, \  \vec{\tilde{a}}_2$ of~\eqref{returnTraj} are as in \eqref{coeffs} but with $\joint_0, \joint_f$ and $\dot{\joint}_0, \dot{\joint}_f$ reversed
+%
+\begin{align}
+\vec{\tilde{a}}_3 &= \frac{2}{\restTime^3}(\joint_f - \joint_0) + \frac{1}{\restTime^2}(\dot{\joint}_f + \dot{\joint}_0), \\
+\vec{\tilde{a}}_2 &= \frac{3}{\restTime^2}(\joint_0 - \joint_f) - \frac{1}{\restTime}(\dot{\joint}_0 + 2\dot{\joint}_f).
+\label{returnCoeffs}
+\end{align}
+%
+\paragraph{\textbf{Joint Limit Satisfaction}.} Inspired by the simplicity of the Minimum Principle based solution, the same parametrization can be extended to the more realistic scenario where joint limits are included additionally as inequality constraints in the optimization.
+%
+% 
+% TODO: rewrite paragraph, more rigourous statement needed
+%
+When optimizing \eqref{costFnc3} the final joint positions $\joint_f$ are enforced in~\eqref{jointLimPointwise} to respect the joint limits for each component. However, the whole trajectory, both the striking and returning trajectories, needs to respect the joint limits at all times. Third order polynomials can each have at most $2$ extrema $\joint_{\mathrm{ext}}$ in the interior of their domains, corresponding to the conditions
+%
+\begin{align}
+\dot{\joint}_{\mathrm{strike}}(t) &= 3\vec{a}_3t^2 + 2\vec{a}_2t + \dot{\joint}_0 = 0, \\
+\dot{\joint}_{\mathrm{return}}(t) &= 3\vec{\tilde{a}}_3t^2 + 2\vec{\tilde{a}}_2t + \dot{\joint}_f = 0. 
+\end{align}
+%
+\noindent Therefore, checking the joint extrema candidates  $\joint_{\mathrm{ext}}$ in~\eqref{jointLimTraj} at times
+% The last inequality constraints in~\eqref{jointLimTraj} correspond to the condition that the striking and returning polynomials should be feasible at all times.
+%
+\begin{align}
+\upsilon_{j}^{1,2} = \frac{-a_{2,j} \ \rpm \ \sqrt{a_{2,j}^2 - 3a_{3,j}\dot{q}_{0,j}}}{3a_{3,j}}, \\
+\upsilon_{j}^{3,4} = \frac{-\tilde{a}_{2,j} \ \rpm \ \sqrt{\tilde{a}_{2,j}^2 - 3\tilde{a}_{3,j}\dot{q}_{f,j}}}{3\tilde{a}_{3,j}},
+%\vec{t}_{\mathrm{ext}}^{1,2}(j) = \frac{-\vec{a}_2(j) \rpm \sqrt{\vec{a}_2^2(j) - 3\vec{a}_3(j)\dot{\joint}_0(j)})}{3\vec{a}_3(j)}, \\
+%\vec{t}_{\mathrm{ext}}^{3,4}(j) = \frac{-\vec{\tilde{a}}_2(j) \rpm \sqrt{\vec{\tilde{a}}_2^2(j) - 3\vec{\tilde{a}}_3(j)\dot{\joint}_f(j)})}{3\vec{\tilde{a}}_3(j)},
+\label{jointPosExtrema}
+\end{align}
+%
+\noindent for each $j = 1, \ldots, n$ makes sure that the joint limits are satisfied both for the striking trajectory (at times $\upsilon_{j}^{1,2}$) and for the returning trajectory (at times $\upsilon_{j}^{3,4}$). The values $\vec{\upsilon}^{1,2}$ are clamped to the interval $[0, \, \hitTime]$ and $\vec{\upsilon}^{3,4}$ to $[0, \, \restTime]$ if they are imaginary or outside their corresponding intervals. 
+
+%Joint velocity and acceleration constraints $\dot{\joint}_{\mathrm{max}}, \ddot{\joint}_{\mathrm{max}}$, although not shown in \eqref{costFnc3}, can be enforced in a similar way. % add also cartesian constraints for the table
+%, such as a sequential quadratic programming (SQP) based solver, 
+\paragraph{\textbf{Online Trajectory Generation}.} Using a constrained nonlinear optimizer, the algorithm can be run online whenever there are enough ball samples $\numBallsMin \approx \minball$ available to estimate the incoming ball state and spin reliably. After computing an initial striking trajectory and starting to move, the trajectories can be corrected online whenever new ball samples are available. 
+%
+\begin{algorithm}[t]
+\begin{mdframed}
+\small\sf\centering
+\caption{$\Alg$ ($\alg$)}
+\label{alg1}
+\begin{minipage}{\linewidth}
+\begin{algorithmic}[1]
+   \Require $\joint_0, \ballLand, \landTime, \predTime, \restTime, \numBallsMin, \vec{R}$ %\State {\bfseries Input:} 
+   %\STATE Estimate model parameters from demonstrations
+   \State Move to initial posture $\joint_0$, $\dot{\joint}_0 = \vec{0}$.
+   \Loop
+	   \State Query vision sys. for new observation $\ball_{\mathrm{obs}}$.
+   	   \State Observe current state $\joint_{\mathrm{cur}}, \dot{\joint}_{\mathrm{cur}}$.
+	   \If{$\numBallsMin$ new ball observations $\ball_{\mathrm{obs}}$}
+	       \State Initialize EKF.
+       \EndIf
+       \If{EKF is initialized \algorithmicAnd valid obs. $\ball_{\mathrm{obs}}$}
+	       \State Estimate position $\ball$ and vel. $\dot{\ball}$ with EKF.
+		   \State Predict $\ballPred(t)$ till horizon $\predTime$.
+		   \State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{Compute $\racketVel_{\mathrm{des}}(t), \normal_{\mathrm{des}}(t)$ using racket model \\ and boundary values $\ballLand, \landTime$.}
+	   	   \State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{Compute param. $\joint_f, \dot{\joint}_f, T$ from $\joint_{\mathrm{cur}}, \dot{\joint}_{\mathrm{cur}}$ \\ using desired resting posture $\joint_0$, time to \\return $\restTime$, weighting matrix $\vec{R}$, and \\task constraints $\ballPred(t),\racketVel_{\mathrm{des}}(t), \normal_{\mathrm{des}}(t)$.}
+		   \State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{Update strike and return trajectories \\ $\joint_{\mathrm{des}}(t) = \{\joint_{\mathrm{strike}}(t), \joint_{\mathrm{return}}(t)\}$.}
+	   \EndIf
+	   \State \parbox[t]{\dimexpr\linewidth-\algorithmicindent}{Track $\joint_{\mathrm{des}}(t)$ with Inv. Dyn. $\vec{\tau} \!=\! \invdyn(\joint_{\mathrm{des}},\dot{\joint}_{\mathrm{des}},\ddot{\joint}_{\mathrm{des}})$.} % Execute
+   \EndLoop
+\end{algorithmic}
+\end{minipage}
+\end{mdframed}
+\end{algorithm}
+
+The full trajectory generation framework and the resulting table tennis player $\Alg$ $(\alg)$ is summarized in Algorithm~\ref{alg1}. %in pseudocode format 
+After bringing the robot to a desired initial posture $\joint_0$, the vision system is queried (line $3$) for new reliable ball observations. The Extended Kalman Filter (EKF) is initialized (line $6$) using the first $N \approx \minball$ ball positions. EKF then updates the ball state whenever new ball observations $\ball_{\mathrm{obs}}$ are available, and the ball state is used to predict the future ball path $\ballPred(t)$ up to a horizon of $\predTime$ seconds. Desired racket parameters $\racketVel_{\mathrm{des}}(t), \, \normal_{\mathrm{des}}(t)$ are computed (line $11$) for $0 \leq t \leq \predTime$ by inverting the racket model~\eqref{contactModel} and using the desired ball landing parameters $\ballLand, T_{\mathrm{land}}$. 
+
+The optimization takes place online (line $12$) whenever new reliable ball observations and robot joint sensor recordings $\joint_{\mathrm{cur}}$ are available. The desired robot movement can be updated to accommodate for modeling and control errors. Feasible striking and return trajectories are then formed or updated (line $13$), which are then executed with an existing inverse dynamics controller. In actual table tennis experiments, we apply high gain PD-control in addition to inverse dynamics (computed torque). See Section~\ref{results} for more details of how the algorithm runs online in actual robot table tennis experiments.

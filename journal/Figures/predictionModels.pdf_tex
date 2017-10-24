@@ -1,0 +1,74 @@
+%% Creator: Inkscape inkscape 0.91, www.inkscape.org
+%% PDF/EPS/PS + LaTeX output extension by Johan Engelen, 2010
+%% Accompanies image file 'predictionModels.pdf' (pdf, eps, ps)
+%%
+%% To include the image in your LaTeX document, write
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics{<filename>.pdf}
+%% To scale the image, write
+%%   \def\svgwidth{<desired width>}
+%%   \input{<filename>.pdf_tex}
+%%  instead of
+%%   \includegraphics[width=<desired width>]{<filename>.pdf}
+%%
+%% Images with a different path to the parent latex file can
+%% be accessed with the `import' package (which may need to be
+%% installed) using
+%%   \usepackage{import}
+%% in the preamble, and then including the image with
+%%   \import{<path to file>}{<filename>.pdf_tex}
+%% Alternatively, one can specify
+%%   \graphicspath{{<path to file>/}}
+%% 
+%% For more information, please see info/svg-inkscape on CTAN:
+%%   http://tug.ctan.org/tex-archive/info/svg-inkscape
+%%
+\begingroup%
+  \makeatletter%
+  \providecommand\color[2][]{%
+    \errmessage{(Inkscape) Color is used for the text in Inkscape, but the package 'color.sty' is not loaded}%
+    \renewcommand\color[2][]{}%
+  }%
+  \providecommand\transparent[1]{%
+    \errmessage{(Inkscape) Transparency is used (non-zero) for the text in Inkscape, but the package 'transparent.sty' is not loaded}%
+    \renewcommand\transparent[1]{}%
+  }%
+  \providecommand\rotatebox[2]{#2}%
+  \ifx\svgwidth\undefined%
+    \setlength{\unitlength}{823.79857091bp}%
+    \ifx\svgscale\undefined%
+      \relax%
+    \else%
+      \setlength{\unitlength}{\unitlength * \real{\svgscale}}%
+    \fi%
+  \else%
+    \setlength{\unitlength}{\svgwidth}%
+  \fi%
+  \global\let\svgwidth\undefined%
+  \global\let\svgscale\undefined%
+  \makeatother%
+  \begin{picture}(1,0.40205062)%
+    \put(0,0){\includegraphics[width=\unitlength,page=1]{predictionModels.pdf}}%
+    \put(0.39881431,0.36733483){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Flight model}}}%
+    \put(0.57248186,0.19605011){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Rebound model}}}%
+    \put(0.24086149,0.22432707){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{Contact model}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=2]{predictionModels.pdf}}%
+    \put(0.35520599,0.29322652){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$n_{\mathrm{des}}(T)$}}}%
+    \put(0.42345309,0.34402438){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$b(t)$}}}%
+    \put(0.36687948,0.25651756){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{b}_{\mathrm{out}}(T)$}}}%
+    \put(0.29962684,0.30896328){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{b}_{\mathrm{in}}(T)$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=3]{predictionModels.pdf}}%
+    \put(0.61362789,0.22905654){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{b}_{\mathrm{in}}$}}}%
+    \put(0.55321677,0.23246447){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{b}_{\mathrm{out}}$}}}%
+    \put(0.66910476,0.32241352){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$b(0)$}}}%
+    \put(0.5734376,0.17001674){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{\ball}_{\mathrm{out}} = \bounce\dot{\ball}_{\mathrm{in}} + \bounceSpin\spin$}}}%
+    \put(0.18857503,0.1963357){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{\ball}_{\mathrm{out}} = (\vec{I}-\racketCartContact)\racketVel + \racketCartContact\dot{\ball}_{\mathrm{in}} + \vec{R}_{\mathrm{rot}}\racketContactSpin\spin$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=4]{predictionModels.pdf}}%
+    \put(0.78099741,0.23115436){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$b_{\mathrm{goal}}$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=5]{predictionModels.pdf}}%
+    \put(0.60033231,0.32287986){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\dot{b}(0)$}}}%
+    \put(0,0){\includegraphics[width=\unitlength,page=6]{predictionModels.pdf}}%
+    \put(0.64386639,0.3487666){\color[rgb]{0,0,0}\makebox(0,0)[lb]{\smash{$\spin$}}}%
+  \end{picture}%
+\endgroup%
