@@ -609,13 +609,15 @@ void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball
 		if (ball_cand_pos(Y) < net_y) { // on the human side
 			stats.legal_land = true;
 			if (VERBOSE) {
-				std::cout << "Legal land!" << std::endl;
+				std::cout << "Legal land! ";
+				std::cout << "Landing pos: " << ball_cand_pos.t() << std::endl;
 			}
 		}
 		else {
 			stats.legal_land = false;
 			if (VERBOSE) {
-				std::cout << "Illegal land! Lost a point..." << std::endl;
+				std::cout << "Illegal land! ";
+				std::cout << "Landing pos: " << ball_cand_pos.t() << std::endl;
 			}
 		}
 		stats.has_landed = true;

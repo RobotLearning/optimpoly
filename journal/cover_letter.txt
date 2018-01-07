@@ -1,5 +1,0 @@
-This file is a cover letter explaining the manuscript attached.
-
-In the 7th page of the Author Information Pack, it is written that 'As part of the Your Paper Your Way service, you may choose to submit your manuscript as a single file to be used in the refereeing process.'. 
-
-I have chosen the Elsevier style file and prepared my pdf file with latex accordingly.

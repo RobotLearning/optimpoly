@@ -626,6 +626,45 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	return racket_params;
 }
 
+/**
+ * @brief Compute spin-based desired racket pos,vel,normals and/or ball positions, vels.
+ *
+ * Outgoing ball velocity is computed using a boundary value problem
+ * for the spin model, which is initialized using ballistic model.
+ *
+ * Function that calculates a racket strategy : positions, velocities and racket normal
+ * for each point on the predicted ball trajectory (ballMat)
+ * to return it a desired point (ballLand) at a desired time (landTime)
+ *
+ *
+ */
+optim_des calc_spin_racket_strategy(const mat & balls_predicted,
+		                       const vec2 & ball_land_des, const double time_land_des,
+							   optim_des & racket_params) {
+
+	//static wall_clock timer;
+	//timer.tic();
+	TableTennis tennis = TableTennis(false,false);
+
+	int N = balls_predicted.n_cols;
+	mat balls_out_vel = zeros<mat>(3,N);
+	mat racket_des_normal = zeros<mat>(3,N);
+	mat racket_des_vel = zeros<mat>(3,N);
+	tennis.calc_des_ball_out_vel(ball_land_des,time_land_des,balls_predicted,balls_out_vel);
+	tennis.calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
+	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
+
+	// place racket centre on the predicted ball
+	racket_params.ball_pos = balls_predicted.rows(X,Z);
+	racket_params.ball_vel = balls_predicted.rows(DX,DZ);
+	racket_params.racket_pos = balls_predicted.rows(X,Z);
+	racket_params.racket_vel = racket_des_vel;
+	racket_params.racket_normal = racket_des_normal;
+
+	//cout << "Pred. racket time: " << 1000 * timer.toc() << " ms." << endl;
+	return racket_params;
+}
+
 
 /**
  *
@@ -704,4 +743,28 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 	}
 
 	return false;
+}
+
+/**
+ * Get players strategy (if exists)
+ * @param pos_land_des
+ * @param time_land_des
+ */
+void Player::get_strategy(vec2 & pos_land_des, double & time_land_des) {
+
+	switch (pflags.alg) {
+		case FOCUS:
+			pos_land_des = this->ball_land_des;
+			time_land_des = this->pflags.time_land_des;
+			break;
+		case VHP:
+			pos_land_des = this->ball_land_des;
+			time_land_des = this->pflags.time_land_des;
+			break;
+		case DP:
+			throw ("DP does not have a fixed return strategy!\n");
+			break;
+		default:
+			throw ("Algorithm is not recognized!\n");
+	}
 }

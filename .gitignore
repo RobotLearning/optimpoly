@@ -39,7 +39,6 @@ Debug/
 *.*~
 
 # journal tex extra files
-*.pdf
 *.gz
 *.log
 *.aux

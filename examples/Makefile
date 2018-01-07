@@ -1,5 +1,6 @@
 CC=g++
 TESTFLAGS=-g --std=c++11 -pthread
+OPTFLAGS=-O3 -DNDEBUG -std=c++11 -pthread
 DIR=$(HOME)/polyoptim
 HEADER1=$(DIR)/include/player
 HEADER2=$(DIR)/include/optim
@@ -23,7 +24,11 @@ test-auto-nlopt: # example for testing NLOPT + autodiff
 
 test-est-init: # example for testing NLOPT + ball initial state estimation
 	$(CC) $(TESTFLAGS) ex_estimate_prior.cpp -o est_prior -I$(HEADER1) -I$(HEADER2) \
-	                  -lm -larmadillo -lnlopt ../lib/libtennis.so				
+	                  -lm -larmadillo -lnlopt ../lib/libplayer.so				
+
+test-bvp: # example for testing NLOPT + Boundary Value Problem (BVP)
+	$(CC) $(OPTFLAGS) ex_bvp.cpp -o solve_bvp -I$(HEADER1) -I$(HEADER2) \
+	                  -lm -larmadillo ../lib/libplayer.so -lnlopt
 					    
 clean:
 	rm -rf *.a *.o 

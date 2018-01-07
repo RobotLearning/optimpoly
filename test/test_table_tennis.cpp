@@ -34,7 +34,7 @@
 using namespace arma;
 using namespace std;
 namespace data = boost::unit_test::data;
-algo algs[] = {DP};
+algo algs[] = {VHP};
 void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
@@ -65,7 +65,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 	flags.alg = alg;
 	flags.mpc = true;
 	flags.freq_mpc = 1;
-	flags.verbosity = 1;
+	flags.verbosity = 0;
 	Player *robot;
 	int N = 2000;
 	joint qdes = qact;
@@ -109,6 +109,7 @@ BOOST_DATA_TEST_CASE(test_land_mpc, data::make(algs), alg) {
 
 /*
  * Testing whether the ball can be returned to the opponents court
+ * Prints also desired and actual ball (if it lands)
  */
 BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 
@@ -130,6 +131,7 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 	EKF filter = init_filter(0.03,std_obs);
 	player_flags flags;
 	flags.verbosity = 3;
+	flags.mpc = false;
 	flags.alg = alg;
 	Player robot = Player(qact.q,filter,flags);
 	int N = 2000;
@@ -150,6 +152,17 @@ BOOST_DATA_TEST_CASE(test_land, data::make(algs), alg) {
 		qact.qd = qdes.qd;
 	}
 	//cout << max(Qdes,1) << endl;
+
+	vec2 ball_des;
+	double time_des;
+	try {
+		robot.get_strategy(ball_des,time_des);
+	}
+	catch (std::exception & ex) {
+		// do nothing it must be DP
+		cout << ex.what();
+	}
+	std::cout << "Desired ball land: " << ball_des.t();
 	std::cout << "Testing joint limits as well...\n";
 	BOOST_TEST(all(max(Qdes,1) < ubvec));
 	BOOST_TEST(all(min(Qdes,1) > lbvec));

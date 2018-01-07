@@ -114,6 +114,7 @@ public:
 	vec6 filt_ball_state(const vec3 & obs);
 	bool filter_is_initialized() const ;
 	void reset_filter(double std_model, double std_noise);
+	void get_strategy(vec2 & ball_des, double & des_land_time);
 
 	// main function
 	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);
