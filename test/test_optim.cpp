@@ -371,8 +371,9 @@ double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
     init_state = join_vert(mydata->ball_incoming,vel_out);
     tt.set_ball_state(init_state);
 	for (int i = 0; i < mydata->time_land_des/dt; i++)
-		tt.integrate_ball_state(dt);
-    //tt.integrate_ball_state(mydata->time_land_des);
+    	tt.integrate_ball_state(dt);
+	//for (int i = 0; i < 5; i++)
+	//	tt.symplectic_int_fourth(mydata->time_land_des/5.0);
 
 	out_pos = tt.get_ball_position();
 
@@ -429,9 +430,45 @@ BOOST_AUTO_TEST_CASE( check_speed_spin_based_racket_calc ) {
 	static wall_clock timer;
 	timer.tic();
 	calc_racket_strategy(balls_pred,ball_land_des.head(2),time_land_des,racket_des);
-	cout << "Elapsed time in ms: " << timer.toc() * 1e3 << endl;
+	double time1 = timer.toc() * 1e3;
+	cout << "Elapsed time in ms: " << time1 << endl;
 	timer.tic();
 	calc_spin_racket_strategy(balls_pred,topspin,ball_land_des,time_land_des,racket_des);
-	cout << "Elapsed time in ms: " << timer.toc() * 1e3 << endl;
-	BOOST_TEST(false);
+	double time2 = timer.toc() * 1e3;
+	cout << "Elapsed time in ms: " << time2 << endl;
+	BOOST_TEST(time2 < time1 * 100);
+}
+
+/*
+ * Testing 4th order Symplectic Integration
+ * It should be more accurate with fewer cycles
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_symplectic_int_4th) {
+
+	BOOST_TEST_MESSAGE("Checking 4th order Symplectic Integration");
+	arma_rng::set_seed_random();
+	double topspin = -50.0;
+	TableTennis tt = TableTennis(true,false);
+	tt.set_topspin(topspin);
+	int ball_launch_side = (randi(1,distr_param(0,2)).at(0));
+
+	tt.set_ball_gun(0.05,ball_launch_side);
+	vec6 init_state = tt.get_ball_state();
+	int N = 25; // it should not bounce
+	double dt = 0.02;
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(dt);
+	}
+	vec6 ball_pred1 = tt.get_ball_state();
+
+	tt.set_ball_state(init_state);
+	for (int i = 0; i < 5; i++)
+		tt.symplectic_int_fourth(0.1);
+	//tt.symplectic_int_fourth(0.5);
+	vec6 ball_pred2 = tt.get_ball_state();
+
+	cout << ball_pred1.t();
+	cout << ball_pred2.t();
+	BOOST_TEST_MESSAGE("Nothing enforced here!");
 }

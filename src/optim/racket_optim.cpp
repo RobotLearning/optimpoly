@@ -26,7 +26,7 @@
 #include "utils.h"
 
 /**
- * @brief Initial ball data time stamps and position observations
+ * @brief Incoming ball state (+topspin) and desired landing point and time
  */
 struct des_ball_data {
 	vec3 ball_incoming;

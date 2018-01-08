@@ -90,9 +90,7 @@ private:
 	vec3 flight_model() const;
 	vec3 drag_flight_model() const;
 	vec3 table_contact_model(const vec3 & ball_vel_in) const;
-	void symplectic_euler(const double dt, const vec3 & ball_acc,
-			              vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
-	void symplectic_euler_fourth(const double dt, vec3 & ball_next_pos, vec3 & ball_next_vel) const;
+	void symplectic_euler(const double dt, vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
 
 	// contact models
 	void check_contact(const racket & robot_racket,
@@ -129,6 +127,9 @@ public:
 	void set_topspin(const double val);
 	// set reasonable ball positions and velocities for table tennis
 	void set_ball_gun(double std, int ballgun_side = 1);
+
+	// useful for precise spinning balls racket optimization
+	void symplectic_int_fourth(const double dt);
 
 	// ball prediction functions
 	void integrate_ball_state(const double dt);

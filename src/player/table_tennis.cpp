@@ -280,9 +280,8 @@ void TableTennis::integrate_ball_state(const racket & robot_racket,
 void TableTennis::integrate_ball_state(const double dt) {
 
 	// Symplectic Euler for No-Contact-Situation (Flight model)
-	vec3 ball_acc = flight_model();
 	vec3 ball_cand_pos, ball_cand_vel;
-	symplectic_euler(dt, ball_acc, ball_cand_pos, ball_cand_vel);
+	symplectic_euler(dt, ball_cand_pos, ball_cand_vel);
 
 	if (CHECK_CONTACTS) {
 		check_ball_table_contact(ball_cand_pos,ball_cand_vel);
@@ -412,16 +411,16 @@ void TableTennis::symplectic_euler(const double dt, vec3 & ball_next_pos, vec3 &
 }
 
 /**
- * @brief FOURTH ORDER Symplectic Euler integration for dt seconds.
+ * @brief FOURTH ORDER Symplectic integration for dt seconds.
  *
  * Unlike Symplectic Euler, this is only used for accurate and fast racket dynamics computations
  * so it integrates already the positions and velocities
  */
-void TableTennis::symplectic_euler_fourth(const double dt) const {
+void TableTennis::symplectic_int_fourth(const double dt) {
 
 	static vec3 ball_acc;
 	static double speed_ball;
-	static double two_power_third = pow(2,1/3);
+	static double two_power_third = pow(2.0,1/3.0);
 	static double c1 = 1/(2*(2-two_power_third));
 	static double c4 = c1;
 	static double c2 = (1 - two_power_third) * c1;
@@ -443,7 +442,7 @@ void TableTennis::symplectic_euler_fourth(const double dt) const {
 		ball_acc(Y) = -ball_next_vel(Y) * params.Cdrag * speed_ball;
 		ball_acc(Z) = params.gravity - ball_next_vel(Z) * params.Cdrag * speed_ball;
 		if (SPIN_MODE) {// add Magnus force
-			ball_acc += params.Clift * cross(ball_spin,ball_vel);
+			ball_acc += params.Clift * cross(ball_spin,ball_next_vel);
 		}
 		// ball candidate velocities and positions
 		ball_next_vel += c(i) * ball_acc * dt;
