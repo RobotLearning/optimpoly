@@ -255,9 +255,8 @@ void TableTennis::integrate_ball_state(const racket & robot_racket,
 		                               const double dt) {
 
 	// Symplectic Euler for No-Contact-Situation (Flight model)
-	vec3 ball_acc = flight_model();
 	vec3 ball_cand_pos, ball_cand_vel;
-	symplectic_euler(dt,ball_acc, ball_cand_pos, ball_cand_vel);
+	symplectic_euler(dt,ball_cand_pos, ball_cand_vel);
 
 	if (CHECK_CONTACTS) {
 		check_contact(robot_racket,ball_cand_pos,ball_cand_vel);
@@ -384,7 +383,7 @@ vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
 
 /**
  *
- * @brief Symplectic Euler integration for dt seconds.
+ * @brief FIRST ORDER Symplectic Euler integration for dt seconds.
  *
  * First integrating the accelerations to velocities by dt
  * Then integrating the velocities to positions by dt
@@ -395,13 +394,12 @@ vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
  * in between.
  *
  * @param dt Prediction horizon.
- * @param ball_acc Already calculated ball accelerations
  * @param ball_next_pos Next position using calculated ball accelerations.
  * @param ball_next_vel Next velocity using calculated ball accelerations.
  */
-void TableTennis::symplectic_euler(const double dt, const vec3 & ball_acc,
-		vec3 & ball_next_pos, vec3 & ball_next_vel) const {
+void TableTennis::symplectic_euler(const double dt, vec3 & ball_next_pos, vec3 & ball_next_vel) const {
 
+	vec3 ball_acc = flight_model();
 	// ball candidate velocities
 	ball_next_vel(X) = ball_vel(X) + ball_acc(X) * dt;
 	ball_next_vel(Y) = ball_vel(Y) + ball_acc(Y) * dt;
@@ -411,6 +409,49 @@ void TableTennis::symplectic_euler(const double dt, const vec3 & ball_acc,
 	ball_next_pos(X) = ball_pos(X) + ball_next_vel(X) * dt;
 	ball_next_pos(Y) = ball_pos(Y) + ball_next_vel(Y) * dt;
 	ball_next_pos(Z) = ball_pos(Z) + ball_next_vel(Z) * dt;
+}
+
+/**
+ * @brief FOURTH ORDER Symplectic Euler integration for dt seconds.
+ *
+ * Unlike Symplectic Euler, this is only used for accurate and fast racket dynamics computations
+ * so it integrates already the positions and velocities
+ */
+void TableTennis::symplectic_euler_fourth(const double dt) const {
+
+	static vec3 ball_acc;
+	static double speed_ball;
+	static double two_power_third = pow(2,1/3);
+	static double c1 = 1/(2*(2-two_power_third));
+	static double c4 = c1;
+	static double c2 = (1 - two_power_third) * c1;
+	static double c3 = c2;
+	static double d1 = 2 * c1;
+	static double d3 = d1;
+	static double d2 = -two_power_third * d1;
+	static vec4 c = {c1, c2, c3, c4};
+	static vec4 d = {d1, d2, d3, 0.0};
+	static vec3 ball_next_pos;
+	static vec3 ball_next_vel;
+
+	ball_next_vel = ball_vel;
+	ball_next_pos = ball_pos;
+
+	for (int i = 0; i < 4; i++) {
+		speed_ball = norm(ball_next_vel);
+		ball_acc(X) = -ball_next_vel(X) * params.Cdrag * speed_ball;
+		ball_acc(Y) = -ball_next_vel(Y) * params.Cdrag * speed_ball;
+		ball_acc(Z) = params.gravity - ball_next_vel(Z) * params.Cdrag * speed_ball;
+		if (SPIN_MODE) {// add Magnus force
+			ball_acc += params.Clift * cross(ball_spin,ball_vel);
+		}
+		// ball candidate velocities and positions
+		ball_next_vel += c(i) * ball_acc * dt;
+		ball_next_pos += d(i) * ball_next_vel * dt;
+	}
+	ball_vel = ball_next_vel;
+	ball_pos = ball_next_pos;
+
 }
 
 /**
@@ -849,7 +890,7 @@ vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
  * Predict the ball forwards till the net so that we can look up the
  * corresponding robot joint parameters qf, qfdot, T around net.
  *
- * TODO: would it work backwards?
+ * TODO: it would NOT work backwards
  * @param ball_est
  */
 void predict_till_net(vec6 & ball_est) {

@@ -92,6 +92,7 @@ private:
 	vec3 table_contact_model(const vec3 & ball_vel_in) const;
 	void symplectic_euler(const double dt, const vec3 & ball_acc,
 			              vec3 & ball_cand_pos, vec3 & ball_cand_vel) const;
+	void symplectic_euler_fourth(const double dt, vec3 & ball_next_pos, vec3 & ball_next_vel) const;
 
 	// contact models
 	void check_contact(const racket & robot_racket,
