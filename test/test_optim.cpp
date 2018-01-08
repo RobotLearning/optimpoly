@@ -225,3 +225,47 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 	opt.run();
 	opt.run_qrest_optim(q_rest_des);
 }
+
+/**
+ * For the Focused Player with a spin model and spin estimation:
+ *
+ * Measure elapsed timee for spin based racket calculation
+ * for a full predicted trajectory. It should be not much more than
+ * a spin-less racket strategy computation
+ *
+ * Compute spin-based desired racket pos,vel,normals and/or ball positions, vels.
+ *
+ * Outgoing ball velocity is computed using a boundary value problem
+ * for the spin model, which is initialized using ballistic model.
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_spin_based_racket_calc ) {
+
+	// first test spin-less case
+	//static wall_clock timer;
+	//timer.tic();
+	arma_rng::set_seed_random();
+	double topspin = -50.0;
+	TableTennis tt = TableTennis(true,false);
+	tt.set_topspin(topspin);
+	int ball_launch_side = (randi(1,distr_param(0,2)).at(0));
+	tt.set_ball_gun(0.05,ball_launch_side);
+	int N = 50;
+	mat balls_pred = zeros<mat>(6,N);
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(0.02);
+		balls_pred.col(i) = tt.get_ball_state();
+	}
+	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4.0};
+	double time_land_des = 0.6;
+	vec3 ball_vel_out;
+	vec6 ballin = tt.get_ball_state();
+	tt.calc_des_ball_out_vel(ball_land_des,time_land_des,ballin,ball_vel_out);
+	cout << "Incoming ball: " << ballin.t();
+	cout << "Estimated outgoing ball velocity: " << ball_vel_out.t();
+	optim_outgoing_ball_vel(ball_vel_out);
+	cout << "Solution to BVP: " << ball_vel_out.t();
+
+	BOOST_TEST(false);
+
+}
