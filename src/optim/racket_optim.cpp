@@ -3,8 +3,10 @@
  *
  * Boundary Value Problem for computing desired outgoing ball velocities
  * is solved with spin
- * where we investigate the solution speed (time elapsed) using optimization
- * (TNEWTON in NLOPT)
+ *
+ * We're mostly interested in the solution speed (time elapsed) using optimization
+ * since an argument needs to be added to the paper
+ *
  *
  *  Created on: Jan 7, 2018
  *      Author: okoc
@@ -20,48 +22,143 @@
 #include <armadillo>
 // table tennis prediction functions
 #include "tabletennis.h"
+#include "player.hpp"
+#include "utils.h"
 
 /**
  * @brief Initial ball data time stamps and position observations
  */
 struct des_ball_data {
+	vec3 ball_incoming;
 	vec3 ball_land_des;
-	double time_land_time;
+	double time_land_des;
+	double topspin;
 };
 
-void optim_outgoing_ball_vel(vec3 & est);
-double costfunc(unsigned n, const double *x, double *grad, void *data);
+static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
+static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est); // spin based optimization
 
-void optim_outgoing_ball_vel(vec3 & est) {
 
-	double x[3];  /* some initial guess */
-	double minf; /* the minimum objective value, upon return */
-	double init_time;
-	int res; // error code
-	nlopt_opt opt;
-	opt = nlopt_create(NLOPT_LD_MMA, 3);
-	nlopt_set_min_objective(opt, calc_landing_res, nullptr);
+/**
+ * @brief Compute desired racket pos,vel,normals and/or ball positions, vels. assuming spin model
+ * Function that calculates a racket strategy : positions, velocities and racket normal
+ * for each point on the predicted ball trajectory (ballMat)
+ * to return it a desired point (ballLand) at a desired time (landTime)
+ *
+ * As opposed to calculating with spin-free models, this function
+ * runs an optimization for each predicted ball to find desired outgoing ball velocities!
+ *
+ */
+optim_des calc_spin_racket_strategy(const mat & balls_predicted,
+								const double & topspin,
+		                       const vec3 & ball_land_des, const double time_land_des,
+							   optim_des & racket_params) {
+
+	TableTennis tennis = TableTennis(true,false);
+	tennis.set_topspin(topspin);
+	des_ball_data data;
+	data.ball_land_des = ball_land_des;
+	data.time_land_des = time_land_des;
+	data.topspin = topspin;
+
+	int N = balls_predicted.n_cols;
+	mat balls_out_vel = zeros<mat>(3,N);
+	mat racket_des_normal = zeros<mat>(3,N);
+	mat racket_des_vel = zeros<mat>(3,N);
+	vec3 vel_out;
+
+	// get initial outgoing ball velocity estimates
+	tennis.calc_des_ball_out_vel(ball_land_des.head(2),time_land_des,false,balls_predicted,balls_out_vel);
+	vel_out = balls_out_vel.col(0);
+	// refine the estimates with optimization
+	for (int i = 0; i < N; i++) {
+		data.ball_incoming = balls_predicted.col(i).head(3);
+		optim_spin_outgoing_ball_vel(data,false,vel_out);
+		balls_out_vel.col(i) = vel_out;
+	}
+	tennis.calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
+	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
+
+	// place racket centre on the predicted ball
+	racket_params.ball_pos = balls_predicted.rows(X,Z);
+	racket_params.ball_vel = balls_predicted.rows(DX,DZ);
+	racket_params.racket_pos = balls_predicted.rows(X,Z);
+	racket_params.racket_vel = racket_des_vel;
+	racket_params.racket_normal = racket_des_normal;
+	return racket_params;
+}
+
+
+/**
+ * @brief Compute desired racket pos,vel,normals and/or ball positions, vels.
+ * Function that calculates a racket strategy : positions, velocities and racket normal
+ * for each point on the predicted ball trajectory (ballMat)
+ * to return it a desired point (ballLand) at a desired time (landTime)
+ *
+ *
+ */
+optim_des calc_racket_strategy(const mat & balls_predicted,
+		                       const vec2 & ball_land_des, const double time_land_des,
+							   optim_des & racket_params) {
+
+	//static wall_clock timer;
+	//timer.tic();
+	bool hack = true; // for modifying outgoing ball velocities
+	TableTennis tennis = TableTennis(false,false);
+
+	int N = balls_predicted.n_cols;
+	mat balls_out_vel = zeros<mat>(3,N);
+	mat racket_des_normal = zeros<mat>(3,N);
+	mat racket_des_vel = zeros<mat>(3,N);
+	tennis.calc_des_ball_out_vel(ball_land_des,time_land_des,hack,balls_predicted,balls_out_vel);
+	tennis.calc_des_racket_normal(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal);
+	tennis.calc_des_racket_vel(balls_predicted.rows(DX,DZ),balls_out_vel,racket_des_normal,racket_des_vel);
+
+	// place racket centre on the predicted ball
+	racket_params.ball_pos = balls_predicted.rows(X,Z);
+	racket_params.ball_vel = balls_predicted.rows(DX,DZ);
+	racket_params.racket_pos = balls_predicted.rows(X,Z);
+	racket_params.racket_vel = racket_des_vel;
+	racket_params.racket_normal = racket_des_normal;
+
+	//cout << "Pred. racket time: " << 1000 * timer.toc() << " ms." << endl;
+	return racket_params;
+}
+
+/**
+ * @brief Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
+ *
+ * BVP is solved using optimization
+ */
+void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est) {
+
+	static double x[3];  /* some initial guess */
+	static double minf; /* the minimum objective value, upon return */
+	static double init_time;
+	static int res; // error code
+	static nlopt_opt opt = nlopt_create(NLOPT_LD_MMA, 3);
+	nlopt_set_min_objective(opt, calc_landing_res, (void*)&data);
 	nlopt_set_xtol_rel(opt, 1e-2);
 
 	for(int i = 0; i < 3; i++) {
 		x[i] = est(i);
 	}
-	x[0] = 1.1 * x[0];
-	x[1] = 1.2 * x[1];
-	x[2] = 0.9 * x[2];
 
 	init_time = get_time();
 	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-	    printf("NLOPT failed!\n");
+		if (verbose)
+			printf("NLOPT failed!\n");
 	}
 	else {
-		printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
-	    printf("Found minimum at f = %0.10g\n", minf);
+		if (verbose) {
+			printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
 		for(int i = 0; i < 3; i++) {
 			est(i) = x[i];
 		}
 	}
-	nlopt_destroy(opt);
+	//nlopt_destroy(opt);
 }
 
 /**
@@ -73,40 +170,41 @@ void optim_outgoing_ball_vel(vec3 & est) {
 double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
 
 	static double dt = 0.02;
-    static TableTennis tt = TableTennis(true,false);
+    static TableTennis tt = TableTennis(true,false,false); // no contact checking!
     static vec3 vel_out;
-    static vec6 init_state;
     static vec3 out_pos;
-    static vec3 out_des_pos = {ball_land_des(X), ball_land_des(Y), floor_level - table_height + ball_radius};
-    static int N = time_land_des/dt;
-    tt.set_topspin(topspin);
+
+    des_ball_data *mydata = (des_ball_data*) data;
+    tt.set_topspin(mydata->topspin);
+    vel_out(X) = x[0];
+    vel_out(Y) = x[1];
+    vel_out(Z) = x[2];
+    tt.set_ball_state(join_vert(mydata->ball_incoming,vel_out));
+	for (int i = 0; i < mydata->time_land_des/dt; i++)
+		tt.integrate_ball_state(dt);
+
+	out_pos = tt.get_ball_position();
 
     if (grad) {
-		static double h = 1e-6;
+
+    	grad[0] = mydata->time_land_des * (out_pos(X) - mydata->ball_land_des(X));
+    	grad[1] = mydata->time_land_des * (out_pos(Y) - mydata->ball_land_des(Y));
+    	grad[2] = mydata->time_land_des * (out_pos(Z) - mydata->ball_land_des(Z));
+    	// Finite difference
+		/*static double h = 1e-6;
 		static double val_plus, val_minus;
 		static double xx[3];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
-			val_plus = costfunc(n, xx, NULL, data);
+			val_plus = calc_landing_res(n, xx, NULL, data);
 			xx[i] -= 2*h;
-			val_minus = costfunc(n, xx, NULL, data);
+			val_minus = calc_landing_res(n, xx, NULL, data);
 			grad[i] = (val_plus - val_minus) / (2*h);
 			xx[i] += h;
-		}
+		}*/
     }
 
-    vel_out(X) = x[0];
-    vel_out(Y) = x[1];
-    vel_out(Z) = x[2];
-    init_state = join_vert(ballin.head(3),vel_out);
-    tt.set_ball_state(init_state);
-	for (int i = 0; i < N; i++)
-		tt.integrate_ball_state(dt);
-
-	out_pos = tt.get_ball_position();
-	return pow(norm(out_pos - out_des_pos),2);
-
+	return pow(norm(out_pos - mydata->ball_land_des),2);
 }
-

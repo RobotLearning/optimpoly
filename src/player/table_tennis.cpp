@@ -49,14 +49,16 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
  *
  * @param spin_flag Turn ON for spin modelling.
  * @param verbosity Turn ON for printing events (bounce, hit, etc.)
+ * @param check_contacts Turn OFF for disabling contact checking during integration (default ON).
  */
-TableTennis::TableTennis(bool spin_flag, bool verbosity) :
+TableTennis::TableTennis(bool spin_flag, bool verbosity, bool check_contacts) :
 	 SPIN_MODE(spin_flag), VERBOSE(verbosity) {
 
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
 	ball_spin = zeros<vec>(3);
 	init_topspin(params.init_topspin);
+	CHECK_CONTACTS = check_contacts;
 	//load_params("ball.cfg");
 	//init_topspin(params.init_topspin);
 }
@@ -292,6 +294,13 @@ void TableTennis::integrate_ball_state(const double dt) {
 	// Pass the computed ball variables to ball pos and vel
 	ball_pos = ball_cand_pos;
 	ball_vel = ball_cand_vel;
+}
+
+/**
+ * @brief Turn off contact checking so integrate ball_state will not check contacts!
+ */
+void TableTennis::turn_off_contact_checking() {
+	CHECK_CONTACTS = false;
 }
 
 /**
@@ -682,7 +691,7 @@ void TableTennis::calc_des_racket_normal(const mat & v_in, const mat & v_out, ma
  * @param balls_out_vel Outgoing velocities on the predicted ball locations (output)
  */
 void TableTennis::calc_des_ball_out_vel(const vec2 & ball_land_des,
-						   const double time_land_des,
+						   const double time_land_des, const bool hack,
 						   const mat & balls_predicted, mat & balls_out_vel) const {
 
 	static double z_table = floor_level - table_height + ball_radius;
@@ -693,10 +702,12 @@ void TableTennis::calc_des_ball_out_vel(const vec2 & ball_land_des,
 	balls_out_vel.row(Z) = (z_table - balls_predicted.row(Z) -
 			                0.5 * params.gravity * pow(time_land_des,2)) / time_land_des;
 
-	//TODO: consider air drag, hack for now
-	balls_out_vel.row(X) *= 1.1;
-	balls_out_vel.row(Y) *= 1.1;
-	balls_out_vel.row(Z) *= 1.2;
+	//hack consider only air drag
+	if (hack) {
+		balls_out_vel.row(X) *= 1.1;
+		balls_out_vel.row(Y) *= 1.1;
+		balls_out_vel.row(Z) *= 1.2;
+	}
 }
 
 /**

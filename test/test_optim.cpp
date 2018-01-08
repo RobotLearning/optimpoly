@@ -30,6 +30,19 @@ static double cost_fnc(unsigned n, const double *x,
 		                   double *grad, void *data);
 static void interp_ball(const mat & ballpred,
 		                const double T, vec3 & ballpos);
+/**
+ * @brief Initial ball data time stamps and position observations
+ */
+struct des_ball_data {
+	vec3 ball_incoming;
+	vec3 ball_land_des;
+	double time_land_des;
+	double topspin;
+};
+
+static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
+static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est); // spin based optimization
+
 
 /*
  * Initialize robot posture on the right size of the robot
@@ -229,21 +242,19 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
 /**
  * For the Focused Player with a spin model and spin estimation:
  *
- * Measure elapsed timee for spin based racket calculation
- * for a full predicted trajectory. It should be not much more than
- * a spin-less racket strategy computation
+ * Check accuracy of optimization based racket calculation
+ * solving a BVP with spin model
  *
- * Compute spin-based desired racket pos,vel,normals and/or ball positions, vels.
- *
- * Outgoing ball velocity is computed using a boundary value problem
- * for the spin model, which is initialized using ballistic model.
+ * comparing with the ballistic model
  *
  */
-BOOST_AUTO_TEST_CASE( test_spin_based_racket_calc ) {
+BOOST_AUTO_TEST_CASE( check_accuracy_spin_based_racket_calc ) {
 
 	// first test spin-less case
 	//static wall_clock timer;
 	//timer.tic();
+	cout << "\nSolving BVP for one particular ball's desired outgoing velocity using a spin model\n";
+	cout << "Optimization should produce accurate inversion...\n";
 	arma_rng::set_seed_random();
 	double topspin = -50.0;
 	TableTennis tt = TableTennis(true,false);
@@ -251,21 +262,176 @@ BOOST_AUTO_TEST_CASE( test_spin_based_racket_calc ) {
 	int ball_launch_side = (randi(1,distr_param(0,2)).at(0));
 	tt.set_ball_gun(0.05,ball_launch_side);
 	int N = 50;
-	mat balls_pred = zeros<mat>(6,N);
+	double dt = 0.02;
+	//mat balls_pred = zeros<mat>(6,N);
 	for (int i = 0; i < N; i++) {
-		tt.integrate_ball_state(0.02);
-		balls_pred.col(i) = tt.get_ball_state();
+		tt.integrate_ball_state(dt);
+		//balls_pred.col(i) = tt.get_ball_state();
 	}
-	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4.0};
+	vec3 ball_land_des = {0.0, dist_to_table - 3*table_length/4.0, floor_level - table_height + ball_radius};
 	double time_land_des = 0.6;
 	vec3 ball_vel_out;
 	vec6 ballin = tt.get_ball_state();
-	tt.calc_des_ball_out_vel(ball_land_des,time_land_des,ballin,ball_vel_out);
+	tt.calc_des_ball_out_vel(ball_land_des.head(2),time_land_des,true,ballin,ball_vel_out);
 	cout << "Incoming ball: " << ballin.t();
-	cout << "Estimated outgoing ball velocity: " << ball_vel_out.t();
-	optim_outgoing_ball_vel(ball_vel_out);
-	cout << "Solution to BVP: " << ball_vel_out.t();
+	cout << "Estimated outgoing ball velocity with ballistic model: " << ball_vel_out.t();
 
+	int N_horizon = time_land_des/dt;
+	tt.set_ball_state(join_vert(ballin.head(3),ball_vel_out));
+	for (int i = 0; i < N_horizon; i++) {
+		tt.integrate_ball_state(dt);
+	}
+	cout << "Resulting landing position: " << tt.get_ball_position().t();
+	double res1 = norm(tt.get_ball_position() - ball_land_des,2);
+	cout << "Norm of error :" << res1 << endl;
+	// initialize optimization with adjusted values (e.g. to reduce optim time)
+	ball_vel_out(X) *= 1.1;
+	ball_vel_out(X) *= 1.2;
+	ball_vel_out(X) *= 0.9;
+
+	des_ball_data data;
+	data.ball_land_des = ball_land_des;
+	data.time_land_des = time_land_des;
+	data.topspin = topspin;
+	data.ball_incoming = ballin.head(3);
+
+	optim_spin_outgoing_ball_vel(data,true,ball_vel_out);
+	cout << "Solution to BVP: " << ball_vel_out.t() << endl;
+
+	tt.set_ball_state(join_vert(ballin.head(3),ball_vel_out));
+	for (int i = 0; i < N_horizon; i++) {
+		tt.integrate_ball_state(dt);
+	}
+	cout << "Resulting landing position: " << tt.get_ball_position().t();
+	double res2 = norm(tt.get_ball_position() - ball_land_des,2);
+	cout << "Norm of error :" << res2 << endl;
+
+	BOOST_TEST(res2 < res1);
+
+}
+
+
+/**
+ * @brief Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
+ *
+ * BVP is solved using optimization
+ */
+void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est) {
+
+	static double x[3];  /* some initial guess */
+	static double minf; /* the minimum objective value, upon return */
+	static double init_time;
+	static int res; // error code
+	static nlopt_opt opt;
+
+	opt = nlopt_create(NLOPT_LD_MMA, 3);
+	nlopt_set_min_objective(opt, calc_landing_res, (void*)&data);
+	nlopt_set_xtol_rel(opt, 1e-2);
+
+	for(int i = 0; i < 3; i++) {
+		x[i] = est(i);
+	}
+
+	init_time = get_time();
+	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+		if (verbose)
+			printf("NLOPT failed!\n");
+	}
+	else {
+		if (verbose) {
+			printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
+			printf("Found minimum at f = %0.10g\n", minf);
+		}
+		for(int i = 0; i < 3; i++) {
+			est(i) = x[i];
+		}
+	}
+	//nlopt_destroy(opt);
+}
+
+/**
+ * Cost function for computing the residual (norm squared)
+ * of the outgoing ball landing error
+ * Calculates also the gradient if grad is TRUE
+ *
+ */
+double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
+
+	static double dt = 0.02;
+    static TableTennis tt = TableTennis(true,false,false); // no contact checking
+    static vec3 vel_out;
+    static vec6 init_state;
+    static vec3 out_pos;
+
+    des_ball_data *mydata = (des_ball_data*) data;
+    tt.set_topspin(mydata->topspin);
+    vel_out(X) = x[0];
+    vel_out(Y) = x[1];
+    vel_out(Z) = x[2];
+    init_state = join_vert(mydata->ball_incoming,vel_out);
+    tt.set_ball_state(init_state);
+	for (int i = 0; i < mydata->time_land_des/dt; i++)
+		tt.integrate_ball_state(dt);
+    //tt.integrate_ball_state(mydata->time_land_des);
+
+	out_pos = tt.get_ball_position();
+
+    if (grad) {
+
+    	grad[0] = mydata->time_land_des * (out_pos(X) - mydata->ball_land_des(X));
+    	grad[1] = mydata->time_land_des * (out_pos(Y) - mydata->ball_land_des(Y));
+    	grad[2] = mydata->time_land_des * (out_pos(Z) - mydata->ball_land_des(Z));
+    	// Finite difference
+		/*static double h = 1e-6;
+		static double val_plus, val_minus;
+		static double xx[3];
+		for (unsigned i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (unsigned i = 0; i < n; i++) {
+			xx[i] += h;
+			val_plus = calc_landing_res(n, xx, NULL, data);
+			xx[i] -= 2*h;
+			val_minus = calc_landing_res(n, xx, NULL, data);
+			grad[i] = (val_plus - val_minus) / (2*h);
+			xx[i] += h;
+		}*/
+    }
+
+	return pow(norm(out_pos - mydata->ball_land_des),2);
+}
+
+
+/**
+ * Testing speed of racket calculations with spin-based BVP solver (optimization)
+ */
+BOOST_AUTO_TEST_CASE( check_speed_spin_based_racket_calc ) {
+
+	BOOST_TEST_MESSAGE("Checking speed of spin based racket calculation on predicted ball traj.");
+
+	arma_rng::set_seed_random();
+	double topspin = -50.0;
+	TableTennis tt = TableTennis(true,false);
+	tt.set_topspin(topspin);
+	int ball_launch_side = (randi(1,distr_param(0,2)).at(0));
+	tt.set_ball_gun(0.05,ball_launch_side);
+	int N = 50;
+	double dt = 0.02;
+	mat balls_pred = zeros<mat>(6,N);
+	for (int i = 0; i < N; i++) {
+		tt.integrate_ball_state(dt);
+		balls_pred.col(i) = tt.get_ball_state();
+	}
+	vec3 ball_land_des = {0.0, dist_to_table - 3*table_length/4.0, floor_level - table_height + ball_radius};
+	double time_land_des = 0.6;
+
+	optim_des racket_des;
+	racket_des.Nmax = N;
+	static wall_clock timer;
+	timer.tic();
+	calc_racket_strategy(balls_pred,ball_land_des.head(2),time_land_des,racket_des);
+	cout << "Elapsed time in ms: " << timer.toc() * 1e3 << endl;
+	timer.tic();
+	calc_spin_racket_strategy(balls_pred,topspin,ball_land_des,time_land_des,racket_des);
+	cout << "Elapsed time in ms: " << timer.toc() * 1e3 << endl;
 	BOOST_TEST(false);
-
 }

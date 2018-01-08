@@ -156,5 +156,8 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 							   optim_des & racket_params);
 bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state);
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
-
+optim_des calc_spin_racket_strategy(const mat & balls_predicted,
+								const double & topspin,
+		                       const vec3 & ball_land_des, const double time_land_des,
+							   optim_des & racket_params);
 #endif /* PLAYER_HPP_ */

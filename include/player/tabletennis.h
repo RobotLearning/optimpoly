@@ -62,8 +62,6 @@ struct ball_params {
 	double init_topspin = -50.0; //!< initial topspin amount
 };
 
-// flags for table tennis players
-static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 
 /**
  * @brief Table Tennis ball prediction methods
@@ -76,6 +74,7 @@ class TableTennis {
 
 private:
 
+	bool CHECK_CONTACTS = true; // turn off for simplified debugging
 	bool SPIN_MODE; // turn on prediction with a spin model
 	bool VERBOSE;
 	status stats;
@@ -113,9 +112,10 @@ private:
 public:
 
 	// initialization
-	TableTennis(bool spin = false, bool verbose = false);
+	TableTennis(bool spin = false, bool verbose = false, bool check_contacts = true);
 	TableTennis(const vec6 & ball_state, bool spin = false, bool verbose = false);
 
+	void turn_off_contact_checking();
 	bool has_legally_landed() const;
 	bool has_legally_bounced() const;
 	void reset_stats();
@@ -136,7 +136,7 @@ public:
 	// calculating desired racket
 	void calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) const;
 	void calc_des_ball_out_vel(const vec2 & ball_land_des,
-							   const double time_land_des,
+							   const double time_land_des, const bool hack,
 							   const mat & balls_predicted, mat & balls_out_vel) const;
 	void calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
 			                 const mat & racket_normal, mat & racket_vel) const;
