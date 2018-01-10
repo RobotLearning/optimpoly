@@ -281,13 +281,13 @@ BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
 		timer.tic();
 		fp.run();
 		time_elapsed_run_fp(n) = timer.toc() * 1e3;
-		/*DefensiveOptim dp = DefensiveOptim(qact.q.memptr(),lb,ub,true,false);
+		DefensiveOptim dp = DefensiveOptim(qact.q.memptr(),lb,ub,true,false);
 		dp.set_verbose(false);
 		dp.set_des_params(&racket_params);
 		dp.update_init_state(qact);
 		timer.tic();
 		dp.run();
-		time_elapsed_dp_no_lookup(n) = timer.toc() * 1e3;*/
+		time_elapsed_dp_no_lookup(n) = timer.toc() * 1e3;
 		DefensiveOptim dp2 = DefensiveOptim(qact.q.memptr(),lb,ub,true,true);
 		dp2.set_verbose(false);
 		dp2.set_des_params(&racket_params);
@@ -296,11 +296,11 @@ BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
 		dp2.run();
 		time_elapsed_dp_lookup(n) = timer.toc() * 1e3;
 	}
-	umat hists = zeros<umat>(10,4);
-	hists.col(0) = hist(time_elapsed_init, linspace<vec>(0,9,10));
-	hists.col(1) = hist(time_elapsed_run_fp, linspace<vec>(10,100,10));
-	hists.col(2) = hist(time_elapsed_dp_no_lookup, linspace<vec>(10,10,10));
-	hists.col(3) = hist(time_elapsed_dp_lookup, linspace<vec>(10,60,10));
+	umat hists = zeros<umat>(15,4);
+	hists.col(0) = hist(time_elapsed_init, linspace<vec>(0,9,15));
+	hists.col(1) = hist(time_elapsed_run_fp, linspace<vec>(5,75,15));
+	hists.col(2) = hist(time_elapsed_dp_no_lookup, linspace<vec>(5,75,15));
+	hists.col(3) = hist(time_elapsed_dp_lookup, linspace<vec>(5,75,15));
 	hists.save("histograms.txt", raw_ascii);
 }
 
