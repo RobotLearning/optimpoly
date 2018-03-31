@@ -105,6 +105,8 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 		cout << "cart_pos:\n" << pos;
 		cout << "jac:\n" << jac;*/
 	}
+
+	nlopt_destroy(opt);
 }
 
 /*

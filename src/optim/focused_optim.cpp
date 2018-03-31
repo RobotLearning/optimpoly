@@ -27,6 +27,14 @@ static void first_order_hold(const optim_des* racketdata, const double T, double
 		               double racket_vel[NCART], double racket_n[NCART]);
 
 /**
+ * @brief Destroy nlopt structure
+ */
+Optim::~Optim() {
+
+    nlopt_destroy(opt);
+}
+
+/**
  * @brief Update the initial state of optimization to PLAYER's current joint states.
  * @param qact Initial joint states acquired from sensors
  */

@@ -231,6 +231,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 /**
  * Evaluate time efficiency of FP and DP optimizations over hundreds of tests
  */
+/*
 BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
 
 	// For FP or DP
@@ -303,7 +304,7 @@ BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
 	hists.col(3) = hist(time_elapsed_dp_lookup, linspace<vec>(5,75,15));
 	hists.save("histograms.txt", raw_ascii);
 }
-
+*/
 
 /*
  * Find a qf and t such that J(qf) has minimal Frobenius norm

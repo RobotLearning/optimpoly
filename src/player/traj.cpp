@@ -134,11 +134,18 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
  */
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
-	read_joint_limits(lb,ub);
+    using namespace std;
+    string env = getenv("HOME");
+    string filename = env + "/polyoptim/Limits.cfg";
+    mat joint_limits;
+    joint_limits.load(filename);
+    vec7 lb_ = joint_limits.col(0);
+    vec7 ub_ = joint_limits.col(1);
+	//read_joint_limits(lb,ub);
 	// lower bounds and upper bounds for qf are the joint limits
 	for (int i = 0; i < NDOF; i++) {
-		ub[i] -= SLACK;
-		lb[i] += SLACK;
+		ub[i] = ub_(i) - SLACK;
+		lb[i] = lb_(i) + SLACK;
 		ub[i+NDOF] = MAX_VEL;
 		lb[i+NDOF] = -MAX_VEL;
 	}

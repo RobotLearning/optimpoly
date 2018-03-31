@@ -136,6 +136,7 @@ void DefensiveOptim::set_land_constr() {
 	nlopt_set_upper_bounds(opt, ub);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_maxtime(opt, max_opt_time);
+	nlopt_destroy(local_opt);
 }
 
 /**

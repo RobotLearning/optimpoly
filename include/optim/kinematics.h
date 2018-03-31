@@ -68,9 +68,6 @@ void calc_racket_state(const double q[NDOF],
 					   double vel[NCART],
 					   double normal[NCART]);
 
-// loading joint limits from SL config files
-int read_joint_limits(double *lb, double *ub);
-
 // useful to test kinematics positions and derivative
 void get_racket_state(const double q[NDOF], double pos[NCART], double normal[NCART], double jacobi[NCART][NDOF]);
 

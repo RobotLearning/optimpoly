@@ -136,7 +136,7 @@ public:
 	double q0[NDOF] = {0.0}; //!< Initial joint state needed to compute traj. acc.
 	double q0dot[NDOF] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
 	double time2return = 1.0; //!< FIXED Time to return
-	virtual ~Optim() {};
+	virtual ~Optim();
 	bool check_update();
 	bool check_running();
 	void set_moving(bool flag);
