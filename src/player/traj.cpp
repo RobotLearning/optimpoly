@@ -109,7 +109,7 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
     using namespace std;
     string env = getenv("HOME");
-    string filename = env + "/polyoptim/Limits.cfg";
+    string filename = env + "/table-tennis/Limits.cfg";
     mat joint_limits;
     joint_limits.load(filename);
     vec7 lb_ = joint_limits.col(0);

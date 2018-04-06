@@ -7,7 +7,7 @@ else
 	LIBPATH=/usr/local/lib
 endif
 
-DIR=$(HOME)/polyoptim
+DIR=$(HOME)/table-tennis
 HEADER1=$(DIR)/include/player
 HEADER2=$(DIR)/include/optim
 LIBDIR=$(DIR)/lib
