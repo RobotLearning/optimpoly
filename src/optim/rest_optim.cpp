@@ -1,7 +1,7 @@
-/*
- * optimrest.cpp
+/**
+ * @file rest_optim.cpp
  *
- * This file contains the resting state optimization routines.
+ * @brief This file contains the resting state optimization routines.
  *
  *  Created on: Jul 31, 2017
  *      Author: okoc
@@ -14,17 +14,31 @@
 
 using namespace arma;
 
-static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos);
-static void intersect_ball_path(unsigned m, double *result,
-		unsigned n, const double *x, double *grad, void *data);
-static double cost_fnc(unsigned n, const double *x,
-		                   double *grad, void *data);
-
-/**
- * @brief Run q_rest optimization to find a suitable resting posture
- *
- * Detaches the optimization if detach is set to true
+/*
+ * Interpolate ball positions at a given time point T.
  */
+static void interp_ball(const mat & ballpred,
+                        const double T,
+                        vec3 & ballpos);
+
+/*
+ * Make sure that the robot resting posture touches the ball path at some point.
+ */
+static void intersect_ball_path(unsigned m,
+                                double *result,
+                                unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *data);
+
+/*
+ * Cost function for the resting posture optim
+ */
+static double cost_fnc(unsigned n,
+                        const double *x,
+		                double *grad,
+		                void *data);
+
 void Optim::run_qrest_optim(vec7 & q_rest_des) {
 	std::thread t = std::thread(&Optim::optim_rest_posture,this,std::ref(q_rest_des));
 	if (detach) {
@@ -35,17 +49,6 @@ void Optim::run_qrest_optim(vec7 & q_rest_des) {
 	}
 }
 
-/**
- * @brief Resting posture optimization that tries to find good resting joint positions
- *
- * The resting joint positions are optimized to be
- * close to the predicted incoming ball trajectory and hitting joint states with low
- * Frobenius-norm jacobian
- * @param lb
- * @param ub
- * @param rest_data Structure containing predicted balls and the hitting joint state
- * @param x
- */
 void Optim::optim_rest_posture(vec7 & q_rest_des) {
 
 	double x[NDOF+1];
@@ -109,11 +112,10 @@ void Optim::optim_rest_posture(vec7 & q_rest_des) {
 	nlopt_destroy(opt);
 }
 
-/*
- * Cost function for the resting posture optim
- */
-static double cost_fnc(unsigned n, const double *x,
-		                   double *grad, void *data) {
+static double cost_fnc(unsigned n,
+                        const double *x,
+		                double *grad,
+		                void *data) {
 
 	rest_optim_data *rest_data = (rest_optim_data*)data;
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
@@ -140,12 +142,12 @@ static double cost_fnc(unsigned n, const double *x,
 	return pow(norm(jac,"fro"),2) +  + move_cost;
 }
 
-/**
- * @brief Make sure that the robot resting posture
- * touches the ball path at some point.
- */
-static void intersect_ball_path(unsigned m, double *result,
-		unsigned n, const double *x, double *grad, void *data) {
+static void intersect_ball_path(unsigned m,
+                                double *result,
+                                unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *data) {
 
 	rest_optim_data *rest_data = (rest_optim_data*)data;
 	vec3 ball_pos;
@@ -160,7 +162,9 @@ static void intersect_ball_path(unsigned m, double *result,
 	}
 }
 
-static void interp_ball(const mat & ballpred, const double T, vec3 & ballpos) {
+static void interp_ball(const mat & ballpred,
+                        const double T,
+                        vec3 & ballpos) {
 
     const double dt = DT;
 	if (std::isnan(T)) {

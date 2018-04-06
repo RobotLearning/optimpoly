@@ -13,15 +13,42 @@
 extern "C" {
 #endif
 
-// Interface for Player
+/**
+ * @brief Interface to the PLAYER class that generates desired hitting trajectories.
+ *
+ * First initializes the player according to the pre-set options
+ * and then starts calling play() interface function. Must be called every DT ms.
+ *
+ *
+ * @param joint_state Actual joint positions, velocities, accelerations.
+ * @param blobs Two ball 3d-positions from 4-cameras are stored in blobs[1] and blobs[3]
+ * @param joint_des_state Desired joint position, velocity and acceleration commands.
+ */
 extern void play(const SL_Jstate joint_state[],
 		         const blob_state blobs[],
 				 SL_DJstate joint_des_state[]);
 
+/**
+ * @brief CHEAT with exact knowledge of ball state.
+ *
+ * Interface to the PLAYER class that generates desired hitting trajectories.
+ * First initializes the player and then starts calling cheat() interface function.
+ *
+ * @param joint_state Actual joint positions, velocities, accelerations.
+ * @param sim_ball_state Exact simulated ball state (positions and velocities).
+ * @param joint_des_state Desired joint position, velocity and acceleration commands.
+ */
 extern void cheat(const SL_Jstate joint_state[],
-		  const SL_Cstate sim_ball_state,
-		  SL_DJstate joint_des_state[]);
+		          const SL_Cstate sim_ball_state,
+		          SL_DJstate joint_des_state[]);
 
+/**
+ * @brief Set algorithm and options to initialize Player with.
+ *
+ * The global variable flags is set here and
+ * the play() function will use it to initialize the Player class.
+ *
+ */
 extern void load_options();
 
 #ifdef __cplusplus
@@ -29,11 +56,6 @@ extern void load_options();
 #endif
 
 #ifdef __cplusplus
-// internal c++ functions
-static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs);
-static bool check_blob_validity(const blob_state blobs[NBLOBS], bool verbose);
-static void save_ball_data(const blob_state blobs[NBLOBS], const Player *robot, const KF & filter, std::ofstream & stream);
-static void set_algorithm(const int alg_num);
 
 #endif
 

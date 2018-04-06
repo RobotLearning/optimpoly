@@ -23,33 +23,74 @@
 #define INEQ_LAND_CONSTR_DIM 8 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
-static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params);
-static double punish_land_robot(const double *xland,
-								const double *xnet,
-								const double Rland,
-								const double Rnet);
-static void land_ineq_constr(unsigned m, double *result, unsigned n,
-		                     const double *x, double *grad,
-		                     void *my_func_params);
-static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
-		                     void *my_func_params);
+/*
+ * Calculates the cost function for table tennis Lazy Player (LP)
+ * to find spline (3rd order strike+return) polynomials
+ */
+static double costfunc(unsigned n,
+                        const double *x,
+                        double *grad,
+                        void *my_func_params);
+
+/*
+ * This is the constraint that makes sure we LAND the ball
+ */
+static void land_ineq_constr(unsigned m,
+                            double *result,
+                            unsigned n,
+		                    const double *x,
+		                    double *grad,
+		                    void *my_func_params);
+
+/*
+ * This is the constraint that makes sure we only TOUCH the ball
+ *
+ */
+static void hit_ineq_constr(unsigned m,
+                            double *result,
+                            unsigned n,
+                            const double *x,
+                            double *grad,
+		                    void *my_func_params);
+
+/*
+ * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
+ *
+ * The racket contact model in vector form is O = I + (1 + eps_R)*N*N'*(V - I)
+ * where I is the incoming ball velocity
+ *       N is the racket normal
+ *       V is the racket velocity
+ *       eps_R is the coefficient of restitution of the racket
+ *
+ * The outgoing ball velocity is post-multiplied by some constants \mu < 1
+ * to account for ball drag
+ *
+ *
+ */
 static void racket_contact_model(const double* racketVel,
 		                         const double* racketNormal,
 								 const std::vector<double> & mult_vel,
 								 double* ballVel);
-static void interp_ball(const optim_des *params, const double T,
-		                double *ballpos, double *ballvel);
 
-/**
- * Initialize Defensive Player
- * @param qrest_ FIXED resting posture
- * @param lb_ Lower joint pos,vel limits and min. hitting time
- * @param ub_ Upper joint pos,vel limits and max. hitting time
- * @param land_ Optimize for returning the ball (true) or only hitting (false)
- * @param lookup_ Lookup optim params from table if true
+/*
+ * First order hold to interpolate linearly at time T
+ * between racket pos,vel,normal entries
+ *
+ * IF T is nan, racket variables are assigned to zero-element of
+ * relevant racket entries
+ *
  */
-DefensiveOptim::DefensiveOptim(const vec7 & qrest_, double lb_[], double ub_[], bool land_, bool lookup_)
-                          : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
+static void interp_ball(const optim_des *params,
+                        const double T,
+		                double *ballpos,
+		                double *ballvel);
+
+DefensiveOptim::DefensiveOptim(const vec7 & qrest_,
+                                double lb_[],
+                                double ub_[],
+                                bool land_,
+                                bool lookup_)
+                                  : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	lookup = lookup_;
 	load_lookup_table(lookup_table);
@@ -76,10 +117,6 @@ DefensiveOptim::DefensiveOptim(const vec7 & qrest_, double lb_[], double ub_[], 
 	}
 }
 
-/**
- * @brief Set weights for Defensive Player
- * @param weights weights for hitting, net and landing penalties in cost function
- */
 void DefensiveOptim::set_weights(const std::vector<double> & weights) {
 
 	w.R_net = weights[1];
@@ -87,13 +124,6 @@ void DefensiveOptim::set_weights(const std::vector<double> & weights) {
 	w.R_land = weights[2];
 }
 
-/**
- * @brief Ball velocity post-multiplier is set here
- *
- * This is useful for parameterizing Defensive Player for REAL ROBOT
- * to compensate for any errors
- * @param mult
- */
 void DefensiveOptim::set_velocity_multipliers(const std::vector<double> & mult) {
 	mult_vel = mult;
 }
@@ -102,15 +132,6 @@ void DefensiveOptim::set_penalty_loc(const std::vector<double> & loc) {
 	penalty_loc = loc;
 }
 
-
-/**
- * @brief Setting LANDING constraints, i.e., not just hitting the ball.
- *
- * Here we consider the full landing constraints where the ball has
- * to pass over the net and land on the opponent's court.
- * We can study the simpler optimization problem of hitting the ball
- * by switching to pure hitting constraints.
- */
 void DefensiveOptim::set_land_constr() {
 
 	double max_opt_time = 0.05;
@@ -139,12 +160,6 @@ void DefensiveOptim::set_land_constr() {
 	nlopt_destroy(local_opt);
 }
 
-/**
- * @brief Switch to only HITTING constraints, not landing.
- *
- * We can study the simpler optimization problem of hitting the ball
- * by switching to pure hitting constraints.
- */
 void DefensiveOptim::set_hit_constr() {
 
 	double tol_ineq_hit[INEQ_HIT_CONSTR_DIM];
@@ -164,11 +179,6 @@ void DefensiveOptim::set_hit_constr() {
 	nlopt_set_xtol_rel(opt, 1e-2);
 }
 
-/**
- * @brief Finalize solution if more than 50 ms is available for hitting.
- * @param x Optim params
- * @param time_elapsed Time elapsed during optimization
- */
 void DefensiveOptim::finalize_soln(const double x[], double time_elapsed) {
 
 	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
@@ -185,18 +195,6 @@ void DefensiveOptim::finalize_soln(const double x[], double time_elapsed) {
 	//trigger_optim();
 }
 
-
-/**
- * @brief Calculate the net hitting time and the landing time
- * Assuming that there was an interaction (hitting) between racket and ball.
- *
- * Since we call this function multiple times within one optimization step
- * we store the optimization variable x,
- * landTime and netTime variables and return these when the optimization
- * variable is the same (meaning optimization algorithm did not update it yet).
- *
- *
- */
 void DefensiveOptim::calc_times(const double x[]) { // ball projected to racket plane
 
 	static double qf[NDOF];
@@ -241,14 +239,6 @@ void DefensiveOptim::calc_times(const double x[]) { // ball projected to racket 
 	}
 }
 
-/**
- * @brief Calculate punishment for hitting, net and landing.
- *
- * Calculate the costs for hitting the ball, and then if land variable is set to true
- * also calculate the costs for passing it over to a desired net location (x,z loc)
- * and landing to a desired landing point (x,y loc.)
- * @return hitting and landing penalties (if land is turned on combined, else only hitting)
- */
 double DefensiveOptim::calc_punishment() {
 
 	double Jhit = 0;
@@ -261,14 +251,6 @@ double DefensiveOptim::calc_punishment() {
 	return Jhit + land;
 }
 
-
-/**
- * @brief Calculate deviation and projection norms of ball to racket.
- *
- * Calculates normal and projected distance from ball to racket
- * For satisfying hitting constraints.
- *
- */
 void DefensiveOptim::calc_hit_distance(const double ball_pos[],
 		                          const double racket_pos[],
 								  const double racket_normal[]) {
@@ -328,11 +310,10 @@ double DefensiveOptim::test_soln(const double x[]) const {
 	return max_viol;
 }
 
-/*
- * Calculates the cost function for table tennis Lazy Player (LP)
- * to find spline (3rd order strike+return) polynomials
- */
-static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double costfunc(unsigned n,
+                        const double *x,
+                        double *grad,
+                        void *my_func_params) {
 
 	static double J1, Jland;
 	static double a1[NDOF], a2[NDOF];
@@ -376,12 +357,12 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	return J1 + Jland;
 }
 
-/*
- * This is the constraint that makes sure we land the ball
- *
- */
-static void land_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
-		                     void *my_func_params) {
+static void land_ineq_constr(unsigned m,
+                            double *result,
+                            unsigned n,
+                            const double *x,
+                            double *grad,
+		                    void *my_func_params) {
 
 	static double table_xmax = table_width/2.0;
 	//static double table_ymax = dist_to_table - table_length;
@@ -419,11 +400,11 @@ static void land_ineq_constr(unsigned m, double *result, unsigned n, const doubl
 	}
 }
 
-/*
- * This is the constraint that makes sure we only TOUCH the ball
- *
- */
-static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double *x, double *grad,
+static void hit_ineq_constr(unsigned m,
+                            double *result,
+                            unsigned n,
+                            const double *x,
+                            double *grad,
 		                     void *my_func_params) {
 
 	static double qf[NDOF];
@@ -467,23 +448,10 @@ static void hit_ineq_constr(unsigned m, double *result, unsigned n, const double
 	result[2] = opt->dist_b2r_proj - racket_radius;
 }
 
-
-/*
- * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
- *
- * The racket contact model in vector form is O = I + (1 + eps_R)*N*N'*(V - I)
- * where I is the incoming ball velocity
- *       N is the racket normal
- *       V is the racket velocity
- *       eps_R is the coefficient of restitution of the racket
- *
- * The outgoing ball velocity is post-multiplied by some constants \mu < 1
- * to account for ball drag
- *
- *
- */
 static void racket_contact_model(const double* racketVel,
-		const double* racketNormal, const std::vector<double> & mult_vel, double* ballVel) {
+		                         const double* racketNormal,
+		                         const std::vector<double> & mult_vel,
+		                         double* ballVel) {
 
 	static const double racket_param = 0.78;
 	static double diffVel[NCART];
@@ -504,15 +472,10 @@ static void racket_contact_model(const double* racketVel,
 	}
 }
 
-/*
- * First order hold to interpolate linearly at time T
- * between racket pos,vel,normal entries
- *
- * IF T is nan, racket variables are assigned to zero-element of
- * relevant racket entries
- *
- */
-static void interp_ball(const optim_des *data, const double T, double *ballpos, double *ballvel) {
+static void interp_ball(const optim_des *data,
+                        const double T,
+                        double *ballpos,
+                        double *ballvel) {
 
     const double dt = data->dt;
 	if (std::isnan(T)) {

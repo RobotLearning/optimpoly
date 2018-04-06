@@ -16,28 +16,11 @@
 
 using namespace arma;
 
-/**
- * @brief Initialize the Discrete Extended Kalman filter with given noise covariance
- * matrices and const observation matrix C
- *
- * Function pointer is typically a function that integrates an (underlying hidden)
- * continuous model by dt seconds supplied in its second argument
- *
- * Sets D matrix to zero, sets A and B to effectively to uninitialized
- * (inf in armadillo)
- *
- * This is useful in scenarios where model is time-varying and/or continuous
- * so needs to be discretized to apply predict/update equations
- *
- * TODO: not added pointers to functions with also control input dependence!
- *
- * @param fp (Nonlinear) function pointer.
- * @param Cin Observation matrix C.
- * @param Qin Process noise covariance Q.
- * @param Rin Observation noise covariance R.
- * @param out_rej_mult Outlier rejection standard deviation multiplier
- */
-EKF::EKF(vec (*fp)(const vec &, const double, const void *p), mat & Cin, mat & Qin, mat & Rin, double out_rej_mult) : KF(Cin,Qin,Rin) {
+EKF::EKF(vec (*fp)(const vec &, const double, const void *p),
+        mat & Cin,
+        mat & Qin,
+        mat & Rin,
+        double out_rej_mult) : KF(Cin,Qin,Rin) {
 
 	this->f = fp;
 	outlier_reject_mult = out_rej_mult;
@@ -48,13 +31,6 @@ EKF::EKF(vec (*fp)(const vec &, const double, const void *p), mat & Cin, mat & Q
 	}*/
 }
 
-/*
- * Linearize the discrete function (that integrates a continuous functions dt seconds)
- * to get Ad matrix
- *
- * Using 'TWO-SIDED-SECANT' to do a stable linearization
- *
- */
 mat EKF::linearize(const double dt, const double h) const {
 
 	int dimx = x.n_elem;
@@ -69,14 +45,6 @@ mat EKF::linearize(const double dt, const double h) const {
 	return (fPlus - fMinus) / (2*h);
 }
 
-/**
- * @brief Predict dt seconds for mean x and (if flag is true) variance P.
- *
- * @param dt Prediction horizon.
- * @param lin_flag If true, will linearize the nonlinear function
- * around current x and make the covariance update. Useful to turn off for debugging.
- *
- */
 void EKF::predict(const double dt, const bool lin_flag) {
 
 	x = this->f(x,dt,fparams);
@@ -88,16 +56,6 @@ void EKF::predict(const double dt, const bool lin_flag) {
 	}
 }
 
-/**
- * @brief Predict future path of the estimated object
- * up to a horizon size N
- *
- * Does not update covariances!
- * @param dt Prediction step
- * @param N Number of (small) prediction steps.
- * @return Matrix of ball mean and variances as columns.
- *
- */
 mat EKF::predict_path(const double dt, const int N) {
 
 	int dimx = x.n_elem;
@@ -116,20 +74,6 @@ mat EKF::predict_path(const double dt, const int N) {
 	return X;
 }
 
-/**
- * @brief Checks to see if the ball observation could be an
- * outlier.
- *
- * Using the covariance matrix estimate to detect such an outlier
- * that possibly escaped the elimination from check_blob_validity function
- *
- * The new obs has to be located a certain standard deviations away from last obs
- *
- * @param y Observation to check.
- * @param verbose If flag is TRUE, will print info when outlier is detected
- * @param TRUE if outlier is detected
- *
- */
 bool EKF::check_outlier(const vec & y, const bool verbose) const {
 
 	static int dim_y = y.n_elem;

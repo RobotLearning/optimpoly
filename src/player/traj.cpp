@@ -1,7 +1,7 @@
-/*
- * traj.cpp
+/**
+ * @file traj.cpp
  *
- * This file includes trajectory generation functions
+ * @brief This file includes trajectory generation functions
  * used by player class (player.cpp)
  *
  *  Created on: Jul 29, 2017
@@ -14,28 +14,15 @@
 #include "player.hpp"
 using namespace arma;
 
-
-/**
- * @brief Generate BATCH 3rd order strike + return polynomials.
- *
- * Based on hitting and returning joint state parameters qf,qfdot
- * and hitting time T, calculates the relevant polynomial parameters
- * and generates BATCH polynomial values till time T.
- * @param qf Hitting joint pos.
- * @param qfdot Hitting joint vels.
- * @param T Hitting time
- * @param qact From actual joint state generate the joint des values
- * @param q_rest_des Desired resting posture
- * @param time2return Time to return after hit to rest posture
- * @param Q Generated joint pos.
- * @param Qd Generated joint vel.
- * @param Qdd Generated joint acc.
- */
-void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T,
+void generate_strike(const vec7 & qf,
+                     const vec7 & qfdot,
+                     const double T,
 		             const joint & qact,
 		             const vec7 & q_rest_des,
 					 const double time2return,
-		             mat & Q, mat & Qd, mat & Qdd) {
+		             mat & Q,
+		             mat & Qd,
+		             mat & Qdd) {
 
 	// first create hitting polynomials
 	vec7 qnow = qact.q;
@@ -61,24 +48,11 @@ void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T,
 	Qdd = join_horiz(Qdd_hit,Qdd_ret);
 }
 
-
-/**
- * @brief Generate strike and return traj. incrementally
- *
- * Given polynomial parameters saved in poly,
- * move on to the NEXT desired state only (joint pos,vel,acc).
- * @param poly Polynomial parameters updated in OPTIM classes
- * @param q_rest_des FIXED desired resting posture
- * @param time2return FIXED time to return to rest posture after hit
- * @param t The time passed already following trajectory
- * @param qdes Update pos,vel,acc values of this desired joints structure
- * @return
- */
 bool update_next_state(const spline_params & poly,
-		           const vec7 & q_rest_des,
-				   const double time2return,
-				   double & t,
-				   joint & qdes) {
+                       const vec7 & q_rest_des,
+				       const double time2return,
+				       double & t,
+				       joint & qdes) {
 	mat a,b;
 	double tbar;
 	bool flag = true;
@@ -110,11 +84,14 @@ bool update_next_state(const spline_params & poly,
 	return flag;
 }
 
-/*
- * Generate matrix of joint angles, velocities and accelerations
- */
-void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
-		     mat & Q, mat & Qd, mat & Qdd) {
+void gen_3rd_poly(const rowvec & times,
+                  const vec7 & a3,
+                  const vec7 & a2,
+                  const vec7 & a1,
+                  const vec7 & a0,
+                  mat & Q,
+                  mat & Qd,
+                  mat & Qdd) {
 
 	// IN MATLAB:
 	//	qStrike(m,:) = a(1)*t.^3 + a(2)*t.^2 + a(3)*t + a(4);
@@ -128,10 +105,6 @@ void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const 
 	}
 }
 
-/*
- * Set upper and lower bounds on the optimization.
- * First loads the joint limits and then puts some slack
- */
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
     using namespace std;

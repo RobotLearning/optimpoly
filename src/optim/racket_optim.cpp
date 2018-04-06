@@ -1,7 +1,7 @@
-/*
- * racket_optim.cpp
+/**
+ * @file racket_optim.cpp
  *
- * Boundary Value Problem for computing desired outgoing ball velocities
+ * @brief Boundary Value Problem for computing desired outgoing ball velocities
  * is solved with spin
  *
  * We're mostly interested in the solution speed (time elapsed) using optimization
@@ -35,24 +35,31 @@ struct des_ball_data {
 	double topspin;
 };
 
-static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
-static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est); // spin based optimization
-
-
-/**
- * @brief Compute desired racket pos,vel,normals and/or ball positions, vels. assuming spin model
- * Function that calculates a racket strategy : positions, velocities and racket normal
- * for each point on the predicted ball trajectory (ballMat)
- * to return it a desired point (ballLand) at a desired time (landTime)
- *
- * As opposed to calculating with spin-free models, this function
- * runs an optimization for each predicted ball to find desired outgoing ball velocities!
+/*
+ * Cost function for computing the residual (norm squared)
+ * of the outgoing ball landing error
+ * Calculates also the gradient if grad is TRUE
  *
  */
+static double calc_landing_res(unsigned n,
+                               const double *x,
+                               double *grad,
+                               void *data);
+
+/*
+ * Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
+ *
+ * BVP is solved using optimization
+ */
+static void optim_spin_outgoing_ball_vel(const des_ball_data & data,
+                                         const bool verbose,
+                                         vec3 & est); // spin based optimization
+
 optim_des calc_spin_racket_strategy(const mat & balls_predicted,
-								const double & topspin,
-		                       const vec3 & ball_land_des, const double time_land_des,
-							   optim_des & racket_params) {
+								    const double & topspin,
+								    const vec3 & ball_land_des,
+								    const double time_land_des,
+								    optim_des & racket_params) {
 
 	TableTennis tennis = TableTennis(true,false);
 	tennis.set_topspin(topspin);
@@ -88,17 +95,9 @@ optim_des calc_spin_racket_strategy(const mat & balls_predicted,
 	return racket_params;
 }
 
-
-/**
- * @brief Compute desired racket pos,vel,normals and/or ball positions, vels.
- * Function that calculates a racket strategy : positions, velocities and racket normal
- * for each point on the predicted ball trajectory (ballMat)
- * to return it a desired point (ballLand) at a desired time (landTime)
- *
- *
- */
 optim_des calc_racket_strategy(const mat & balls_predicted,
-		                       const vec2 & ball_land_des, const double time_land_des,
+		                       const vec2 & ball_land_des,
+		                       const double time_land_des,
 							   optim_des & racket_params) {
 
 	//static wall_clock timer;
@@ -125,12 +124,9 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	return racket_params;
 }
 
-/**
- * @brief Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
- *
- * BVP is solved using optimization
- */
-void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est) {
+static void optim_spin_outgoing_ball_vel(const des_ball_data & data,
+                                         const bool verbose,
+                                         vec3 & est) {
 
 	static double x[3];  /* some initial guess */
 	static double minf; /* the minimum objective value, upon return */
@@ -161,13 +157,10 @@ void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose
 	//nlopt_destroy(opt);
 }
 
-/**
- * Cost function for computing the residual (norm squared)
- * of the outgoing ball landing error
- * Calculates also the gradient if grad is TRUE
- *
- */
-double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
+static double calc_landing_res(unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *data) {
 
 	static double dt = 0.02;
     static TableTennis tt = TableTennis(true,false,false); // no contact checking!

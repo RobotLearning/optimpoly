@@ -20,19 +20,29 @@
 #include <armadillo>
 #include "tabletennis.h"
 
-// functions outside of Table Tennis class
+/* Forms the rotation matrix that corresponds to the quaternion */
 static mat33 quat2mat(const vec4 & q);
-static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
-		                         const double & racket_param, vec3 & ball_vel);
 
-/**
- * @brief Initialize ball pos and velocity to input vector of size 6
- * and initialize ball spin to zero.
- * @param ball_state Initial ball state (pos and vel).
- * @param spin_flag Turn ON for spin modelling.
- * @param verbosity Turn ON for printing events (bounce, hit, etc.)
+/*
+ * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
+ *
+ * The racket contact model in vector form is O = I + (1 + eps_R)*N*N'*(V - I)
+ * where I is the incoming ball velocity
+ *       N is the racket normal
+ *       V is the racket velocity
+ *       eps_R is the coefficient of restitution of the racket
+ *
+ * TODO: add a spinning contact model
+ *
  */
-TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity)
+static void racket_contact_model(const vec3 & racket_vel,
+                                 const vec3 & racket_normal,
+		                         const double & racket_param,
+		                         vec3 & ball_vel);
+
+TableTennis::TableTennis(const vec6 & ball_state,
+                         bool spin_flag,
+                         bool verbosity)
 							: SPIN_MODE(spin_flag), VERBOSE(verbosity) {
 	ball_pos = ball_state(span(X,Z));
 	ball_vel = ball_state(span(DX,DZ));
@@ -42,17 +52,10 @@ TableTennis::TableTennis(const vec6 & ball_state, bool spin_flag, bool verbosity
 	//init_topspin(params.init_topspin);
 }
 
-/**
- * @brief Initialize ball variables to zero.
- *
- * Initializes all ball variables (positions,velocities,spin) to ZERO.
- *
- * @param spin_flag Turn ON for spin modelling.
- * @param verbosity Turn ON for printing events (bounce, hit, etc.)
- * @param check_contacts Turn OFF for disabling contact checking during integration (default ON).
- */
-TableTennis::TableTennis(bool spin_flag, bool verbosity, bool check_contacts) :
-	 SPIN_MODE(spin_flag), VERBOSE(verbosity) {
+TableTennis::TableTennis(bool spin_flag,
+                         bool verbosity,
+                         bool check_contacts) :
+	                         SPIN_MODE(spin_flag), VERBOSE(verbosity) {
 
 	ball_pos = zeros<vec>(3);
 	ball_vel = zeros<vec>(3);
@@ -63,11 +66,6 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity, bool check_contacts) :
 	//init_topspin(params.init_topspin);
 }
 
-/**
- * @brief Initialize constant angular velocity (a.k.a. spin)
- * for the spinning ball.
- *
- */
 void TableTennis::init_topspin(const double val) {
 
 	if (SPIN_MODE) {
@@ -81,20 +79,11 @@ void TableTennis::init_topspin(const double val) {
 	}
 }
 
-/**
- * @brief Set topspin equal to val revolutions/sec
- * @param val
- */
 void TableTennis::set_topspin(const double val) {
 	SPIN_MODE = true;
 	ball_spin(X) = val*2*datum::pi;
 }
 
-/**
- * Reset statistics of the game.
- *
- * Statistics are stored for counting return successes in SIM mode.
- */
 void TableTennis::reset_stats() {
 	stats.touched_ground = false;
 	stats.has_bounced = false;
@@ -104,11 +93,6 @@ void TableTennis::reset_stats() {
 	stats.legal_bounce = false;
 }
 
-/**
- * @brief Load ball prediction and other SIM parameters from a CONFIG file
- * @param file_name_relative Relative file name (base is polyoptim)
- *
- */
 void TableTennis::load_params(const std::string & file_name_relative) {
 
 	namespace po = boost::program_options;
@@ -152,19 +136,6 @@ void TableTennis::load_params(const std::string & file_name_relative) {
 	}
 }
 
-/**
- *
- * @brief Reset the simulated ball state.
- *
- * Set the ball-gun somewhere behind the table and launches a ball.
- * Adds noise to the initial ball launch velocity.
- * DOES NOT MODIFY SPIN (from before)!
- * Method is used for testing purposes (see Unit Tests).
- *
- * @param std Standard deviation of the initial ball pos and vel distribution.
- * @param ballgun_side Position the ballgun: 0 = LEFT, 1 = CENTER (DEFAULT), 2 = RIGHT.
- *
- */
 void TableTennis::set_ball_gun(double std, int ballgun_side) {
 
 	//using namespace std;
@@ -198,59 +169,27 @@ void TableTennis::set_ball_gun(double std, int ballgun_side) {
 	this->ball_vel = rand_ball_vel;
 }
 
-/**
- * @return Ball position as a 3-vector.
- */
 vec3 TableTennis::get_ball_position() const {
 
 	return this->ball_pos;
 }
 
-/**
- * @return Return ball state as a 6-vector.
- */
 vec6 TableTennis::get_ball_state() const {
 
 	return join_vert(this->ball_pos,this->ball_vel);
 }
 
-/**
- * @return Set ball state as a 6-vector.
- */
 void TableTennis::set_ball_state(const vec6 & ball_state) {
 
 	this->ball_pos = ball_state(span(X,Z));
 	this->ball_vel = ball_state(span(DX,DZ));
 }
 
-
-/**
- * @return Ball velocity as a 3-vector.
- */
 vec3 TableTennis::get_ball_velocity() const {
 
 	return this->ball_vel;
 }
 
-/**
- *
- * @brief Main function to integrate the ball state (for dt seconds).
- *
- * This function is used to predict the ball state and typically is called
- * many times. Can be used to predict the landing point
- * (if there is a strike of course).
- *
- * Modified: February 2017
- *
- * Integrate the ball state dt seconds later.
- * Checking contacts with environment, i.e. racket, net, table, ground.
- *
- * @param robot_racket Racket of the robot for checking a strike
- * @param dt Prediction horizon.
- *
- * Takes around 1mu sec to run
- *
- */
 void TableTennis::integrate_ball_state(const racket & robot_racket,
 		                               const double dt) {
 
@@ -267,16 +206,6 @@ void TableTennis::integrate_ball_state(const racket & robot_racket,
 	ball_vel = ball_cand_vel;
 }
 
-/**
- *
- * @brief Integrate the ball state dt seconds later.
- * Checking contacts with environment, i.e. net, table, ground.
- * Does not check the racket!!
- * Modified: July-August 2016
- *
- * @param dt Prediction horizon.
- *
- */
 void TableTennis::integrate_ball_state(const double dt) {
 
 	// Symplectic Euler for No-Contact-Situation (Flight model)
@@ -294,21 +223,10 @@ void TableTennis::integrate_ball_state(const double dt) {
 	ball_vel = ball_cand_vel;
 }
 
-/**
- * @brief Turn off contact checking so integrate ball_state will not check contacts!
- */
 void TableTennis::turn_off_contact_checking() {
 	CHECK_CONTACTS = false;
 }
 
-/**
- * @brief Spinning nonlinear ball flight model.
- *
- * Flight model including including airdrag and Magnus force (for spin).
- *
- * @return Ball accelerations as a 3-vector.
- *
- */
 vec3 TableTennis::flight_model() const {
 
 	vec3 ball_acc = drag_flight_model();
@@ -323,13 +241,6 @@ vec3 TableTennis::flight_model() const {
 	return ball_acc;
 }
 
-/**
- * @brief Spin free nonlinear flight model including airdrag
- *
- * Cdrag is a parameter used to add drag force.
- *
- * @return Ball accelerations as 3-vector.
- */
 vec3 TableTennis::drag_flight_model() const {
 
 	double velBall = norm(ball_vel);
@@ -341,17 +252,6 @@ vec3 TableTennis::drag_flight_model() const {
 	return ball_acc;
 }
 
-/**
- * @brief Simple contact model that uses spin if spin mode is turned on.
- *
- * Linear contact model that updates the outgoing rebound velocities only.
- * Checks if the contact is of roll or slide type. Based on a spin model
- * from a Japanese table tennis paper.
- *
- * Note: Spin is not changed!
- * Coeff of restitution and friction used.
- *
- */
 vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
 
 	static double alpha;
@@ -380,23 +280,9 @@ vec3 TableTennis::table_contact_model(const vec3 & ball_vel_in) const {
 	return ball_vel_out;
 }
 
-/**
- *
- * @brief FIRST ORDER Symplectic Euler integration for dt seconds.
- *
- * First integrating the accelerations to velocities by dt
- * Then integrating the velocities to positions by dt
- * These (pos and vel) are kept in the ball candidate vector
- *
- * We dont directly update the ball states, this is done in
- * integrate_ball_state. This way we can check for contacts
- * in between.
- *
- * @param dt Prediction horizon.
- * @param ball_next_pos Next position using calculated ball accelerations.
- * @param ball_next_vel Next velocity using calculated ball accelerations.
- */
-void TableTennis::symplectic_euler(const double dt, vec3 & ball_next_pos, vec3 & ball_next_vel) const {
+void TableTennis::symplectic_euler(const double dt,
+                                    vec3 & ball_next_pos,
+                                    vec3 & ball_next_vel) const {
 
 	vec3 ball_acc = flight_model();
 	// ball candidate velocities
@@ -410,12 +296,6 @@ void TableTennis::symplectic_euler(const double dt, vec3 & ball_next_pos, vec3 &
 	ball_next_pos(Z) = ball_pos(Z) + ball_next_vel(Z) * dt;
 }
 
-/**
- * @brief FOURTH ORDER Symplectic integration for dt seconds.
- *
- * Unlike Symplectic Euler, this is only used for accurate and fast racket dynamics computations
- * so it integrates already the positions and velocities
- */
 void TableTennis::symplectic_int_fourth(const double dt) {
 
 	static vec3 ball_acc;
@@ -453,16 +333,6 @@ void TableTennis::symplectic_int_fourth(const double dt) {
 
 }
 
-/**
- * @brief Checks if a contact will occur.
- *
- * Checking against table, net, racket, ground, and possibly
- * a simulated human opponent!
- *
- * @param robot_racket Racket centre positions,velocities and normal of the robot
- * @param ball_cand_pos Balls next candidate positions (after symplectic int.).
- * @param ball_cand_vel Balls next candidate vels. (after symplectic int.).
- */
 void TableTennis::check_contact(const racket & robot_racket,
 		                        vec3 & ball_cand_pos,
 		                        vec3 & ball_cand_vel) {
@@ -477,18 +347,8 @@ void TableTennis::check_contact(const racket & robot_racket,
 	check_ball_ground_contact(ball_cand_pos,ball_cand_vel);
 }
 
-/**
- * @brief Condition to determine if ball hits the table.
- *
- * Useful for prediction including a rebound model
- * Useful also in KF/EKF filtering.
- * If contact is detected, then a table contact model (with constant
- * parameters) will update the next candidate ball velocities.
- *
- * @param ball_cand_pos Next candidate ball positions. Used to check contact only.
- * @param ball_cand_vel Next candidate ball velocities. Updated if contact happens.
- */
-void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
+void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos,
+                                            vec3 & ball_cand_vel) {
 
 	static const double contact_table_level = floor_level - table_height + ball_radius;
 	static const double table_human_end = dist_to_table - table_length;
@@ -506,19 +366,8 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos, vec3 & ba
 	}
 }
 
-/**
- * @brief Checks contact with net.
- *
- * Curious way to check contact with net:
- * if the net's distance to integrated y-state and distance to current y-state
- * signs do not match, it means that the ball is in contact with the net.
- * Then the ball candidate velocities are updated according to a (simplistic)
- * net contact model.
- *
- * @param ball_cand_pos Next candidate ball positions. Updated if contact happens.
- * @param ball_cand_vel Next candidate ball velocities. Updated if contact happens.
- */
-void TableTennis::check_ball_net_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) const {
+void TableTennis::check_ball_net_contact(vec3 & ball_cand_pos,
+                                         vec3 & ball_cand_vel) const {
 
 
 	static const double contact_table_level = floor_level - table_height + ball_radius;
@@ -551,17 +400,6 @@ void TableTennis::check_ball_net_contact(vec3 & ball_cand_pos, vec3 & ball_cand_
 	}
 }
 
-/**
- * @brief  Checks contact with racket.
- *
- * If there is contact, then the predicted state will be transformed according to a racket-ball contact model.
- * If racket is going to hit the ball, hit data member is set to TRUE so that
- * we do not hit it the next time.
- *
- * @param robot_racket Racket center pos,vel and normals of the robot
- * @param ball_cand_pos Next candidate ball positions. Used to check contact only.
- * @param ball_cand_vel Next candidate ball velocities. Updated if contact happens.
- */
 void TableTennis::check_ball_racket_contact(const racket & robot_racket,
 		                                    const vec3 & ball_cand_pos,
 		                                    vec3 & ball_cand_vel) {
@@ -582,18 +420,6 @@ void TableTennis::check_ball_racket_contact(const racket & robot_racket,
 	}
 }
 
-/**
- *
- * @brief Checks contact with ground and zeros the velocities.
- *
- * Checking contact with ground. Zeros the velocities and
- * hardsets the next candidate positions to ground level!
- *
- * @param ball_cand_pos Next candidate ball positions.
- * If contact occurs, z-position is set to floor level.
- * @param ball_cand_vel Next candidate ball velocities.
- * If contact occurs, velocities are set to zero.
- */
 void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_cand_vel) {
 
 	if (ball_cand_pos(Z) <= floor_level) {
@@ -609,18 +435,6 @@ void TableTennis::check_ball_ground_contact(vec3 & ball_cand_pos, vec3 & ball_ca
 
 }
 
-/**
- *
- * @brief Checks for legal bounce on robot court
- * and legal landing on the opponents court
- *
- * If the ball bounced only once before being hit on the robot court
- * then it is a LEGAL_BOUNCE.
- *
- * If there was already a hit and ball hasn't bounced before,
- * then the bounce location is checked and if it is on the opponent's court
- * and if LEGAL_BOUNCE is TRUE then it is a LAND.
- */
 void TableTennis::check_legal_bounce(const vec3 & ball_cand_pos, const vec3 & ball_cand_vel) {
 
 	static const double net_y = dist_to_table - table_length/2.0;
@@ -641,15 +455,6 @@ void TableTennis::check_legal_bounce(const vec3 & ball_cand_pos, const vec3 & ba
 	}
 }
 
-/**
- *
- * @brief Checks for legal LAND on opponents court.
- *
- * Called when ball's z-location is BELOW the table.
- * If there was already a hit and ball hasn't LANDed before
- * then if bounce location is on the opponent's court it is a LEGAL LAND.
- *
-*/
 void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball_cand_vel) {
 
 	static const double net_y = dist_to_table - table_length/2.0;
@@ -673,17 +478,6 @@ void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball
 	}
 }
 
-/**
- *
- * @brief Checks for legal landing (on the opponents court).
- *
- * Function that returns true if ball has landed legally and bounced only
- * once on OPPONENTS court.
- * Useful for generating statistics, and on robot vs. robot mode.
- *
- * @return TRUE if ball has landed legally.
- *
- */
 bool TableTennis::has_legally_landed() const {
 
 	if (stats.legal_land && stats.legal_bounce)
@@ -692,25 +486,14 @@ bool TableTennis::has_legally_landed() const {
 		return false;
 }
 
-/**
- * @brief Checks for legal bounce of the ball (on the robot court).
- * @return
- */
 bool TableTennis::has_legally_bounced() const {
 
 	return stats.legal_bounce;
 }
 
-/**
- * @brief Calculate desired racket normal assuming mirror law
- *
- * Does not use any state of the table tennis class, only the parameters.
- *
- * @param v_in Incoming ball velocity
- * @param v_out Outgoing ball velocity (desired)
- * @param normal Desired normals of the racket calculated (output)
- */
-void TableTennis::calc_des_racket_normal(const mat & v_in, const mat & v_out, mat & normal) const {
+void TableTennis::calc_des_racket_normal(const mat & v_in,
+                                         const mat & v_out,
+                                         mat & normal) const {
 
 	normal = v_out - v_in;
 	// normalize
@@ -718,21 +501,11 @@ void TableTennis::calc_des_racket_normal(const mat & v_in, const mat & v_out, ma
 }
 
 
-/**
- * @brief Computes the desired outgoing velocity of the ball after possible contact
- *
- * To return to a desired landing position at a desired landing time on the
- * opponents court, we calculate the desired outgoing velocities.
- * Does not use any state of the table tennis class, only the parameters.
- *
- * @param ball_land_des Desired landing position of the ball
- * @param time_land_des Time it should take for the ball to land on opponents court
- * @param balls_predicted The incoming balls that are predicted (for a fixed time horizon)
- * @param balls_out_vel Outgoing velocities on the predicted ball locations (output)
- */
 void TableTennis::calc_des_ball_out_vel(const vec2 & ball_land_des,
-						   const double time_land_des, const bool hack,
-						   const mat & balls_predicted, mat & balls_out_vel) const {
+						                const double time_land_des,
+						                const bool hack,
+						                const mat & balls_predicted,
+						                mat & balls_out_vel) const {
 
 	static double z_table = floor_level - table_height + ball_radius;
 
@@ -750,20 +523,10 @@ void TableTennis::calc_des_ball_out_vel(const vec2 & ball_land_des,
 	}
 }
 
-/**
- *
- * @brief Calculate desired racket velocity given ball incoming and outgoing velocities
- *
- * Assuming a mirror law.
- * Assumes no desired spin, i.e. racket velocity along the racket will be set to zero
- *
- * @param vel_ball_in Incoming ball velocities already predicted
- * @param vel_ball_out Outgoing desired ball velocities already calculated
- * @param racket_normal Desired racket normals already calculated
- * @param racket_vel Desired racket velocities (output)
- */
-void TableTennis::calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_ball_out,
-		                 const mat & racket_normal, mat & racket_vel) const {
+void TableTennis::calc_des_racket_vel(const mat & vel_ball_in,
+                                      const mat & vel_ball_out,
+                                      const mat & racket_normal,
+                                      mat & racket_vel) const {
 
 	int N = vel_ball_in.n_cols;
 	for (int i = 0; i < N; i++) {
@@ -773,11 +536,6 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in, const mat & vel_b
 	}
 }
 
-/*
- * Forms the rotation matrix that corresponds to the quaternion
- *
- *
- */
 static mat33 quat2mat(const vec4 & q) {
 
 	mat33 R;
@@ -793,41 +551,15 @@ static mat33 quat2mat(const vec4 & q) {
 	return R;
 }
 
-/*
- * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
- *
- * The racket contact model in vector form is O = I + (1 + eps_R)*N*N'*(V - I)
- * where I is the incoming ball velocity
- *       N is the racket normal
- *       V is the racket velocity
- *       eps_R is the coefficient of restitution of the racket
- *
- * TODO: add a spinning contact model
- *
- */
-static void racket_contact_model(const vec3 & racket_vel, const vec3 & racket_normal,
-		                         const double & racket_param, vec3 & ball_vel) {
+static void racket_contact_model(const vec3 & racket_vel,
+                                 const vec3 & racket_normal,
+		                         const double & racket_param,
+		                         vec3 & ball_vel) {
 
 	double speed = (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel);
 	ball_vel += speed * racket_normal;
 }
 
-/**
- * @brief Function that integrates a table tennis ball for an outside filter.
- *
- * Function exposes the table tennis integration to filters, e.g. an EKF.
- * They can use then to apply predict() using the this function pointer.
- *
- * Warning: spin is turned OFF!
- * Prediction with a spin model assumes that spin is kept constant
- * as changes to spin are not saved!
- *
- *
- * @param xnow Consists of current ball position and velocity.
- * @param dt Prediction horizon.
- * @param fp Function parameters, not used.
- * @return Next ball positions and velocities.
- */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
@@ -835,19 +567,6 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	return tennis.get_ball_state();
 }
 
-/**
- * @brief Function that integrates a table tennis ball for an outside filter.
- *
- * Function exposes the table tennis integration to filters, e.g. an EKF.
- * They can use then to apply predict() using the this function pointer.
- *
- * Warning: spin is turned ON!
- *
- * @param xnow Consists of current ball position and velocity.
- * @param dt Prediction horizon.
- * @param fp Function parameters are in this case the topspin value.
- * @return Next ball positions and velocities.
- */
 vec calc_spin_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,true,false);
@@ -860,21 +579,6 @@ vec calc_spin_ball(const vec & xnow, const double dt, const void *fp) {
 	return tennis.get_ball_state();
 }
 
-/**
- * @brief Function that integrates a table tennis ball for an outside filter.
- * including predicting a potential racket contact.
- *
- * Overloaded function exposes the table tennis integration to filters, e.g. an EKF.
- * They can use then to apply predict() using the this function pointer.
- * This version also checks for robot's racket to predict next ball state.
- *
- * Warning: spin is turned OFF!
- *
- * @param robot Interactions with the robot will be checked in integration.
- * @param xnow Consists of current ball position and velocity.
- * @param dt Prediction horizon.
- * @return Next ball positions and velocities.
- */
 vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
@@ -883,15 +587,6 @@ vec calc_next_ball(const racket & robot, const vec & xnow, double dt) {
 	return tennis.get_ball_state();
 }
 
-/**
- * @brief Predict ball state FORWARDS till net
- *
- * Predict the ball forwards till the net so that we can look up the
- * corresponding robot joint parameters qf, qfdot, T around net.
- *
- * TODO: it would NOT work backwards
- * @param ball_est
- */
 void predict_till_net(vec6 & ball_est) {
 
 	const double net_y = dist_to_table - (table_length/2.0);

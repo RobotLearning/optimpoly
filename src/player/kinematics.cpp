@@ -17,23 +17,66 @@
 
 using namespace arma;
 
-static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3);
-static void rotate_to_quat(const mat33 & R, vec4 & quat);
-static void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col);
-static void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats);
-static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac);
-
-/**
- * @brief Calculates cartesian racket pos, vel and normal
- * given joint positions and velocities.
+/* Function to multiply two quaternions */
+static void mult_two_quats(const vec4 & q1,
+                            const vec4 & q2,
+                            vec4 & q3);
+/* Form the quaternion out of the rotation matrix */
+static void rotate_to_quat(const mat33 & R,
+                            vec4 & quat);
+/*
+ * Copied from SL_common.
  *
- * C++ version of the same C-code using ARMADILLO library.
- * In the optimization we do not call this function, but stick to C version.
- * Can be used to calculate racket positions in player class.
+ * computes one column for the geometric jacobian of a revolute joint
+ * from the given input vectors
  *
- * @param robot_joint Robot joint positions, velocities and accelerations.
- * @param robot_racket Robot racket positions, velocities and normal.
+ *
+ * p    : position of endeffector
+ * pi   : position of joint origin
+ * zi   : unit vector of joint axis
+ * col  : column vector of Jacobian [out]
+ *
  */
+static void revolute_jac_col(const vec3 & p,
+                             const vec3 & pi,
+                             const vec3 & zi,
+                             vec6 & col);
+
+/* Barrett WAM forward kinematics
+ * used to show trajectories in cartesian space
+ *
+ * Function taken from SL:
+ * shared/barrett/math/LInfo_declare.h
+ * shared/barrett/math/LInfo_math.h
+ *
+ * \param[out]    Xaxis   : array of rotation axes (z)
+ * \param[out]    Xorigin : array of coord.sys. origin vectors
+ * \param[out]    Xlink   : array of link position
+ * \param[out]    Amats   : homogeneous transformation matrices of each link
+ *
+ */
+static void kinematics(const vec7 & q,
+                        mat & Xlink,
+                        mat & Xorigin,
+                        mat & Xaxis,
+                        cube & Amats);
+
+/*
+ * Computes the jacobian. Taken from SL and simplified.
+ *
+ * Function Parameters: [in]=input,[out]=output
+ *
+ * \param[in]     lp      : the link positions
+ * \param[in]     jop     : joint origin positions
+ * \param[in]     jap     : joint axix unit vectors
+ * \param[out]    Jac     : the jacobian
+ *
+ */
+static void jacobian(const mat & lp,
+                     const mat & jop,
+                     const mat & jap,
+                     mat & jac);
+
 void calc_racket_state(const joint & robot_joint,
 		               racket & robot_racket) {
 
@@ -52,13 +95,6 @@ void calc_racket_state(const joint & robot_joint,
 	robot_racket.normal = amats.slice(PALM).col(1).head(3);
 }
 
-/**
- * @brief Return the Jacobian (linear) matrix at joint values q
- *
- * Returns the jacobian and the cartesian coordinates of endeffector
- * @param q joint values q
- * @param jac Jacobian matrix to be updated
- */
 vec3 get_jacobian(const vec7 & q, mat::fixed<6,7> & jac) {
 
 	static mat::fixed<3,7> origin = zeros<mat>(3,7);
@@ -70,12 +106,6 @@ vec3 get_jacobian(const vec7 & q, mat::fixed<6,7> & jac) {
 	return link.col(PALM);
 }
 
-/**
- * @brief Rotate racket by 90 degrees to get
- * racket orientation from endeffector orientation.
- *
- * @param quat Endeffector orientation as a quaternion.
- */
 void calc_racket_orient(vec4 & quat) {
 
 	double pi = datum::pi;
@@ -85,9 +115,6 @@ void calc_racket_orient(vec4 & quat) {
 	quat = quat_new;
 }
 
-/* Function to multiply two quaternions
- *
- */
 static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
 
 	q3(0) = q1(0)*q2(0) - q1(1)*q1(1) - q1(2)*q1(2) - q1(3)*q1(3);
@@ -96,11 +123,6 @@ static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
 	q3(3) = q1(0)*q2(3) + q1(1)*q2(2) - q1(2)*q2(1) + q1(3)*q2(0);
 }
 
-
-/*
- * Form the quaternion out of the rotation matrix
- *
- */
 static void rotate_to_quat(const mat33 & R, vec4 & quat) {
 
 	double T,S;
@@ -138,18 +160,10 @@ static void rotate_to_quat(const mat33 & R, vec4 & quat) {
 	}
 }
 
-/*
- * Computes the jacobian. Taken from SL and simplified.
- *
- * Function Parameters: [in]=input,[out]=output
- *
- * \param[in]     lp      : the link positions
- * \param[in]     jop     : joint origin positions
- * \param[in]     jap     : joint axix unit vectors
- * \param[out]    Jac     : the jacobian
- *
- */
-static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac) {
+static void jacobian(const mat & lp,
+                     const mat & jop,
+                     const mat & jap,
+                     mat & jac) {
 
 	vec6 col;
 	for (int i = 0; i < NDOF; ++i) {
@@ -159,41 +173,21 @@ static void jacobian(const mat & lp, const mat & jop, const mat & jap, mat & jac
 
 }
 
-/*
- *
- * Copied from SL_common.
- *
- * computes one column for the geometric jacobian of a revolute joint
- * from the given input vectors
- *
- *
- * p    : position of endeffector
- * pi   : position of joint origin
- * zi   : unit vector of joint axis
- * col  : column vector of Jacobian [out]
- *
- */
-static void revolute_jac_col(const vec3 & p, const vec3 & pi, const vec3 & zi, vec6 & col) {
+static void revolute_jac_col(const vec3 & p,
+                            const vec3 & pi,
+                            const vec3 & zi,
+                            vec6 & col) {
 
 	col(span(X,Z)) = cross(zi, p-pi);
 	col(span(DX,DZ)) = zi;
 
 }
 
-/* Barrett WAM forward kinematics
- * used to show trajectories in cartesian space
- *
- * Function taken from SL:
- * shared/barrett/math/LInfo_declare.h
- * shared/barrett/math/LInfo_math.h
- *
- * \param[out]    Xaxis   : array of rotation axes (z)
- * \param[out]    Xorigin : array of coord.sys. origin vectors
- * \param[out]    Xlink   : array of link position
- * \param[out]    Amats   : homogeneous transformation matrices of each link
- *
- */
-static void kinematics(const vec7 & q, mat & Xlink, mat & Xorigin, mat & Xaxis, cube & Amats) {
+static void kinematics(const vec7 & q,
+                        mat & Xlink,
+                        mat & Xorigin,
+                        mat & Xaxis,
+                        cube & Amats) {
 
 	 static double  ss0th;
 	 static double  cs0th;

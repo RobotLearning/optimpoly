@@ -1,5 +1,5 @@
 /**
- * @file vhp.cpp
+ * @file vhp_optim.cpp
  *
  * @brief Fixing a virtual hitting plane to find qf, qfdot joint angles
  * and velocities.
@@ -16,21 +16,38 @@
 #include "kinematics.h"
 #include "optim.h"
 
-static double penalize_dist_to_limits(unsigned n, const double *x,
-		                     double *grad, void *my_func_params);
-static double const_costfunc(unsigned n, const double *x,
-		                     double *grad, void *my_func_params);
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *my_function_data);
-
-
-/**
- * @brief Initialize VHP optimizer
- * @param qrest_ FIXED rest posture
- * @param lb_ Joint lower limits (pos,vel limits and time limits incl.)
- * @param ub_ Joint upper limits (pos,vel limits and time limits incl.)
+/*
+ * Penalize (unweighted) squared distance (in joint space) to joint limit averages
+ *
+ * Adds also joint velocity penalties
+ *
  */
-HittingPlane::HittingPlane(const vec7 & qrest_, double lb_[], double ub_[]) {
+static double penalize_dist_to_limits(unsigned n,
+                                    const double *x,
+                                    double *grad,
+                                    void *my_func_params);
+
+/*
+ * Constant function for simple inverse kinematics
+ */
+static double const_costfunc(unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *my_func_params);
+
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m,
+                                double *result,
+                                unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *my_function_data);
+
+HittingPlane::HittingPlane(const vec7 & qrest_,
+                            double lb_[],
+                            double ub_[]) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
@@ -52,24 +69,11 @@ HittingPlane::HittingPlane(const vec7 & qrest_, double lb_[], double ub_[]) {
 	}
 }
 
-/**
- * @brief FIX desired hitting time for VHP trajectories!
- * This is actually only used by Virtual Hitting Plane!
- * @param time_pred If this is more than 50 ms, set desired
- * hitting time at virtual hitting plane to this value.
- */
 void HittingPlane::fix_hitting_time(double time_pred) {
 	if (time_pred > 0.05)
 		T = time_pred;
 }
 
-/**
- * @brief Initialize solution using already computed soln. from prev. optim
- *
- * If robot is already moving, use the last optimized solution
- * to initialize current optim
- * @param x
- */
 void HittingPlane::init_last_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
@@ -79,13 +83,6 @@ void HittingPlane::init_last_soln(double x[2*NDOF]) const {
 	}
 }
 
-/**
- * @brief Initialize solution using a rest posture
- *
- * Resting posture and zero-velocities and 0.5 hitting time
- * is used to initialize optim params.
- * @param x
- */
 void HittingPlane::init_rest_soln(double x[2*NDOF]) const {
 
 	// initialize first dof entries to q0
@@ -95,13 +92,8 @@ void HittingPlane::init_rest_soln(double x[2*NDOF]) const {
 	}
 }
 
-/**
- * If predicted hitting time using the virtual hitting plane
- * is more than 50 ms, then update!
- * @param x
- * @param time_elapsed
- */
-void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
+void HittingPlane::finalize_soln(const double x[2*NDOF],
+                                double time_elapsed) {
 
 	if (T > 0.05) {
 		// initialize first dof entries to q0
@@ -116,14 +108,6 @@ void HittingPlane::finalize_soln(const double x[2*NDOF], double time_elapsed) {
 	}
 }
 
-/**
- * @brief Check kinematics constraints
- *
- * Before updating trajectory, we need to make sure that
- * the hitting constraints and joint limits are not violated.
- * @param x
- * @return Maximum violation
- */
 double HittingPlane::test_soln(const double x[]) const {
 
 	double x_[2*NDOF+1];
@@ -158,13 +142,10 @@ double HittingPlane::test_soln(const double x[]) const {
 			    max_array(lim_violation,INEQ_CONSTR_DIM));
 }
 
-/*
- * Penalize (unweighted) squared distance (in joint space) to joint limit averages
- *
- * Adds also joint velocity penalties
- *
- */
-static double penalize_dist_to_limits(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double penalize_dist_to_limits(unsigned n,
+                                      const double *x,
+                                      double *grad,
+                                      void *my_func_params) {
 
 	double cost = 0.0;
 	HittingPlane * vhp = (HittingPlane*)my_func_params;
@@ -183,20 +164,20 @@ static double penalize_dist_to_limits(unsigned n, const double *x, double *grad,
 	return cost;
 }
 
-/*
- * Constant function for simple inverse kinematics
- */
-static double const_costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double const_costfunc(unsigned n,
+                             const double *x,
+                             double *grad,
+                             void *my_func_params) {
 
 	return 1.0;
 }
 
-
-/*
- * This is the constraint that makes sure we hit the ball
- */
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *my_function_data) {
+static void kinematics_eq_constr(unsigned m,
+                                 double *result,
+                                 unsigned n,
+                                 const double *x,
+                                 double *grad,
+                                 void *my_function_data) {
 
 	static double pos[NCART];
 	static double qfdot[NDOF];

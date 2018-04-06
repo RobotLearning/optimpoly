@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 	/*
 	 * Calculate exact derivatives
 	 */
-	get_racket_state(x,racket_pos,racket_normal,jac);
+	calc_racket_state(x,racket_pos,racket_normal,jac);
 
 	cout << "racket_normal = " << racket_normal[X] << racket_normal[Y] << racket_normal[Z] << endl;
 	// copy geometric jacobians angular velocity subblock to jac_w

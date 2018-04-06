@@ -1,47 +1,3 @@
-/*! \mainpage Optimal Control based Table Tennis Trajectory Generation
- *
- * \section intro_sec Introduction
- *
- * Welcome to Table Tennis!
- *
- * Player class is the orchestrator for Table Tennis
- * which can call three different trajectory optimizers for table tennis.
- * These are 3rd order striking and returning polynomials computed
- * differently for each method.
- *
- * We provide three modes for testing/playing table tennis:
- * 1. Unit Tests, here the performances of three different players are compared.
- * 2. SL, here the simulation is real-time so threads are detached.
- * 3. Real-Robot, here filtering and trajectory corrections are more robust,
- *                outlier detection is also considered for instance.
- *
- * For the modes (2) and (3) configuration file "player.cfg" sets the modes
- * for the player class, these can be changed online (assuming robot has no task).
- *
- *
- * \section install_sec Installation
- *
- * After pulling run 'make install'.
- * This will allow us to run the unit tests
- * where we can validate the results found in the paper.
- * Make sure to type 'make test' and run ./unit_tests.o
- *
- * \section test_sec Unit Tests
- *
- * The unit tests, use boost testing framework and do not only
- * consider 'unit' tests for each method, but also general scripts for various
- * test scenarios. For instance
- *
- * 1. Does the ball land on the other side?
- * 2. Which method (1 = VHP, 2 = FP, 3 = DP) can land more balls?
- * 3. Is correction of trajectories useful when you have observation noise
- *    or  ball prediction error?
- * 4. Are the filters stable? Can we estimate ball state better as we get more data?
- *
- *
- */
-
-
 /**
  * @file player.cpp
  *
@@ -71,21 +27,8 @@
 
 using namespace arma;
 
-/**
- * @brief Initialize Table Tennis Player.
- *
- * Table Tennis Player class that can run 3 different trajectory
- * generation algorithms.
- * VHP and FP try to return the ball to the centre of the opponents court,
- * LP tries to just return the ball to the opponents court.
- *
- * @param q0 Initial joint positions.
- * @param filter_ Reference to an input filter (must be initialized in a separate line).
- * @param flags Flags/options for player class, initialized with c++11 (see player.hpp)
- *              or through player.cfg file (see sl_interface)
- */
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
-               : filter(filter_), pflags(flags) {
+                   : filter(filter_), pflags(flags) {
 
 	ball_land_des(X) += pflags.ball_land_des_offset[X];
 	ball_land_des(Y) = dist_to_table - 3*table_length/4 + pflags.ball_land_des_offset[Y];
@@ -124,39 +67,15 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	opt->set_detach(pflags.detach);
 }
 
-/*
- *
- * Deconstructor for the Player class.
- * Frees the pointer to Optimization classes
- *
- */
 Player::~Player() {
 
 	delete opt;
 }
 
-/**
- * If filter is initialized returns true
- * @return
- */
 bool Player::filter_is_initialized() const {
 	return init_ball_state;
 }
 
-/*
- * Filter the blob information with a Kalman Filter.
- * (Extended) KF is used both in simulation mode and for real robot.
- *
- * Checking for new ball that is at least 1 mm away from last observation
- * Checking for also outliers.
- * Resets if the ball suddenly appears on the opponent's court.
- *
- * Ball is valid if ball is a new ball and (in real robot mode)
- * it is not an outlier!
- *
- * Note: we're assuming that time elasped dt = DT = 0.002 seconds every time!
- *
- */
 void Player::estimate_ball_state(const vec3 & obs) {
 
 	using std::thread;
@@ -210,17 +129,6 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	t_obs += DT;
 }
 
-/**
- *
- * @brief Public interface for estimating ball state.
- *
- * This interface allows us to test/debug ball state estimation
- * (which is private).
- *
- * @param obs Ball position observation as a 3-vector.
- * @return Ball state as a 6-vector, if filter is not initialized,
- * returns the observation as positions and zeroes as velocities.
- */
 vec6 Player::filt_ball_state(const vec3 & obs) {
 
 	estimate_ball_state(obs);
@@ -232,17 +140,6 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 	}
 }
 
-/**
- * @brief Play Table Tennis.
- *
- * Main function for playing Table Tennis. Calls one of three different
- * trajectory generation algorithms (depending on initialization) and
- * updates the desired joint states when the optimization threads have finished.
- *
- * @param qact Actual joint positions, velocities, accelerations.
- * @param ball_obs Ball observations (positions as 3-vector).
- * @param qdes Desired joint positions, velocities, accelerations.
- */
 void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
@@ -266,19 +163,9 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 }
 
-
-/**
- * @brief Cheat Table Tennis by getting the exact ball state in simulation.
- *
- * Similar to play() method, this method receives from the simulator the
- * exact ball states, which bypasses then the ball estimation method.
- * Useful for debugging the internal filter used.
- *
- * @param qact Actual joint positions, velocities, accelerations.
- * @param ballstate Ball state (positions AND velocities).
- * @param qdes Desired joint positions, velocities, accelerations.
- */
-void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
+void Player::cheat(const joint & qact,
+                    const vec6 & ballstate,
+                    joint & qdes) {
 
 	// resetting legal ball detecting to AWAITING state
 	if (ballstate(Y) < (dist_to_table - table_length) && ballstate(DY) > 2.0)
@@ -303,15 +190,6 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 	calc_next_state(qact, qdes);
 }
 
-/*
- * Calculate hitting parameters qf, qfdot
- * on the Virtual Hitting Plane (VHP) by running Inverse Kinematics
- *
- * The inverse kinematics routine runs an optimization to minimize
- * the distance to a rest posture
- *
- *
- */
 void Player::optim_vhp_param(const joint & qact) {
 
 	vec6 ball_pred;
@@ -330,16 +208,6 @@ void Player::optim_vhp_param(const joint & qact) {
 	}
 }
 
-/*
- * FOCUSED PLAYER
- *
- * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
- * in another thread
- *
- * The optimized parameters are: qf, qf_dot, T
- * assuming T_return and q0 are fixed
- *
- */
 void Player::optim_fp_param(const joint & qact) {
 
 	mat balls_pred;
@@ -361,16 +229,6 @@ void Player::optim_fp_param(const joint & qact) {
 	}
 }
 
-/*
- * LAZY PLAYER
- *
- * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
- * in another thread
- *
- * The optimized parameters are: qf, qf_dot, T
- *
- *
- */
 void Player::optim_dp_param(const joint & qact) {
 
 	mat balls_pred;
@@ -392,18 +250,6 @@ void Player::optim_dp_param(const joint & qact) {
 	}
 }
 
-/*
- * Check MPC flag and update if possible
- *
- * IF MPC IS TURNED OFF
- * if ball is incoming and robot is not moving consider optimization
- *
- * IF MPC IS TURNED ON
- * then additionally consider (after running initial optimization)
- * relaunching optimization if ball is valid (new ball and not an outlier)
- * the frequency of updates is respected, and the ball has not passed the y-limit
- *
- */
 bool Player::check_update(const joint & qact) const {
 
 	static int firsttime = true;
@@ -452,15 +298,6 @@ bool Player::check_update(const joint & qact) const {
 	return update;
 }
 
-/*
- * Unfold the next desired state of the 3rd order polynomials in joint space
- * If movement finishes then the desired state velocities and accelerations are zeroed.
- *
- * Multithreading : if after initial lookup, the computation in the other thread terminates, then we
- * synchonize the values between the threads and compute the next desired states given these new polynomial
- * parameters (qf, qf_dot and T_hit)
- *
- */
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	using std::thread;
@@ -486,13 +323,6 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 }
 
-/**
- * @brief Method useful for testing performance of different players.
- *
- * Using many balls in simulation requires fast resetting
- * Setting a time threshold as a resetting condition won't work in this case.
- *
- */
 void Player::reset_filter(double var_model, double var_noise) {
 
 	filter = init_filter(var_model,var_noise,pflags.spin,pflags.out_reject_mult);
@@ -502,11 +332,9 @@ void Player::reset_filter(double var_model, double var_noise) {
 	t_obs = 0.0;
 }
 
-/**
- * @brief Start moving pre-optim based on lookup if lookup flag is turned ON.
- *
- */
-void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qact) {
+void Player::lookup_soln(const vec6 & ball_state,
+                         const int k,
+                         const joint & qact) {
 
 	double time2return = pflags.time2return;
 	if (t_poly == 0.0) {
@@ -541,18 +369,12 @@ void Player::lookup_soln(const vec6 & ball_state, const int k, const joint & qac
 	}
 }
 
-/**
- * @brief Predict hitting point on the Virtual Hitting Plane (VHP)
- *
- * If the ball is legal (legal detected bounce or legal predicted bounce)
- * and there is enough time (50 ms threshold) predict loc. on VHP.
- *
- * The location of the VHP is given as an argument (vhp-y-location vhpy)
- *
- */
-bool predict_hitting_point(const double & vhpy, const bool & check_bounce,
-		                   vec6 & ball_pred, double & time_pred,
-		                   EKF & filter, game & game_state) {
+bool predict_hitting_point(const double & vhpy,
+                           const bool & check_bounce,
+		                   vec6 & ball_pred,
+		                   double & time_pred,
+		                   EKF & filter,
+		                   game & game_state) {
 
 	const double time_min = 0.05;
 	mat balls_path;
@@ -575,14 +397,9 @@ bool predict_hitting_point(const double & vhpy, const bool & check_bounce,
 	return valid_hp;
 }
 
-/**
- * @brief Predict ball with the models fed into the filter
- *
- * Number of prediction steps is given by Nmax in racket
- * parameters
- *
- */
-void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
+void predict_ball(const double & time_pred,
+                    mat & balls_pred,
+                    EKF & filter) {
 
 	//static wall_clock timer;
 	//timer.tic();
@@ -591,19 +408,6 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter) {
 	//cout << "Pred. ball time: " << 1000 * timer.toc() << " ms." << endl;
 }
 
-/**
- *
- * @brief Checks for legal ball bounce
- * If an incoming ball has bounced before
- * it is declared ILLEGAL (legal_bounce as DATA MEMBER of player class)
- *
- * Bounce variable is static variable of estimate_ball_state method of player class
- * which is reset each time an incoming ball from ball gun is detected.
- *
- * TODO: also consider detecting HIT by robot racket
- * We can turn this off in configuration file
- *
- */
 void check_legal_bounce(const vec6 & ball_est, game & game_state) {
 
 	static double last_y_pos = 0.0;
@@ -632,19 +436,9 @@ void check_legal_bounce(const vec6 & ball_est, game & game_state) {
 	last_z_vel = ball_est(DZ);
 }
 
-/**
- * @brief Check if the table tennis trial is LEGAL (hence motion planning can be started).
- *
- * If it is exactly one predicted bounce when in awaiting mode
- * (before an actual legal bounce was detected) trial will be legal!
- *
- * If ball has bounced legally bounce, then there should be no more bounces.
- *
- * TODO: no need to check after ball passes table
- * We can turn this check off in the configuration file
- *
- */
-bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game & game_state) {
+bool check_legal_ball(const vec6 & ball_est,
+                        const mat & balls_predicted,
+                        game & game_state) {
 
 	int num_bounces = 0;
 	int N = balls_predicted.n_cols;
@@ -670,11 +464,6 @@ bool check_legal_ball(const vec6 & ball_est, const mat & balls_predicted, game &
 	return false;
 }
 
-/**
- * Get players strategy (if exists)
- * @param pos_land_des
- * @param time_land_des
- */
 void Player::get_strategy(vec2 & pos_land_des, double & time_land_des) {
 
 	switch (pflags.alg) {

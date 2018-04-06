@@ -15,12 +15,40 @@ using namespace arma;
 
 #define fitnorm 2
 
+/*
+ * Least squares to estimate prior given
+ * matrix of observations Y of column length N, each row
+ * corresponding to one
+ *
+ * If observations arrive as column vectors then we take
+ * transpose of it.
+ *
+ */
 static void estimate_ball_linear(const mat & observations,
-		                  const vec & times,
-					      const bool verbose,
-					      vec6 & init_est);
-static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est);
-static double calc_residual(unsigned n, const double *x, double *grad, void *data);
+		                          const vec & times,
+		                          const bool verbose,
+		                          vec6 & init_est);
+
+/*
+ * Returns the estimated topspin value
+ */
+static double nlopt_estimate_ball(const mat & obs,
+                                    const vec & times,
+                                    const bool verbose,
+                                    vec6 & est);
+
+/*
+ * Cost function
+ * Calculates also the gradient if grad is TRUE
+ */
+static double calc_residual(unsigned n,
+                            const double *x,
+                            double *grad,
+                            void *data);
+
+/*
+ * Return time of day as micro seconds
+ */
 static long get_time();
 
 /**
@@ -31,15 +59,6 @@ struct init_ball_data {
 	mat obs;
 };
 
-/**
- * @brief Estimates initial ball state + ball topspin (uncomment two lines)
- *
- * @param observations Ball positions
- * @param times Ball time stamps for each position observation
- * @param verbose Verbose output for estimation if true
- * @param NLOPT_FINISHED If detached, the thread will communicate that it has finished
- * @param filter Filter state will be initialized after estimation
- */
 void estimate_prior(const mat & observations,
         			const mat & times,
 					const int & verbose,
@@ -68,19 +87,10 @@ void estimate_prior(const mat & observations,
 	NLOPT_FINISHED = true;
 }
 
-/**
- * @brief Least squares to estimate prior given
- * matrix of observations Y of column length N, each row
- * corresponding to one
- *
- * If observations arrive as column vectors then we take
- * transpose of it.
- *
- */
 static void estimate_ball_linear(const mat & observations,
-		                  const vec & times,
-					      const bool verbose,
-					      vec6 & init_est) {
+		                          const vec & times,
+		                          const bool verbose,
+		                          vec6 & init_est) {
 
 	int num_samples = times.n_elem;
 	mat M = zeros<mat>(num_samples,3);
@@ -103,10 +113,10 @@ static void estimate_ball_linear(const mat & observations,
 	}
 }
 
-/*
- * Returns the estimated topspin value
- */
-static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool verbose, vec6 & est) {
+static double nlopt_estimate_ball(const mat & obs,
+                                    const vec & times,
+                                    const bool verbose,
+                                    vec6 & est) {
 
 	static const int TS = 6; // topspin
 	double lb[7], ub[7];
@@ -152,12 +162,10 @@ static double nlopt_estimate_ball(const mat & obs, const vec & times, const bool
 	return 100*x[6];
 }
 
-/*
- * Cost function
- * Calculates also the gradient if grad is TRUE
- *
- */
-static double calc_residual(unsigned n, const double *x, double *grad, void *void_data) {
+static double calc_residual(unsigned n,
+                            const double *x,
+                            double *grad,
+                            void *void_data) {
 
 	static const double lambda_spin = 1e-5;
 	static const double lambda_zvel = 5e-2;
@@ -201,12 +209,6 @@ static double calc_residual(unsigned n, const double *x, double *grad, void *voi
 
 }
 
-/**
- * @brief Checks to see if the observation is new (updated)
- *
- * The blobs need to be at least tol apart from each other in distance
- *
- */
 bool check_new_obs(const vec3 & obs, double tol) {
 
 	static vec3 last_obs = zeros<vec>(3);
@@ -218,13 +220,6 @@ bool check_new_obs(const vec3 & obs, double tol) {
 	return false;
 }
 
-/**
- * @brief Check to see if we want to reset the filter.
- *
- * Basically if a new ball appears 300 ms later than the last new ball
- * we reset the filter.
- *
- */
 bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
 
 	bool reset = false;
@@ -249,22 +244,11 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
 	return reset;
 }
 
-
-/**
- * @brief Initialize an EKF
- *
- * Called generally when ball state needs to be reset
- * Useful for passing to Player constructor.
- * @param var_model Process noise multiplier for identity matrix.
- * @param var_noise Observation noise mult. for identity matrix.
- * @param spin Use spin model if true
- * @param out_reject_mult Mult. for outlier rejection.
- * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction
- * if spin is TRUE
- * @return EKF Extended Kalman Filter (state uninitialized!)
- */
-EKF init_filter(const double var_model, const double var_noise, const bool spin,
-			    const double out_reject_mult, const double *topspin) {
+EKF init_filter(const double var_model,
+                const double var_noise,
+                const bool spin,
+			    const double out_reject_mult,
+			    const double *topspin) {
 
 	mat C = eye<mat>(3,6);
 	mat66 Q = var_model * eye<mat>(6,6);
@@ -280,9 +264,6 @@ EKF init_filter(const double var_model, const double var_noise, const bool spin,
 	}
 }
 
-/*
- * Return time of day as micro seconds
- */
 static long get_time() {
 	struct timeval tv;
 	if (gettimeofday(&tv, (struct timezone *)0) == 0)

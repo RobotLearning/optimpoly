@@ -1,6 +1,6 @@
 /**
- * @file optimpoly.cpp
- * @brief Nonlinear optimization in C using the NLOPT library
+ * @file focused_optim.cpp
+ * @brief Nonlinear optimization in C/C++ using the NLOPT library
  * @author Okan
  * @date 30/05/2016
  *
@@ -16,28 +16,50 @@
 #include "tabletennis.h"
 #include "lookup.h"
 
-// termination
+/*
+ * Give info about the optimization after termination
+ *
+ */
 static bool check_optim_result(const int res);
 
-// optimization related methods
-static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *f_data);
-static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
-		               double racket_vel[NCART], double racket_n[NCART]);
-
-/**
- * @brief Destroy nlopt structure
+/*
+ * Calculates the cost function for table tennis trajectory generation optimization
+ * to find spline (3rd order strike+return) polynomials
  */
+static double costfunc(unsigned n,
+                        const double *x,
+                        double *grad,
+                        void *my_func_data);
+
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m,
+                                double *result,
+                                unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *f_data);
+
+/*
+ * First order hold to interpolate linearly at time T
+ * between racket pos,vel,normal entries
+ *
+ * IF T is nan, racket variables are assigned to zero-element of
+ * relevant racket entries
+ *
+ */
+static void first_order_hold(const optim_des* racketdata,
+                            const double T,
+                            double racket_pos[NCART],
+                            double racket_vel[NCART],
+                            double racket_n[NCART]);
+
 Optim::~Optim() {
 
     nlopt_destroy(opt);
 }
 
-/**
- * @brief Update the initial state of optimization to PLAYER's current joint states.
- * @param qact Initial joint states acquired from sensors
- */
 void Optim::update_init_state(const joint & qact) {
 	for (int i = 0; i < NDOF; i++) {
 		q0[i] = qact.q(i);
@@ -45,74 +67,30 @@ void Optim::update_init_state(const joint & qact) {
 	}
 }
 
-/**
- * @brief Tells the player optimization thread is still BUSY.
- *
- * If the (detached) thread is still running then table tennis player does not
- * update/launch new trajectories.
- * @return running
- */
 bool Optim::check_running() {
 	return running;
 }
 
-/**
- * @brief If the optimization was successful notify the Player class
- *
- * If the optimization was successful, update is turned ON and the table tennis
- * player can launch/update the polynomial trajectories.
- * @return update
- */
 bool Optim::check_update() {
 	return update;
 }
 
-/**
- * @brief If the robot starts moving the optimization is notified via this function
- *
- * If the robot is moving, this means last optimization was feasible, hence
- * we can initialize the new optimization from the last optimized parameter values.
- * @param flag_move
- */
 void Optim::set_moving(bool flag_move) {
 	moving = flag_move;
 }
 
-/**
- * @brief Detach the optimization thread.
- *
- * If the optimization is performed on SL or REAL_ROBOT then the optimization
- * thread should be detached.
- * @param flag_detach
- */
 void Optim::set_detach(bool flag_detach) {
 	detach = flag_detach;
 }
 
-/**
- * Set the final time for the returning trajectory
- * @param ret_time
- */
 void Optim::set_return_time(const double & ret_time) {
 	time2return = ret_time;
 }
 
-/**
- * @brief Print verbose optimization output (detailed optimization results are printed)
- * @param flag_verbose
- */
 void Optim::set_verbose(bool flag_verbose) {
 	verbose = flag_verbose;
 }
 
-/**
- * @brief If optimization succeeded, update polynomial parameters p
- *
- * If the optimizers finished running and terminated successfully,
- * then generates the striking and returning polynomial parameters
- * from qf, qfdot and T, and given the actual joint states qact, qactdot
- *
- */
 bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;
@@ -142,35 +120,16 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 	return flag;
 }
 
-/**
- * @brief Update the rest state from outside
- *
- * If there is an additional optimization somewhere else
- * that optimizes for the resting posture, notify the optim classes
- * @param q_rest_new
- */
 void Optim::update_rest_state(const vec7 & q_rest_new) {
 
 	for (int i = 0; i < NDOF; i++)
 		qrest[i] = q_rest_new(i);
 }
 
-/**
- * @brief Set desired optimization parameters before running optim.
- *
- * @param params_ Desired optimization parameters are racket and/or ball values
- * predicted or computed by player class.
- */
 void Optim::set_des_params(optim_des *params_) {
 	param_des = params_;
 }
 
-/** @brief Initialize optimization parameters using a lookup table.
- *
- * Call this function AFTER setting desired BALL parameters.
- * TODO: include k as a parameter
- * @param x Array of robot parameters qf,qfdot,T to be updated
- */
 void Optim::init_lookup_soln(double *x) {
 
 	vec::fixed<15> robot_params;;
@@ -190,12 +149,6 @@ void Optim::init_lookup_soln(double *x) {
 	}
 }
 
-/**
- * @brief Runs the optimization.
- *
- * Detaches the optimization if detach is set to TRUE. The
- * optimization method is shared by all Optim class descendants (VHP,FP,DP).
- */
 void Optim::run() {
 
 	std::thread t = std::thread(&Optim::optim,this);
@@ -207,9 +160,6 @@ void Optim::run() {
 	}
 }
 
-/**
- * @brief NLOPT optimization happens here.
- */
 void Optim::optim() {
 
 	update = false;
@@ -258,13 +208,9 @@ void Optim::optim() {
 	running = false;
 }
 
-/**
- * @brief Initialize the NLOPT optimization procedure here for FP
- * @param qrest_ Fixed resting posture
- * @param lb_ Fixed joint lower limits
- * @param ub_ Fixed joint upper limits
- */
-FocusedOptim::FocusedOptim(const vec7 & qrest_, double lb_[2*NDOF+1], double ub_[2*NDOF+1]) {
+FocusedOptim::FocusedOptim(const vec7 & qrest_,
+                            double lb_[2*NDOF+1],
+                            double ub_[2*NDOF+1]) {
 
 	//lookup = true;
 	//load_lookup_table(lookup_table);
@@ -302,10 +248,6 @@ FocusedOptim::FocusedOptim(const vec7 & qrest_, double lb_[2*NDOF+1], double ub_
 	}
 }
 
-/**
- * @brief Initialize the optimization parameters the last optimized solution values.
- * @param x Optim params
- */
 void FocusedOptim::init_last_soln(double x[]) const {
 
 	// initialize first dof entries to q0
@@ -318,13 +260,6 @@ void FocusedOptim::init_last_soln(double x[]) const {
 
 }
 
-/**
- * @brief Initialize the optim params to fixed resting posture.
- *
- * Initializes the optim params to qf fixed to q_rest, zero velocites,
- * and 0.5 hitting time.
- * @param x Optim params
- */
 void FocusedOptim::init_rest_soln(double x[]) const {
 
 	// initialize first dof entries to q0
@@ -335,11 +270,6 @@ void FocusedOptim::init_rest_soln(double x[]) const {
 	x[2*NDOF] = 0.5;
 }
 
-/**
- * @brief Finalize solution if more than 50 ms is available for hitting.
- * @param x Optim params
- * @param time_elapsed Time elapsed during optimization
- */
 void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 
 	if (x[2*NDOF] > fmax(time_elapsed/1e3,0.05)) {
@@ -355,14 +285,6 @@ void FocusedOptim::finalize_soln(const double x[], double time_elapsed) {
 	}
 }
 
-/**
- * @brief Test solution with hard kinematics constraints
- *
- * If constraints are violated then do not update/init. trajectories!
- *
- * @param x Optim params
- * @return Maximum value of constraint violations.
- */
 double FocusedOptim::test_soln(const double x[]) const {
 
 	// give info on constraint violation
@@ -395,11 +317,10 @@ double FocusedOptim::test_soln(const double x[]) const {
 			    max_acc_violation);
 }
 
-/*
- * Calculates the cost function for table tennis trajectory generation optimization
- * to find spline (3rd order strike+return) polynomials
- */
-static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
+static double costfunc(unsigned n,
+                        const double *x,
+                        double *grad,
+                        void *my_func_params) {
 
 	double a1[NDOF];
 	double a2[NDOF];
@@ -432,11 +353,12 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 			3*T*inner_prod(NDOF,a1,a2) + inner_prod(NDOF,a2,a2));
 }
 
-/*
- * This is the constraint that makes sure we hit the ball
- */
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *my_function_data) {
+static void kinematics_eq_constr(unsigned m,
+                                double *result,
+                                unsigned n,
+                                const double *x,
+                                double *grad,
+                                void *my_function_data) {
 
 	static double racket_des_pos[NCART];
 	static double racket_des_vel[NCART];
@@ -489,16 +411,11 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 }
 
-/*
- * First order hold to interpolate linearly at time T
- * between racket pos,vel,normal entries
- *
- * IF T is nan, racket variables are assigned to zero-element of
- * relevant racket entries
- *
- */
-static void first_order_hold(const optim_des* data, const double T, double racket_pos[NCART],
-		               double racket_vel[NCART], double racket_n[NCART]) {
+static void first_order_hold(const optim_des* data,
+                            const double T,
+                            double racket_pos[NCART],
+                            double racket_vel[NCART],
+                            double racket_n[NCART]) {
 
 	double deltat = data->dt;
 	if (std::isnan(T)) {
@@ -533,13 +450,12 @@ static void first_order_hold(const optim_des* data, const double T, double racke
 	}
 }
 
-/*
- * This is the inequality constraint that makes sure we never exceed the
- * joint limits during the striking and returning motion
- *
- */
-void joint_limits_ineq_constr(unsigned m, double *result,
-		unsigned n, const double *x, double *grad, void *my_func_params) {
+void joint_limits_ineq_constr(unsigned m,
+                            double *result,
+                            unsigned n,
+                            const double *x,
+                            double *grad,
+                            void *my_func_params) {
 
 	static double a1[NDOF];
 	static double a2[NDOF];
@@ -595,12 +511,11 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 
 }
 
-/*
- * Calculate the polynomial coefficients from the optimized variables qf,qfdot,T
- * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
- */
-void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
-		                    double *a1, double *a2) {
+void calc_strike_poly_coeff(const double *q0,
+                            const double *q0dot,
+                            const double *x,
+		                    double *a1,
+		                    double *a2) {
 
 	double T = x[2*NDOF];
 
@@ -612,14 +527,12 @@ void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double 
 	return;
 }
 
-/*
- * Calculate the returning polynomial coefficients from the optimized variables qf,qfdot
- * and time to return constant T
- * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
- */
-void calc_return_poly_coeff(const double *q0, const double *q0dot,
-		                    const double *x, const double T,
-		                    double *a1, double *a2) {
+void calc_return_poly_coeff(const double *q0,
+                            const double *q0dot,
+		                    const double *x,
+		                    const double T,
+		                    double *a1,
+		                    double *a2) {
 
 	for (int i = 0; i < NDOF; i++) {
 		a1[i] = (2/pow(T,3))*(x[i]-q0[i]) + (1/(T*T))*(q0dot[i] + x[i+NDOF]);
@@ -628,15 +541,13 @@ void calc_return_poly_coeff(const double *q0, const double *q0dot,
 
 }
 
-/*
- * Calculate the extrema candidates for each joint (2*7 candidates in total)
- * For the striking polynomial
- * Clamp to [0,T]
- *
- */
-void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
-		                      const double *q0, const double *q0dot,
-		                      double *joint_max_cand, double *joint_min_cand) {
+void calc_strike_extrema_cand(const double *a1,
+                                const double *a2,
+                                const double T,
+		                        const double *q0,
+		                        const double *q0dot,
+		                        double *joint_max_cand,
+		                        double *joint_min_cand) {
 
 	static double cand1, cand2;
 
@@ -650,15 +561,12 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 	}
 }
 
-/*
- * Calculate the extrema candidates for each joint (2*7 candidates in total)
- * For the return polynomial
- * Clamp to [0,TIME2RETURN]
- *
- */
-void calc_return_extrema_cand(const double *a1, const double *a2,
-		                      const double *x, const double Tret,
-		                      double *joint_max_cand, double *joint_min_cand) {
+void calc_return_extrema_cand(const double *a1,
+                                const double *a2,
+		                        const double *x,
+		                        const double Tret,
+		                        double *joint_max_cand,
+		                        double *joint_min_cand) {
 
 	static double cand1, cand2;
 
@@ -672,17 +580,9 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 	}
 }
 
-/*
- * Since the accelerations of third order polynomials
- * are linear functions of time we check the values
- * at start of traj, t = 0 and end of traj, t = T_hit
- * which are given by 6*a1*T + a2 and a2 respectively
- *
- * Returns the max acc
- */
 double calc_max_acc_violation(const double x[2*NDOF+1],
-		const double q0[NDOF],
-		const double q0dot[NDOF]) {
+		                        const double q0[NDOF],
+		                        const double q0dot[NDOF]) {
 
 	double T = x[2*NDOF];
 	double a1[NDOF], a2[NDOF];
@@ -701,10 +601,6 @@ double calc_max_acc_violation(const double x[2*NDOF+1],
 	return acc_abs_max;
 }
 
-/*
- * Give info about the optimization after termination
- *
- */
 static bool check_optim_result(const int res) {
 
 	bool flag = false;

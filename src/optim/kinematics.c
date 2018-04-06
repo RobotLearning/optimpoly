@@ -17,34 +17,33 @@
 #include "string.h"
 #include "kinematics.h"
 
-// internal functions used in calculating racket quantities
-static void get_cart_velocity(double jac[2*NCART][NDOF],
-		               const double qdot[NDOF],
-					   double vel[NCART]);
-static void kinematics(const double state[NDOF],
-		        double Xlink[NLINK+1][4],
-				double Xorigin[NDOF+1][4],
-				double Xaxis[NDOF+1][4],
-		        double Ahmat[NDOF+1][5][5]);
-static void jacobian(const double link[NLINK+1][4],
-		const double origin[NDOF+1][4],
-		const double axis[NDOF+1][4],
-		double jac[2*NCART][NDOF]);
-static void set_endeffector(double endeff_pos[NCART]);
-
-/**
- * @brief Calculates cartesian racket pos, vel and normal
- * given joint positions and velocities.
- *
- * Calls the kinematics and the (geometric) jacobian functions
- * to compute the racket quantities.
- *
- * @param q Joint positions.
- * @param qdot Joint velocities.
- * @param pos Racket positions.
- * @param vel Racket velocities.
- * @param normal Racket normals.
+/*
+ * Find cartesian racket velocity given
+ * joint velocities and Jacobian
  */
+static void get_cart_velocity(double jac[2*NCART][NDOF],
+		                       const double qdot[NDOF],
+		                       double vel[NCART]);
+
+/*
+ * Kinematics from SL
+ * TODO: Get rid of 1-based indexing for the 2-5th arguments!
+ *
+ */
+static void kinematics(const double state[NDOF],
+		                double Xlink[NLINK+1][4],
+		                double Xorigin[NDOF+1][4],
+		                double Xaxis[NDOF+1][4],
+		                double Ahmat[NDOF+1][5][5]);
+
+/*
+ * Calculate the geometric jacobian.
+ */
+static void jacobian(const double link[NLINK+1][4],
+		            const double origin[NDOF+1][4],
+		            const double axis[NDOF+1][4],
+		            double jac[2*NCART][NDOF]);
+
 void calc_racket_state(const double q[NDOF],
 		               const double qdot[NDOF],
 					   double pos[NCART],
@@ -71,15 +70,10 @@ void calc_racket_state(const double q[NDOF],
 	get_cart_velocity(jacobi,qdot,vel);
 }
 
-/**
- * @brief Return racket positions, normal and the jacobian
- *
- * Makes the input pos vector equal to racket positions for given joints q
- * Makes the input matrix equal to the jacobian at input q
- *
- * Useful to test derivatives of kinematics
- */
-void get_racket_state(const double q[NDOF], double pos[NCART], double normal[NCART], double jacobi[2*NCART][NDOF]) {
+void calc_racket_state(const double q[NDOF],
+                      double pos[NCART],
+                      double normal[NCART],
+                      double jacobi[2*NCART][NDOF]) {
 
 	static const int PALM = 6;
 	static double link[NLINK+1][3+1];
@@ -105,10 +99,6 @@ void get_position(double q[NDOF]) {
 	kinematics(q,link,origin,axis,amats);
 }
 
-/*
- * Find cartesian racket velocity given
- * joint velocities and Jacobian
- */
 static void get_cart_velocity(double jac[2*NCART][NDOF],
 		               const double qdot[NDOF],
 					   double vel[NCART]) {
@@ -121,17 +111,11 @@ static void get_cart_velocity(double jac[2*NCART][NDOF],
 	}
 }
 
-/*
- *
- * Kinematics from SL
- * TODO: Get rid of 1-based indexing for the 2-5th arguments!
- *
- */
 static void kinematics(const double state[NDOF],
-		        double Xlink[NLINK+1][4],
-				double Xorigin[NDOF+1][4],
-				double Xaxis[NDOF+1][4],
-		        double Ahmat[NDOF+1][5][5]) {
+		                double Xlink[NLINK+1][4],
+		                double Xorigin[NDOF+1][4],
+		                double Xaxis[NDOF+1][4],
+		                double Ahmat[NDOF+1][5][5]) {
 
 	static int firsttime = TRUE;
 	static double basec[3+1] = {0.0};
@@ -688,9 +672,9 @@ static void kinematics(const double state[NDOF],
 }
 
 static void jacobian(const double link[NLINK+1][4],
-		const double origin[NDOF+1][4],
-		const double axis[NDOF+1][4],
-		double jac[2*NCART][NDOF]) {
+		            const double origin[NDOF+1][4],
+		            const double axis[NDOF+1][4],
+		            double jac[2*NCART][NDOF]) {
 
 	static const int PALM = 6;
 	static double c[2*NCART];
@@ -705,17 +689,4 @@ static void jacobian(const double link[NLINK+1][4],
 		for (int i = 0; i < 2*NCART; i++)
 			jac[i][j-1] = c[i];
 	}
-}
-
-/*
- * Copied from SL_user_common.c for convenience
- *
- */
-static void set_endeffector(double endeff_pos[NCART]) {
-
-	endeff_pos[X]  = 0.0;
-	endeff_pos[Y]  = 0.0;
-	endeff_pos[Z]  = 0.30;
-	// attach the racket
-
 }

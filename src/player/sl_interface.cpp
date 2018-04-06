@@ -64,13 +64,51 @@ struct blob_state {
 
 player_flags flags; //!< global structure for setting Player options
 
+/*
+ *
+ * Fusing the two blobs
+ * If both blobs are valid last blob is preferred
+ * Only updates if the blobs are valid, i.e. not obvious outliers
+ *
+ */
+static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs);
+
+/*
+ * Checks for the validity of blob ball data using obvious table tennis checks.
+ * Returns TRUE if valid.
+ *
+ * Only checks for obvious outliers. Does not use uncertainty estimates
+ * to assess validity so do not rely on it as the sole source of outlier detection!
+ *
+ *
+ * @param blob Blob structure. Contains a status boolean
+ * variable and cartesian coordinates (indices zero-to-two).
+ * @param verbose If verbose is TRUE, then detecting obvious outliers will
+ * print to standard output.
+ * @return valid If ball is valid (status is TRUE and not an obvious outlier)
+ * return true.
+ */
+static bool check_blob_validity(const blob_state blobs[NBLOBS],
+                                bool verbose);
+
+/*
+ *
+ * Saves actual ball data if save flag is set to TRUE
+ * and the ball observations and estimated ball state one another
+ */
+static void save_ball_data(const blob_state blobs[NBLOBS],
+                           const Player *robot,
+                           const KF & filter,
+                           std::ofstream & stream);
+
+/*
+ *  Set algorithm to initialize Player with.
+ *  alg_num selects between three algorithms: VHP/FOCUSED/DEFENSIVE.
+ */
+static void set_algorithm(const int alg_num);
+
 #include "sl_interface.h"
 
-/**
- * @brief Set algorithm to initialize Player with.
- *
- * @param alg_num Select between three algorithms: VHP/FOCUSED/DEFENSIVE.
- */
 void set_algorithm(const int alg_num) {
 
 	switch (alg_num) {
@@ -91,13 +129,6 @@ void set_algorithm(const int alg_num) {
 	}
 }
 
-/**
- * @brief Set algorithm and options to initialize Player with.
- *
- * The global variable flags is set here and
- * the play() function will use it to initialize the Player class.
- *
- */
 void load_options() {
 
 	namespace po = boost::program_options;
@@ -168,22 +199,6 @@ void load_options() {
     flags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
-/*
- *
- * Checks for the validity of blob ball data using obvious table tennis checks.
- * Returns TRUE if valid.
- *
- * Only checks for obvious outliers. Does not use uncertainty estimates
- * to assess validity so do not rely on it as the sole source of outlier detection!
- *
- *
- * @param blob Blob structure. Contains a status boolean
- * variable and cartesian coordinates (indices zero-to-two).
- * @param verbose If verbose is TRUE, then detecting obvious outliers will
- * print to standard output.
- * @return valid If ball is valid (status is TRUE and not an obvious outlier)
- * return true.
- */
 static bool check_blob_validity(const blob_state & blob, bool verbose) {
 
 	bool valid = true;
@@ -231,13 +246,6 @@ static bool check_blob_validity(const blob_state & blob, bool verbose) {
 	return valid;
 }
 
-/*
- *
- * Fusing the two blobs
- * If both blobs are valid last blob is preferred
- * Only updates if the blobs are valid, i.e. not obvious outliers
- *
- */
 static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
 
 	bool status = false;
@@ -259,17 +267,6 @@ static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
 	return status;
 }
 
-/**
- * @brief Interface to the PLAYER class that generates desired hitting trajectories.
- *
- * First initializes the player according to the pre-set options
- * and then starts calling play() interface function. Must be called every DT ms.
- *
- *
- * @param joint_state Actual joint positions, velocities, accelerations.
- * @param blobs Two ball 3d-positions from 4-cameras are stored in blobs[1] and blobs[3]
- * @param joint_des_state Desired joint position, velocity and acceleration commands.
- */
 void play(const SL_Jstate joint_state[NDOF+1],
 		  const blob_state blobs[NBLOBS],
 		  SL_DJstate joint_des_state[NDOF+1]) {
@@ -321,14 +318,10 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 }
 
-/*
- *
- * Saves actual ball data if save flag is set to TRUE
- * and the ball observations and estimated ball state one another
- *
- *
- */
-static void save_ball_data(const blob_state blobs[NBLOBS], const Player *robot, const KF & filter, std::ofstream & stream) {
+static void save_ball_data(const blob_state blobs[NBLOBS],
+                            const Player *robot,
+                            const KF & filter,
+                            std::ofstream & stream) {
 
 	static rowvec ball_full;
 	vec6 ball_est = zeros<vec>(6);
@@ -349,16 +342,6 @@ static void save_ball_data(const blob_state blobs[NBLOBS], const Player *robot, 
 	}
 }
 
-/**
- * @brief  CHEAT with exact knowledge of ball state.
- *
- * Interface to the PLAYER class that generates desired hitting trajectories.
- * First initializes the player and then starts calling cheat() interface function.
- *
- * @param joint_state Actual joint positions, velocities, accelerations.
- * @param sim_ball_state Exact simulated ball state (positions and velocities).
- * @param joint_des_state Desired joint position, velocity and acceleration commands.
- */
 void cheat(const SL_Jstate joint_state[NDOF+1],
 		  const SL_Cstate sim_ball_state,
 		  SL_DJstate joint_des_state[NDOF+1]) {
