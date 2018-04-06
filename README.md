@@ -1,4 +1,4 @@
-# polyoptim
+# table-tennis
 
 Optimal Trajectory Generation in Table Tennis
 
