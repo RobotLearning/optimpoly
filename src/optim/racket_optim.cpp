@@ -25,6 +25,8 @@
 #include "player.hpp"
 #include "utils.h"
 
+namespace optim {
+
 /**
  * @brief Incoming ball state (+topspin) and desired landing point and time
  */
@@ -200,4 +202,6 @@ static double calc_landing_res(unsigned n,
     }
 
 	return pow(norm(out_pos - mydata->ball_land_des),2);
+}
+
 }

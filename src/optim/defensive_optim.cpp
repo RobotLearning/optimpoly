@@ -23,6 +23,8 @@
 #define INEQ_LAND_CONSTR_DIM 8 //11
 #define INEQ_JOINT_CONSTR_DIM 2*NDOF + 2*NDOF
 
+namespace optim {
+
 /*
  * Calculates the cost function for table tennis Lazy Player (LP)
  * to find spline (3rd order strike+return) polynomials
@@ -502,4 +504,6 @@ static void interp_ball(const optim_des *data,
 			}
 		}
 	}
+}
+
 }

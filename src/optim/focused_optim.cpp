@@ -16,6 +16,8 @@
 #include "tabletennis.h"
 #include "lookup.h"
 
+namespace optim {
+
 /*
  * Give info about the optimization after termination
  *
@@ -653,4 +655,28 @@ static bool check_optim_result(const int res) {
 
 	}
 	return flag;
+}
+
+void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
+
+    using namespace std;
+    string env = getenv("HOME");
+    string filename = env + "/table-tennis/Limits.cfg";
+    mat joint_limits;
+    joint_limits.load(filename);
+    vec7 lb_ = joint_limits.col(0);
+    vec7 ub_ = joint_limits.col(1);
+    //read_joint_limits(lb,ub);
+    // lower bounds and upper bounds for qf are the joint limits
+    for (int i = 0; i < NDOF; i++) {
+        ub[i] = ub_(i) - SLACK;
+        lb[i] = lb_(i) + SLACK;
+        ub[i+NDOF] = MAX_VEL;
+        lb[i+NDOF] = -MAX_VEL;
+    }
+    // constraints on final time
+    ub[2*NDOF] = Tmax;
+    lb[2*NDOF] = 0.01;
+}
+
 }

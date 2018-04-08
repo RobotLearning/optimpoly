@@ -16,6 +16,8 @@
 #include "kinematics.h"
 #include "optim.h"
 
+namespace optim {
+
 /*
  * Penalize (unweighted) squared distance (in joint space) to joint limit averages
  *
@@ -202,4 +204,6 @@ static void kinematics_eq_constr(unsigned m,
 		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
 		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
 	}
+}
+
 }

@@ -26,6 +26,7 @@
 #include "lookup.h"
 
 using namespace arma;
+using namespace optim;
 
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
                    : filter(filter_), pflags(flags) {

@@ -14,6 +14,8 @@
 
 using namespace arma;
 
+namespace optim {
+
 /*
  * Interpolate ball positions at a given time point T.
  */
@@ -177,4 +179,6 @@ static void interp_ball(const mat & ballpred,
 		ballpos = ballpred.col(N).head(3) +
 				(Tdiff/dt) * (ballpred.col(N+1).head(3) - ballpred.col(N).head(3));
 	}
+}
+
 }

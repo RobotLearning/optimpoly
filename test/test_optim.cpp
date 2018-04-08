@@ -24,6 +24,7 @@
 #include "kinematics.hpp"
 
 using namespace arma;
+using namespace optim;
 int randval;
 
 static double cost_fnc(unsigned n, const double *x,

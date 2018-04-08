@@ -14,6 +14,7 @@
 #include "optim.h"
 
 using namespace arma;
+using namespace optim;
 
 /**
  * @brief Optimizer for Player class.
@@ -358,12 +359,6 @@ void gen_3rd_poly(const rowvec & times,
 
 
 /**
- * @brief Set upper and lower bounds on the optimization.
- * First loads the joint limits and then puts some slack
- */
-void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
-
-/**
  * @brief Predict ball with the models fed into the filter
  *
  * Number of prediction steps is given by Nmax in racket
@@ -384,18 +379,6 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 bool predict_hitting_point(const double & vhpy, const bool & check_b,
 		                   vec6 & ball_pred, double & time_pred,
 		                   EKF & filter, game & game_state);
-
-/**
- * @brief Compute desired racket pos,vel,normals and/or ball positions, vels.
- * Function that calculates a racket strategy : positions, velocities and racket normal
- * for each point on the predicted ball trajectory (ballMat)
- * to return it a desired point (ballLand) at a desired time (landTime)
- *
- */
-optim_des calc_racket_strategy(const mat & balls_predicted,
-		                       const vec2 & ball_land_des,
-		                       const double time_land_des,
-							   optim_des & racket_params);
 
 /**
  * @brief Check if the table tennis trial is LEGAL (hence motion planning can be started).
@@ -427,19 +410,4 @@ bool check_legal_ball(const vec6 & ball_est,
  */
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
 
-/**
- * @brief Compute desired racket pos,vel,normals and/or ball positions, vels. assuming spin model
- * Function that calculates a racket strategy : positions, velocities and racket normal
- * for each point on the predicted ball trajectory (ballMat)
- * to return it a desired point (ballLand) at a desired time (landTime)
- *
- * As opposed to calculating with spin-free models, this function
- * runs an optimization for each predicted ball to find desired outgoing ball velocities!
- *
- */
-optim_des calc_spin_racket_strategy(const mat & balls_predicted,
-								    const double & topspin,
-								    const vec3 & ball_land_des,
-								    const double time_land_des,
-								    optim_des & racket_params);
 #endif /* PLAYER_HPP_ */
