@@ -309,7 +309,8 @@ public:
 	/**
 	 * @brief Reset the simulated ball state.
 	 *
-	 * Set the ball-gun somewhere behind the table and launches a ball.
+	 * Set the ball-gun somewhere behind the table and launches a ball,
+	 * i.e., initializes the ball state accordingly.
 	 * Adds noise to the initial ball launch velocity.
 	 * DOES NOT MODIFY SPIN (from before)!
 	 * Method is used for testing purposes (see Unit Tests).

@@ -20,6 +20,7 @@
 #include "tabletennis.h"
 
 using namespace arma;
+using namespace player;
 
 /* The data structures from SL */
 /**

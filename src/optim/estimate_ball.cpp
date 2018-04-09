@@ -15,6 +15,8 @@ using namespace arma;
 
 #define fitnorm 2
 
+namespace player {
+
 /*
  * Least squares to estimate prior given
  * matrix of observations Y of column length N, each row
@@ -270,4 +272,6 @@ static long get_time() {
 		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
 
 	return 0.;
+}
+
 }

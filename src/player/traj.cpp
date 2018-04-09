@@ -14,6 +14,8 @@
 #include "player.hpp"
 using namespace arma;
 
+namespace player {
+
 void generate_strike(const vec7 & qf,
                      const vec7 & qfdot,
                      const double T,
@@ -103,4 +105,6 @@ void gen_3rd_poly(const rowvec & times,
 		Qd.row(i) = 3*a3(i) * pow(times,2) + 2*a2(i) * times + a1(i);
 		Qdd.row(i) = 6*a3(i) * times + 2*a2(i);
 	}
+}
+
 }

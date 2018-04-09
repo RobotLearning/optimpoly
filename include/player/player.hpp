@@ -16,6 +16,8 @@
 using namespace arma;
 using namespace optim;
 
+namespace player {
+
 /**
  * @brief Optimizer for Player class.
  */
@@ -89,7 +91,7 @@ private:
 	optim_des pred_params;
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
-	spline_params poly;
+	optim::spline_params poly;
 	mat lookup_table;
 	Optim *opt; // optimizer
 
@@ -119,7 +121,7 @@ private:
 	 * assuming T_return and q0 are fixed
 	 *
 	 */
-	void optim_fp_param(const joint & qact);
+	void optim_fp_param(const optim::joint & qact);
 
 	/**
 	 * @brief Run optimizer for DEFENSIVE PLAYER
@@ -129,7 +131,7 @@ private:
 	 *
 	 * The optimized parameters are: qf, qf_dot, T
 	 */
-	void optim_dp_param(const joint & qact);
+	void optim_dp_param(const optim::joint & qact);
 
 	/**
 	 * @brief Calculate hitting parameters qf, qfdot
@@ -138,9 +140,9 @@ private:
 	 * The inverse kinematics routine runs an optimization to minimize
 	 * the distance to a rest posture
 	 */
-	void optim_vhp_param(const joint & qact);
+	void optim_vhp_param(const optim::joint & qact);
 
-	void calc_opt_params(const joint & qact);
+	void calc_opt_params(const optim::joint & qact);
 
 	/**
 	 * @brief Check MPC flag and update if possible
@@ -154,7 +156,7 @@ private:
 	 * the frequency of updates is respected, and the ball has not passed the y-limit
 	 *
 	 */
-	bool check_update(const joint & qact) const;
+	bool check_update(const optim::joint & qact) const;
 
 	/**
 	 * @brief Unfold the next desired state of the 3rd order polynomials in joint space
@@ -165,10 +167,10 @@ private:
 	 * parameters (qf, qf_dot and T_hit)
 	 *
 	 */
-	void calc_next_state(const joint & qact, joint & qdes);
+	void calc_next_state(const optim::joint & qact, optim::joint & qdes);
 
 	/** @brief Start moving pre-optim based on lookup if lookup flag is turned ON. */
-	void lookup_soln(const vec6 & ball_state, const int k, const joint & qact);
+	void lookup_soln(const vec6 & ball_state, const int k, const optim::joint & qact);
 
 public:
 
@@ -233,7 +235,7 @@ public:
 	 * @param ball_obs Ball observations (positions as 3-vector).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void play(const joint & qact, const vec3 & ball_obs, joint & qdes);
+	void play(const optim::joint & qact, const vec3 & ball_obs, optim::joint & qdes);
 
 	/**
 	 * @brief Cheat Table Tennis by getting the exact ball state in simulation.
@@ -246,7 +248,7 @@ public:
 	 * @param ballstate Ball state (positions AND velocities).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void cheat(const joint & qact, const vec6 & ballstate, joint & qdes);
+	void cheat(const optim::joint & qact, const vec6 & ballstate, optim::joint & qdes);
 
 };
 
@@ -320,7 +322,7 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
 void generate_strike(const vec7 & qf,
                      const vec7 & qfdot,
                      const double T,
-                     const joint & qact,
+                     const optim::joint & qact,
 		             const vec7 & q_rest_des,
 		             const double time2return,
 		             mat & Q,
@@ -339,11 +341,11 @@ void generate_strike(const vec7 & qf,
  * @param qdes Update pos,vel,acc values of this desired joints structure
  * @return
  */
-bool update_next_state(const spline_params & poly,
+bool update_next_state(const optim::spline_params & poly,
 		               const vec7 & q_rest_des,
 		               const double time2return,
 		               double & t_poly,
-		               joint & qdes);
+		               optim::joint & qdes);
 
 /**
  * @brief Generate matrix of joint angles, velocities and accelerations
@@ -409,5 +411,7 @@ bool check_legal_ball(const vec6 & ball_est,
  *
  */
 void check_legal_bounce(const vec6 & ball_est, game & game_state);
+
+}
 
 #endif /* PLAYER_HPP_ */

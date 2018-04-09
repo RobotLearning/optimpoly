@@ -28,6 +28,8 @@
 using namespace arma;
 using namespace optim;
 
+namespace player {
+
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
                    : filter(filter_), pflags(flags) {
 
@@ -482,4 +484,6 @@ void Player::get_strategy(vec2 & pos_land_des, double & time_land_des) {
 		default:
 			throw ("Algorithm is not recognized!\n");
 	}
+}
+
 }

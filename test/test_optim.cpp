@@ -25,6 +25,7 @@
 
 using namespace arma;
 using namespace optim;
+using namespace player;
 int randval;
 
 static double cost_fnc(unsigned n, const double *x,
