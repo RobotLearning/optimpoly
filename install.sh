@@ -1,6 +1,9 @@
 # IMPORTANT NOTE: run in a subshell for cd commands: 
 # . install.sh
 
+mkdir build/
+mkdir build/debug
+mkdir build/release
 cd build/release
 cmake -DCMAKE_BUILD_TYPE=Release ../..
 make

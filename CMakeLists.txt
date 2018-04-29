@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O3 -Wall -DNDEBUG -std=c++11 -pthread")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g -DDEBUG -Wall -Wextra -pedantic -std=c++11 -pthread")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -DNDEBUG -std=c++11 -pthread")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG -Wall -Wextra -pedantic -std=c++11 -pthread")
 
 set(PROJECT_NAME table-tennis)
 set(PROJECT_VERSION 1.1)
