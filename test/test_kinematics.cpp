@@ -8,14 +8,7 @@
  */
 
 
-#ifndef BOOST_TEST_MODULE
-#define BOOST_TEST_MODULE test_table_tennis
-#endif
-
 #include <boost/test/unit_test.hpp>
-#include <boost/test/data/test_case.hpp>
-#include <boost/test/data/monomorphic.hpp>
-
 #include <iostream>
 #include <armadillo>
 #include "optim.h"
@@ -24,86 +17,24 @@
 #include "player.hpp"
 using namespace arma;
 
-
 #define OPTIM_DIM 2*NDOF + 1
-
-/*
- * This is the constraint that makes sure we hit the ball
- */
+static double print_mat(const double mat[NCART][NDOF]);
+static double cross_prods(const double mat[NCART][NDOF],
+                          const double v[NCART],
+                          double out[NCART][NDOF]);
+static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
+                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM],
+                            int m1, int m2, int n1, int n2);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-		                  const double *x, double *grad, void *my_function_data) {
-
-	static double pos[NCART];
-	static double qfdot[NDOF];
-	static double vel[NCART];
-	static double normal[NCART];
-	static double qf[NDOF];
-
-	HittingPlane * vhp = (HittingPlane*)my_function_data;
-
-	// extract state information from optimization variables
-	for (int i = 0; i < NDOF; i++) {
-		qf[i] = x[i];
-		qfdot[i] = x[i+NDOF];
-	}
-
-	// compute the actual racket pos,vel and normal
-	calc_racket_state(qf,qfdot,pos,vel,normal);
-
-	// deviations from the desired racket frame
-	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - vhp->param_des->racket_pos(i);
-		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
-		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
-	}
-}
-
-static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM], const double mat2[EQ_CONSTR_DIM][OPTIM_DIM],
-		                    int m1, int m2, int n1, int n2) {
-
-	double maxdiff = 0.0;
-	double absdiff;
-	for (int i = m1; i < m2; i++) {
-		for (int j = n1; j < n2; j++) {
-			//printf("jac[%d,%d] = %f, numjac[%d,%d] = %f\n", i,j, mat1[i][j], i,j, mat2[i][j]);
-			absdiff = fabs(mat1[i][j] - mat2[i][j]);
-			if (absdiff > maxdiff) {
-				maxdiff = absdiff;
-			}
-		}
-	}
-	return maxdiff;
-}
-
-/*
- * Find the cross products between columns of mat matrix and the given vector
- */
-static double cross_prods(const double mat[NCART][NDOF], const double v[NCART], double out[NCART][NDOF]) {
-
-	for (int i = 0; i < NDOF; i++) {
-		out[X][i] = mat[Y][i] * v[Z] - mat[Z][i] * v[Y];
-		out[Y][i] = mat[Z][i] * v[X] - mat[X][i] * v[Z];
-		out[Z][i] = mat[X][i] * v[Y] - mat[Y][i] * v[X];
-	}
-
-}
-
-
-static double print_mat(const double mat[NCART][NDOF]) {
-
-	for (int i = 0; i < NCART; i++) {
-		for (int j = 0; j < NDOF; j++) {
-			printf("%.2f\t", mat[i][j]);
-		}
-		printf("\n");
-	}
-}
+                                 const double *x, double *grad,
+                                 void *my_function_data);
 
 /*
  * Compare derivatives with numerical differentiation
  */
-BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
+void test_kin_deriv() {
 
+    BOOST_TEST_MESSAGE("Comparing kinematics derivatives with numerical diff...");
 	double lb[OPTIM_DIM], ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.0,1.0);
 	double q0[NDOF] = {1.0, -0.2, -0.1, 1.8, -1.57, 0.1, 0.3};
@@ -134,7 +65,7 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
 	 */
 	calc_racket_state(x,racket_pos,racket_normal,jac);
 
-	cout << "racket_normal = " << racket_normal[X] << racket_normal[Y] << racket_normal[Z] << endl;
+	printf("racket_normal = [%f,%f,%f]\n",racket_normal[X],racket_normal[Y],racket_normal[Z]);
 	// copy geometric jacobians angular velocity subblock to jac_w
 	for (int i = 0; i < NDOF; i++) {
 		for (int j = 0; j < NCART; j++) {
@@ -209,9 +140,9 @@ BOOST_AUTO_TEST_CASE( test_deriv_opt ) {
  * against MATLAB.
  *
  */
-BOOST_AUTO_TEST_CASE( test_kinematics_calculations ) {
+void test_kinematics_calculations() {
 
-	cout << "Comparing racket state calculations with MATLAB..." << endl;
+	BOOST_TEST_MESSAGE("Comparing racket state calculations with MATLAB...");
 
 	static double q[NDOF], qdot[NDOF], pos[NCART], vel[NCART], normal[NCART];
 	for (int i = 0; i < NDOF; i++) {
@@ -251,5 +182,79 @@ BOOST_AUTO_TEST_CASE( test_kinematics_calculations ) {
 
 }
 
+/*
+ * This is the constraint that makes sure we hit the ball
+ */
+static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+                                 const double *x, double *grad,
+                                 void *my_function_data) {
 
+    static double pos[NCART];
+    static double qfdot[NDOF];
+    static double vel[NCART];
+    static double normal[NCART];
+    static double qf[NDOF];
+
+    HittingPlane * vhp = (HittingPlane*)my_function_data;
+
+    // extract state information from optimization variables
+    for (int i = 0; i < NDOF; i++) {
+        qf[i] = x[i];
+        qfdot[i] = x[i+NDOF];
+    }
+
+    // compute the actual racket pos,vel and normal
+    calc_racket_state(qf,qfdot,pos,vel,normal);
+
+    // deviations from the desired racket frame
+    for (int i = 0; i < NCART; i++) {
+        result[i] = pos[i] - vhp->param_des->racket_pos(i);
+        result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
+        result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
+    }
+}
+
+static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
+                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM],
+                            int m1, int m2, int n1, int n2) {
+
+    double maxdiff = 0.0;
+    double absdiff;
+    for (int i = m1; i < m2; i++) {
+        for (int j = n1; j < n2; j++) {
+            //printf("jac[%d,%d] = %f, numjac[%d,%d] = %f\n", i,j, mat1[i][j], i,j, mat2[i][j]);
+            absdiff = fabs(mat1[i][j] - mat2[i][j]);
+            if (absdiff > maxdiff) {
+                maxdiff = absdiff;
+            }
+        }
+    }
+    return maxdiff;
+}
+
+/*
+ * Find the cross products between columns of mat matrix and the given vector
+ */
+static double cross_prods(const double mat[NCART][NDOF],
+                          const double v[NCART],
+                          double out[NCART][NDOF]) {
+
+    for (int i = 0; i < NDOF; i++) {
+        out[X][i] = mat[Y][i] * v[Z] - mat[Z][i] * v[Y];
+        out[Y][i] = mat[Z][i] * v[X] - mat[X][i] * v[Z];
+        out[Z][i] = mat[X][i] * v[Y] - mat[Y][i] * v[X];
+    }
+
+}
+
+
+static double print_mat(const double mat[NCART][NDOF]) {
+
+    for (int i = 0; i < NCART; i++) {
+        for (int j = 0; j < NDOF; j++) {
+            printf("%.2f\t", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
 

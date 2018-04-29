@@ -91,7 +91,7 @@ void calc_racket_state(const double q[NDOF],
 void calc_racket_state(const double q[NDOF],
                         double pos[NCART],
                         double normal[NCART],
-                        double jacobi[NCART][NDOF]);
+                        double jacobi[2*NCART][NDOF]);
 
 /** @brief Returns the cartesian racket positions */
 void get_position(double q[NDOF]);

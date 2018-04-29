@@ -1,5 +1,5 @@
 /**
- * @file kinematics.c
+ * @file kinematics.cpp
  *
  * @brief Here we include the kinematics related functions taken from SL
  *

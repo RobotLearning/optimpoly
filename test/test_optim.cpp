@@ -7,10 +7,6 @@
  *      Author: okoc
  */
 
-#ifndef BOOST_TEST_MODULE
-#define BOOST_TEST_MODULE test_table_tennis
-#endif
-
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <armadillo>
@@ -26,77 +22,32 @@
 using namespace arma;
 using namespace optim;
 using namespace player;
+
 int randval;
 
-static double cost_fnc(unsigned n, const double *x,
-		                   double *grad, void *data);
-static void interp_ball(const mat & ballpred,
-		                const double T, vec3 & ballpos);
 /**
  * @brief Initial ball data time stamps and position observations
  */
 struct des_ball_data {
-	vec3 ball_incoming;
-	vec3 ball_land_des;
-	double time_land_des;
-	double topspin;
+    vec3 ball_incoming;
+    vec3 ball_land_des;
+    double time_land_des;
+    double topspin;
 };
 
 static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
 static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est); // spin based optimization
-
-
-/*
- * Initialize robot posture on the right size of the robot
- */
-inline void init_right_posture(vec7 & q0) {
-
-	q0(0) = 1.0;
-	q0(1) = -0.2;
-	q0(2) = -0.1;
-	q0(3) = 1.8;
-	q0(4) = -1.57;
-	q0(5) = 0.1;
-	q0(6) = 0.3;
-}
-
-/*
- * Initialize robot posture
- */
-void init_posture(vec7 & q0, int posture, bool verbose) {
-
-	rowvec qinit;
-	switch (posture) {
-	case 2: // right
-		if (verbose)
-			cout << "Initializing robot on the right side.\n";
-		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	case 1: // center
-		if (verbose)
-			cout << "Initializing robot on the center.\n";
-		qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
-		break;
-	case 0: // left
-		if (verbose)
-			cout << "Initializing robot on the left side\n";
-		qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	default: // default is the right side
-		qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
-		break;
-	}
-	q0 = qinit.t();
-}
+static void init_right_posture(vec7 & q0);
+static void init_posture(vec7 & q0, int posture, bool verbose);
 
 /*
  *
  * Here testing NLOPT optimization for VHP player
  *
  */
-BOOST_AUTO_TEST_CASE(test_vhp_optim) {
+void test_vhp_optim() {
 
-	cout << "Testing VHP Trajectory Optimizer...\n";
+	BOOST_TEST_MESSAGE("Testing VHP Trajectory Optimizer...");
 	const double VHPY = -0.3;
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
@@ -105,7 +56,7 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 	spline_params poly;
 
 	// update initial parameters from lookup table
-	std::cout << "Looking up a random ball entry..." << std::endl;
+	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
 	arma_rng::set_seed_random();
 	randval = (randi(1).at(0));
 	arma_rng::set_seed(randval);
@@ -146,9 +97,9 @@ BOOST_AUTO_TEST_CASE(test_vhp_optim) {
 /*
  * Testing Fixed Player (or Focused Player)
  */
-BOOST_AUTO_TEST_CASE(test_fp_optim) {
+void test_fp_optim() {
 
-	cout << "Testing FP Trajectory Optimizer...\n";
+	BOOST_TEST_MESSAGE("Testing FP Trajectory Optimizer...");
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
@@ -156,7 +107,7 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 	spline_params poly;
 
 	// update initial parameters from lookup table
-	std::cout << "Looking up a random ball entry..." << std::endl;
+	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
 	arma_rng::set_seed(randval);
 	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
@@ -190,9 +141,9 @@ BOOST_AUTO_TEST_CASE(test_fp_optim) {
 /*
  * Testing Lazy Player (or Defensive Player)
  */
-BOOST_AUTO_TEST_CASE(test_dp_optim) {
+void test_dp_optim() {
 
-	cout << "Testing LAZY Trajectory Optimizer...\n";
+	BOOST_TEST_MESSAGE("Testing LAZY Trajectory Optimizer...");
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
@@ -200,7 +151,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 	spline_params poly;
 
 	// update initial parameters from lookup table
-	std::cout << "Looking up a random ball entry..." << std::endl;
+	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
 	arma_rng::set_seed(randval);
 	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
@@ -233,8 +184,7 @@ BOOST_AUTO_TEST_CASE(test_dp_optim) {
 /**
  * Evaluate time efficiency of FP and DP optimizations over hundreds of tests
  */
-/*
-BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
+void test_time_efficiency() {
 
 	// For FP or DP
 	// initialize ball randomly each time
@@ -264,7 +214,7 @@ BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
     wall_clock timer;
 
 	for (int n = 0; n < num_trials; n++) { // for each trial
-		std::cout << "Trial: " << n+1 << std::endl;
+		BOOST_TEST_MESSAGE("Trial: " << n+1);
 		ball_launch_side = (randi(1,distr_param(0,2)).at(0));
 		joint_init_pose = (randi(1,distr_param(0,2)).at(0));
 		init_posture(qact.q,joint_init_pose,false);
@@ -306,22 +256,21 @@ BOOST_AUTO_TEST_CASE( test_time_efficiency ) {
 	hists.col(3) = hist(time_elapsed_dp_lookup, linspace<vec>(5,75,15));
 	hists.save("histograms.txt", raw_ascii);
 }
-*/
 
 /*
  * Find a qf and t such that J(qf) has minimal Frobenius norm
  * while being close to predicted ball state b(t) and being close to q_hit
  */
-BOOST_AUTO_TEST_CASE(find_rest_posture) {
+void find_rest_posture() {
 
-	cout << "\nOptimizing resting posture based on jacobian...\n";
+	BOOST_TEST_MESSAGE("Optimizing resting posture based on jacobian...");
 	double lb[2*NDOF+1], ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 	vec7 q_rest_des = zeros<vec>(7);
 	joint qact;
 	// update initial parameters from lookup table
-	std::cout << "Looking up a random ball entry..." << std::endl;
+	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
 	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
@@ -355,13 +304,14 @@ BOOST_AUTO_TEST_CASE(find_rest_posture) {
  * comparing with the ballistic model
  *
  */
-BOOST_AUTO_TEST_CASE( check_accuracy_spin_based_racket_calc ) {
+void check_accuracy_spin_based_racket_calc() {
 
 	// first test spin-less case
 	//static wall_clock timer;
 	//timer.tic();
-	cout << "\nSolving BVP for one particular ball's desired outgoing velocity using a spin model\n";
-	cout << "Optimization should produce accurate inversion...\n";
+	BOOST_TEST_MESSAGE("Solving BVP for one particular ball...");
+	BOOST_TEST_MESSAGE("Solving for desired outgoing velocity using a spin model");
+	BOOST_TEST_MESSAGE("Optimization should produce accurate inversion...");
 	arma_rng::set_seed_random();
 	double topspin = -50.0;
 	TableTennis tt = TableTennis(true,false);
@@ -380,17 +330,17 @@ BOOST_AUTO_TEST_CASE( check_accuracy_spin_based_racket_calc ) {
 	vec3 ball_vel_out;
 	vec6 ballin = tt.get_ball_state();
 	tt.calc_des_ball_out_vel(ball_land_des.head(2),time_land_des,true,ballin,ball_vel_out);
-	cout << "Incoming ball: " << ballin.t();
-	cout << "Estimated outgoing ball velocity with ballistic model: " << ball_vel_out.t();
+	BOOST_TEST_MESSAGE("Incoming ball: " << ballin.t());
+	BOOST_TEST_MESSAGE("Estimated outgoing ball velocity with ballistic model: " << ball_vel_out.t());
 
 	int N_horizon = time_land_des/dt;
 	tt.set_ball_state(join_vert(ballin.head(3),ball_vel_out));
 	for (int i = 0; i < N_horizon; i++) {
 		tt.integrate_ball_state(dt);
 	}
-	cout << "Resulting landing position: " << tt.get_ball_position().t();
+	BOOST_TEST_MESSAGE("Resulting landing position: " << tt.get_ball_position().t());
 	double res1 = norm(tt.get_ball_position() - ball_land_des,2);
-	cout << "Norm of error :" << res1 << endl;
+	BOOST_TEST_MESSAGE("Norm of error :" << res1);
 	// initialize optimization with adjusted values (e.g. to reduce optim time)
 	ball_vel_out(X) *= 1.1;
 	ball_vel_out(X) *= 1.2;
@@ -403,116 +353,24 @@ BOOST_AUTO_TEST_CASE( check_accuracy_spin_based_racket_calc ) {
 	data.ball_incoming = ballin.head(3);
 
 	optim_spin_outgoing_ball_vel(data,true,ball_vel_out);
-	cout << "Solution to BVP: " << ball_vel_out.t() << endl;
+	BOOST_TEST_MESSAGE("Solution to BVP with spin: " << ball_vel_out.t());
 
 	tt.set_ball_state(join_vert(ballin.head(3),ball_vel_out));
 	for (int i = 0; i < N_horizon; i++) {
 		tt.integrate_ball_state(dt);
 	}
-	cout << "Resulting landing position: " << tt.get_ball_position().t();
+	BOOST_TEST_MESSAGE("Resulting landing position: " << tt.get_ball_position().t());
 	double res2 = norm(tt.get_ball_position() - ball_land_des,2);
-	cout << "Norm of error :" << res2 << endl;
+	BOOST_TEST_MESSAGE("Norm of error :" << res2);
 
 	BOOST_TEST(res2 < res1);
 
 }
 
-
-/**
- * @brief Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
- *
- * BVP is solved using optimization
- */
-void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est) {
-
-	static double x[3];  /* some initial guess */
-	static double minf; /* the minimum objective value, upon return */
-	static double init_time;
-	static int res; // error code
-	static nlopt_opt opt;
-
-	opt = nlopt_create(NLOPT_LD_MMA, 3);
-	nlopt_set_min_objective(opt, calc_landing_res, (void*)&data);
-	nlopt_set_xtol_rel(opt, 1e-2);
-
-	for(int i = 0; i < 3; i++) {
-		x[i] = est(i);
-	}
-
-	init_time = get_time();
-	if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
-		if (verbose)
-			printf("NLOPT failed!\n");
-	}
-	else {
-		if (verbose) {
-			printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
-			printf("Found minimum at f = %0.10g\n", minf);
-		}
-		for(int i = 0; i < 3; i++) {
-			est(i) = x[i];
-		}
-	}
-	//nlopt_destroy(opt);
-}
-
-/**
- * Cost function for computing the residual (norm squared)
- * of the outgoing ball landing error
- * Calculates also the gradient if grad is TRUE
- *
- */
-double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
-
-	static double dt = 0.02;
-    static TableTennis tt = TableTennis(true,false,false); // no contact checking
-    static vec3 vel_out;
-    static vec6 init_state;
-    static vec3 out_pos;
-
-    des_ball_data *mydata = (des_ball_data*) data;
-    tt.set_topspin(mydata->topspin);
-    vel_out(X) = x[0];
-    vel_out(Y) = x[1];
-    vel_out(Z) = x[2];
-    init_state = join_vert(mydata->ball_incoming,vel_out);
-    tt.set_ball_state(init_state);
-	for (int i = 0; i < mydata->time_land_des/dt; i++)
-    	tt.integrate_ball_state(dt);
-	//for (int i = 0; i < 5; i++)
-	//	tt.symplectic_int_fourth(mydata->time_land_des/5.0);
-
-	out_pos = tt.get_ball_position();
-
-    if (grad) {
-
-    	grad[0] = mydata->time_land_des * (out_pos(X) - mydata->ball_land_des(X));
-    	grad[1] = mydata->time_land_des * (out_pos(Y) - mydata->ball_land_des(Y));
-    	grad[2] = mydata->time_land_des * (out_pos(Z) - mydata->ball_land_des(Z));
-    	// Finite difference
-		/*static double h = 1e-6;
-		static double val_plus, val_minus;
-		static double xx[3];
-		for (unsigned i = 0; i < n; i++)
-			xx[i] = x[i];
-		for (unsigned i = 0; i < n; i++) {
-			xx[i] += h;
-			val_plus = calc_landing_res(n, xx, NULL, data);
-			xx[i] -= 2*h;
-			val_minus = calc_landing_res(n, xx, NULL, data);
-			grad[i] = (val_plus - val_minus) / (2*h);
-			xx[i] += h;
-		}*/
-    }
-
-	return pow(norm(out_pos - mydata->ball_land_des),2);
-}
-
-
 /**
  * Testing speed of racket calculations with spin-based BVP solver (optimization)
  */
-BOOST_AUTO_TEST_CASE( check_speed_spin_based_racket_calc ) {
+void check_speed_spin_based_racket_calc() {
 
 	BOOST_TEST_MESSAGE("Checking speed of spin based racket calculation on predicted ball traj.");
 
@@ -538,12 +396,12 @@ BOOST_AUTO_TEST_CASE( check_speed_spin_based_racket_calc ) {
 	timer.tic();
 	calc_racket_strategy(balls_pred,ball_land_des.head(2),time_land_des,racket_des);
 	double time1 = timer.toc() * 1e3;
-	cout << "Elapsed time in ms: " << time1 << endl;
+	BOOST_TEST_MESSAGE("Elapsed time in ms: " << time1);
 	timer.tic();
 	calc_spin_racket_strategy(balls_pred,topspin,ball_land_des,time_land_des,racket_des);
 	double time2 = timer.toc() * 1e3;
-	cout << "Elapsed time in ms: " << time2 << endl;
-	BOOST_TEST(time2 < time1 * 100);
+	BOOST_TEST_MESSAGE("Elapsed time in ms: " << time2);
+	//BOOST_TEST(time2 < time1 * 100);
 }
 
 /*
@@ -551,7 +409,7 @@ BOOST_AUTO_TEST_CASE( check_speed_spin_based_racket_calc ) {
  * It should be more accurate with fewer cycles
  *
  */
-BOOST_AUTO_TEST_CASE( test_symplectic_int_4th) {
+void test_symplectic_int_4th() {
 
 	BOOST_TEST_MESSAGE("Checking 4th order Symplectic Integration");
 	arma_rng::set_seed_random();
@@ -578,4 +436,138 @@ BOOST_AUTO_TEST_CASE( test_symplectic_int_4th) {
 	cout << ball_pred1.t();
 	cout << ball_pred2.t();
 	BOOST_TEST_MESSAGE("Nothing enforced here!");
+}
+
+
+/**
+ * @brief Solve BVP for a particular predicted spinning ball's outgoing desired ball velocity
+ *
+ * BVP is solved using optimization
+ */
+static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est) {
+
+    static double x[3];  /* some initial guess */
+    static double minf; /* the minimum objective value, upon return */
+    static double init_time;
+    static int res; // error code
+    static nlopt_opt opt;
+
+    opt = nlopt_create(NLOPT_LD_MMA, 3);
+    nlopt_set_min_objective(opt, calc_landing_res, (void*)&data);
+    nlopt_set_xtol_rel(opt, 1e-2);
+
+    for(int i = 0; i < 3; i++) {
+        x[i] = est(i);
+    }
+
+    init_time = get_time();
+    if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+        if (verbose)
+            printf("NLOPT failed!\n");
+    }
+    else {
+        if (verbose) {
+            printf("NLOPT took %f ms\n", (get_time() - init_time)/1e3);
+            printf("Found minimum at f = %0.10g\n", minf);
+        }
+        for(int i = 0; i < 3; i++) {
+            est(i) = x[i];
+        }
+    }
+    //nlopt_destroy(opt);
+}
+
+/**
+ * Cost function for computing the residual (norm squared)
+ * of the outgoing ball landing error
+ * Calculates also the gradient if grad is TRUE
+ *
+ */
+static double calc_landing_res(unsigned n, const double *x, double *grad, void *data) {
+
+    static double dt = 0.02;
+    static TableTennis tt = TableTennis(true,false,false); // no contact checking
+    static vec3 vel_out;
+    static vec6 init_state;
+    static vec3 out_pos;
+
+    des_ball_data *mydata = (des_ball_data*) data;
+    tt.set_topspin(mydata->topspin);
+    vel_out(X) = x[0];
+    vel_out(Y) = x[1];
+    vel_out(Z) = x[2];
+    init_state = join_vert(mydata->ball_incoming,vel_out);
+    tt.set_ball_state(init_state);
+    for (int i = 0; i < mydata->time_land_des/dt; i++)
+        tt.integrate_ball_state(dt);
+    //for (int i = 0; i < 5; i++)
+    //  tt.symplectic_int_fourth(mydata->time_land_des/5.0);
+
+    out_pos = tt.get_ball_position();
+
+    if (grad) {
+
+        grad[0] = mydata->time_land_des * (out_pos(X) - mydata->ball_land_des(X));
+        grad[1] = mydata->time_land_des * (out_pos(Y) - mydata->ball_land_des(Y));
+        grad[2] = mydata->time_land_des * (out_pos(Z) - mydata->ball_land_des(Z));
+        // Finite difference
+        /*static double h = 1e-6;
+        static double val_plus, val_minus;
+        static double xx[3];
+        for (unsigned i = 0; i < n; i++)
+            xx[i] = x[i];
+        for (unsigned i = 0; i < n; i++) {
+            xx[i] += h;
+            val_plus = calc_landing_res(n, xx, NULL, data);
+            xx[i] -= 2*h;
+            val_minus = calc_landing_res(n, xx, NULL, data);
+            grad[i] = (val_plus - val_minus) / (2*h);
+            xx[i] += h;
+        }*/
+    }
+
+    return pow(norm(out_pos - mydata->ball_land_des),2);
+}
+
+/*
+ * Initialize robot posture on the right size of the robot
+ */
+static void init_right_posture(vec7 & q0) {
+
+    q0(0) = 1.0;
+    q0(1) = -0.2;
+    q0(2) = -0.1;
+    q0(3) = 1.8;
+    q0(4) = -1.57;
+    q0(5) = 0.1;
+    q0(6) = 0.3;
+}
+
+/*
+ * Initialize robot posture
+ */
+static void init_posture(vec7 & q0, int posture, bool verbose) {
+
+    rowvec qinit;
+    switch (posture) {
+    case 2: // right
+        if (verbose)
+            cout << "Initializing robot on the right side.\n";
+        qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
+        break;
+    case 1: // center
+        if (verbose)
+            cout << "Initializing robot on the center.\n";
+        qinit << 0.0 << 0.0 << 0.0 << 1.5 << -1.75 << 0.0 << 0.0 << endr;
+        break;
+    case 0: // left
+        if (verbose)
+            cout << "Initializing robot on the left side\n";
+        qinit << -1.0 << 0.0 << 0.0 << 1.5 << -1.57 << 0.1 << 0.3 << endr;
+        break;
+    default: // default is the right side
+        qinit << 1.0 << -0.2 << -0.1 << 1.8 << -1.57 << 0.1 << 0.3 << endr;
+        break;
+    }
+    q0 = qinit.t();
 }

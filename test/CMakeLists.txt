@@ -1,0 +1,60 @@
+cmake_minimum_required (VERSION 2.8)
+project(${PROJECT_NAME})
+
+# Using BOOST UNIT TEST FRAMEWORK for testing
+#ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK) 
+
+# CREATE SHARED LIBRARY
+set(TEST_EXEC unit_tests)
+set(TEST_SRC
+    test_kalman.cpp
+    test_kinematics.cpp
+    test_optim.cpp
+    test_table_tennis.cpp
+)
+add_executable (${TEST_EXEC} ${TEST_SRC})
+
+# SET PROJECT VERSION
+set_target_properties(${TEST_EXEC} PROPERTIES 
+    VERSION ${PROJECT_VERSION})
+
+# INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)
+target_include_directories (${TEST_EXEC} PRIVATE
+    ${CMAKE_SOURCE_DIR}/include/optim
+    ${CMAKE_SOURCE_DIR}/include/player)
+
+# BOOST UNIT TEST should be included statically whenever
+# we use only init_unit_test_suite syntax!
+#message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
+#set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+#message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
+#find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
+#MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
+
+add_library(boost_unit_test_framework STATIC IMPORTED)
+set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/local/lib/libboost_unit_test_framework.a)
+target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
+
+#set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
+
+# INCLUDE "OUR" SHARED LIBRARY
+target_link_libraries(${TEST_EXEC} 
+    ${PROJECT_NAME}
+    armadillo
+    boost_program_options
+    nlopt)
+
+# INSTALL FOLDER
+#find_library(${SHARED_OBJ} ${PROJECT_NAME} HINTS ${CMAKE_SOURCE_DIR}/lib)
+#target_link_libraries(${TEST_EXEC} ${SHARED_OBJ})
+install(TARGETS ${TEST_EXEC}
+    DESTINATION ${CMAKE_SOURCE_DIR})
+
+# OPTIMIZATION OPTIONS
+#target_compile_options(${TEST_EXEC} PRIVATE
+#                -O3 -Wall -DNDEBUG -std=c++11 -pthread)
+
+# DEBUG OPTIONS
+#target_compile_options(example PUBLIC 
+#        -g -DDEBUG -Wall -Wextra -pedantic 
+#        -std=c++11 -pthread)

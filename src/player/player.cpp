@@ -479,7 +479,9 @@ void Player::get_strategy(vec2 & pos_land_des, double & time_land_des) {
 			time_land_des = this->pflags.time_land_des;
 			break;
 		case DP:
-			throw ("DP does not have a fixed return strategy!\n");
+			std::cout << "DP does not have a fixed return strategy!\n";
+			pos_land_des = zeros<vec>(2);
+			time_land_des = 0.0;
 			break;
 		default:
 			throw ("Algorithm is not recognized!\n");

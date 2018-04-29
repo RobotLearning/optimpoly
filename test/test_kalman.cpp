@@ -11,10 +11,6 @@
  *      Author: okoc
  */
 
-#ifndef BOOST_TEST_MODULE
-#define BOOST_TEST_MODULE test_table_tennis
-#endif
-
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "kalman.h"
@@ -23,34 +19,19 @@
 
 using namespace std;
 using namespace arma;
+using namespace player;
 
 static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,
 		               const bool & status1, const bool & status3, const vec6 & ball_est, vec3 & obs);
 static bool check_blob_validity(const vec3 & blob, const bool & status);
-
-/*
- * Test for successful initialization
- * Check if uninitialized filter sends an exception.
- */
-inline bool test_uninit_exception(const KF & filter) {
-
-	bool flag = false;
-	try {
-		vec mean = filter.get_mean();
-	}
-	catch (const runtime_error & exception) {
-		cout << "Caught the exception!" << endl;
-		flag = true;
-	}
-
-	return flag;
-}
+static bool test_uninit_exception(const KF & filter);
 
 /*
  * Testing whether we can initialize the KF class
  */
-BOOST_AUTO_TEST_CASE( test_init ) {
+void test_kf_init() {
 
+    BOOST_TEST_MESSAGE("Initializing Kalman Filter...");
 	// init Kalman Filter
 	int dimx = 2;
 	int dimu = 1;
@@ -78,8 +59,9 @@ BOOST_AUTO_TEST_CASE( test_init ) {
  * discretizes two continous model matrices A and B
  *
  */
-BOOST_AUTO_TEST_CASE( test_discretize ) {
+void test_kf_discretize() {
 
+    BOOST_TEST_MESSAGE("Testing KF discretization...");
 	int dimx = 2;
 	int dimy = 1;
 	int dimu = 1;
@@ -104,6 +86,7 @@ BOOST_AUTO_TEST_CASE( test_discretize ) {
 	double dt = 0.1;
 	filter.discretize(Ac,Bc,dt);
 
+	BOOST_TEST_MESSAGE("Comparing with MATLAB...");
 	BOOST_TEST(approx_equal(filter.get_model(1),A_matlab,"absdiff",1e-3));
 	BOOST_TEST(approx_equal(filter.get_model(2),B_matlab,"absdiff",1e-3));
 
@@ -112,8 +95,9 @@ BOOST_AUTO_TEST_CASE( test_discretize ) {
 /*
  * Testing whether the random matrices are the same as in MATLAB
  */
-BOOST_AUTO_TEST_CASE( test_random ) {
+void test_random_gen() {
 
+    BOOST_TEST_MESSAGE("Testing random matrix generation...");
 	int dimx = 2;
 	int seed = 5;
 	arma_rng::set_seed(seed);
@@ -126,6 +110,7 @@ BOOST_AUTO_TEST_CASE( test_random ) {
 	//cout << A_matlab << endl;
 	//cout << A << endl;
 
+	BOOST_TEST_MESSAGE("Checking with MATLAB random matrices...");
 	BOOST_TEST(approx_equal(A,A_matlab,"absdiff",1e-3));
 }
 
@@ -133,8 +118,9 @@ BOOST_AUTO_TEST_CASE( test_random ) {
  * Testing for a simple
  * predict/update performance
  */
-BOOST_AUTO_TEST_CASE( test_update_predict ) {
+void test_predict_update() {
 
+    BOOST_TEST_MESSAGE("Testing predict/update loop...");
 	// init Kalman Filter
 	int dimx = 2;
 	int dimu = 1;
@@ -176,6 +162,7 @@ BOOST_AUTO_TEST_CASE( test_update_predict ) {
 	//cout << answer << endl;
 	//cout << filter.get_mean() << endl;
 
+	BOOST_TEST_MESSAGE("Comparing with MATLAB value...");
 	BOOST_TEST(approx_equal(answer,filter.get_mean(),"absdiff",1e-3));
 }
 
@@ -184,7 +171,9 @@ BOOST_AUTO_TEST_CASE( test_update_predict ) {
  *
  * Using the table tennis prediction function for EKF
  */
-BOOST_AUTO_TEST_CASE( test_ekf ) {
+void check_ekf() {
+
+    BOOST_TEST_MESSAGE("Checking EKF initialization and prediction...");
 
 	int dimx = 6;
 	int dimy = 3;
@@ -215,8 +204,9 @@ BOOST_AUTO_TEST_CASE( test_ekf ) {
  * Test predict path function of EKF with table tennis
  *
  */
-BOOST_AUTO_TEST_CASE( test_predict_path ) {
+void test_predict_path() {
 
+    BOOST_TEST_MESSAGE("Testing EKF ball path prediction...");
 	TableTennis tt = TableTennis();
 	arma_rng::set_seed(5);
 
@@ -246,9 +236,9 @@ BOOST_AUTO_TEST_CASE( test_predict_path ) {
  * by using a spin model and a normal drag model for prediction
  *
  */
-BOOST_AUTO_TEST_CASE( test_mismatch_pred ) {
+void check_mismatch_pred() {
 
-	std::cout << "Testing ball prediction accuracy in mismatch case (spin)" << std::endl;
+	BOOST_TEST_MESSAGE("Checking ball prediction accuracy in mismatch case (spin)...");
 	TableTennis tt = TableTennis(true, false); //init with spin
 	arma_rng::set_seed(5);
 	EKF filter = init_filter(0.3,0.001);
@@ -265,8 +255,8 @@ BOOST_AUTO_TEST_CASE( test_mismatch_pred ) {
 		pos_errs(i) = norm(filter.get_mean()(span(X,Z)) - tt.get_ball_position());
 		vel_errs(i) = norm(filter.get_mean()(span(DX,DZ)) - tt.get_ball_velocity());
 	}
-	std::cout << "Pos error max: " << max(pos_errs) << std::endl;
-	std::cout << "Vel error max: " << max(vel_errs) << std::endl;
+	BOOST_TEST_MESSAGE("Pos error max: " << max(pos_errs));
+	BOOST_TEST_MESSAGE("Vel error max: " << max(vel_errs));
 
 }
 
@@ -283,10 +273,9 @@ BOOST_AUTO_TEST_CASE( test_mismatch_pred ) {
  * 3. New balls should be updated
  *
  */
-BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
+void test_outlier_detection() {
 
-	std::cout << "**************************************\n";
-	std::cout << "Testing filtering on REAL BALL DATA!\n";
+	BOOST_TEST_MESSAGE("Testing filtering on REAL BALL DATA!");
 	vec3 blob1, blob3, obs;
 	bool status1, status3;
 	mat real_ball_data;
@@ -304,7 +293,7 @@ BOOST_AUTO_TEST_CASE( test_outlier_detection ) {
 		real_ball_data.load(home + "/Dropbox/data/real_ball_data_0317/balls_" + trial + ".txt", raw_ascii);
 	}
 	catch (const char * exception) {
-		std::cout << "Problem accessing/finding real ball data on Dropbox!" << std::endl;
+		cout << "Problem accessing/finding real ball data on Dropbox!" << endl;
 	}
 	mat ball_states = zeros<mat>(real_ball_data.n_rows,6);
 	player_flags flags;
@@ -397,4 +386,22 @@ static bool check_blob_validity(const vec3 & blob, const bool & status) {
 	}
 	last_blob = blob;
 	return valid;
+}
+
+/*
+ * Test for successful initialization
+ * Check if uninitialized filter sends an exception.
+ */
+static bool test_uninit_exception(const KF & filter) {
+
+    bool flag = false;
+    try {
+        vec mean = filter.get_mean();
+    }
+    catch (const runtime_error & exception) {
+        cout << "Caught the exception!" << endl;
+        flag = true;
+    }
+
+    return flag;
 }
