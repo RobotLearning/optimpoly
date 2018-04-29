@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(TASKNAME player)
+set(TASKNAME table_tennis)
 
 project(${TASKNAME})
 
@@ -12,14 +12,14 @@ message( STATUS "Adding ${TASKNAME} task for ${NAME}" )
 
 include_directories(
 	#${CMAKE_SOURCE_DIR}/IAS/include
-	~/polyoptim/include/player
-	~/polyoptim/include/optim
+	~/table-tennis/include/player
+	~/table-tennis/include/optim
 )
 
 # for executables
 set(ADD_SRCS_TASK
     #EXAMPLE_sim.c
-    player_task.c
+    table_tennis_task.c
     table_tennis_common.c
     # any other additional file needed
 )
@@ -30,7 +30,7 @@ set(ADD_SRCS_OPENGL
     # any other additional file needed
 )
 
-link_directories(~/polyoptim/lib)
-link_libraries(~/polyoptim/lib/libplayer.so nlopt)
+link_directories(~/table-tennis/lib)
+link_libraries(~/table-tennis/lib/libtable-tennis.so nlopt)
 
 finalize_auto_add_task()
