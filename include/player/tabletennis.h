@@ -15,7 +15,12 @@
 #include "constants.h"
 #include "table.h"
 
-using namespace arma;
+using arma::mat;
+using arma::vec;
+using arma::vec3;
+using arma::vec6;
+
+namespace player {
 
 /**
  * @brief Racket positions, velocities and normal
@@ -384,7 +389,7 @@ public:
 	 * @param balls_predicted The incoming balls that are predicted (for a fixed time horizon)
 	 * @param balls_out_vel Outgoing velocities on the predicted ball locations (output)
 	 */
-	void calc_des_ball_out_vel(const vec2 & ball_land_des,
+	void calc_des_ball_out_vel(const arma::vec2 & ball_land_des,
 							   const double time_land_des, const bool hack,
 							   const mat & balls_predicted, mat & balls_out_vel) const;
 
@@ -469,5 +474,7 @@ vec calc_spin_ball(const vec & xnow,
  * @param ball_est
  */
 void predict_till_net(vec6 & ball_est);
+
+}
 
 #endif /* end of TABLETENNIS_H_ */

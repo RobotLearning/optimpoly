@@ -20,6 +20,8 @@
 #include <armadillo>
 #include "tabletennis.h"
 
+using namespace arma;
+
 /* Forms the rotation matrix that corresponds to the quaternion */
 static mat33 quat2mat(const vec4 & q);
 
@@ -39,6 +41,8 @@ static void racket_contact_model(const vec3 & racket_vel,
                                  const vec3 & racket_normal,
 		                         const double & racket_param,
 		                         vec3 & ball_vel);
+
+namespace player {
 
 TableTennis::TableTennis(const vec6 & ball_state,
                          bool spin_flag,
@@ -536,30 +540,6 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in,
 	}
 }
 
-static mat33 quat2mat(const vec4 & q) {
-
-	mat33 R;
-	R(X,X) = 2*q(X)*q(X) - 1 + 2*q(Y)*q(Y);
-	R(X,Y) = 2*q(Y)*q(Z) - 2*q(X)*q(W);
-	R(X,Z) = 2*q(Y)*q(W) + 2*q(X)*q(Z);
-	R(Y,X) = 2*q(Y)*q(Z) + 2*q(X)*q(W);
-	R(Y,Y) = 2*q(X)*q(X) - 1 + 2*q(Z)*q(Z);
-	R(Y,Z) = 2*q(Z)*q(W) - 2*q(X)*q(Y);
-	R(Z,X) = 2*q(Y)*q(W) - 2*q(X)*q(Z);
-	R(Z,Y) = 2*q(Z)*q(W) + 2*q(X)*q(Y);
-	R(Z,Z) = 2*q(X)*q(X) - 1 + 2*q(W)*q(W);
-	return R;
-}
-
-static void racket_contact_model(const vec3 & racket_vel,
-                                 const vec3 & racket_normal,
-		                         const double & racket_param,
-		                         vec3 & ball_vel) {
-
-	double speed = (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel);
-	ball_vel += speed * racket_normal;
-}
-
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
@@ -596,5 +576,31 @@ void predict_till_net(vec6 & ball_est) {
 		ball_est = tennis.get_ball_state();
 		//cout << ball_est << endl;
 	}
+}
+
+}
+
+static mat33 quat2mat(const vec4 & q) {
+
+    mat33 R;
+    R(X,X) = 2*q(X)*q(X) - 1 + 2*q(Y)*q(Y);
+    R(X,Y) = 2*q(Y)*q(Z) - 2*q(X)*q(W);
+    R(X,Z) = 2*q(Y)*q(W) + 2*q(X)*q(Z);
+    R(Y,X) = 2*q(Y)*q(Z) + 2*q(X)*q(W);
+    R(Y,Y) = 2*q(X)*q(X) - 1 + 2*q(Z)*q(Z);
+    R(Y,Z) = 2*q(Z)*q(W) - 2*q(X)*q(Y);
+    R(Z,X) = 2*q(Y)*q(W) - 2*q(X)*q(Z);
+    R(Z,Y) = 2*q(Z)*q(W) + 2*q(X)*q(Y);
+    R(Z,Z) = 2*q(X)*q(X) - 1 + 2*q(W)*q(W);
+    return R;
+}
+
+static void racket_contact_model(const vec3 & racket_vel,
+                                 const vec3 & racket_normal,
+                                 const double & racket_param,
+                                 vec3 & ball_vel) {
+
+    double speed = (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel);
+    ball_vel += speed * racket_normal;
 }
 

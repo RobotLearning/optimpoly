@@ -15,23 +15,22 @@
 #include "player.hpp"
 #include "tabletennis.h"
 
-using namespace arma;
-using namespace optim;
+namespace player {
 
 /**
  * @brief Endeffector positions and normal.
  */
 struct eff {
-	vec3 x; //! pos
-	vec3 o; //! orientation
+	arma::vec3 x; //! pos
+	arma::vec3 o; //! orientation
 };
 
 /**
  * @brief Pose used for base pose of the robot
  */
 struct pose {
-	vec3 x; //! positions
-	vec4 q; //! orientations
+	arma::vec3 x; //! positions
+	arma::vec4 q; //! orientations
 };
 
 /**
@@ -54,7 +53,7 @@ void calc_racket_state(const optim::joint & robot_joint,
  *
  * @param quat Endeffector orientation as a quaternion.
  */
-void calc_racket_orient(vec4 & quat);
+void calc_racket_orient(arma::vec4 & quat);
 
 /**
  * @brief Return the Jacobian (linear) matrix at joint values q
@@ -63,6 +62,8 @@ void calc_racket_orient(vec4 & quat);
  * @param q joint values q
  * @param jac Jacobian matrix to be updated
  */
-vec3 get_jacobian(const vec7 & q, mat::fixed<6,7> & jac);
+vec3 get_jacobian(const arma::vec7 & q, arma::mat::fixed<6,7> & jac);
+
+}
 
 #endif /* _KINEMATICS_HPP_ */

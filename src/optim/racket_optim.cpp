@@ -25,6 +25,8 @@
 #include "player.hpp"
 #include "utils.h"
 
+using namespace arma;
+
 namespace optim {
 
 /**
@@ -63,7 +65,7 @@ optim_des calc_spin_racket_strategy(const mat & balls_predicted,
 								    const double time_land_des,
 								    optim_des & racket_params) {
 
-	TableTennis tennis = TableTennis(true,false);
+	player::TableTennis tennis = player::TableTennis(true,false);
 	tennis.set_topspin(topspin);
 	des_ball_data data;
 	data.ball_land_des = ball_land_des;
@@ -105,7 +107,7 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
 	//static wall_clock timer;
 	//timer.tic();
 	bool hack = true; // for modifying outgoing ball velocities
-	TableTennis tennis = TableTennis(false,false);
+	player::TableTennis tennis = player::TableTennis(false,false);
 
 	int N = balls_predicted.n_cols;
 	mat balls_out_vel = zeros<mat>(3,N);
@@ -165,7 +167,7 @@ static double calc_landing_res(unsigned n,
                                 void *data) {
 
 	static double dt = 0.02;
-    static TableTennis tt = TableTennis(true,false,false); // no contact checking!
+    static player::TableTennis tt = player::TableTennis(true,false,false); // no contact checking!
     static vec3 vel_out;
     static vec3 out_pos;
 

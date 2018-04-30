@@ -95,7 +95,7 @@ DefensiveOptim::DefensiveOptim(const vec7 & qrest_,
                                   : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
 
 	lookup = lookup_;
-	load_lookup_table(lookup_table);
+	player::load_lookup_table(lookup_table);
 	const_vec(NDOF,1.0,w.R_strike);
 	w.R_net = 1e1;
 	w.R_hit = 1e3;

@@ -13,8 +13,9 @@
 #include "kalman.h"
 #include "optim.h"
 
-using namespace arma;
-using namespace optim;
+using arma::vec;
+using arma::zeros;
+using arma::mat;
 
 namespace player {
 
@@ -80,20 +81,20 @@ private:
 	// data fields
 	bool init_ball_state = false;
 	EKF & filter; // filter for the ball estimation
-	vec2 ball_land_des = zeros<vec>(2); // desired landing position
-	vec7 q_rest_des; // desired resting joint state
+	arma::vec2 ball_land_des = zeros<vec>(2); // desired landing position
+	arma::vec7 q_rest_des; // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	double t_poly = 0.0; // time passed on the hitting spline
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;
 	player_flags pflags;
-	optim_des pred_params;
+	optim::optim_des pred_params;
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
 	optim::spline_params poly;
 	mat lookup_table;
-	Optim *opt; // optimizer
+	optim::Optim *opt; // optimizer
 
 	/**
 	 * @brief Filter the blob information with a Kalman Filter.
@@ -109,7 +110,7 @@ private:
 	 * Note: we're assuming that time elasped dt = DT = 0.002 seconds every time!
 	 *
 	 */
-	void estimate_ball_state(const vec3 & obs);
+	void estimate_ball_state(const arma::vec3 & obs);
 
 	/**
 	 * @brief Run optimizer for FOCUSED PLAYER
@@ -170,7 +171,7 @@ private:
 	void calc_next_state(const optim::joint & qact, optim::joint & qdes);
 
 	/** @brief Start moving pre-optim based on lookup if lookup flag is turned ON. */
-	void lookup_soln(const vec6 & ball_state, const int k, const optim::joint & qact);
+	void lookup_soln(const arma::vec6 & ball_state, const int k, const optim::joint & qact);
 
 public:
 
@@ -205,7 +206,7 @@ public:
 	 * @return Ball state as a 6-vector, if filter is not initialized,
 	 * returns the observation as positions and zeroes as velocities.
 	 */
-	vec6 filt_ball_state(const vec3 & obs);
+	arma::vec6 filt_ball_state(const arma::vec3 & obs);
 
 	/**
 	 * @brief If filter is initialized returns true
@@ -222,7 +223,7 @@ public:
 	void reset_filter(double std_model, double std_noise);
 
 	/** @brief Get players strategy (if exists) */
-	void get_strategy(vec2 & ball_des, double & des_land_time);
+	void get_strategy(arma::vec2 & ball_des, double & des_land_time);
 
 	/**
 	 * @brief Play Table Tennis.
@@ -235,7 +236,7 @@ public:
 	 * @param ball_obs Ball observations (positions as 3-vector).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void play(const optim::joint & qact, const vec3 & ball_obs, optim::joint & qdes);
+	void play(const optim::joint & qact, const arma::vec3 & ball_obs, optim::joint & qdes);
 
 	/**
 	 * @brief Cheat Table Tennis by getting the exact ball state in simulation.
@@ -248,60 +249,9 @@ public:
 	 * @param ballstate Ball state (positions AND velocities).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void cheat(const optim::joint & qact, const vec6 & ballstate, optim::joint & qdes);
+	void cheat(const optim::joint & qact, const arma::vec6 & ballstate, optim::joint & qdes);
 
 };
-
-/**
- * @brief Initialize an EKF
- *
- * Called generally when ball state needs to be reset
- * Useful for passing to Player constructor.
- * @param var_model Process noise multiplier for identity matrix.
- * @param var_noise Observation noise mult. for identity matrix.
- * @param spin Use spin model if true
- * @param out_reject_mult Mult. for outlier rejection.
- * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction
- * if spin is TRUE
- * @return EKF Extended Kalman Filter (state uninitialized!)
- */
-EKF init_filter(const double var_model = 0.001,
-                const double var_noise = 0.001,
-		        const bool spin = false,
-		        const double out_reject_mult = 2.0,
-		        const double *topspin = nullptr);
-
-/**
- * @brief Estimates initial ball state + ball topspin
- *
- * @param observations Ball positions
- * @param times Ball time stamps for each position observation
- * @param verbose Verbose output for estimation if true
- * @param NLOPT_FINISHED If detached, the thread will communicate that it has finished
- * @param filter Filter state will be initialized after estimation
- */
-void estimate_prior(const mat & observations,
-		            const mat & times,
-					const int & verbose,
-					bool & init_ball,
-					EKF & filter);
-
-/**
- * @brief Checks to see if the observation is new (updated)
- *
- * The blobs need to be at least tol apart from each other in distance
- *
- */
-bool check_new_obs(const vec3 & obs, double tol);
-
-/**
- * @brief Check to see if we want to reset the filter.
- *
- * Basically if a new ball appears 300 ms later than the last new ball
- * we reset the filter.
- *
- */
-bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 
 /**
  * @brief Generate BATCH 3rd order strike + return polynomials.
@@ -350,7 +300,7 @@ bool update_next_state(const optim::spline_params & poly,
 /**
  * @brief Generate matrix of joint angles, velocities and accelerations
  */
-void gen_3rd_poly(const rowvec & times,
+void gen_3rd_poly(const arma::rowvec & times,
                   const vec7 & a3,
                   const vec7 & a2,
                   const vec7 & a1,
@@ -379,7 +329,7 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
  *
  */
 bool predict_hitting_point(const double & vhpy, const bool & check_b,
-		                   vec6 & ball_pred, double & time_pred,
+		                   arma::vec6 & ball_pred, double & time_pred,
 		                   EKF & filter, game & game_state);
 
 /**
@@ -394,7 +344,7 @@ bool predict_hitting_point(const double & vhpy, const bool & check_b,
  * We can turn this check off in the configuration file
  *
  */
-bool check_legal_ball(const vec6 & ball_est,
+bool check_legal_ball(const arma::vec6 & ball_est,
                         const mat & balls_predicted,
                         game & game_state);
 
@@ -410,7 +360,7 @@ bool check_legal_ball(const vec6 & ball_est,
  * We can turn this off in configuration file
  *
  */
-void check_legal_bounce(const vec6 & ball_est, game & game_state);
+void check_legal_bounce(const arma::vec6 & ball_est, game & game_state);
 
 }
 

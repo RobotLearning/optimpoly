@@ -12,7 +12,10 @@
 
 #include <string>
 
-using namespace arma;
+using arma::mat;
+using arma::vec;
+
+namespace player {
 
 /**
  * @brief Discrete Kalman filter class with some additional checks.
@@ -316,6 +319,45 @@ public:
 	 */
 	bool check_outlier(const vec & obs, const bool verbose = false) const;
 };
+
+/**
+ * @brief Initialize an EKF
+ *
+ * Called generally when ball state needs to be reset
+ * Useful for passing to Player constructor.
+ * @param var_model Process noise multiplier for identity matrix.
+ * @param var_noise Observation noise mult. for identity matrix.
+ * @param spin Use spin model if true
+ * @param out_reject_mult Mult. for outlier rejection.
+ * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction
+ * if spin is TRUE
+ * @return EKF Extended Kalman Filter (state uninitialized!)
+ */
+EKF init_filter(const double var_model = 0.001,
+                const double var_noise = 0.001,
+                const bool spin = false,
+                const double out_reject_mult = 2.0,
+                const double *topspin = nullptr);
+
+/**
+ * @brief Checks to see if the observation is new (updated)
+ *
+ * The blobs need to be at least tol apart from each other in distance
+ *
+ */
+bool check_new_obs(const arma::vec3 & obs, double tol);
+
+/**
+ * @brief Check to see if we want to reset the filter.
+ *
+ * Basically if a new ball appears 300 ms later than the last new ball
+ * we reset the filter.
+ *
+ */
+bool check_reset_filter(const bool newball, const int verbose, const double threshold);
+
+
+}
 
 
 #endif /* KALMAN_H_ */

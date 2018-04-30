@@ -13,8 +13,11 @@
 
 #include <armadillo>
 #include "kalman.h"
+#include "tabletennis.h"
 
 using namespace arma;
+
+namespace player {
 
 EKF::EKF(vec (*fp)(const vec &, const double, const void *p),
         mat & Cin,
@@ -59,7 +62,7 @@ void EKF::predict(const double dt, const bool lin_flag) {
 mat EKF::predict_path(const double dt, const int N) {
 
 	int dimx = x.n_elem;
-	mat X(dimx,N);
+	mat XX(dimx,N);
 
 	// save mean and covariance
 	vec x0 = x;
@@ -67,11 +70,11 @@ mat EKF::predict_path(const double dt, const int N) {
 
 	for (int i = 0; i < N; i++) {
 		predict(dt,false);
-		X.col(i) = x;
+		XX.col(i) = x;
 	}
 	// load mean and variance
 	this->set_prior(x0,P0);
-	return X;
+	return XX;
 }
 
 bool EKF::check_outlier(const vec & y, const bool verbose) const {
@@ -94,4 +97,61 @@ bool EKF::check_outlier(const vec & y, const bool verbose) const {
 		}
 	}
 	return outlier;
+}
+
+bool check_new_obs(const vec3 & obs, double tol) {
+
+    static vec3 last_obs = zeros<vec>(3);
+
+    if (norm(obs - last_obs) > tol) {
+        last_obs = obs;
+        return true;
+    }
+    return false;
+}
+
+bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
+
+    bool reset = false;
+    static int reset_cnt = 0;
+    static bool firsttime = true;
+    static wall_clock timer;
+
+    if (firsttime) {
+        firsttime = false;
+        timer.tic();
+    }
+
+    if (newball) {
+        if (timer.toc() > threshold) {
+            reset = true;
+            if (verbose > 0) {
+                std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
+            }
+        }
+        timer.tic();
+    }
+    return reset;
+}
+
+EKF init_filter(const double var_model,
+                const double var_noise,
+                const bool spin,
+                const double out_reject_mult,
+                const double *topspin) {
+
+    mat C = eye<mat>(3,6);
+    mat66 Q = var_model * eye<mat>(6,6);
+    mat33 R = var_noise * eye<mat>(3,3);
+    if (spin) {
+        EKF filter = EKF(calc_spin_ball,C,Q,R,out_reject_mult);
+        filter.set_fun_params((void*)topspin);
+        return filter;
+    }
+    else {
+        EKF filter = EKF(calc_next_ball,C,Q,R,out_reject_mult);
+        return filter;
+    }
+}
+
 }

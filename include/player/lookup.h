@@ -14,7 +14,10 @@
 
 static const std::string LOOKUP_TABLE_NAME = "lookup_March_2016";
 
-using namespace arma;
+using arma::mat;
+using arma::vec;
+
+namespace player {
 
 /**
  * @brief Load the lookup table of coparameters and main parameters of interest.
@@ -56,5 +59,7 @@ void knn(const mat & lookupt,
          const vec & ballstate,
          const int k,
          vec & params);
+
+}
 
 #endif /* PLAYER_INCLUDE_LOOKUP_H_ */

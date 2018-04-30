@@ -21,6 +21,8 @@
 
 using namespace arma;
 
+namespace player {
+
 KF::KF(mat & Cin, mat & Qin, mat & Rin) {
 
 	// checking for correct noise covariances
@@ -264,4 +266,6 @@ mat KF::sample_observations(int N) const {
 	}
 
 	return Y;
+}
+
 }

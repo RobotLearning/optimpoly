@@ -19,6 +19,7 @@
 #include <nlopt.h>
 #include "string.h" //for bzero
 #include "constants.h"
+#include "kalman.h" // for estimate_prior
 
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;
@@ -26,7 +27,10 @@ const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajec
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
 
-using namespace arma;
+using arma::mat;
+using arma::vec;
+using arma::zeros;
+using arma::vec7;
 
 namespace optim {
 
@@ -573,7 +577,7 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
  *
  */
 optim_des calc_racket_strategy(const mat & balls_predicted,
-                               const vec2 & ball_land_des,
+                               const arma::vec2 & ball_land_des,
                                const double time_land_des,
                                optim_des & racket_params);
 
@@ -589,9 +593,24 @@ optim_des calc_racket_strategy(const mat & balls_predicted,
  */
 optim_des calc_spin_racket_strategy(const mat & balls_predicted,
                                     const double & topspin,
-                                    const vec3 & ball_land_des,
+                                    const arma::vec3 & ball_land_des,
                                     const double time_land_des,
                                     optim_des & racket_params);
+
+/**
+ * @brief Estimates initial ball state + ball topspin
+ *
+ * @param observations Ball positions
+ * @param times Ball time stamps for each position observation
+ * @param verbose Verbose output for estimation if true
+ * @param NLOPT_FINISHED If detached, the thread will communicate that it has finished
+ * @param filter Filter state will be initialized after estimation
+ */
+void estimate_prior(const mat & observations,
+                    const mat & times,
+                    const int & verbose,
+                    bool & init_ball,
+                    player::EKF & filter);
 }
 
 #endif /* OPTIMPOLY_H_ */

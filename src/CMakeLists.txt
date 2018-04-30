@@ -8,7 +8,6 @@ set(SOURCES
     player/kinematics.cpp
     player/lookup.cpp
     player/player.cpp
-    player/sl_interface.cpp
     player/table_tennis.cpp
     player/traj.cpp
     optim/defensive_optim.cpp
@@ -20,6 +19,7 @@ set(SOURCES
     optim/rest_optim.cpp
     optim/utils.cpp   
     optim/vhp_optim.cpp
+    sl_interface.cpp
 )
 add_library (${PROJECT_NAME} SHARED ${SOURCES})
 

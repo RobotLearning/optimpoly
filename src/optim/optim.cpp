@@ -100,17 +100,17 @@ void Optim::set_des_params(optim_des *params_) {
 
 void Optim::init_lookup_soln(double *x) {
 
-    vec::fixed<15> robot_params;;
+    vec::fixed<15> robot_params;
     vec6 ball_params;
     for (int i = 0; i < NCART; i++) {
         ball_params(i) = param_des->ball_pos(i,0);
         ball_params(i+NCART) = param_des->ball_vel(i,0);
     }
     //cout << "Init ball est:" << ball_params << endl;
-    predict_till_net(ball_params);
+    player::predict_till_net(ball_params);
     //cout << "Net ball est:" << ball_params << endl;
     // k = 5 nearest neighbour regression
-    knn(lookup_table,ball_params,5,robot_params);
+    player::knn(lookup_table,ball_params,5,robot_params);
     for (int i = 0; i < OPTIM_DIM; i++) {
         x[i] = robot_params(i);
         //  printf("x[%d] = %f\n", i, x[i]);
@@ -140,7 +140,7 @@ void Optim::optim() {
     else {
         if (lookup) {
             if (verbose) {
-                cout << "Looking up good initial parameters with k = 5\n"; // kNN parameter k = 5
+                std::cout << "Looking up good initial parameters with k = 5\n"; // kNN parameter k = 5
             }
             init_lookup_soln(x);
         }

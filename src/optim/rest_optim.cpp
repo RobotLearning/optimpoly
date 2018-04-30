@@ -122,7 +122,7 @@ static double cost_fnc(unsigned n,
 	rest_optim_data *rest_data = (rest_optim_data*)data;
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	vec q_rest(x,NDOF);
-	get_jacobian(q_rest,jac);
+	player::get_jacobian(q_rest,jac);
 
 	if (grad) {
 		static double h = 1e-6;
@@ -156,7 +156,7 @@ static void intersect_ball_path(unsigned m,
 	vec q_rest(x,NDOF);
 	double T = x[NDOF];
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
-	vec3 robot_pos = get_jacobian(q_rest,jac);
+	vec3 robot_pos = player::get_jacobian(q_rest,jac);
 	interp_ball(rest_data->ball_pred,T,ball_pos);
 
 	for (int i = 0; i < NCART; i++) {

@@ -27,6 +27,7 @@
 
 using namespace arma;
 using namespace player;
+using namespace optim;
 using namespace boost::unit_test;
 static void init_posture(vec7 & q0, int posture, bool verbose);
 

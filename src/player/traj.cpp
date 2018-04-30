@@ -12,6 +12,7 @@
 #include "constants.h"
 #include "kinematics.h"
 #include "player.hpp"
+
 using namespace arma;
 
 namespace player {
@@ -19,7 +20,7 @@ namespace player {
 void generate_strike(const vec7 & qf,
                      const vec7 & qfdot,
                      const double T,
-		             const joint & qact,
+		             const optim::joint & qact,
 		             const vec7 & q_rest_des,
 					 const double time2return,
 		             mat & Q,
@@ -50,11 +51,11 @@ void generate_strike(const vec7 & qf,
 	Qdd = join_horiz(Qdd_hit,Qdd_ret);
 }
 
-bool update_next_state(const spline_params & poly,
+bool update_next_state(const optim::spline_params & poly,
                        const vec7 & q_rest_des,
 				       const double time2return,
 				       double & t,
-				       joint & qdes) {
+				       optim::joint & qdes) {
 	mat a,b;
 	double tbar;
 	bool flag = true;

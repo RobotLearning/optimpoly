@@ -274,8 +274,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 	static vec7 q0;
 	static vec3 ball_obs;
-	static joint qact;
-	static joint qdes;
+	static optim::joint qact;
+	static optim::joint qdes;
 	static Player *robot = nullptr; // centered player
 	static std::ofstream stream_balls;
 	static std::string home = std::getenv("HOME");
@@ -349,8 +349,8 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 
 	static vec7 q0;
 	static vec6 ball_state;
-	static joint qact;
-	static joint qdes;
+	static optim::joint qact;
+	static optim::joint qdes;
 	static Player *cp; // centered player
 	static EKF filter = init_filter();
 

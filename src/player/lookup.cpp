@@ -14,6 +14,8 @@
 using namespace arma;
 using namespace std;
 
+namespace player {
+
 void load_lookup_table(mat & lookup) {
 
 	string env = getenv("HOME");
@@ -63,4 +65,5 @@ void knn(const mat & lookupt,
 	val = fullvec(span(coparam_length,lookupt.n_cols-1))/k;
 }
 
+}
 

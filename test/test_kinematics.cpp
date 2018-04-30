@@ -15,11 +15,13 @@
 #include "kinematics.h"
 #include "kinematics.hpp"
 #include "player.hpp"
+
 using namespace arma;
+using namespace optim;
 
 #define OPTIM_DIM 2*NDOF + 1
-static double print_mat(const double mat[NCART][NDOF]);
-static double cross_prods(const double mat[NCART][NDOF],
+static void print_mat(const double mat[NCART][NDOF]);
+static void cross_prods(const double mat[NCART][NDOF],
                           const double v[NCART],
                           double out[NCART][NDOF]);
 static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
@@ -152,7 +154,7 @@ void test_kinematics_calculations() {
 	vec7 q0_cpp = ones<vec>(NDOF);
 	joint q_cpp;
 	q_cpp.q = q0_cpp;
-	racket robot_racket;
+	player::racket robot_racket;
 
 	// C version
 	calc_racket_state(q,qdot,pos,vel,normal);
@@ -235,7 +237,7 @@ static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
 /*
  * Find the cross products between columns of mat matrix and the given vector
  */
-static double cross_prods(const double mat[NCART][NDOF],
+static void cross_prods(const double mat[NCART][NDOF],
                           const double v[NCART],
                           double out[NCART][NDOF]) {
 
@@ -248,7 +250,7 @@ static double cross_prods(const double mat[NCART][NDOF],
 }
 
 
-static double print_mat(const double mat[NCART][NDOF]) {
+static void print_mat(const double mat[NCART][NDOF]) {
 
     for (int i = 0; i < NCART; i++) {
         for (int j = 0; j < NDOF; j++) {
