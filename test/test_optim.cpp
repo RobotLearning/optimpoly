@@ -197,8 +197,8 @@ void test_time_efficiency() {
 	spline_params poly;
 	TableTennis tt = TableTennis(true,false);
 	arma_rng::set_seed_random();
-	double std_noise = 0.0001;
-	double std_model = 0.3;
+	//double std_noise = 0.0001;
+	//double std_model = 0.3;
 	int ball_launch_side;
 	int joint_init_pose;
 	optim_des racket_params;

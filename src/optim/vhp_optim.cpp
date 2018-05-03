@@ -32,10 +32,10 @@ static double penalize_dist_to_limits(unsigned n,
 /*
  * Constant function for simple inverse kinematics
  */
-static double const_costfunc(unsigned n,
-                                const double *x,
-                                double *grad,
-                                void *my_func_params);
+//static double const_costfunc(unsigned n,
+//                                const double *x,
+//                                double *grad,
+//                               void *my_func_params);
 
 /*
  * This is the constraint that makes sure we hit the ball
@@ -166,13 +166,13 @@ static double penalize_dist_to_limits(unsigned n,
 	return cost;
 }
 
-static double const_costfunc(unsigned n,
-                             const double *x,
-                             double *grad,
-                             void *my_func_params) {
-
-	return 1.0;
-}
+//static double const_costfunc(unsigned n,
+//                             const double *x,
+//                             double *grad,
+//                             void *my_func_params) {
+//
+//	return 1.0;
+//}
 
 static void kinematics_eq_constr(unsigned m,
                                  double *result,

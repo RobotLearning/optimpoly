@@ -250,7 +250,7 @@ double DefensiveOptim::calc_punishment() {
 				sqr(x_land[X] - penalty_loc[2]*w.R_land + sqr(x_land[Y] - penalty_loc[3])*w.R_land);
 	}
 	Jhit = w.R_hit * sqr(dist_b2r_proj); // punish for hitting properly
-	return Jhit + land;
+	return Jhit + Jland;
 }
 
 void DefensiveOptim::calc_hit_distance(const double ball_pos[],

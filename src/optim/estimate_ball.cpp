@@ -181,9 +181,9 @@ static double calc_residual(unsigned n,
 
     using namespace player;
     using namespace optim;
-    static const double lambda_spin = 1e-5;
-    static const double lambda_zvel = 5e-2;
-    static const double lambda_yvel = 5e-2;
+    /*const double lambda_spin = 1e-5;
+    const double lambda_zvel = 5e-2;
+    const double lambda_yvel = 5e-2;*/
     static TableTennis tt = TableTennis(true,false);
     tt.set_topspin(100*x[6]);
     init_ball_data *data = (init_ball_data*) void_data;

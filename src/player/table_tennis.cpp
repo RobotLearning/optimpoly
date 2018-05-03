@@ -23,7 +23,7 @@
 using namespace arma;
 
 /* Forms the rotation matrix that corresponds to the quaternion */
-static mat33 quat2mat(const vec4 & q);
+//static mat33 quat2mat(const vec4 & q);
 
 /*
  * Update the incoming ball velocity with outgoing ball velocity using MIRROR LAW
@@ -580,7 +580,7 @@ void predict_till_net(vec6 & ball_est) {
 
 }
 
-static mat33 quat2mat(const vec4 & q) {
+/*static mat33 quat2mat(const vec4 & q) {
 
     mat33 R;
     R(X,X) = 2*q(X)*q(X) - 1 + 2*q(Y)*q(Y);
@@ -593,7 +593,7 @@ static mat33 quat2mat(const vec4 & q) {
     R(Z,Y) = 2*q(Z)*q(W) + 2*q(X)*q(Y);
     R(Z,Z) = 2*q(X)*q(X) - 1 + 2*q(W)*q(W);
     return R;
-}
+}*/
 
 static void racket_contact_model(const vec3 & racket_vel,
                                  const vec3 & racket_normal,

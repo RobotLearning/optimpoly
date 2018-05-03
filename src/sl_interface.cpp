@@ -89,8 +89,7 @@ static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs);
  * @return valid If ball is valid (status is TRUE and not an obvious outlier)
  * return true.
  */
-static bool check_blob_validity(const blob_state blobs[NBLOBS],
-                                bool verbose);
+static bool check_blob_validity(const blob_state & blob, bool verbose);
 
 /*
  *
@@ -200,74 +199,6 @@ void load_options() {
     flags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
-static bool check_blob_validity(const blob_state & blob, bool verbose) {
-
-	bool valid = true;
-	static double last_blob[NCART];
-	static double zMax = 0.5;
-	static double zMin = floor_level - table_height;
-	static double xMax = table_width/2.0;
-	static double yMax = 0.5;
-	static double yMin = dist_to_table - table_length - 1.0;
-	static double yCenter = dist_to_table - table_length/2.0;
-
-	// if both blobs are valid
-	// then check for both
-	// else check only one
-
-	if (blob.status == false) {
-		valid = false;
-	}
-	else if (blob.pos[Z] > zMax) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
-		valid = false;
-	}
-	// on the table blob should not appear under the table
-	else if (fabs(blob.pos[X]) < xMax && fabs(blob.pos[Y] - yCenter) < table_length/2.0
-			&& blob.pos[Z] < zMin) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball appears under the table!\n");
-		valid = false;
-	}
-	else if (last_blob[Y] < yCenter && blob.pos[Y] > dist_to_table) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
-		valid = false;
-	}
-	else if (blob.pos[Y] < yMin || blob.pos[Y] > yMax) {
-		if (verbose)
-			printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
-		valid = false;
-	}
-
-	last_blob[X] = blob.pos[X];
-	last_blob[Y] = blob.pos[Y];
-	last_blob[Z] = blob.pos[Z];
-	return valid;
-}
-
-static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
-
-	bool status = false;
-
-	// if ball is detected reliably
-	// Here we hope to avoid outliers and prefer the blob3 over blob1
-	if (check_blob_validity(blobs[0],flags.verbosity > 2) ||
-			check_blob_validity(blobs[1],flags.verbosity > 2)) {
-		status = true;
-		if (blobs[1].status) { //cameras 3 and 4
-			for (int i = X; i <= Z; i++)
-				obs(i) = blobs[1].pos[i];
-		}
-		else { // cameras 1 and 2
-			for (int i = X; i <= Z; i++)
-				obs(i) = blobs[0].pos[i];
-		}
-	}
-	return status;
-}
-
 void play(const SL_Jstate joint_state[NDOF+1],
 		  const blob_state blobs[NBLOBS],
 		  SL_DJstate joint_des_state[NDOF+1]) {
@@ -316,7 +247,47 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		joint_des_state[i+1].thd = qdes.qd(i);
 		joint_des_state[i+1].thdd = qdes.qdd(i);
 	}
+}
 
+void cheat(const SL_Jstate joint_state[NDOF+1],
+          const SL_Cstate sim_ball_state,
+          SL_DJstate joint_des_state[NDOF+1]) {
+
+    static vec7 q0;
+    static vec6 ball_state;
+    static optim::joint qact;
+    static optim::joint qdes;
+    static Player *cp; // centered player
+    static EKF filter = init_filter();
+
+    if (flags.reset) {
+        for (int i = 0; i < NDOF; i++) {
+            qdes.q(i) = q0(i) = joint_state[i+1].th;
+            qdes.qd(i) = 0.0;
+            qdes.qdd(i) = 0.0;
+        }
+        cp = new Player(q0,filter,flags);
+        flags.reset = false;
+    }
+    else {
+        for (int i = 0; i < NDOF; i++) {
+            qact.q(i) = joint_state[i+1].th;
+            qact.qd(i) = joint_state[i+1].thd;
+            qact.qdd(i) = joint_state[i+1].thdd;
+        }
+        for (int i = 0; i < NCART; i++) {
+            ball_state(i) = sim_ball_state.x[i+1];
+            ball_state(i+NCART) = sim_ball_state.xd[i+1];
+        }
+        cp->cheat(qact,ball_state,qdes);
+    }
+
+    // update desired joint state
+    for (int i = 0; i < NDOF; i++) {
+        joint_des_state[i+1].th = qdes.q(i);
+        joint_des_state[i+1].thd = qdes.qd(i);
+        joint_des_state[i+1].thdd = qdes.qdd(i);
+    }
 }
 
 static void save_ball_data(const blob_state blobs[NBLOBS],
@@ -343,43 +314,70 @@ static void save_ball_data(const blob_state blobs[NBLOBS],
 	}
 }
 
-void cheat(const SL_Jstate joint_state[NDOF+1],
-		  const SL_Cstate sim_ball_state,
-		  SL_DJstate joint_des_state[NDOF+1]) {
+static bool check_blob_validity(const blob_state & blob, bool verbose) {
 
-	static vec7 q0;
-	static vec6 ball_state;
-	static optim::joint qact;
-	static optim::joint qdes;
-	static Player *cp; // centered player
-	static EKF filter = init_filter();
+    bool valid = true;
+    static double last_blob[NCART];
+    static double zMax = 0.5;
+    static double zMin = floor_level - table_height;
+    static double xMax = table_width/2.0;
+    static double yMax = 0.5;
+    static double yMin = dist_to_table - table_length - 1.0;
+    static double yCenter = dist_to_table - table_length/2.0;
 
-	if (flags.reset) {
-		for (int i = 0; i < NDOF; i++) {
-			qdes.q(i) = q0(i) = joint_state[i+1].th;
-			qdes.qd(i) = 0.0;
-			qdes.qdd(i) = 0.0;
-		}
-		cp = new Player(q0,filter,flags);
-		flags.reset = false;
-	}
-	else {
-		for (int i = 0; i < NDOF; i++) {
-			qact.q(i) = joint_state[i+1].th;
-			qact.qd(i) = joint_state[i+1].thd;
-			qact.qdd(i) = joint_state[i+1].thdd;
-		}
-		for (int i = 0; i < NCART; i++) {
-			ball_state(i) = sim_ball_state.x[i+1];
-			ball_state(i+NCART) = sim_ball_state.xd[i+1];
-		}
-		cp->cheat(qact,ball_state,qdes);
-	}
+    // if both blobs are valid
+    // then check for both
+    // else check only one
 
-	// update desired joint state
-	for (int i = 0; i < NDOF; i++) {
-		joint_des_state[i+1].th = qdes.q(i);
-		joint_des_state[i+1].thd = qdes.qd(i);
-		joint_des_state[i+1].thdd = qdes.qdd(i);
-	}
+    if (blob.status == false) {
+        valid = false;
+    }
+    else if (blob.pos[Z] > zMax) {
+        if (verbose)
+            printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
+        valid = false;
+    }
+    // on the table blob should not appear under the table
+    else if (fabs(blob.pos[X]) < xMax && fabs(blob.pos[Y] - yCenter) < table_length/2.0
+            && blob.pos[Z] < zMin) {
+        if (verbose)
+            printf("BLOB NOT VALID! Ball appears under the table!\n");
+        valid = false;
+    }
+    else if (last_blob[Y] < yCenter && blob.pos[Y] > dist_to_table) {
+        if (verbose)
+            printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
+        valid = false;
+    }
+    else if (blob.pos[Y] < yMin || blob.pos[Y] > yMax) {
+        if (verbose)
+            printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
+        valid = false;
+    }
+
+    last_blob[X] = blob.pos[X];
+    last_blob[Y] = blob.pos[Y];
+    last_blob[Z] = blob.pos[Z];
+    return valid;
+}
+
+static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
+
+    bool status = false;
+
+    // if ball is detected reliably
+    // Here we hope to avoid outliers and prefer the blob3 over blob1
+    if (check_blob_validity(blobs[0],flags.verbosity > 2) ||
+            check_blob_validity(blobs[1],flags.verbosity > 2)) {
+        status = true;
+        if (blobs[1].status) { //cameras 3 and 4
+            for (int i = X; i <= Z; i++)
+                obs(i) = blobs[1].pos[i];
+        }
+        else { // cameras 1 and 2
+            for (int i = X; i <= Z; i++)
+                obs(i) = blobs[0].pos[i];
+        }
+    }
+    return status;
 }

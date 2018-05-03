@@ -10,6 +10,11 @@ project(${PROJECT_NAME})
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
 #find_package(Armadillo REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+set (BOOST_ROOT $ENV{HOME}/install)
+set (ARMADILLO_LIBRARY $ENV{HOME}/install/lib)
+set (ARMADILLO_INCLUDE_DIR $ENV{HOME}/install/include)
+set (NLOPT_LIBRARIES $ENV{HOME}/install/lib)
+set (NLOPT_INCLUDE_DIRS $ENV{HOME}/install/include)
 find_package (Boost COMPONENTS program_options unit_test_framework REQUIRED) 
 # second one is only for testing so in the future test cmake could enforce only
 find_package (Armadillo REQUIRED)

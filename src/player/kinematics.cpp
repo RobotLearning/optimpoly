@@ -39,7 +39,8 @@ static void mult_two_quats(const vec4 & q1,
                             const vec4 & q2,
                             vec4 & q3);
 /* Form the quaternion out of the rotation matrix */
-static void rotate_to_quat(const mat33 & R, vec4 & quat);
+//static void rotate_to_quat(const mat33 & R, vec4 & quat);
+
 /*
  * Copied from SL_common.
  *
@@ -143,7 +144,7 @@ static void mult_two_quats(const vec4 & q1, const vec4 & q2, vec4 & q3) {
     q3(3) = q1(0)*q2(3) + q1(1)*q2(2) - q1(2)*q2(1) + q1(3)*q2(0);
 }
 
-static void rotate_to_quat(const mat33 & R, vec4 & quat) {
+/*static void rotate_to_quat(const mat33 & R, vec4 & quat) {
 
     double T,S;
     T = 1.0 + R(0,0) + R(1,1) + R(2,2);
@@ -178,7 +179,7 @@ static void rotate_to_quat(const mat33 & R, vec4 & quat) {
             quat(3) = (R(0,1) - R(1,0)) / S;
         }
     }
-}
+}*/
 
 static void jacobian(const mat & lp,
                     const mat & jop,
