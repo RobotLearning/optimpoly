@@ -33,7 +33,7 @@ target_include_directories (${TEST_EXEC} PRIVATE
 
 add_library(boost_unit_test_framework STATIC IMPORTED)
 set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/local/lib/libboost_unit_test_framework.a)
-set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/lib/libboost_unit_test_framework.a)
+set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
 target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
 
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
