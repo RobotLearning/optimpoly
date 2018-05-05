@@ -15,7 +15,7 @@ set (ARMADILLO_LIBRARY $ENV{HOME}/install/lib)
 set (ARMADILLO_INCLUDE_DIR $ENV{HOME}/install/include)
 set (NLOPT_LIBRARIES $ENV{HOME}/install/lib)
 set (NLOPT_INCLUDE_DIRS $ENV{HOME}/install/include)
-find_package (Boost COMPONENTS program_options unit_test_framework REQUIRED) 
+#find_package (Boost COMPONENTS program_options unit_test_framework REQUIRED) 
 # second one is only for testing so in the future test cmake could enforce only
 find_package (Armadillo REQUIRED PATHS /home/robolab/software)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
