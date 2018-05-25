@@ -302,3 +302,12 @@ This seems to be happening when MPC is turned on.
 *** DONE Check how long predict() takes in experiments
 **** DONE predict_ball() doesn't need to predict for 2.0 secs long always
 Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)     
+* Two robots playing Table Tennis                                  :@general:
+* Table Tennis Serve                                               :@conference:
+** TODO Test for idea in gravity compensation mode
+*** TODO Try to teach robot how to serve
+**** TODO Can we learn/extract movement primitives?
+**** TODO Can we cast it as an optimal control problem?
+***** TODO Can it be solved with polynomials?
+*** TODO Can we hold the ball on the racket with a wire?
+*** TODO Can we apply ILC to learn the motion?
