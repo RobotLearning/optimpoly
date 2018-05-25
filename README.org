@@ -8,7 +8,6 @@
 #+TAGS: { @journal(j) @conference(c) @idea(i) @general(g) }
 
 * Trajectory Generation in Table Tennis 			   :@journal:
-
 ** Writing/reading side: 
 *** DONE Merge the two paper contents
 *** DONE Update the Defensive Player version 
@@ -22,29 +21,29 @@ ball trajectory.
 
 **** DONE Include penalty on jacobian of resting joints
 **** DONE Include penalty based on incoming ball pattern?
-*** WAITING Update unit test Defensive Player results to MPC section
+*** DONE Update unit test Defensive Player results to MPC section
 Discrepancy between unit test results and SL simulation results
 for DEFENSIVE PLAYER (DP). In SL, DP can return most spinning balls
 (ball mismatch case) after a few failed attempts at the start, 
 whereas in unit tests DP is much less successful (compared to FP).
 What is the problem here?
 
-*** WAITING Plot tradeoff curve for ball-info vs. accelerations
-Jan suggested to show the trade-off curve for the initialization
-of trajectory generation optimization process:
-1. we estimate ball state better with more ball observations
-2. we can hit with less accelerations if we start earlier
 *** DONE Motivate the two players better
-*** DONE Add more related work
+Guilherme's comment was that the two players introduced in the 
+journal were not connected. I write in the journal that 'a higher
+strategy' could decide/switch between the two players as needed.
+*** DONE Add more related work on Table Tennis
+This was specifically asked by the first reviewer.
 *** DONE Include more discussions for real robot experiments
-**** DONE Include table with parameter estimates for real robot
-***** DONE Include spin model
+The discussions focused more on the distribution of the ball
+landing positions, DP distribution was shown to be wider 
+(as it should be).
+*** DONE Include table with parameter estimates for real robot
+**** DONE Include spin model
 I have decided to include the spin models since they make enough 
 difference in the real robot experiments
-***** DONE Table with parameter values
-****** WAITING Update rebound estimation figure 
-Need to update rebound estimation figure to include the nonlinear model parameters
-
+**** DONE Table with parameter values
+Included a table with rebound model and free flight model parameters
 ** Theory side: 
 *** DONE Go through Applied Optimal Control [Bryson&Ho]
 Of particular interest is the section on perturbative feedback
@@ -61,31 +60,54 @@ hitting the ball are enforced: the value function is not defined
 otherwise
 *** WAITING Incorporate table constraints in the optimization?
 Incorporating cartesian constraints in a viable way seem to be quite tricky.
+It seems to check for the extrema values we would have to check for
+the singularity of the Jacobian as well, i.e.,
+
+If the Kinematics function is K(), we need to enforce
+K(q(t)) < x_lim at all times t \in [0,T]!
+
+To do that we can check for the endpoints q0 and qf AND enforce
+the extrema values to be below x_lim. That is, solutions of 
+J(q)q_dot = 0 should be always feasible. Checking this requires knowing
+when q_dot = 0 as well as when J(q(t)) = 0. 
 
 *** WAITING How can we solve MP with state constraints explicitly?
 Including maximum joint limit constraint explicitly within MP should
-be possible.
-*** WAITING Check KKT conditions 
+be possible. For now we're only adding the extrema checking on top
+of the unconstrained MP based algorithm.
+
+More rigorously, the algorithm derived can be proved to converge
+to a local optima using the Maximum Principle that assumes
+unconstrained inputs and state space. What we need is a (constrained)
+MP that accounts for the convergence of the full algorithm (that
+includes the joint extrema checking). 
+
+**** WAITING Can the joint extrema checking be derived from constr. MP?
+*** IN-PROGRESS Check KKT conditions 
 For the Defensive Player the KKT conditions are satisfied by taking
-derivatives of the augmented cost function?
+derivatives of the augmented cost function. This should be checked
+more carefully.
 *** DONE Sufficiency of the optimization should be proved
 Using HJB equation should provide us with sufficiency but
 the Value Function is hard to find.
 The strong Legendre-Clebsch conditions for local optimality and
 the nonblowup of modified Ricatti matrix gives local sufficiency conditions.
 ** Coding/SL: 
-*** DONE Update documentation
-*** WAITING Check punished Lazy Player in MATLAB [without MPC]
+*** Coding in MATLAB
+**** IN-PROGRESS Check punished Defensive Player in MATLAB [without MPC]
 Coded the basic Lazy Player 
 **** WAITING Can we add MPC and a fast optimization loop with IPOPT?
 **** WAITING Can we show the benefits of correction in MATLAB?
-*** WAITING Simplify kinematics function in MATLAB
+**** IN-PROGRESS Simplify kinematics function in MATLAB
 Changed the math operations to matrix multiplications, doubled the speed
 for polynomial optimization in MATLAB
-**** IN-PROGRESS Kinematics function returns unnecessary matrices for calc_racket_state
-*** DONE Organize SL code, introduce Eigen/Armadillo
-*** DONE KF in SL is broken
-*** WAITING Fix Defensive Player 
+***** IN-PROGRESS Kinematics function returns unnecessary matrices for calc_racket_state
+*** Coding in C++
+**** DONE Update documentation
+Using doxygen to generate the documentation
+**** DONE Organize SL code, introduce Armadillo
+**** DONE KF in SL is broken
+**** IN-PROGRESS Robustify Defensive Player 
 1. Added finite differences + enabled GRAD based optimization routine in 
 nlopt. Using AUGLAG + VAR2 (Augmented Lagrangian with variable metric
 Quasi-Newton method)
@@ -95,11 +117,17 @@ from last year and KNN regression with k = 5
 4. The landing constraint is discontinous, now only updating landing 
 positions in the optimization if the landing time is positive
 5. Using resting state optimization to find suitable rest postures
-**** WAITING Is it possible to remove/robustify LOOKUP TABLE and still optimize well?
+DP has problems converging.
+***** WAITING Test over hundreds of tests
+We can use the unit test that was asked by reviewer 1.
+****** WAITING Add unit test with different initializations
+I want to test if the algorithm can converge from any arbitrary 
+initialization. This is false I think since there were so many
+issues in the online implementation.
+***** WAITING Is it possible to remove/robustify LOOKUP TABLE and still optimize well?
 ***** WAITING Otherwise we can train 3 different lookup tables that are globally opt.
 One each for RIGHT_SIDE, CENTER, LEFT_SIDE initial postures
-**** DONE Refactor/organize calc_times of Lazy Player
-**** WAITING New approaches/algorithms for solving/robustifying Lazy Optim
+***** DONE Refactor/organize calc_times of Defensive Player
 ***** DONE Read COBYLA
 ***** WAITING Calculating derivatives of calc_racket_state
 ****** WAITING Calculate analytical derivatives
@@ -120,10 +148,6 @@ in NLOPT, surprisingly (AUGLAG + VAR2 was the best performing)
 Computing also the derivatives either analytically or automatically is required
 hence halting this branch
 
-***** WAITING Add unit test with different initializations
-I want to test if the algorithm can converge from any arbitrary 
-initialization. This is false I think since there were so many
-issues in the online implementation.
 ***** WAITING Test adding Tland as another optimization variable
 Instead of using a discontinuous inversion to compute the landing time
 as a discontinuous function of hitting time T and checking the landing
@@ -131,74 +155,74 @@ constraints at this Tland, why not include Tland as another optimization
 variable?
 
 **** DONE Resolve hitting time T becoming NaN in inter_ball function
-*** WAITING Determine a normal from spin racket model
+**** WAITING Determine a normal from spin racket model
 We introduced a spin racket model for the paper but
 how to determine a (unique) ndes from the nonlinear spin racket model
 is not clear to me. 
-*** DONE Reorganize optimization algorithms
-**** DONE Add class structure to optimization algorithms
-**** DONE Read up on C++ inheritance
-**** DONE Try removing legal ball detection
+**** DONE Reorganize optimization algorithms
+***** DONE Add class structure to optimization algorithms
+***** DONE Read up on C++ inheritance
+***** DONE Try removing legal ball detection
 Added check_bounce option in the player configuration file,
 which if disabled turns off legal ball detection (which is problematic
 for REAL ROBOT experiments).
-**** DONE Reduce racket/ball prediction time to below 2ms
+***** DONE Reduce racket/ball prediction time to below 2ms
 Using -O3 optimization in player (release mode) reduced prediction time
 to 0.2-0.3 ms from around 1.5-2.5 ms!
-**** DONE Fix tabletennis class bug where after bouncing on robot side the ball is still counted as valid
-**** DONE Remove the mode_operate enum and introduce detach and outlier detection booleans
-**** DONE Organize the player and tabletennis class to avoid global variables
-*** DONE Check correction in SL with spin model (for three algs) 
-**** DONE Corrections in cheat mode are working
-**** DONE Corrections in filter mode should be working
-**** DONE Unit test to compare performance of three algs
+***** DONE Fix tabletennis class bug where after bouncing on robot side the ball is still counted as valid
+***** DONE Remove the mode_operate enum and introduce detach and outlier detection booleans
+***** DONE Organize the player and tabletennis class to avoid global variables
+**** DONE Check correction in SL with spin model (for three algs) 
+***** DONE Corrections in cheat mode are working
+***** DONE Corrections in filter mode should be working
+***** DONE Unit test to compare performance of three algs
 - Two robots playing against each other would also be a good simulation
 where FOCUSED player would play against LAZY player. However this
 is not strictly necessary for the paper.
-*** WAITING Add filtering also for the robot 
-*** DONE Limit allowed accelerations, or velocities 
+**** WAITING Add filtering also for the robot 
+**** DONE Limit allowed accelerations, or velocities 
 Crazy trajectories should never appear in simulation nor the real robot     
-*** DONE Change to cmake
-**** DONE Create simple hello world example with cmake
+**** DONE Change to cmake
+***** DONE Create simple hello world example with cmake
 cmake_minimum_required, project, add_executable 
 are the important commands here
 
-**** DONE Add include folder
+***** DONE Add include folder
 Adding an include folder requires setting target_include_directories
 when compiling a TARGET (in this case an executable).
 include_directories (e.g. after adding a package like boost libraries)
 adds to all the targets I think, hence should be used in the top level
 cmake file.
-**** DONE Add an external library
+***** DONE Add an external library
 Adding an external library requires target_link_libraries command.
 But the library should be in the systems usual library folders like
 /usr /usr/local etc.
 Otherwise the library has to be added with a find_package() command
 or find_path, find_library commands [in case find_package doesnt work]
-**** DONE Add compilation options
+***** DONE Add compilation options
 Cmake is very flexible, compilation options can be usually set in many
 different, sometimes equivalent ways. The best strategy could be to set
 initially CMAKE_CXX_FLAGS_RELEASE and CMAKE_CXX_FLAGS_DEBUG flags.
 Cmake should then be called with -DCMAKE_BUILD_TYPE=Release or Debug.
 
 I was initially using the command target_compile_options.
-**** DONE Include out-of-source build
+***** DONE Include out-of-source build
 Including out-ouf-source build is very easy and also recommended.
 To do so simply mkdir a build folder and call cmake from there:
 cmake ..
-**** DONE Compile as shared object
+***** DONE Compile as shared object
 The command to compiling as shared object is 
 add_library(${TARGET} SHARED ${SOURCES})
-**** DONE Call shared object from test
+***** DONE Call shared object from test
 Calling shared object from test requires again the 
 target_link_libraries command in the test/CMakeLists file.
 
 Don't forget to add the library in LD_LIBRARY_PATH after
 make install.
-**** DONE Add subfolder structure (include, src, test)
+***** DONE Add subfolder structure (include, src, test)
 Adding a subfolder structure requires putting the relevant
 CMakeLists files in the subfolders.
-**** DONE Have release and debug versions independently
+***** DONE Have release and debug versions independently
 By creating release/ and debug/ folders in build/ 
 and calling the relevant compilation flags from there 
 (e.g. CMAKE_CXX_FLAGS_RELEASE for release/ folder)
@@ -208,7 +232,7 @@ For exposing the library, the release shared object
 can be put to a lib/ subfolder in the top repository folder
 by calling make install
 
-**** DONE Require packages before compilation
+***** DONE Require packages before compilation
 Requiring packages before compilation is quite tricky,
 often find_package(LIBRARY REQUIRED) fails. This 
 command requires a FindLIBRARY.cmake file if the system
@@ -222,32 +246,28 @@ include_directories(${LIBRARY_INCLUDE_DIRS})
 If find_package doesn't work, find_path
 and find_library commands can be used.
 
-**** DONE Test with SL
+***** DONE Test with SL
 Testing with SL didn't cause many issues.
 ADOLC doesn't have a find_package command,
 so we need to explicitly add its includes in each
 cmake file I think.
 
-**** DONE Test compilation in another computer
+***** DONE Test compilation in another computer
 This worked well in my older laptop after
 a brief struggle.
 
-*** DONE Move comments to header
-*** DONE Add namespaces to avoid name-collisions
-*** DONE Rename repository to table-tennis
-*** DONE Introduce install script and organize folders
-*** TODO Add unit tests for two robots playing
+In the robot computers, boost was loading the previous
+versions which had a crazy incompatibility issue with
+one of the load() functions. The string passed to the function
+was NULL, and was causing crazy errors. This was resolved
+by again using find_path(), find_library() cmake functions
+and specifying the paths explicitly.
+
+**** DONE Move comments to header
+**** DONE Add namespaces to avoid name-collisions
+**** DONE Rename repository to table-tennis
+**** DONE Introduce install script and organize folders
 ** Experiments:   
-*** TODO Test on new platform
-**** TODO Test calibration with the two robots
-The plan is to extend Sebastian's calibration framework
-by using LED data from the two robots and make it robust
-to data from the different parts of the table.
-**** TODO Test getting ball info from vision computer
-***** TODO Adapt interface code for new vision blob
-**** TODO Test with two robots playing against each other
-We first need to estimate the calibration matrix + 
-homogenous transformation between the robots.
 *** DONE Solve the problem of robot halting
 Testing on the new computer + vision should settle the issue.
 Thread launching on Xenomai could also be an issue.
@@ -255,9 +275,9 @@ Thread launching on Xenomai could also be an issue.
 There was a memory leak due to nlopt_destroy not being called
 in multiple places.
 
-*** WAITING Can we learn/test the racket-ball contact model?
+*** WAITING Can we learn/test the more general racket-ball contact model?
 **** WAITING Show it outperforms the reflection law
-*** WAITING Analyze collected real ball/sim robot data 
+*** IN-PROGRESS Analyze collected real ball/sim robot data 
 **** WAITING Filter after resetting every 300 ms should work?
 It doesnt seem to work so well if the balls are coming fast
 Test maybe another method (like difference to last 
@@ -265,7 +285,7 @@ ball observation) in combination
 
 In the experiments I was turning off the ball gun to avoid this problem.
 
-**** WAITING Estimate initial ball spin
+**** IN-PROGRESS Estimate initial ball spin
 Estimating initial ball spin with 12 balls 
 Using NLOPT + NEWTON type method to optimize
 ***** DONE Add detach for real robot experiments
@@ -296,18 +316,100 @@ Ballgun should be oscillating and get a lot of balls for analysis
 *** WAITING Resolve issues with MPC
 **** WAITING MPC is making aggressive corrections. How can we prevent that?
 MPC is making too rapid corrections. Why?
-Could minimizing jerk resolve this issue?
+***** WAITING Could minimizing jerk resolve this issue?
 **** WAITING Prevent robot re-hitting balls that land on robot side
 This seems to be happening when MPC is turned on.
-*** DONE Check how long predict() takes in experiments
+*** IN-PROGRESS Check how long predict() takes in experiments
 **** DONE predict_ball() doesn't need to predict for 2.0 secs long always
 Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)     
-* Two robots playing Table Tennis                                  :@general:
-* Table Tennis Serve                                               :@conference:
+**** TODO Check predict_ball() time with spinning ball model
+* Two robots playing Table Tennis 				   :@conference:
+** IN-PROGRESS Test with simulated ball on both robots
+*** DONE Run code in PING
+*** TODO Run code in PONG
+*** TODO Check SL code, does it include joint_state?
+When I tested the code with simulated ball, the code
+was printing legal lands, does SL use joint_state
+or joint_des_state to predict the ball lands?
+** IN-PROGRESS Test the new vision interface
+*** DONE Compile vision code in laptop
+This was a lot of work and took me one full day!
+
+I needed to compile ball_tracking but it had too many dependencies.
+I downloaded Sebastian's repositories, and to compile them all I
+had to:
+
+- Use find_path() and find_library() commands in cmake rather
+than the find_package() commands which could not locate user
+specified include and library paths automatically.
+
+- Add the PvApi library. I found these (lib+includes) in google in a github repo.
+
+- Install new version of libprotobuf from source. This is quite tricky as there
+is an older protobuf library in Ubuntu folders and that should NOT
+be replaced. The new libraries should be added in cmake with commands
+mentioned above.
+
+- Getting json.hpp from nlohmann's github (single include) did not work
+as the version is too new. Some of the repositories are using json v1.0
+so this header should be copied uniformly throughout the repos.
+
+- NLOPT should be compiled as a shared object. The new version in the github
+repo includes a cmake file and compiles it as a shared object now.
+
+- Add iostream headers in some repos (camera?) as they were not included
+before.
+
+*** TODO Compile vision code in vision computer
+I'm using my own account to compile the vision.
+
+The difference is that GPU will be used to track
+the ball (using then CUDA libraries).
+*** TODO Test vision code with a flying ball
+**** TODO Test in laptop
+Fix python script, connecting to localhost.
+**** TODO Test in robot computer
+*** TODO Simplify vision code
+Reduce the dependencies foremost!
+*** TODO Adapt interface code for new vision blob
+*** TODO Test getting ball info in robots from vision computer
+** TODO Estimate calibration matrix 
+The plan is to extend Sebastian's calibration framework
+by using LED data from the two robots and make it robust
+to data from the different parts of the table.
+
+In the new approach we will test estimating the calibration 
+matrix together with the homogenous transformation.
+*** TODO Estimate the homogenous transf. between the robots.
+** TODO Add unit tests for two robots playing
+** TODO Test with two robots playing against each other
+We first need to estimate the calibration matrix + 
+homogenous transformation between the robots.
+* Table Tennis Serve                                               :@journal:
 ** TODO Test for idea in gravity compensation mode
-*** TODO Try to teach robot how to serve
+*** TODO Can we teach the robot how to serve
 **** TODO Can we learn/extract movement primitives?
-**** TODO Can we cast it as an optimal control problem?
-***** TODO Can it be solved with polynomials?
-*** TODO Can we hold the ball on the racket with a wire?
-*** TODO Can we apply ILC to learn the motion?
+** TODO Can we cast it as an optimal control problem?
+*** TODO Can it be solved with polynomials?
+** TODO Hold the ball on the racket with an egg-holder
+Heiko will 3d-print an egg holder for me to try
+* Cautious Trajectory Generation 				      :@idea:
+** WAITING Maximize probability of landing as a new cost function. 
+*** Which framework is suitable for solving it?
+Stochastic Minimum Principle should be used as the framework
+of choice.
+*** Is there an algorithm for it?
+Which stochastic MP generates the cautious trajectories
+that would satisfy me?
+
+** WAITING How can we introduce adaptation within this robust framework?
+*** WAITING Plot tradeoff curve for ball-info vs. accelerations
+Jan suggested at some point while going through the first journal
+draft to show the trade-off curve for the initialization
+of trajectory generation optimization process:
+1. we estimate ball state better with more ball observations
+2. we can hit with less accelerations if we start earlier
+
+The stochastic optimal control based trajectory generation
+approach should strike a balance between the two.
+*** Reduce variance of predictions as we update the models?
