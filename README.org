@@ -365,12 +365,87 @@ I'm using my own account to compile the vision.
 
 The difference is that GPU will be used to track
 the ball (using then CUDA libraries).
+
+After talking to Sebastian, it seems I need to run
+at least the 2d server in the vision computer (HELBE). So in any
+case I have to compile all the code in HELBE as well. I need to
+also update the json files with new versions that Sebastian uses.
+
+The libs to be compiled are: ball_tracking, camera, robcpp, rob_protos
+and robpy libraries. (this should be simplified later).
+
+robcpp includes three libraries: lib_robotics, table_tennis, slpp.
+They should also be compiled in that order.
+
+Compilation notes:
+1. libprotobuf library installation proved to be tough! This is 
+because the Ubuntu system protobuf libraries are older versions
+(protoc in particular was 2.6).
+
+I had to first install it with --disable-shared and then install
+protoc exe and the static protobuf libraries. I then had to 
+enable shared again and install the .so files. This however
+reverted somehow the protoc exe back to 2.6!!! I then installed
+again with --disable-shared to update protoc again back to 3.5.1!!
+
+2. I made sure all the PATH, LD_LIBRARY_PATH, LIBRARY_PATH, 
+LD_RUN_PATH, CPLUS_INCLUDE_PATH, C_INCLUDE_PATH are pointing
+to /is/ei/okoc/install/include, lib or bin folders! Some of them
+might be unnecessary!
+
+3. When compiling rob_protos FindProtobuf.cmake file was creating
+a big mess and initially loading the older protobuf library. 
+After completing items (1) and (2) and setting:
+
+set(Protobuf_DEBUG ON)
+set(PROTOBUF_PROTOC_EXECUTABLE /is/ei/okoc/install/bin/protoc)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include(FindProtobuf)
+
+(some of them are probably redundant) I speficied the newly
+installed Protobuf shared libraries explicitly with the
+find_library, find_path, include_directories commands.
+
+4. Compiling camera was also quite tough. There was a very
+obscure linkage error, which was apparently due to 
+boost_log_setup not being included.
+
+I ended up installing boost v1.67 log,program_options,system,
+filesystem in the computer. This was probably unnecessary.
+The previous versions were v1.58.
+
+5. To link lib_robotics with shared nlopt library found in 
+the system folders, I had to remove the explicit nlopt 
+find_path, find_library commands I was using before in
+my laptop. Instead I just added FindNLOPT.cmake in a
+cmake subfolder and then used find_package command.
+NLOPT should then be linked with NLOPT_LIBRARIES command.
+
+6. To link some example code of table_tennis folder
+I had to additionally compile BOOST_THREAD. I then had to
+additionally specify BOOST_LOG and BOOST_LOG_SETUP libraries
+for a particular example target.
+
+7. Compiling slpp was one of the hardest. There was a very
+obscure error with protobuf library header not being found,
+which was maybe because the slpp proto files were pre-generated
+before. Putting the generated files from the rob_protos repo
+solved that issue.
+
+As a minor issue, boost thread, system, log_setup libraries
+were not added and one of the examples was giving an error.
+Adding them in the top cmake file using find_package
+with components option resolved the issue.
+
 *** TODO Test vision code with a flying ball
 **** TODO Test in laptop
 Fix python script, connecting to localhost.
 **** TODO Test in robot computer
 *** TODO Simplify vision code
 Reduce the dependencies foremost!
+At least, robcpp and rob_protos folders should not be
+required.
 *** TODO Adapt interface code for new vision blob
 *** TODO Test getting ball info in robots from vision computer
 ** TODO Estimate calibration matrix 
