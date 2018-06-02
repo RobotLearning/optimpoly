@@ -30,5 +30,9 @@ test-bvp: # example for testing NLOPT + Boundary Value Problem (BVP)
 	$(CC) $(OPTFLAGS) ex_bvp.cpp -o solve_bvp -I$(HEADER1) -I$(HEADER2) \
 	                  -lm -larmadillo ../lib/libplayer.so -lnlopt
 					    
+test-zmq: # example for testing ZMQ interface to vision data
+	$(CC) $(OPTFLAGS) ex_zmq.cpp -o ex_zmq -I. -lzmq -lzmqpp
+
+					    
 clean:
 	rm -rf *.a *.o 
