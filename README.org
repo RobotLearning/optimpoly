@@ -360,7 +360,7 @@ repo includes a cmake file and compiles it as a shared object now.
 - Add iostream headers in some repos (camera?) as they were not included
 before.
 
-*** TODO Compile vision code in vision computer
+*** DONE Compile vision code in vision computer
 I'm using my own account to compile the vision.
 
 The difference is that GPU will be used to track
@@ -438,16 +438,65 @@ were not added and one of the examples was giving an error.
 Adding them in the top cmake file using find_package
 with components option resolved the issue.
 
+8. Finally compiling ball_tracking was I guess the hardest.
+Tracking the ball with GPU processing requires installing 
+the library with opencv and cuda libraries. The ubuntu
+opencv libraries that come with apt-get do not have cuda
+installed. Hence I had to compile & install opencv in the
+vision computer from source.
+
+I installed opencv 4.0 with Release mode, with the extra modules,
+and with fast-math enabled. 
+
+-D CMAKE_BUILD_TYPE=Release \
+-D CMAKE_INSTALL_PREFIX=/is/ei/okoc/install/ \
+-D WITH_CUDA=ON -D ENABLE_FAST_MATH=1 -D CUDA_FAST_MATH=1 \
+-D WITH_CUBLAS=1 \
+-D OPENCV_EXTRA_MODULES_PATH = ../../opencv_contrib/modules/ \
+-D BUILD_EXAMPLES=ON ..
+
+I ended up using ccmake to specify these along with several other options
+(lapacke directory, cuda specific architecture, see below)
+
+Many CUDA libraries were already installed in a system-wide common
+nvidia folder, and I chose cuda-9.1 as the cuda of choice.
+Checking with NVIDIA and using the "nvidia-smi" command in ubuntu
+revealed that the GPU is GeForce GTX 1080 which if you check online
+is Pascal 6.1. I then specified Pascal and 6.1 in separate options
+in ccmake.
+
+While compiling, I specified make with -j8 option to compile it
+using parallel processors, which makes a big difference when you
+compile big projects like opencv.
+
+Finally, after compiling opencv, ball_tracking and camera libraries
+had to be recompiled! They were previously compiled with Opencv 2
+and opencv 3 is not fully compatible. 
+For instance, Opencv 3 dropped all of the CV_ prefixes in
+some constants and added COLOR_ in several (BayerGB2RGB I think).
+
+9. GPU mode in ball_tracking was not working. There was a segmentation fault
+which after debugging with valgrind revealed that cuda 9.1 was not compatible
+with NVIDIA driver. Updating the driver to 396 (which is compatible with the
+current GEFORCE GTX 1080 graphics card, I checked in nvidia webpage) and 
+rebooting solved the issue.
+
+*** DONE Test vision code with a fixed ball
+**** DONE Test with CPU in vision computer
+Testing with CPU slows down the computer like
+crazy. 
+**** DONE Test with GPU in vision computer
+Problem fixed after updating nvidia driver
+**** DONE Test in desktop computer (SILL)
+Connecting to helbe.
+**** DONE Test in robot computer
 *** TODO Test vision code with a flying ball
-**** TODO Test in laptop
-Fix python script, connecting to localhost.
-**** TODO Test in robot computer
 *** TODO Simplify vision code
 Reduce the dependencies foremost!
 At least, robcpp and rob_protos folders should not be
 required.
 *** TODO Adapt interface code for new vision blob
-*** TODO Test getting ball info in robots from vision computer
+**** TODO Test getting ball info in robots from vision computer
 ** TODO Estimate calibration matrix 
 The plan is to extend Sebastian's calibration framework
 by using LED data from the two robots and make it robust
