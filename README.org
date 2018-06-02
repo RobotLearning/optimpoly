@@ -490,7 +490,14 @@ Problem fixed after updating nvidia driver
 **** DONE Test in desktop computer (SILL)
 Connecting to helbe.
 **** DONE Test in robot computer
-*** TODO Test vision code with a flying ball
+*** DONE Test vision code with a flying ball
+Testing on the PING side with both PING can PONG calibrations reveals that
+the ball is detected very well even with oscillating ballgun if the ballgun
+is at the centre. Putting the ballgun to the right side however, we start
+seeing some detection failures. 
+
+I saved the python plot results due to different configurations (ballgun
+center/right, calibration values PING/PONG) in robot computer in okan_vision.
 *** TODO Simplify vision code
 Reduce the dependencies foremost!
 At least, robcpp and rob_protos folders should not be
