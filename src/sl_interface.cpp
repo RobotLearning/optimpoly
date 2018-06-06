@@ -367,6 +367,27 @@ int Listener::give_info() {
     return obs.size();
 }
 
+void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
+
+    static rowvec q = zeros<rowvec>(NDOF);
+    static bool firsttime = true;
+    static std::ofstream stream_joints;
+    static std::string home = std::getenv("HOME");
+    static std::string joint_file = home + "/table-tennis/joints.txt";
+    if (firsttime) {
+        stream_joints.open(joint_file,std::ofstream::out | std::ofstream::app);
+        firsttime = false;
+    }
+
+    for (int i = 1; i <= NDOF; i++)
+        q(i-1) = joint_state[i].th;
+
+        if (stream_joints.is_open()) {
+            stream_joints << q;
+        }
+        //stream_balls.close();
+}
+
 static void save_ball_data(const blob_state blobs[NBLOBS],
                             const Player *robot,
                             const KF & filter,

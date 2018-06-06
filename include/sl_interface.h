@@ -123,6 +123,11 @@ extern void cheat(const SL_Jstate joint_state[],
  */
 extern void load_options();
 
+/**
+ * @brief Save joint data to a file
+ */
+extern void save_joint_data(const SL_Jstate joint_state[]);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
