@@ -11,9 +11,10 @@ message( STATUS "Adding ${TASKNAME} task for ${NAME}" )
 
 
 include_directories(
-	#${CMAKE_SOURCE_DIR}/IAS/include
-	~/table-tennis/include/player
-	~/table-tennis/include/optim
+  #${CMAKE_SOURCE_DIR}/IAS/include
+  ~/table-tennis/include
+  ~/table-tennis/include/player
+  ~/table-tennis/include/optim
 )
 
 # for executables

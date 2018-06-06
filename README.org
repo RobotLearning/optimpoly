@@ -326,11 +326,9 @@ Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)
 * Two robots playing Table Tennis 				   :@conference:
 ** IN-PROGRESS Test with simulated ball on both robots
 *** DONE Run code in PING
-*** TODO Run code in PONG
-*** TODO Check SL code, does it include joint_state?
 When I tested the code with simulated ball, the code
-was printing legal lands, does SL use joint_state
-or joint_des_state to predict the ball lands?
+was printing legal lands.
+*** TODO Run code in PONG
 ** IN-PROGRESS Test the new vision interface
 *** DONE Compile vision code in laptop
 This was a lot of work and took me one full day!
@@ -502,8 +500,23 @@ center/right, calibration values PING/PONG) in robot computer in okan_vision.
 Reduce the dependencies foremost!
 At least, robcpp and rob_protos folders should not be
 required.
-*** IN-PROGRESS Adapt interface code for new vision blob
-**** TODO Test getting ball info in robots from vision computer
+*** IN-PROGRESS Adapt interface code for new vision
+**** DONE Write the new SL interface
+I'm using ZMQ interface with the SUBSCRIBE pattern to communicate
+to the vision server. A listener receives the json structure sent
+from 3d vision server in a detached thread and a fetch() function 
+retrieves the latest ball data to the play() function.
+
+Other than that I did not modify the previous code, e.g. 
+the filtering methods, outlier detection, movement timing, etc.
+**** DONE Test the new SL interface
+Testing requires setting up also a publisher 
+**** TODO Test simulated robot with real ball
+**** TODO Test real robot with real ball
+***** TODO Test PING with vision
+Using port 7660
+***** TODO Test PONG with vision
+Using port 7661
 ** TODO Estimate calibration matrix 
 The plan is to extend Sebastian's calibration framework
 by using LED data from the two robots and make it robust
@@ -519,13 +532,18 @@ matrix together with the homogenous transformation.
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.
 * Table Tennis Serve                                               :@journal:
-** TODO Test for idea in gravity compensation mode
-*** TODO Can we teach the robot how to serve
-**** TODO Can we learn/extract movement primitives?
+** DONE Hold the ball on the racket with an egg-holder
+Heiko 3d-print-ed an egg holder for me to try
+** IN-PROGRESS Test for idea in gravity compensation mode
+*** DONE Can we teach the robot how to serve
+With the egg-hold it is possible to teach, but the
+shoulder is as suspected difficult to move, even with the PD turned off.
+I was moving more the elbow so far.
+*** TODO Can we learn/extract movement primitives?
+**** TODO Record movement in gravity compensation mode
+PD should be switched off
 ** TODO Can we cast it as an optimal control problem?
 *** TODO Can it be solved with polynomials?
-** TODO Hold the ball on the racket with an egg-holder
-Heiko will 3d-print an egg holder for me to try
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?

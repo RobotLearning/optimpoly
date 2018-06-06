@@ -1,5 +1,5 @@
 /*
- * player_task.c
+ * table_tennis_task.c
  *
  *  Created on: Feb 6, 2017
  *      Author: okoc
@@ -33,10 +33,10 @@
 #include "table_tennis_common.h"
 #include "sl_interface.h"
 
-void add_player_task( void );
-static int change_player_task(void);
-static int init_player_task(void);
-static int run_player_task(void);
+void add_table_tennis_task( void );
+static int change_table_tennis_task(void);
+static int init_table_tennis_task(void);
+static int run_table_tennis_task(void);
 static void display_ball();
 static void compute_torques();
 static void check_safety();
@@ -47,7 +47,6 @@ static int goto_left_posture();
 static void print_des_state(SL_DJstate des_state[]);
 static void print_filter_accuracy();
 static void update_ball_obs();
-
 #define NBLOBS 2
 
 blob_state ball_obs[NBLOBS];
@@ -55,17 +54,17 @@ blob_state ball_obs[NBLOBS];
 /*
  * Adds the task to the task menu
  */
-void add_player_task( void ) {
+void add_table_tennis_task( void ) {
 	int i;
 	char varname[30];
 
-	addTask("PLAYER task", init_player_task, run_player_task, change_player_task);
+	addTask("PLAYER task", init_table_tennis_task, run_table_tennis_task, change_table_tennis_task);
 }
 
 /*
  * Changes task parameters
  */
-static int change_player_task(void) {
+static int change_table_tennis_task(void) {
 	int i,j;
 	return TRUE;
 }
@@ -74,7 +73,7 @@ static int change_player_task(void) {
  * Initialization for task
  *
  */
-static int init_player_task(void) {
+static int init_table_tennis_task(void) {
 
 	int posture, ready; // flags
 	bzero((char *)&(ball_obs[0]), NBLOBS * sizeof(ball_obs[0]));
@@ -122,12 +121,13 @@ static int init_player_task(void) {
  * Runs the task from the task servo: REAL TIME requirements!
  *
  */
-static int run_player_task(void) {
+static int run_table_tennis_task(void) {
 
 	// update blobs every 2ms (instead of every 20 ms)
 	update_ball_obs();
 
-	play(joint_state,ball_obs,joint_des_state);
+	play_new(joint_state,joint_des_state);
+	//play(joint_state,ball_obs,joint_des_state);
 	//cheat(joint_state,sim_ball_state,joint_des_state);
 
 	// reset and draw ball in simulation
@@ -167,6 +167,38 @@ static void update_ball_obs() {
 			ball_obs[0].pos[i] = blobs[1].blob.x[i+1];
 		}
 	}
+}
+
+static void display_new_ball() {
+    // for resetting
+    static int firsttime = TRUE;
+    static int reset_sim = FALSE;
+    static double time_passed;
+    static double time_last;
+
+    if (firsttime) {
+        firsttime = FALSE;
+        time_last = get_time();
+    }
+
+    // calculate the racket orientation from endeffector
+    calc_racket(&racket_state, &racket_orient, cart_state[RIGHT_HAND], cart_orient[RIGHT_HAND]);
+
+    // resetting ball in simulation mode
+    if(simulation) {
+        simulate_ball(&sim_ball_state, &racket_state, &racket_orient, &reset_sim);
+        time_passed = (get_time() - time_last)/1e6;
+        if (reset_sim && time_passed >= 4.0) {
+            reset_sim_ball();
+            time_last = get_time();
+            reset_sim = FALSE;
+        }
+        //display_pred_ball();
+        display_sim_ball();
+    }
+    else {
+        display_pred_ball();
+    }
 }
 
 /*

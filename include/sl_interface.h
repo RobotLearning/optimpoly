@@ -81,8 +81,8 @@ extern "C" {
 #endif
 
 /** @brief New interface to PLAYER class. Uses ZMQ connection to fetch 3d ball info.*/
-extern void play_new(const SL_Jstate joint_state[const_tt::NDOF+1],
-                 SL_DJstate joint_des_state[const_tt::NDOF+1]);
+extern void play_new(const SL_Jstate joint_state[],
+                 SL_DJstate joint_des_state[]);
 
 /**
  * @brief Old interface to the PLAYER class that generates desired hitting trajectories.
