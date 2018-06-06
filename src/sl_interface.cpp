@@ -143,7 +143,8 @@ void load_options() {
 		    ("var_model", po::value<double>(&flags.var_model), "std of filter process noise")
 		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
 		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP")
-		    ("url", po::value<std::string>(&flags.zmq_url), "TCP URL for ZMQ connection");
+		    ("url", po::value<std::string>(&flags.zmq_url), "TCP URL for ZMQ connection")
+		    ("debug_vision", po::value<bool>(&flags.debug_vision), "print ball in listener");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -170,7 +171,7 @@ void play_new(const SL_Jstate joint_state[NDOF+1],
     // acquire ball info from ZMQ server
     // if new ball add status true else false
     // call play function
-    static Listener listener(flags.zmq_url);
+    static Listener listener(flags.zmq_url,flags.debug_vision);
 
     // since old code support multiple blobs
     static blob_state blobs[NBLOBS];
@@ -293,19 +294,30 @@ void Listener::listen() {
         socket.receive(msg);
         std::string body;
         msg >> body;
-        json jobs = json::parse(body);
-        unsigned int num = jobs.at("num");
-        double time = jobs.at("time");
-        json obs_j = jobs.at("obs");
-        std::vector<double> obs_3d = {obs_j[0], obs_j[1], obs_j[2]};
-        obs[time] = obs_3d;
-        new_data = true;
-        if (debug) {
-            cout << "Received item at time: " << time << endl;
+        try {
+            json jobs = json::parse(body);
+            unsigned int num = jobs.at("num");
+            double time = jobs.at("time");
+            json obs_j = jobs.at("obs");
+            std::vector<double> obs_3d = {obs_j[0], obs_j[1], obs_j[2]};
+            obs[time] = obs_3d;
+            new_data = true;
+            if (debug) {
+                std::string ball = "[" +
+                        std::to_string(obs_3d[0]) + " " +
+                        std::to_string(obs_3d[1]) + " " +
+                        std::to_string(obs_3d[2]) + "]";
+                cout << "Received item " << ball << " at time: " << time << endl;
+            }
+            // keep size to a max
+            if (obs.size() > max_obs_saved) {
+                obs.erase(obs.begin());
+            }
         }
-        // keep size to a max
-        if (obs.size() > max_obs_saved) {
-            obs.erase(obs.begin());
+        catch (const std::exception & ex) {
+            if (debug) {
+                cout << "No ball detected..." << ex.what() << endl;
+            }
         }
     }
     if (debug)
