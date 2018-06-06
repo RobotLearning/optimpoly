@@ -26,6 +26,7 @@
 #include "kalman.h"
 
 using namespace arma;
+using namespace const_tt;
 using namespace player;
 using namespace optim;
 using namespace boost::unit_test;
@@ -62,6 +63,11 @@ void test_player_ekf_filter();
 void count_land();
 void count_land_mpc();
 
+// interface tests
+void test_zmqpp();
+void test_zmq_listener();
+void test_new_interface();
+
 /*
  * Main function for boost unit testing.
  *
@@ -71,7 +77,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
     test_suite* ts = BOOST_TEST_SUITE("test_suite");
 
-    BOOST_TEST_MESSAGE("Testing kinematics functions...");
+    /*BOOST_TEST_MESSAGE("Testing kinematics functions...");
     ts->add(BOOST_TEST_CASE(&test_kinematics_calculations));
     ts->add(BOOST_TEST_CASE(&test_kin_deriv));
 
@@ -95,13 +101,17 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts->add(BOOST_TEST_CASE(&check_speed_spin_based_racket_calc));
     ts->add(BOOST_TEST_CASE(&test_symplectic_int_4th));
 
-    BOOST_TEST_MESSAGE("Finally testing table tennis tasks...");
+    BOOST_TEST_MESSAGE("Testing table tennis tasks...");
     ts->add(BOOST_TEST_CASE(&test_touch_ground));
     ts->add(BOOST_TEST_CASE(&test_ball_ekf));
     ts->add(BOOST_TEST_CASE(&test_player_ekf_filter));
     ts->add(BOOST_TEST_CASE(&count_land));
-    ts->add(BOOST_TEST_CASE(&count_land_mpc));
+    ts->add(BOOST_TEST_CASE(&count_land_mpc));*/
 
+    BOOST_TEST_MESSAGE("Finally testing SL interface...");
+    ts->add(BOOST_TEST_CASE(&test_zmqpp));
+    ts->add(BOOST_TEST_CASE(&test_zmq_listener));
+    ts->add(BOOST_TEST_CASE(&test_new_interface));
     return ts;
 }
 

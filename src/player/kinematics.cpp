@@ -33,6 +33,7 @@ static const double ZWFE = 0.255; //! forearm length (minus 4.5cm)
 static const int PALM = 5; //! for kinematics
 
 using namespace arma;
+using namespace const_tt;
 
 /* Function to multiply two quaternions */
 static void mult_two_quats(const vec4 & q1,

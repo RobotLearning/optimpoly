@@ -4,7 +4,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -Wall -DNDEBUG -std=
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG -Wall -Wextra -pedantic -std=c++11 -pthread")
 
 set(PROJECT_NAME table-tennis)
-set(PROJECT_VERSION 1.1)
+set(PROJECT_VERSION 1.2)
 project(${PROJECT_NAME})
 
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
@@ -21,6 +21,8 @@ find_package (Boost COMPONENTS program_options unit_test_framework REQUIRED)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package (NLOPT REQUIRED)
 include_directories(${NLOPT_INCLUDE_DIRS})
+find_library(ZMQPP NAMES zmqpp)
+find_path(ZMQPP_INCLUDES NAMES zmqpp/zmqpp.hpp)
 
 add_subdirectory(src)
 add_subdirectory(test)

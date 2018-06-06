@@ -10,7 +10,11 @@
 #ifndef PLAYER_INCLUDE_LOOKUP_H_
 #define PLAYER_INCLUDE_LOOKUP_H_
 
-#define LOOKUP_COLUMN_SIZE (2*NDOF + 1 + 2*NCART) // ball state and optimization parameters (6 + 15)
+#include "constants.h"
+
+using namespace const_tt;
+
+const int LOOKUP_COLUMN_SIZE = 2*const_tt::NDOF + 1 + 2*const_tt::NCART; // ball state and optimization parameters (6 + 15)
 
 static const std::string LOOKUP_TABLE_NAME = "lookup_March_2016";
 

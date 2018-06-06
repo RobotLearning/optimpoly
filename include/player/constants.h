@@ -13,17 +13,19 @@
 #ifndef CONSTANTS_H_
 #define CONSTANTS_H_
 
+namespace const_tt {
+
 // indices for simplifying code comprehension
-#define X 0
-#define Y 1
-#define Z 2
-#define W 3 //!< for quaternion, not used
-#define DX 3
-#define DY 4
-#define DZ 5
-#define NBLOBS 2 //!< In the table tennis setup, we have 4 cameras = 2 blobs.
-#define NCART 3
-#define NDOF 7
+const int X = 0;
+const int Y = 1;
+const int Z = 2;
+const int W = 3; //!< for quaternion, not used
+const int DX = 3;
+const int DY = 4;
+const int DZ = 5;
+const int NBLOBS = 2; //!< In the table tennis setup, we have 4 cameras = 2 blobs.
+const int NCART = 3;
+const int NDOF = 7;
 
 const double DT = 0.002; //!< 500 Hz robot operation
 
@@ -31,6 +33,6 @@ const double DT = 0.002; //!< 500 Hz robot operation
 const double ball_radius  = 0.02; //!< table tennis standard ball radius
 const double racket_radius = 0.076; //!< shorter axis about 15.2 cm, longer approx 15.5 - 15.6
 
-
+}
 
 #endif /* INCLUDE_CONSTANTS_H_ */

@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 project(${PROJECT_NAME})
 
+find_library(ZMQ zmq)
 # Using BOOST UNIT TEST FRAMEWORK for testing
 #ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK) 
 
@@ -11,6 +12,7 @@ set(TEST_SRC
     test_kinematics.cpp
     test_optim.cpp
     test_table_tennis.cpp
+    test_interface.cpp
 )
 add_executable (${TEST_EXEC} ${TEST_SRC})
 
@@ -20,6 +22,8 @@ set_target_properties(${TEST_EXEC} PROPERTIES
 
 # INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)
 target_include_directories (${TEST_EXEC} PRIVATE
+    ${ZMQPP_INCLUDES}
+    ${CMAKE_SOURCE_DIR}/include #for json.hpp
     ${CMAKE_SOURCE_DIR}/include/optim
     ${CMAKE_SOURCE_DIR}/include/player)
 
@@ -32,6 +36,7 @@ target_include_directories (${TEST_EXEC} PRIVATE
 #MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
 
 add_library(boost_unit_test_framework STATIC IMPORTED)
+
 set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libboost_unit_test_framework.a)
 #set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
 #add_library(boost_program_options SHARED IMPORTED)
@@ -41,7 +46,9 @@ target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
 
 # INCLUDE "OUR" SHARED LIBRARY
-target_link_libraries(${TEST_EXEC} 
+target_link_libraries(${TEST_EXEC}
+    ${ZMQPP}
+    ${ZMQ}
     ${PROJECT_NAME}
     armadillo
     boost_program_options

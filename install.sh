@@ -5,10 +5,11 @@ mkdir build/
 mkdir build/debug
 mkdir build/release
 cd build/release
-cmake -DCMAKE_BUILD_TYPE=Release ../..
+cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release ../..
 make
 make install
 cd ../..
+#./unit_tests --show_progress=yes
 ./unit_tests --log_level=message --show_progress=yes
 
 # FOR OLD SL

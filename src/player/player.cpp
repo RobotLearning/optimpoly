@@ -79,7 +79,7 @@ bool Player::filter_is_initialized() const {
 	return init_ball_state;
 }
 
-void Player::estimate_ball_state(const vec3 & obs) {
+void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
 
 	using std::thread;
 	using std::ref;
@@ -115,7 +115,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 
 	}
 	else if (init_ball_state) { // comes here if there are enough balls to start filter
-		filter.predict(DT,true); //true);
+		filter.predict(dt,true); //true);
 		if (newball) {
 			valid_obs = true;
 			if (pflags.outlier_detection)
@@ -129,7 +129,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		}
 
 	}
-	t_obs += DT;
+	t_obs += dt;
 }
 
 vec6 Player::filt_ball_state(const vec3 & obs) {
@@ -143,9 +143,11 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 	}
 }
 
-void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
+void Player::play(const joint & qact,
+                  const vec3 & ball_obs,
+                  joint & qdes) {
 
-	estimate_ball_state(ball_obs);
+	estimate_ball_state(ball_obs,const_tt::DT);
 
 	switch (pflags.alg) {
 		case FOCUS:
@@ -310,7 +312,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		if (pflags.verbosity) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		t_poly = DT;
+		t_poly = const_tt::DT;
 		opt->set_moving(true);
 	}
 
@@ -368,7 +370,7 @@ void Player::lookup_soln(const vec6 & ball_state,
 		poly.b.col(2) = qfdot;
 		poly.b.col(3) = qf;
 		poly.time2hit = T;
-		t_poly = DT;
+		t_poly = const_tt::DT;
 	}
 }
 
@@ -391,7 +393,7 @@ bool predict_hitting_point(const double & vhpy,
 		if (vhp_index.n_elem == 1) {
 			idx = as_scalar(vhp_index);
 			ball_pred = balls_path.col(idx);
-			time_pred = DT * (idx + 1);
+			time_pred = const_tt::DT * (idx + 1);
 			if (time_pred > time_min)
 				valid_hp = true;
 		}
@@ -406,8 +408,8 @@ void predict_ball(const double & time_pred,
 
 	//static wall_clock timer;
 	//timer.tic();
-	int N = (int)(time_pred/DT);
-	balls_pred = filter.predict_path(DT,N);
+	int N = (int)(time_pred/const_tt::DT);
+	balls_pred = filter.predict_path(const_tt::DT,N);
 	//cout << "Pred. ball time: " << 1000 * timer.toc() << " ms." << endl;
 }
 

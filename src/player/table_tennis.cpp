@@ -21,6 +21,7 @@
 #include "tabletennis.h"
 
 using namespace arma;
+using namespace const_tt;
 
 /* Forms the rotation matrix that corresponds to the quaternion */
 //static mat33 quat2mat(const vec4 & q);

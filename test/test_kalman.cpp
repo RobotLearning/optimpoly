@@ -19,6 +19,7 @@
 
 using namespace std;
 using namespace arma;
+using namespace const_tt;
 using namespace player;
 
 static bool fuse_blobs(const vec3 & blob1, const vec3 & blob3,

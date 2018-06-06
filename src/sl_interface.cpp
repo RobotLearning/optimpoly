@@ -8,6 +8,9 @@
  */
 
 #include <boost/program_options.hpp>
+#include "zmqpp/zmqpp.hpp"
+#include "json.hpp"
+#include <map>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -18,50 +21,10 @@
 #include "kalman.h"
 #include "player.hpp"
 #include "tabletennis.h"
+#include "sl_interface.h"
 
 using namespace arma;
 using namespace player;
-
-/* The data structures from SL */
-/**
- * @brief (actual) joint space state for each DOF
- */
-struct SL_Jstate {
-	double   th;   /*!< theta */
-	double   thd;  /*!< theta-dot */
-	double   thdd; /*!< theta-dot-dot */
-	double   ufb;  /*!< feedback portion of command */
-	double   u;    /*!< torque command */
-	double   load; /*!< sensed torque */
-};
-/**
- * @brief (desired) joint space state commands for each DOF
- */
-struct SL_DJstate { /*!< desired values for controller */
-	double   th;   /*!< theta */
-	double   thd;  /*!< theta-dot */
-	double   thdd; /*!< theta-dot-dot */
-	double   uff;  /*!< feedforward torque command */
-	double   uex;  /*!< externally imposed torque */
-};
-
-/**
- * @brief (actual) Cartesian state
- */
-struct SL_Cstate {
-	double   x[NCART+1];    /*!< Position [x,y,z] */
-	double   xd[NCART+1];   /*!< Velocity */
-	double   xdd[NCART+1];  /*!< Acceleration */
-};
-
-/**
- * @brief Vision blob info coming from SL (after calibration).
- *
- */
-struct blob_state {
-	int status; //!< was ball detected reliably in cameras
-	double pos[NCART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
-};
 
 player_flags flags; //!< global structure for setting Player options
 
@@ -107,8 +70,6 @@ static void save_ball_data(const blob_state blobs[NBLOBS],
  */
 static void set_algorithm(const int alg_num);
 
-#include "sl_interface.h"
-
 void set_algorithm(const int alg_num) {
 
 	switch (alg_num) {
@@ -136,7 +97,7 @@ void load_options() {
 
 	flags.reset = true;
 	string home = std::getenv("HOME");
-	string config_file = home + "/polyoptim/" + "player.cfg";
+	string config_file = home + "/table-tennis/" + "player.cfg";
 	int alg_num;
 
     try {
@@ -181,7 +142,8 @@ void load_options() {
 		    ("var_noise", po::value<double>(&flags.var_noise), "std of filter obs noise")
 		    ("var_model", po::value<double>(&flags.var_model), "std of filter process noise")
 		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
-		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP");
+		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP")
+		    ("url", po::value<std::string>(&flags.zmq_url), "TCP URL for ZMQ connection");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -199,6 +161,28 @@ void load_options() {
     flags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
+
+
+void play_new(const SL_Jstate joint_state[NDOF+1],
+          SL_DJstate joint_des_state[NDOF+1]) {
+
+    // connect to ZMQ server
+    // acquire ball info from ZMQ server
+    // if new ball add status true else false
+    // call play function
+    static Listener listener(flags.zmq_url);
+
+    // since old code support multiple blobs
+    static blob_state blobs[NBLOBS];
+
+    // update ball info
+    listener.fetch(blobs[1]);
+
+    // interface that supports old setup
+    play(joint_state,blobs,joint_des_state);
+}
+
+
 void play(const SL_Jstate joint_state[NDOF+1],
 		  const blob_state blobs[NBLOBS],
 		  SL_DJstate joint_des_state[NDOF+1]) {
@@ -210,7 +194,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static Player *robot = nullptr; // centered player
 	static std::ofstream stream_balls;
 	static std::string home = std::getenv("HOME");
-	static std::string ball_file = home + "/polyoptim/balls.txt";
+	static std::string ball_file = home + "/table-tennis/balls.txt";
 	static EKF filter = init_filter(0.3,0.001,flags.spin);
 	static int firsttime = true;
 
@@ -290,6 +274,87 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
     }
 }
 
+void Listener::listen() {
+
+    using json = nlohmann::json;
+
+    // initialize the zmq
+    zmqpp::context context;
+    zmqpp::socket_type type = zmqpp::socket_type::sub;
+    zmqpp::socket socket(context,type);
+    socket.set(zmqpp::socket_option::subscribe, "");
+    socket.connect(url);
+
+    if (debug)
+        cout << "Starting listening..." << endl;
+
+    while (active) {
+        zmqpp::message msg;
+        socket.receive(msg);
+        std::string body;
+        msg >> body;
+        json jobs = json::parse(body);
+        unsigned int num = jobs.at("num");
+        double time = jobs.at("time");
+        json obs_j = jobs.at("obs");
+        std::vector<double> obs_3d = {obs_j[0], obs_j[1], obs_j[2]};
+        obs[time] = obs_3d;
+        new_data = true;
+        if (debug) {
+            cout << "Received item at time: " << time << endl;
+        }
+        // keep size to a max
+        if (obs.size() > max_obs_saved) {
+            obs.erase(obs.begin());
+        }
+    }
+    if (debug)
+        cout << "Finished listening..." << endl;
+}
+
+Listener::Listener(const std::string & url_, const bool debug_) : url(url_), debug(debug_) {
+    using std::thread;
+    active = true;
+    thread t = thread(&Listener::listen,this);
+    t.detach();
+    //t.join();
+}
+
+void Listener::stop() {
+    active = false;
+    new_data = false;
+}
+
+void Listener::fetch(blob_state & blob) { // fetch the latest data
+
+    blob.status = false;
+    // if there is a latest data
+    if (new_data) {
+        blob.status = true;
+        std::vector<double> last_data = obs.rbegin()->second;
+        blob.pos[0] = last_data[0];
+        blob.pos[1] = last_data[1];
+        blob.pos[2] = last_data[2];
+        new_data = false;
+    }
+}
+
+int Listener::give_info() {
+
+    if (debug) {
+        cout << "Printing data...\n";
+        cout << "==================================\n";
+        cout << "Time \t obs[x] \t obs[y] \t obs[z]\n";
+        for (std::pair<const double, std::vector<double>> element : obs) {
+            cout << element.first << " \t"
+                    << element.second[0] << " \t"
+                    << element.second[1] << " \t"
+                    << element.second[2] << "\n";
+        }
+    }
+    return obs.size();
+}
+
 static void save_ball_data(const blob_state blobs[NBLOBS],
                             const Player *robot,
                             const KF & filter,
@@ -367,8 +432,8 @@ static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
 
     // if ball is detected reliably
     // Here we hope to avoid outliers and prefer the blob3 over blob1
-    if (check_blob_validity(blobs[0],flags.verbosity > 2) ||
-            check_blob_validity(blobs[1],flags.verbosity > 2)) {
+    if (check_blob_validity(blobs[1],flags.verbosity > 2) ||
+            check_blob_validity(blobs[0],flags.verbosity > 2)) {
         status = true;
         if (blobs[1].status) { //cameras 3 and 4
             for (int i = X; i <= Z; i++)

@@ -14,6 +14,7 @@
 #include "player.hpp"
 
 using namespace arma;
+using namespace const_tt;
 
 namespace player {
 

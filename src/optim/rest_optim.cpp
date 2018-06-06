@@ -13,6 +13,7 @@
 #include "kinematics.hpp"
 
 using namespace arma;
+using namespace const_tt;
 
 namespace optim {
 

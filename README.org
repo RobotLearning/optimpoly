@@ -502,7 +502,7 @@ center/right, calibration values PING/PONG) in robot computer in okan_vision.
 Reduce the dependencies foremost!
 At least, robcpp and rob_protos folders should not be
 required.
-*** TODO Adapt interface code for new vision blob
+*** IN-PROGRESS Adapt interface code for new vision blob
 **** TODO Test getting ball info in robots from vision computer
 ** TODO Estimate calibration matrix 
 The plan is to extend Sebastian's calibration framework
@@ -513,6 +513,8 @@ In the new approach we will test estimating the calibration
 matrix together with the homogenous transformation.
 *** TODO Estimate the homogenous transf. between the robots.
 ** TODO Add unit tests for two robots playing
+*** TODO Copy graphics from SL
+*** TODO Use same ZMQ interface written for real robot
 ** TODO Test with two robots playing against each other
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.

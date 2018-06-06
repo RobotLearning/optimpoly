@@ -20,6 +20,7 @@
 #include "kinematics.hpp"
 
 using namespace arma;
+using namespace const_tt;
 using namespace optim;
 using namespace player;
 

@@ -13,6 +13,8 @@
 #include "sys/time.h"
 #include "math.h"
 
+using namespace const_tt;
+
 /*
  * Prints the 2*DOF + 1 dimensional solution in user-friendly format
  */

@@ -66,6 +66,7 @@ struct player_flags {
 	std::vector<double> weights = {0.0, 0.0, 0.0}; //!< hit,net,land weights for DP (lazy player)
 	std::vector<double> mult_vel = {0.9, 0.8, 0.83}; //!< vel. mult. for DP
 	std::vector<double> penalty_loc = {0.0, 0.23, 0.0, -3.22}; //!< penalty locations for DP
+	std::string zmq_url = "tcp://helbe:7660"; //!< URL for ZMQ connection
 };
 
 /**
@@ -107,10 +108,8 @@ private:
 	 * Ball is valid if ball is a new ball and (in real robot mode)
 	 * it is not an outlier!
 	 *
-	 * Note: we're assuming that time elasped dt = DT = 0.002 seconds every time!
-	 *
 	 */
-	void estimate_ball_state(const arma::vec3 & obs);
+	void estimate_ball_state(const arma::vec3 & obs, const double & dt = const_tt::DT);
 
 	/**
 	 * @brief Run optimizer for FOCUSED PLAYER
@@ -236,7 +235,9 @@ public:
 	 * @param ball_obs Ball observations (positions as 3-vector).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void play(const optim::joint & qact, const arma::vec3 & ball_obs, optim::joint & qdes);
+	void play(const optim::joint & qact,
+	          const arma::vec3 & ball_obs,
+	          optim::joint & qdes);
 
 	/**
 	 * @brief Cheat Table Tennis by getting the exact ball state in simulation.

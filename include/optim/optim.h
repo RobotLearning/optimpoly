@@ -21,6 +21,8 @@
 #include "constants.h"
 #include "kalman.h" // for estimate_prior
 
+using namespace const_tt;
+
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
@@ -49,7 +51,7 @@ struct optim_des {
 	mat racket_normal = zeros<mat>(NCART,1); //!< racket desired normals
 	mat ball_pos = zeros<mat>(NCART,1); //!< incoming ball predicted pos.
 	mat ball_vel = zeros<mat>(NCART,1); //!< incoming ball predicted vels.
-	double dt = DT; //!< time step between each prediction
+	double dt = const_tt::DT; //!< time step between each prediction
 	int Nmax = 1; //!< max number of time steps for prediction
 };
 
