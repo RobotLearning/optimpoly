@@ -329,6 +329,8 @@ Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)
 When I tested the code with simulated ball, the code
 was printing legal lands.
 *** TODO Run code in PONG
+*** TODO Check for tracking errors
+Saving some of the movements to a file will help.
 ** IN-PROGRESS Test the new vision interface
 *** DONE Compile vision code in laptop
 This was a lot of work and took me one full day!
@@ -500,6 +502,7 @@ center/right, calibration values PING/PONG) in robot computer in okan_vision.
 Reduce the dependencies foremost!
 At least, robcpp and rob_protos folders should not be
 required.
+*** TODO Make sure to compile vision code in release mode
 *** IN-PROGRESS Adapt interface code for new vision
 **** DONE Write the new SL interface
 I'm using ZMQ interface with the SUBSCRIBE pattern to communicate
@@ -511,23 +514,63 @@ Other than that I did not modify the previous code, e.g.
 the filtering methods, outlier detection, movement timing, etc.
 **** DONE Test the new SL interface
 Testing requires setting up also a publisher 
-**** TODO Test simulated robot with real ball
-**** TODO Test real robot with real ball
-***** TODO Test PING with vision
+**** DONE Test simulated robot with real ball
+Tested on both ping and pong, of course with different ports
+7660 and 7661 respectively. 
+**** IN-PROGRESS Test real robot with real ball
+***** DONE Test PING with vision
 Using port 7660
-***** TODO Test PONG with vision
-Using port 7661
-** TODO Estimate calibration matrix 
+***** IN-PROGRESS Test PONG with vision
+Using port 7661, the real robot for some reason
+was not working, even though simulation was working
+** TODO Calibrate the vision
+*** TODO Read computer vision book initial chapters
+The first chapters of the computer vision book covers the
+fundamentals as well as the camera stereo calibration.
+**** TODO Follow up with opencv tutorials
+*** TODO Record a video with the cameras and analyze
+Analysis should be possible with some of the example
+code in ball_tracking.
+*** TODO Is it possible to calibrate without ground truth?
+In a possible scenario, one would estimate the initial 3d ball
+positions velocities and spin along with a calibration matrix.
+One needs a ball model to get the 3d ball positions in the video.
+**** TODO Is it possible to learn the ball model with the calibration?
+One needs a restricted neural network architecture I guess?
+*** TODO Estimate calibration matrix with LED data
 The plan is to extend Sebastian's calibration framework
 by using LED data from the two robots and make it robust
 to data from the different parts of the table.
 
 In the new approach we will test estimating the calibration 
 matrix together with the homogenous transformation.
-*** TODO Estimate the homogenous transf. between the robots.
+**** TODO Estimate the homogenous transf. between the robots.
 ** TODO Add unit tests for two robots playing
-*** TODO Copy graphics from SL
-*** TODO Use same ZMQ interface written for real robot
+*** TODO Add graphics
+**** TODO Copy graphics from SL
+**** TODO Add graphics for a second robot
+*** TODO Reorganize/refactor code
+**** TODO Correct paths (load/save)
+Replace e.g. std::getenv()
+**** TODO Refactor filtering code
+boost program options can be replaced with either json
+or wiith property trees
+**** TODO Switch to shared nlopt lib
+**** TODO Refactor/simplify interface
+Old interface play() is not needed for instance
+***** TODO Add a zmq based sim code that simulates the ball
+****** TODO Use same ZMQ interface written for real robot
+****** TODO Call it from SL and check if it works
+**** TODO Get rid of utils.cpp in optim code
+Replace with armadillo based linear algebra
+***** TODO Check timing of optim before/after
+Replacement should not slow down the optimizations
+
+**** TODO Parameterize robot startup 
+Loading robot startup parameterization and table related
+constants from a file would simplify the unit test for
+two robots playing
+**** TODO Introduce boost log framework?
 ** TODO Test with two robots playing against each other
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.
@@ -535,13 +578,17 @@ homogenous transformation between the robots.
 ** DONE Hold the ball on the racket with an egg-holder
 Heiko 3d-print-ed an egg holder for me to try
 ** IN-PROGRESS Test for idea in gravity compensation mode
+Is it necessary to record ball positions as well during
+the recordings?
 *** DONE Can we teach the robot how to serve
 With the egg-hold it is possible to teach, but the
 shoulder is as suspected difficult to move, even with the PD turned off.
 I was moving more the elbow so far.
-*** TODO Can we learn/extract movement primitives?
-**** TODO Record movement in gravity compensation mode
+*** IN-PROGRESS Can we learn/extract movement primitives?
+**** DONE Record movement in gravity compensation mode
 PD should be switched off
+**** TODO Extract movement primitives
+**** TODO Test on robot
 ** TODO Can we cast it as an optimal control problem?
 *** TODO Can it be solved with polynomials?
 * Cautious Trajectory Generation 				      :@idea:
