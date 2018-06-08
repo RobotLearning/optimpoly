@@ -1,5 +1,28 @@
+#!/bin/bash
 # IMPORTANT NOTE: run in a subshell for cd commands: 
 # . install.sh
+
+usage() { echo "Argument missing for running unit tests. Usage: $0 [-t <1|0>] " 1>&2; exit 1; }
+
+while getopts ":t:" opt; do
+  case $opt in
+    t)
+	arg=${OPTARG}
+	((arg == 1 || arg == 0)) || usage
+        #echo "-t was triggered, Parameter: $OPTARG" >&2
+        ;;
+    \?)
+	echo "Invalid option: -$OPTARG" >2
+	usage
+        exit 1
+        ;;
+    :)
+        echo "Option -$OPTARG requires an argument." >&2
+	usage
+	exit 1
+	;;
+  esac
+done
 
 mkdir build/
 mkdir build/debug
@@ -10,7 +33,10 @@ make
 make install
 cd ../..
 #./unit_tests --show_progress=yes
-./unit_tests --log_level=message --show_progress=yes
+#echo "arg = ${arg}"
+if [ "$arg" == 1 ]; then
+   ./unit_tests --log_level=message --show_progress=yes
+fi
 
 # FOR OLD SL
 #cp SL_code/ilc_task.c ~/robolab/barrett/src/ilc_task.c
