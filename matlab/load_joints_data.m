@@ -1,11 +1,15 @@
 %% Script that loads recorded kinesthetic teach in data
 % Files with 
+% FIRST DATASET:
 % Very good: 1, 7, 10, 16, 20
 % Good: 5, 6, 9, 17, 18
+%
+% SECOND DATASET:
+% Good: 2,4,6,9,10,12,15,16,18,19,20,21
 
 clc; clear; close all;
 
-file = '../data/joints.txt';
+file = '../data/10.6.18/joints.txt';
 q = dlmread(file);
 N = size(q,1);
 dt = 0.002;
@@ -22,7 +26,7 @@ qd = diff(q)./dt;
 vels = sqrt(sum(qd.*qd,2));
 [sorted_vels,idx_vels] = sort(vels,'descend');
 
-size_clusters = 20;
+size_clusters = 21; % FIRST DATASET: 20; SECOND: 21
 idx_clusters = [idx_vels(1)];
 
 idx = 2;
@@ -66,7 +70,7 @@ end
 
 %% Plot the motions
 
-examples = [1;7;10;5;9];
+examples = [2,4,6,9,10]; % FIRST: [1;7;10;5;9];
 num_examples = length(examples);
 q_train = cell(1,num_examples);
 t_train = cell(1,num_examples);
@@ -76,7 +80,7 @@ for j = 1:length(examples)
     q_train{j} = q_plot;
     t_plot = t(idx_plot)';
     t_train{j} = t_plot;
-    %{
+    %%{
     figure('Name',['Movement #', num2str(examples(j))]);
     for i = 1:7
         subplot(7,1,i);
@@ -84,13 +88,13 @@ for j = 1:length(examples)
     end
     %}
 end
-
+%{
 figure('Name','Movement 1');
 for i = 1:7
     subplot(7,1,i);
     plot(t_train{1},q_train{1}(:,i));
 end
-
+%}
 %% Train DMPs and evolve one
 
 n_bf = 10;
@@ -154,6 +158,6 @@ for i = 1:7
     dmp_save.joints(i).goal = dmps(i).goal;
 end
 json_txt = jsonencode(dmp_save);
-fid = fopen('../dmp_test.json','wt');
+fid = fopen('../dmp.json','wt');
 fwrite(fid, json_txt, 'char');
 fclose(fid);
