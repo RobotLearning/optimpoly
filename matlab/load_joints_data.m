@@ -138,3 +138,22 @@ zDraw = y_des_cart(3,1:drawTimeIter:end);
 text(xDraw,yDraw,zDraw,tLabelCell)
 scatter3(xDraw,yDraw,zDraw,20,'b','*');
 hold off;
+
+%% Save DMPs in JSON format
+
+dmp_save = struct();
+dmp_save.ndofs = 7;
+dmp_save.alpha = 25.0;
+dmp_save.beta = 6.25;
+for i = 1:7
+    dmp_save.joints(i).ID = i;
+    dmp_save.joints(i).init_pos = dmps(i).y0(1);
+    dmp_save.joints(i).weights = dmps(i).w;
+    dmp_save.joints(i).heights = dmps(1).can.h;
+    dmp_save.joints(i).centers = dmps(1).can.c;
+    dmp_save.joints(i).goal = dmps(i).goal;
+end
+json_txt = jsonencode(dmp_save);
+fid = fopen('../dmp_test.json','wt');
+fwrite(fid, json_txt, 'char');
+fclose(fid);

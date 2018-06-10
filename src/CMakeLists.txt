@@ -19,6 +19,7 @@ set(SOURCES
     optim/rest_optim.cpp
     optim/utils.cpp   
     optim/vhp_optim.cpp
+    serve/dmp.cpp
     sl_interface.cpp
 )
 add_library (${PROJECT_NAME} SHARED ${SOURCES})
@@ -34,7 +35,8 @@ target_include_directories (${PROJECT_NAME} PRIVATE
     ${ZMQPP_INCLUDES}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/optim
-    ${CMAKE_SOURCE_DIR}/include/player)
+    ${CMAKE_SOURCE_DIR}/include/player
+    ${CMAKE_SOURCE_DIR}/include/serve)
 
 # LINK EXTERNAL LIBRARIES HERE
 #add_library(boost_program_options SHARED IMPORTED)
