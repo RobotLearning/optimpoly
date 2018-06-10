@@ -35,10 +35,10 @@ private:
     double g; //!< goal state
 
     /** \brief  Create a vector of basis functions evaluated at current phase x */
-    vec basis(const double & x);
+    vec basis(const double & x) const;
 
     /** \brief Create the (forces) accelerations due to the weights */
-    double forcing(const double & phase);
+    double forcing(const double & phase) const;
 
 public:
 
@@ -60,9 +60,9 @@ public:
                      const std::vector<double> & h_stdvec);
 
     void set_goal_state(const double & goal);
-    void get_goal_state(double & goal);
+    void get_goal_state(double & goal) const;
     void set_init_state(const double & init_pos);
-    void get_init_state(double & init_pos);
+    void get_init_state(double & init_pos) const;
 
     /** \brief Make a small step of dt seconds with Euler discretization */
     vec3 step(const Canonical & can, const double & dt);
@@ -84,6 +84,9 @@ private:
 
 public:
 
+    /** \brief Empty constructor */
+    Joint_DMPs() {};
+
     /**
      * @brief Load DMPs from a json file.
      */
@@ -98,9 +101,12 @@ public:
     /** @brief Set initial positions of the DMPs */
     void set_init_pos(const vec & pos);
 
+    /** @brief Get initial positions of the DMPs */
+    void get_init_pos(vec & pos) const;
+
     /** @brief Set goal positions of the DMPs */
     void set_goal_pos(const vec & pos);
 
     /** @brief Return goal positions of the DMPs */
-    void get_goal_pos(vec & pos);
+    void get_goal_pos(vec & pos) const;
 };

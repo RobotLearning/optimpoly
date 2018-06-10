@@ -123,10 +123,15 @@ extern void cheat(const SL_Jstate joint_state[],
  */
 extern void load_options();
 
-/**
- * @brief Save joint data to a file
- */
+/** \brief Save joint data to a file */
 extern void save_joint_data(const SL_Jstate joint_state[]);
+
+/** \brief Initialize DMP for the serve */
+extern void init_dmp_serve(double custom_pose[], int *init_dmp);
+
+/** \brief Serve with learned DMPs */
+extern void serve_with_dmp(const SL_Jstate joint_state[], SL_DJstate joint_des_state[], int *init_dmp);
+
 
 #ifdef __cplusplus
 } // extern "C"

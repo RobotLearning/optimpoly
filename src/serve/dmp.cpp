@@ -59,11 +59,11 @@ void DMP::set_init_state(const double & init_pos) {
     x0(2) = 0.0;
 }
 
-void DMP::get_goal_state(double & goal) {
+void DMP::get_goal_state(double & goal) const {
     goal = g;
 }
 
-void DMP::get_init_state(double & init_pos) {
+void DMP::get_init_state(double & init_pos) const {
     init_pos = x0(0);
 }
 
@@ -81,11 +81,11 @@ vec3 DMP::step(const Canonical & can, const double & dt) {
 }
 
 
-vec DMP::basis(const double & x) {
+vec DMP::basis(const double & x) const {
     return exp(-h % ((x-c) % (x-c)));
 }
 
-double DMP::forcing(const double & phase) {
+double DMP::forcing(const double & phase) const {
     double f = 0.0;
     double scale = 0.0;
     vec psi = basis(phase);
@@ -149,6 +149,19 @@ mat Joint_DMPs::evolve(const double & T) {
 
 }
 
+void Joint_DMPs::get_init_pos(vec & pos) const {
+
+    using namespace std;
+    try {
+        for (unsigned int i = 0; i < dmps.size(); i++) {
+            dmps[i].get_init_state(pos(i));
+        }
+    }
+    catch (std::exception & ex) {
+        cerr << "Array length incorrect: " << ex.what() << endl;
+    }
+}
+
 void Joint_DMPs::set_init_pos(const vec & pos) {
 
     using namespace std;
@@ -175,7 +188,7 @@ void Joint_DMPs::set_goal_pos(const vec & pos) {
     }
 }
 
-void Joint_DMPs::get_goal_pos(vec & pos) {
+void Joint_DMPs::get_goal_pos(vec & pos) const {
 
     using namespace std;
     try {

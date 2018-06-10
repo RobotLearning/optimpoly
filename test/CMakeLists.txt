@@ -25,26 +25,25 @@ set_target_properties(${TEST_EXEC} PROPERTIES
 target_include_directories (${TEST_EXEC} PRIVATE
     ${ZMQPP_INCLUDES}
     ${CMAKE_SOURCE_DIR}/include #for json.hpp
+    ${CMAKE_SOURCE_DIR}/include/serve
     ${CMAKE_SOURCE_DIR}/include/optim
-    ${CMAKE_SOURCE_DIR}/include/player
-    ${CMAKE_SOURCE_DIR}/include/serve)
+    ${CMAKE_SOURCE_DIR}/include/player)
 
 # BOOST UNIT TEST should be included statically whenever
 # we use only init_unit_test_suite syntax!
 #message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 #message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
-find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
+#find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
 #MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
 
 add_library(boost_unit_test_framework STATIC IMPORTED)
 
 #set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libboost_unit_test_framework.a)
-#set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
-#add_library(boost_program_options SHARED IMPORTED)
-#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
-#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION $ENV{HOME}/install/lib/libboost_program_options.so)
-target_link_libraries(${TEST_EXEC} ${UNIT_TEST})
+set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
+add_library(boost_program_options SHARED IMPORTED)
+set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
+target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
 
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
 

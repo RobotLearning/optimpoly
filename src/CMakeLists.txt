@@ -34,13 +34,13 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_include_directories (${PROJECT_NAME} PRIVATE
     ${ZMQPP_INCLUDES}
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/serve
     ${CMAKE_SOURCE_DIR}/include/optim
-    ${CMAKE_SOURCE_DIR}/include/player
-    ${CMAKE_SOURCE_DIR}/include/serve)
+    ${CMAKE_SOURCE_DIR}/include/player)
 
 # LINK EXTERNAL LIBRARIES HERE
-#add_library(boost_program_options SHARED IMPORTED)
-#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
+add_library(boost_program_options SHARED IMPORTED)
+set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
 target_link_libraries(${PROJECT_NAME} armadillo boost_program_options ${ZMQPP})
 
 # INSTALL FOLDER

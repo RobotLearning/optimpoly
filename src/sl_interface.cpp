@@ -21,6 +21,7 @@
 #include "kalman.h"
 #include "player.hpp"
 #include "tabletennis.h"
+#include "dmp.h"
 #include "sl_interface.h"
 
 using namespace arma;
@@ -296,7 +297,7 @@ void Listener::listen() {
         msg >> body;
         try {
             json jobs = json::parse(body);
-            unsigned int num = jobs.at("num");
+            //unsigned int num = jobs.at("num");
             double time = jobs.at("time");
             json obs_j = jobs.at("obs");
             std::vector<double> obs_3d = {obs_j[0], obs_j[1], obs_j[2]};
@@ -385,7 +386,48 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
         if (stream_joints.is_open()) {
             stream_joints << q;
         }
+        else {
+            stream_joints.open(joint_file,std::ofstream::out | std::ofstream::app);
+            stream_joints << q;
+        }
         //stream_balls.close();
+}
+
+void init_dmp_serve(double custom_pose[], int *init_dmp) {
+    using dmps = Joint_DMPs;
+    const std::string file = "/home/robolab/table-tennis/dmp.json";
+    dmps multi_dmp = dmps(file);
+    vec7 pose;
+    multi_dmp.get_init_pos(pose);
+    for (int i = 0; i < NDOF; i++) {
+        custom_pose[i] = pose(i);
+    }
+    *init_dmp = 1;
+}
+
+void serve_with_dmp(const SL_Jstate joint_state[],
+                    SL_DJstate joint_des_state[],
+                    int *init_dmp) {
+
+    using dmps = Joint_DMPs;
+    const double Tmax = 1.0;
+    const std::string file = "/home/robolab/table-tennis/dmp.json";
+    static dmps multi_dmp;
+    static double t = 0.0;
+
+    if (*init_dmp) {
+        multi_dmp = dmps(file);
+        *init_dmp = 0;
+        t = 0.0;
+    }
+
+    if (t < Tmax) {
+        vec joints = multi_dmp.step(DT);
+        for (int i = 0; i < NDOF; i++) {
+            joint_des_state[i+1].th = joints(i);
+        }
+        t += DT;
+    }
 }
 
 static void save_ball_data(const blob_state blobs[NBLOBS],

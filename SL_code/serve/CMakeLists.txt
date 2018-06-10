@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 2.8)
+
+set(TASKNAME serve_with_dmp)
+
+project(${TASKNAME})
+
+message( STATUS "Adding ${TASKNAME} task for ${NAME}" )
+
+# add the following line if the task requires to communicate with Matlab
+#required_matlab_shared_mem()
+
+
+include_directories(
+  	~/sebastian/sl_xeno/sl_wam/include
+  	~/table-tennis/include
+  	~/table-tennis/include/player
+  	~/table-tennis/include/optim
+    ~/table-tennis/include/serve
+)
+
+# for executables
+set(ADD_SRCS_TASK
+    dmp_task.c
+    table_tennis_common.c
+    # any other additional file needed
+)
+
+link_directories(~/table-tennis/lib)
+link_libraries(~/table-tennis/lib/libtable-tennis.so nlopt)
+
+finalize_auto_add_task()
