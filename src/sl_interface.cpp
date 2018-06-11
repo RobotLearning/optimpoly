@@ -98,7 +98,7 @@ void load_options() {
 
 	flags.reset = true;
 	string home = std::getenv("HOME");
-	string config_file = home + "/table-tennis/" + "player.cfg";
+	string config_file = home + "/table-tennis/config/" + "player.cfg";
 	int alg_num;
 
     try {
@@ -395,7 +395,7 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
 
 void init_dmp_serve(double custom_pose[], int *init_dmp) {
     using dmps = Joint_DMPs;
-    const std::string file = "/home/robolab/table-tennis/dmp.json";
+    const std::string file = "/home/robolab/table-tennis/json/dmp.json";
     dmps multi_dmp = dmps(file);
     vec7 pose;
     multi_dmp.get_init_pos(pose);
@@ -411,7 +411,7 @@ void serve_with_dmp(const SL_Jstate joint_state[],
 
     using dmps = Joint_DMPs;
     const double Tmax = 1.0;
-    const std::string file = "/home/robolab/table-tennis/dmp.json";
+    const std::string file = "/home/robolab/table-tennis/json/dmp.json";
     static dmps multi_dmp;
     static double t = 0.0;
 

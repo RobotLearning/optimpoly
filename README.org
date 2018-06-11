@@ -554,7 +554,7 @@ matrix together with the homogenous transformation.
 Replace e.g. std::getenv()
 **** TODO Refactor filtering code
 boost program options can be replaced with either json
-or wiith property trees
+or with property trees
 **** TODO Switch to shared nlopt lib
 **** TODO Refactor/simplify interface
 Old interface play() is not needed for instance
@@ -574,22 +574,60 @@ two robots playing
 ** TODO Test with two robots playing against each other
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.
-* Table Tennis Serve                                               :@journal:
+* Learning To Serve 						   :@journal:
 ** DONE Hold the ball on the racket with an egg-holder
 Heiko 3d-print-ed an egg holder for me to try
-** IN-PROGRESS Test for idea in gravity compensation mode
+** IN-PROGRESS Test for idea with movement primitives
 Is it necessary to record ball positions as well during
 the recordings?
 *** DONE Can we teach the robot how to serve
 With the egg-hold it is possible to teach, but the
 shoulder is as suspected difficult to move, even with the PD turned off.
 I was moving more the elbow so far.
-*** IN-PROGRESS Can we learn/extract movement primitives?
+*** DONE Can we learn/extract movement primitives?
 **** DONE Record movement in gravity compensation mode
-PD should be switched off
-**** TODO Extract movement primitives
-**** TODO Test on robot
+PD should be switched off.
+**** DONE Extract movement primitives
+Extracting movement primitives with 5 examples so far.
+One can remove/add more examples and also basis functions
+to test on the robot.
+**** DONE Test on robot
+Testing on the robot was tricky, as we need to make sure
+that during the kinesthetic teachin, the joint limits are never exceeded.
+It seems that the hardware limits are not the same as the software limits.
+
+After teaching for the second time with the eggholder on the red side of
+the racket, the movement could be executed on the robot. 
+
+*** IN-PROGRESS Tune the movement primitives
+We should have a json file with additional settings that
+we can adjust.
+**** DONE Pretty format the JSON file
+MATLAB dumps the JSON file in an unreadable way.
+Opening in Python and formatting solves the problem.
+**** TODO Adjust timing of the motion
+**** TODO Train on different examples in the dataset
+Having multiple json files could easily solve this problem.
+**** TODO Start on different initial conditions
+Test different postures
+** TODO Use Reinforcement Learning to improve DMPs
+There are a lot of open questions regarding the application of RL.
+*** TODO What is the reward function?
+The possibilities are:
+
+1. Minimum distance between the ball and the racket during movement
+2. Minimum distance between the ball and the robot court center
+3. Maximum y-velocity of the ball
+
+or possible a combination of the above.
+*** TODO Which algorithm to use? 
+REPS, PILCO, POWER, etc.
+**** TODO Model free or model based RL?
+*** TODO How many basis functions to use in DMPs?
+*** TODO How many rollouts per policy update etc.
 ** TODO Can we cast it as an optimal control problem?
+*** TODO Can we learn a model of the ball takeoff?
+Possibly from model-free RL examples, one could learn such a model.
 *** TODO Can it be solved with polynomials?
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 

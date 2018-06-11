@@ -19,7 +19,7 @@ namespace player {
 void load_lookup_table(mat & lookup) {
 
 	string env = getenv("HOME");
-	string filename = env + "/table-tennis/" + LOOKUP_TABLE_NAME + ".txt";
+	string filename = env + "/table-tennis/config/lookup" + LOOKUP_TABLE_NAME + ".txt";
 
 	lookup.load(filename);
 	int row_size = lookup.n_elem / LOOKUP_COLUMN_SIZE;
