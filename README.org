@@ -571,6 +571,9 @@ Loading robot startup parameterization and table related
 constants from a file would simplify the unit test for
 two robots playing
 **** TODO Introduce boost log framework?
+**** TODO Build debug mode as well
+The install script should not 'make install' if called in
+debug mode: -d 
 ** TODO Test with two robots playing against each other
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.
