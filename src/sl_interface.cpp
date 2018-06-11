@@ -396,22 +396,12 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
 
 void init_dmp_serve(double custom_pose[], int *init_dmp) {
 
-    using dmps = Joint_DMPs;
-    std::string home = std::getenv("HOME");
-    const std::string file = home + "/table-tennis/json/dmp.json";
-    dmps multi_dmp = dmps(file);
-    vec7 pose;
-    multi_dmp.get_init_pos(pose);
-    for (int i = 0; i < NDOF; i++) {
-        custom_pose[i] = pose(i);
-    }
-    *init_dmp = 1;
-
     namespace po = boost::program_options;
     using std::string;
 
     pflags.reset = true;
-    string config_file = home + "/table-tennis/config/" + "serve.cfg";
+    const std::string home = std::getenv("HOME");
+    string config_file = home + "/table-tennis/config/serve.cfg";
 
     try {
         // Declare a group of options that will be
@@ -422,10 +412,31 @@ void init_dmp_serve(double custom_pose[], int *init_dmp) {
                   "Time to evolve DMP if tau = 1.0")
             ("json_file", po::value<string>(&sflags.json_file),
                   "JSON File to load DMP values from");
+        po::variables_map vm;
+        std::ifstream ifs(config_file.c_str());
+        if (!ifs) {
+            cout << "can not open config file: " << config_file << "\n";
+        }
+        else {
+            po::store(parse_config_file(ifs, config), vm);
+            notify(vm);
+        }
     }
     catch(std::exception& e) {
         cout << e.what() << "\n";
     }
+
+    using dmps = Joint_DMPs;
+    string json_file = home + "/table-tennis/json/" + sflags.json_file;
+    dmps multi_dmp = dmps(json_file);
+    vec7 pose;
+    multi_dmp.get_init_pos(pose);
+    for (int i = 0; i < NDOF; i++) {
+        custom_pose[i] = pose(i);
+    }
+    *init_dmp = 1;
+
+
 }
 
 void serve_with_dmp(const SL_Jstate joint_state[],
@@ -434,8 +445,8 @@ void serve_with_dmp(const SL_Jstate joint_state[],
 
     using dmps = Joint_DMPs;
     static double Tmax = 1.0;
-    std::string home = std::getenv("HOME");
-    const std::string file = home + "/table-tennis/json/" + sflags.json_file;
+    const std::string home = std::getenv("HOME");
+    std::string file = home + "/table-tennis/json/" + sflags.json_file;
     static dmps multi_dmp;
     static double t = 0.0;
 
@@ -444,6 +455,11 @@ void serve_with_dmp(const SL_Jstate joint_state[],
         *init_dmp = 0;
         t = 0.0;
         Tmax = sflags.Tmax/multi_dmp.get_time_constant();
+        vec7 qinit;
+        for (int i = 0; i < NDOF; i++) {
+            qinit(i) = joint_state[i+1].th;
+        }
+        multi_dmp.set_init_pos(qinit);
     }
 
     if (t < Tmax) {

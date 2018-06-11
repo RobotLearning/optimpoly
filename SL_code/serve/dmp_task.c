@@ -150,6 +150,7 @@ static void check_safety() {
 static int goto_custom_posture(double custom_pose[N_DOFS]) {
 
     int i;
+    int move = 0;
     SL_DJstate init_joint_state[N_DOFS+1];
     bzero((char *)&(init_joint_state[1]), N_DOFS * sizeof(init_joint_state[1]));
     printf("Min joint lim: [");
@@ -166,8 +167,11 @@ static int goto_custom_posture(double custom_pose[N_DOFS]) {
         printf("%.3f ",joint_range[i+1][MAX_THETA]);
     }
     printf("\n");
-    go_target_wait(init_joint_state);
-        return FALSE;
-
+    get_int("Do you want to move to json startup posture? 1 = YES, 0 = NO ...",move, &move);
+    if (move) {
+        go_target_wait(init_joint_state);
+        if (!go_target_wait_ID(init_joint_state))
+            return FALSE;
+    }
     return TRUE;
 }

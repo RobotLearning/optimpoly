@@ -13,6 +13,7 @@ set(TEST_SRC
     test_optim.cpp
     test_table_tennis.cpp
     test_interface.cpp
+    test_serve.cpp
 )
 add_executable (${TEST_EXEC} ${TEST_SRC})
 
@@ -24,6 +25,7 @@ set_target_properties(${TEST_EXEC} PROPERTIES
 target_include_directories (${TEST_EXEC} PRIVATE
     ${ZMQPP_INCLUDES}
     ${CMAKE_SOURCE_DIR}/include #for json.hpp
+    ${CMAKE_SOURCE_DIR}/include/serve
     ${CMAKE_SOURCE_DIR}/include/optim
     ${CMAKE_SOURCE_DIR}/include/player)
 
