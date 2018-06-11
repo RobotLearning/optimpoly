@@ -70,7 +70,7 @@ end
 
 %% Plot the motions
 
-examples = 21; %[2,4,6,9,10]; % FIRST: [1;7;10;5;9];
+examples = [15,18,19,20,21]; %[2,4,6,9,10]; % FIRST: [1;7;10;5;9];
 num_examples = length(examples);
 q_train = cell(1,num_examples);
 t_train = cell(1,num_examples);
@@ -146,7 +146,7 @@ scatter3(xDraw,yDraw,zDraw,20,'b','*');
 hold off;
 
 %% Save DMPs in JSON format
-%{
+%%{
 dmp_save = struct();
 dmp_save.tau = 1.0;
 dmp_save.ndofs = 7;
@@ -161,7 +161,7 @@ for i = 1:7
     dmp_save.joints(i).goal = dmps(i).goal;
 end
 json_txt = jsonencode(dmp_save);
-fid = fopen('../json/dmp21.json','wt');
+fid = fopen('../json/dmp_15_18_19_20_21.json','wt');
 fwrite(fid, json_txt, 'char');
 fclose(fid);
 %}
