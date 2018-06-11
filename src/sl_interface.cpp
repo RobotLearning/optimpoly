@@ -27,7 +27,8 @@
 using namespace arma;
 using namespace player;
 
-player_flags flags; //!< global structure for setting Player options
+player_flags pflags; //!< global structure for setting Player task options
+serve_flags sflags; //!< global structure for setting Serve task options
 
 /*
  *
@@ -76,18 +77,18 @@ void set_algorithm(const int alg_num) {
 	switch (alg_num) {
 		case 0:
 			std::cout << "Setting to FOCUSED player..." << std::endl;
-			flags.alg = FOCUS;
+			pflags.alg = FOCUS;
 			break;
 		case 1:
 			std::cout << "Setting to DEFENSIVE player..." << std::endl;
-			flags.alg = DP;
+			pflags.alg = DP;
 			break;
 		case 2:
 			std::cout << "Setting to VHP player..." << std::endl;
-			flags.alg = VHP;
+			pflags.alg = VHP;
 			break;
 		default:
-			flags.alg = FOCUS;
+			pflags.alg = FOCUS;
 	}
 }
 
@@ -96,7 +97,7 @@ void load_options() {
 	namespace po = boost::program_options;
 	using namespace std;
 
-	flags.reset = true;
+	pflags.reset = true;
 	string home = std::getenv("HOME");
 	string config_file = home + "/table-tennis/config/" + "player.cfg";
 	int alg_num;
@@ -106,46 +107,46 @@ void load_options() {
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-		    ("outlier_detection", po::value<bool>(&flags.outlier_detection)->default_value(true),
+		    ("outlier_detection", po::value<bool>(&pflags.outlier_detection)->default_value(true),
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
-		    ("rejection_multiplier", po::value<double>(&flags.out_reject_mult)->default_value(2.0),
+		    ("rejection_multiplier", po::value<double>(&pflags.out_reject_mult)->default_value(2.0),
 				"OUTLIER DETECTION MULTIPLIER FOR REAL ROBOT!")
-			("check_bounce", po::value<bool>(&flags.check_bounce),
+			("check_bounce", po::value<bool>(&pflags.check_bounce),
 			      "checking bounce before moving!")
-		    ("weights", po::value<std::vector<double>>(&flags.weights)->multitoken(), "hit,net,land weights for DP")
-			("mult_vel", po::value<std::vector<double>>(&flags.mult_vel)->multitoken(), "velocity mult. for DP")
-			("penalty_loc", po::value<std::vector<double>>(&flags.penalty_loc)->multitoken(), "punishment locations for DP")
-			("rest_posture_optim", po::value<bool>(&flags.optim_rest_posture)->default_value(false),
+		    ("weights", po::value<std::vector<double>>(&pflags.weights)->multitoken(), "hit,net,land weights for DP")
+			("mult_vel", po::value<std::vector<double>>(&pflags.mult_vel)->multitoken(), "velocity mult. for DP")
+			("penalty_loc", po::value<std::vector<double>>(&pflags.penalty_loc)->multitoken(), "punishment locations for DP")
+			("rest_posture_optim", po::value<bool>(&pflags.optim_rest_posture)->default_value(false),
 				"turn on resting state optimization")
 			//("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
 			("algorithm", po::value<int>(&alg_num)->default_value(0),
 				  "optimization method")
-			("mpc", po::value<bool>(&flags.mpc)->default_value(false),
+			("mpc", po::value<bool>(&pflags.mpc)->default_value(false),
 				 "corrections (MPC)")
-			("spin", po::value<bool>(&flags.spin)->default_value(false),
+			("spin", po::value<bool>(&pflags.spin)->default_value(false),
 						 "apply spin model")
-			("verbose", po::value<int>(&flags.verbosity)->default_value(1),
+			("verbose", po::value<int>(&pflags.verbosity)->default_value(1),
 		         "verbosity level")
-		    ("save_data", po::value<bool>(&flags.save)->default_value(false),
+		    ("save_data", po::value<bool>(&pflags.save)->default_value(false),
 		         "saving robot/ball data")
-		    ("ball_land_des_x_offset", po::value<double>(&flags.ball_land_des_offset[0]),
+		    ("ball_land_des_x_offset", po::value<double>(&pflags.ball_land_des_offset[0]),
 		    	 "ball land x offset")
-			("ball_land_des_y_offset", po::value<double>(&flags.ball_land_des_offset[1]),
+			("ball_land_des_y_offset", po::value<double>(&pflags.ball_land_des_offset[1]),
 				 "ball land y offset")
-		    ("time_land_des", po::value<double>(&flags.time_land_des),
+		    ("time_land_des", po::value<double>(&pflags.time_land_des),
 		    	 "time land des")
-			("start_optim_offset", po::value<double>(&flags.optim_offset),
+			("start_optim_offset", po::value<double>(&pflags.optim_offset),
 				 "start optim offset")
-			("time2return", po::value<double>(&flags.time2return),
+			("time2return", po::value<double>(&pflags.time2return),
 						 "time to return to start posture")
-			("freq_mpc", po::value<int>(&flags.freq_mpc), "frequency of updates")
-		    ("min_obs", po::value<int>(&flags.min_obs), "minimum obs to start filter")
-		    ("var_noise", po::value<double>(&flags.var_noise), "std of filter obs noise")
-		    ("var_model", po::value<double>(&flags.var_model), "std of filter process noise")
-		    ("t_reset_threshold", po::value<double>(&flags.t_reset_thresh), "filter reset threshold time")
-		    ("VHPY", po::value<double>(&flags.VHPY), "location of VHP")
-		    ("url", po::value<std::string>(&flags.zmq_url), "TCP URL for ZMQ connection")
-		    ("debug_vision", po::value<bool>(&flags.debug_vision), "print ball in listener");
+			("freq_mpc", po::value<int>(&pflags.freq_mpc), "frequency of updates")
+		    ("min_obs", po::value<int>(&pflags.min_obs), "minimum obs to start filter")
+		    ("var_noise", po::value<double>(&pflags.var_noise), "std of filter obs noise")
+		    ("var_model", po::value<double>(&pflags.var_model), "std of filter process noise")
+		    ("t_reset_threshold", po::value<double>(&pflags.t_reset_thresh), "filter reset threshold time")
+		    ("VHPY", po::value<double>(&pflags.VHPY), "location of VHP")
+		    ("url", po::value<std::string>(&pflags.zmq_url), "TCP URL for ZMQ connection")
+		    ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -160,7 +161,7 @@ void load_options() {
         cout << e.what() << "\n";
     }
     set_algorithm(alg_num);
-    flags.detach = true; // always detached in SL/REAL ROBOT!
+    pflags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
 
@@ -172,7 +173,7 @@ void play_new(const SL_Jstate joint_state[NDOF+1],
     // acquire ball info from ZMQ server
     // if new ball add status true else false
     // call play function
-    static Listener listener(flags.zmq_url,flags.debug_vision);
+    static Listener listener(pflags.zmq_url,pflags.debug_vision);
 
     // since old code support multiple blobs
     static blob_state blobs[NBLOBS];
@@ -197,24 +198,24 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static std::ofstream stream_balls;
 	static std::string home = std::getenv("HOME");
 	static std::string ball_file = home + "/table-tennis/balls.txt";
-	static EKF filter = init_filter(0.3,0.001,flags.spin);
+	static EKF filter = init_filter(0.3,0.001,pflags.spin);
 	static int firsttime = true;
 
-	if (firsttime && flags.save) {
+	if (firsttime && pflags.save) {
 		stream_balls.open(ball_file,std::ofstream::out | std::ofstream::app);
 		firsttime = false;
 	}
 
-	if (flags.reset) {
+	if (pflags.reset) {
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_filter(0.3,0.001,flags.spin);
+		filter = init_filter(0.3,0.001,pflags.spin);
 		delete robot;
-		robot = new Player(q0,filter,flags);
-		flags.reset = false;
+		robot = new Player(q0,filter,pflags);
+		pflags.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF; i++) {
@@ -246,14 +247,14 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
     static Player *cp; // centered player
     static EKF filter = init_filter();
 
-    if (flags.reset) {
+    if (pflags.reset) {
         for (int i = 0; i < NDOF; i++) {
             qdes.q(i) = q0(i) = joint_state[i+1].th;
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        cp = new Player(q0,filter,flags);
-        flags.reset = false;
+        cp = new Player(q0,filter,pflags);
+        pflags.reset = false;
     }
     else {
         for (int i = 0; i < NDOF; i++) {
@@ -394,8 +395,10 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
 }
 
 void init_dmp_serve(double custom_pose[], int *init_dmp) {
+
     using dmps = Joint_DMPs;
-    const std::string file = "/home/robolab/table-tennis/json/dmp.json";
+    std::string home = std::getenv("HOME");
+    const std::string file = home + "/table-tennis/json/dmp.json";
     dmps multi_dmp = dmps(file);
     vec7 pose;
     multi_dmp.get_init_pos(pose);
@@ -403,6 +406,26 @@ void init_dmp_serve(double custom_pose[], int *init_dmp) {
         custom_pose[i] = pose(i);
     }
     *init_dmp = 1;
+
+    namespace po = boost::program_options;
+    using std::string;
+
+    pflags.reset = true;
+    string config_file = home + "/table-tennis/config/" + "serve.cfg";
+
+    try {
+        // Declare a group of options that will be
+        // allowed in config file
+        po::options_description config("Configuration");
+        config.add_options()
+            ("Tmax", po::value<double>(&sflags.Tmax)->default_value(1.0),
+                  "Time to evolve DMP if tau = 1.0")
+            ("json_file", po::value<string>(&sflags.json_file),
+                  "JSON File to load DMP values from");
+    }
+    catch(std::exception& e) {
+        cout << e.what() << "\n";
+    }
 }
 
 void serve_with_dmp(const SL_Jstate joint_state[],
@@ -410,8 +433,9 @@ void serve_with_dmp(const SL_Jstate joint_state[],
                     int *init_dmp) {
 
     using dmps = Joint_DMPs;
-    const double Tmax = 1.0;
-    const std::string file = "/home/robolab/table-tennis/json/dmp.json";
+    static double Tmax = 1.0;
+    std::string home = std::getenv("HOME");
+    const std::string file = home + "/table-tennis/json/" + sflags.json_file;
     static dmps multi_dmp;
     static double t = 0.0;
 
@@ -419,6 +443,7 @@ void serve_with_dmp(const SL_Jstate joint_state[],
         multi_dmp = dmps(file);
         *init_dmp = 0;
         t = 0.0;
+        Tmax = sflags.Tmax/multi_dmp.get_time_constant();
     }
 
     if (t < Tmax) {
@@ -438,7 +463,7 @@ static void save_ball_data(const blob_state blobs[NBLOBS],
 	static rowvec ball_full;
 	vec6 ball_est = zeros<vec>(6);
 
-	if (flags.save && (blobs[0].status || blobs[1].status)) {
+	if (pflags.save && (blobs[0].status || blobs[1].status)) {
 
 		if (robot->filter_is_initialized()) {
 			ball_est = filter.get_mean();
@@ -507,8 +532,8 @@ static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
 
     // if ball is detected reliably
     // Here we hope to avoid outliers and prefer the blob3 over blob1
-    if (check_blob_validity(blobs[1],flags.verbosity > 2) ||
-            check_blob_validity(blobs[0],flags.verbosity > 2)) {
+    if (check_blob_validity(blobs[1],pflags.verbosity > 2) ||
+            check_blob_validity(blobs[0],pflags.verbosity > 2)) {
         status = true;
         if (blobs[1].status) { //cameras 3 and 4
             for (int i = X; i <= Z; i++)

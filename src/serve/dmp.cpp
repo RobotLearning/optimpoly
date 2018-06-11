@@ -111,6 +111,7 @@ Joint_DMPs::Joint_DMPs(const std::string & param_file) {
     std::ifstream stream(param_file);
     json jobs;
     stream >> jobs;
+    can.tau = jobs.at("tau");
     for (auto elem : jobs.at("joints")) {
         DMP dmp = DMP(elem.at("weights"),
                     elem.at("centers"),
@@ -199,4 +200,8 @@ void Joint_DMPs::get_goal_pos(vec & pos) const {
     catch (std::exception & ex) {
         cerr << "Array length incorrect: " << ex.what() << endl;
     }
+}
+
+double Joint_DMPs::get_time_constant() const {
+    return can.tau;
 }

@@ -70,7 +70,7 @@ end
 
 %% Plot the motions
 
-examples = [2,4,6,9,10]; % FIRST: [1;7;10;5;9];
+examples = 10; %[2,4,6,9,10]; % FIRST: [1;7;10;5;9];
 num_examples = length(examples);
 q_train = cell(1,num_examples);
 t_train = cell(1,num_examples);
@@ -98,8 +98,10 @@ end
 %% Train DMPs and evolve one
 
 n_bf = 10;
+tau = 1.0; % speed up/slow down movement
 dmps = trainMultiDMPs(t_train,q_train,'d',n_bf);
-t_evolve = 1.0;
+dmps(1).can.tau = tau;
+t_evolve = 1.0/tau;
 N_evolve = t_evolve/dt;
 q_dmp = zeros(7,N_evolve);
 ref = zeros(2*7,N_evolve);
@@ -144,7 +146,7 @@ scatter3(xDraw,yDraw,zDraw,20,'b','*');
 hold off;
 
 %% Save DMPs in JSON format
-
+%{
 dmp_save = struct();
 dmp_save.ndofs = 7;
 dmp_save.alpha = 25.0;
@@ -158,6 +160,7 @@ for i = 1:7
     dmp_save.joints(i).goal = dmps(i).goal;
 end
 json_txt = jsonencode(dmp_save);
-fid = fopen('../dmp.json','wt');
+fid = fopen('../json/dmp10.json','wt');
 fwrite(fid, json_txt, 'char');
 fclose(fid);
+%}

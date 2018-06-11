@@ -61,8 +61,9 @@ static int init_serve_with_dmp_task(void) {
 	init_dmp_serve(custom_pose,&init_dmp);
 
 	/* go to a save posture */
-	if (!goto_custom_posture(custom_pose))
-		return FALSE;
+	goto_custom_posture(custom_pose);
+	//if (!goto_custom_posture(custom_pose))
+	//	return FALSE;
 
 	// for real setup
 	setDefaultEndeffector();
@@ -151,10 +152,20 @@ static int goto_custom_posture(double custom_pose[N_DOFS]) {
     int i;
     SL_DJstate init_joint_state[N_DOFS+1];
     bzero((char *)&(init_joint_state[1]), N_DOFS * sizeof(init_joint_state[1]));
-
+    printf("Min joint lim: [");
     for (i = 0; i < N_DOFS; i++) {
+        printf("%.3f ",joint_range[i+1][MIN_THETA]);
+    }
+    printf("\nCustom pose: [");
+    for (i = 0; i < N_DOFS; i++) {
+        printf("%.3f ",custom_pose[i]);
         init_joint_state[i+1].th = custom_pose[i];
     }
+    printf("\nMax joint lim: [");
+    for (i = 0; i < N_DOFS; i++) {
+        printf("%.3f ",joint_range[i+1][MAX_THETA]);
+    }
+    printf("\n");
     go_target_wait(init_joint_state);
         return FALSE;
 

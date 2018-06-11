@@ -14,7 +14,7 @@ void check_evolve_dmp() {
 
     // create a dmp
     const double T = 1.0;
-    std::string file = "dmp.json";
+    std::string file = "json/dmp.json";
     dmps multi_dmp = dmps(file);
     mat M = multi_dmp.evolve(T);
     BOOST_TEST_MESSAGE("\nEvolving DMP: " << M.tail_cols(1).t());

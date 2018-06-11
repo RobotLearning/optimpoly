@@ -74,6 +74,12 @@ public:
     /** @brief Returns number of observations saved, prints in debug mode*/
     int give_info();
 };
+
+struct serve_flags {
+    double Tmax = 1.0; //!< time to evolve dmp if tau = 1.0
+    std::string json_file = "dmp.json"; //!< json file to load dmp from
+};
+
 #endif
 
 #ifdef __cplusplus

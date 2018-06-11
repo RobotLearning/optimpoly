@@ -87,9 +87,7 @@ public:
     /** \brief Empty constructor */
     Joint_DMPs() {};
 
-    /**
-     * @brief Load DMPs from a json file.
-     */
+    /** @brief Load DMPs from a json file. */
     Joint_DMPs(const std::string & param_file);
 
     /** @brief Evolve the DMPs dt seconds */
@@ -109,4 +107,7 @@ public:
 
     /** @brief Return goal positions of the DMPs */
     void get_goal_pos(vec & pos) const;
+
+    /** @brief Return speed of the movement */
+    double get_time_constant() const;
 };
