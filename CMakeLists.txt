@@ -8,7 +8,7 @@ set(PROJECT_VERSION 1.2)
 project(${PROJECT_NAME})
 
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
-find_package(Armadillo REQUIRED)
+#find_package(Armadillo REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_files/cmake_findpkg")
 #set (BOOST_ROOT $ENV{HOME}/install)
 #set (ARMADILLO_LIBRARY $ENV{HOME}/install/lib)
@@ -17,7 +17,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_files/cmake_findp
 #set (NLOPT_INCLUDE_DIRS $ENV{HOME}/install/include)
 find_package (Boost COMPONENTS program_options unit_test_framework REQUIRED) 
 # second one is only for testing so in the future test cmake could enforce only
-#find_package (Armadillo REQUIRED PATHS /home/robolab/software)
+find_package (Armadillo REQUIRED PATHS /home/robolab/software)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package (NLOPT REQUIRED)
 include_directories(${NLOPT_INCLUDE_DIRS})

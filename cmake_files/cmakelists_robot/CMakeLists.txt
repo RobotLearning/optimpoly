@@ -9,7 +9,7 @@ project(${PROJECT_NAME})
 
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
 #find_package(Armadillo REQUIRED)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_files/cmake_findpkg")
 #set (BOOST_ROOT $ENV{HOME}/install)
 #set (ARMADILLO_LIBRARY $ENV{HOME}/install/lib)
 #set (ARMADILLO_INCLUDE_DIR $ENV{HOME}/install/include)
