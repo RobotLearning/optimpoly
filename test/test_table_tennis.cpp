@@ -69,7 +69,8 @@ void test_zmq_listener();
 void test_new_interface();
 
 // serve tests
-void check_evolve_dmp();
+void test_evolve_dmp();
+void test_speedup_dmp();
 
 /*
  * Main function for boost unit testing.
@@ -117,7 +118,8 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts->add(BOOST_TEST_CASE(&test_new_interface));*/
 
     BOOST_TEST_MESSAGE("Testing table tennis serve related functions...");
-    ts->add(BOOST_TEST_CASE(&check_evolve_dmp));
+    ts->add(BOOST_TEST_CASE(&test_evolve_dmp));
+    ts->add(BOOST_TEST_CASE(&test_speedup_dmp));
     return ts;
 }
 

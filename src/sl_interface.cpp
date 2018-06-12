@@ -369,33 +369,42 @@ int Listener::give_info() {
     return obs.size();
 }
 
-void save_joint_data(const SL_Jstate joint_state[NDOF+1]) {
+void save_joint_data(const SL_Jstate joint_state[NDOF+1],
+                     const SL_DJstate joint_des_state[NDOF+1],
+                     const int save_qdes) {
 
     static rowvec q = zeros<rowvec>(NDOF);
+    static rowvec qdes = zeros<rowvec>(NDOF);
     static bool firsttime = true;
     static std::ofstream stream_joints;
     static std::string home = std::getenv("HOME");
     static std::string joint_file = home + "/table-tennis/joints.txt";
     if (firsttime) {
-        stream_joints.open(joint_file,std::ofstream::out | std::ofstream::app);
+        stream_joints.open(joint_file,std::ofstream::out);
         firsttime = false;
     }
 
-    for (int i = 1; i <= NDOF; i++)
+    for (int i = 1; i <= NDOF; i++) {
         q(i-1) = joint_state[i].th;
+        if (save_qdes) {
+            qdes(i-1) = joint_des_state[i].th;
+        }
+    }
 
-        if (stream_joints.is_open()) {
-            stream_joints << q;
+    if (stream_joints.is_open()) {
+        if (save_qdes) {
+            stream_joints << join_horiz(q,qdes);
         }
         else {
-            stream_joints.open(joint_file,std::ofstream::out | std::ofstream::app);
             stream_joints << q;
         }
-        //stream_balls.close();
+    }
+    //stream_balls.close();
 }
 
-void init_dmp_serve(double custom_pose[], int *init_dmp) {
+void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
 
+    using namespace DMP;
     namespace po = boost::program_options;
     using std::string;
 
@@ -411,7 +420,13 @@ void init_dmp_serve(double custom_pose[], int *init_dmp) {
             ("Tmax", po::value<double>(&sflags.Tmax)->default_value(1.0),
                   "Time to evolve DMP if tau = 1.0")
             ("json_file", po::value<string>(&sflags.json_file),
-                  "JSON File to load DMP values from");
+                  "JSON File to load DMP values from")
+            ("save_act_joint", po::value<bool>(&sflags.save_joint_act_data),
+                  "Save act joint data during movement to txt file")
+            ("save_des_joint", po::value<bool>(&sflags.save_joint_des_data),
+                        "Save des joint data during movement to txt file")
+            ("use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
+                        "Use computed-torque control if false");
         po::variables_map vm;
         std::ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -425,7 +440,7 @@ void init_dmp_serve(double custom_pose[], int *init_dmp) {
     catch(std::exception& e) {
         cout << e.what() << "\n";
     }
-
+    opt->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
     using dmps = Joint_DMPs;
     string json_file = home + "/table-tennis/json/" + sflags.json_file;
     dmps multi_dmp = dmps(json_file);
@@ -434,26 +449,32 @@ void init_dmp_serve(double custom_pose[], int *init_dmp) {
     for (int i = 0; i < NDOF; i++) {
         custom_pose[i] = pose(i);
     }
-    *init_dmp = 1;
+    opt->init_dmp = 1;
 
 
 }
 
 void serve_with_dmp(const SL_Jstate joint_state[],
                     SL_DJstate joint_des_state[],
-                    int *init_dmp) {
+                    dmp_task_options * opt) {
 
+    using namespace DMP;
     using dmps = Joint_DMPs;
     static double Tmax = 1.0;
     const std::string home = std::getenv("HOME");
     std::string file = home + "/table-tennis/json/" + sflags.json_file;
     static dmps multi_dmp;
+    static joint Qdes;
     static double t = 0.0;
+    static double track_error_sse = 0.0;
+    static bool print_error = false;
 
-    if (*init_dmp) {
+    if (opt->init_dmp) {
         multi_dmp = dmps(file);
-        *init_dmp = 0;
+        opt->init_dmp = 0;
         t = 0.0;
+        print_error = true;
+        track_error_sse = 0.0;
         Tmax = sflags.Tmax/multi_dmp.get_time_constant();
         vec7 qinit;
         for (int i = 0; i < NDOF; i++) {
@@ -463,11 +484,24 @@ void serve_with_dmp(const SL_Jstate joint_state[],
     }
 
     if (t < Tmax) {
-        vec joints = multi_dmp.step(DT);
+        multi_dmp.step(DT,Qdes);
+        vec7 qact;
         for (int i = 0; i < NDOF; i++) {
-            joint_des_state[i+1].th = joints(i);
+            joint_des_state[i+1].th = Qdes.q(i);
+            joint_des_state[i+1].thd = Qdes.qd(i);
+            joint_des_state[i+1].thdd = Qdes.qdd(i);
+            qact(i) = joint_state[i+1].th;
         }
         t += DT;
+        track_error_sse += pow(norm(qact-Qdes.q),2);
+        if (sflags.save_joint_act_data)
+            save_joint_data(joint_state,joint_des_state,sflags.save_joint_des_data);
+    }
+    else if (t >= Tmax && print_error) {
+        // print trajectory tracking error
+        int N = Tmax/DT;
+        std::cout << "Traj error (RMS) : " << sqrt(track_error_sse/N) << std::endl;
+        print_error = false;
     }
 }
 

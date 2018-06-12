@@ -608,13 +608,37 @@ we can adjust.
 **** DONE Pretty format the JSON file
 MATLAB dumps the JSON file in an unreadable way.
 Opening in Python and formatting solves the problem.
-**** TODO Adjust timing of the motion
-**** TODO Train on different examples in the dataset
+**** DONE Adjust timing of the motion
+Unit test added that checks if subsampling the sped-up
+signal restores it to the original movement.
+
+Silly mistake found where qd_des, qdd_des were not updated!
+**** DONE Train on different examples in the dataset
 Having multiple json files could easily solve this problem.
 **** TODO Start on different initial conditions
-Test different postures
+Test different postures. Check accelerations!
 ** TODO Use Reinforcement Learning to improve DMPs
 There are a lot of open questions regarding the application of RL.
+The Desiderata for RL in robotics:
+1. Data efficiency
+- no rollouts
+- this implies model based or something in between?
+2. Safety
+- model based is more promising
+- relation to relaxation learning control?
+3. Reduced reward engineering
+- unsupervised learning?
+- reward shaping?
+4. Parameterized policies
+- starting overparameterized or underparam.
+- relation to ILC?
+
+*** TODO Policy Search review
+**** TODO Check reinforce on higher dimensions for convergence
+**** TODO Implement adaptive learning rates for reinforce
+**** TODO Extend library with other policy search algorithms
+**** TODO Add interface to MUJOCO
+**** TODO Read up on deep reinforcement learning blog post
 *** TODO What is the reward function?
 The possibilities are:
 

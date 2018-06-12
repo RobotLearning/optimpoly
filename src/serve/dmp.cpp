@@ -13,6 +13,8 @@
 using namespace arma;
 using json = nlohmann::json;
 
+namespace DMP {
+
 void Canonical::reset() {
     phase = 1.0;
 }
@@ -86,13 +88,14 @@ vec DMP::basis(const double & x) const {
 }
 
 double DMP::forcing(const double & phase) const {
-    double f = 0.0;
-    double scale = 0.0;
+
+    //double f = 0.0;
     vec psi = basis(phase);
-    for (unsigned int i = 0; i < w.n_elem; i++) {
+    /*for (unsigned int i = 0; i < w.n_elem; i++) {
         f += psi(i) * w(i) * phase;
-        scale += psi(i);
-    }
+    }*/
+    double f = phase * sum(psi % w);
+    double scale = sum(psi);
     f /= scale + w.n_elem * 1e-10;
     return f;
 }
@@ -121,19 +124,19 @@ Joint_DMPs::Joint_DMPs(const std::string & param_file) {
                     elem.at("goal"),
                     elem.at("init_pos"));
         dmps.push_back(dmp);
-
     }
 }
 
-vec Joint_DMPs::step(const double & dt) {
+void Joint_DMPs::step(const double & dt,
+                      joint & Q) {
 
-    vec q_next = zeros<vec>(dmps.size());
     for (unsigned int i = 0; i < dmps.size(); i++) {
         vec x = dmps[i].step(can,dt);
-        q_next(i) = x(0);
+        Q.q(i) = x(0);
+        Q.qd(i) = x(1);
+        Q.qdd(i) = x(2);
     }
     can.step(dt);
-    return q_next;
 }
 
 mat Joint_DMPs::evolve(const double & T) {
@@ -141,12 +144,14 @@ mat Joint_DMPs::evolve(const double & T) {
     using namespace const_tt;
     unsigned int N = T/DT;
     reset();
-    mat joints = zeros<mat>(NDOF,N);
+    mat q_evolve = zeros<mat>(NDOF,N);
+    joint Q;
     for (unsigned int i = 0; i < N; i++) {
-        joints.col(i) = step(DT);
+        step(DT,Q);
+        q_evolve.col(i) = Q.q;
     }
     reset();
-    return joints;
+    return q_evolve;
 
 }
 
@@ -204,4 +209,10 @@ void Joint_DMPs::get_goal_pos(vec & pos) const {
 
 double Joint_DMPs::get_time_constant() const {
     return can.tau;
+}
+
+void Joint_DMPs::set_time_constant(const double & tau) {
+    can.tau = tau;
+}
+
 }

@@ -1,9 +1,27 @@
 #include <armadillo>
+#include "constants.h"
 
 using arma::zeros;
 using arma::vec;
 using arma::vec3;
+using arma::vec7;
 using arma::mat;
+
+namespace DMP {
+
+using namespace const_tt;
+
+/**
+ * @brief Desired/actual joint positions, velocities, accelerations.
+ *
+ * Main Player function play() updates desired joint values
+ * every 2ms for Barrett WAM.
+ */
+struct joint {
+    vec7 q = zeros<vec>(NDOF); //!< desired joint pos
+    vec7 qd = zeros<vec>(NDOF); //!< desired joint vels
+    vec7 qdd = zeros<vec>(NDOF); //!< desired joint accs
+};
 
 /**
  * \brief Canonical 1-D system in phase space to evolve (multiple) DMPs.
@@ -91,7 +109,7 @@ public:
     Joint_DMPs(const std::string & param_file);
 
     /** @brief Evolve the DMPs dt seconds */
-    vec step(const double & dt);
+    void step(const double & dt, joint & Q);
 
     /** @brief Evolve the DMPs DT seconds for a total duration of T sec.*/
     mat evolve(const double & T);
@@ -110,4 +128,9 @@ public:
 
     /** @brief Return speed of the movement */
     double get_time_constant() const;
+
+    /** \brief Set speed of the movement */
+    void set_time_constant(const double & tau);
 };
+
+}

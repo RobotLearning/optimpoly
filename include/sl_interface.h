@@ -76,8 +76,11 @@ public:
 };
 
 struct serve_flags {
+    bool save_joint_act_data = false;
+    bool save_joint_des_data = false;
+    bool use_inv_dyn_fb = false;
     double Tmax = 1.0; //!< time to evolve dmp if tau = 1.0
-    std::string json_file = "dmp.json"; //!< json file to load dmp from
+    std::string json_file = "dmp4.json"; //!< json file to load dmp from
 };
 
 #endif
@@ -129,14 +132,23 @@ extern void cheat(const SL_Jstate joint_state[],
  */
 extern void load_options();
 
-/** \brief Save joint data to a file */
-extern void save_joint_data(const SL_Jstate joint_state[]);
+/** \brief Save joint data to a file. If save_qdes is true, then save also the desired joints. */
+extern void save_joint_data(const SL_Jstate joint_state[],
+                     const SL_DJstate joint_des_state[],
+                     const int save_qdes);
+
+typedef struct {
+    int init_dmp; //!< initialize dmp code if true
+    int use_inv_dyn_fb; //!< use computed-torque if false
+} dmp_task_options;
 
 /** \brief Initialize DMP for the serve */
-extern void init_dmp_serve(double custom_pose[], int *init_dmp);
+extern void init_dmp_serve(double custom_pose[], dmp_task_options *opt);
 
 /** \brief Serve with learned DMPs */
-extern void serve_with_dmp(const SL_Jstate joint_state[], SL_DJstate joint_des_state[], int *init_dmp);
+extern void serve_with_dmp(const SL_Jstate joint_state[],
+                            SL_DJstate joint_des_state[],
+                            dmp_task_options *opt);
 
 
 #ifdef __cplusplus

@@ -6,15 +6,16 @@
 
 using namespace arma;
 using namespace const_tt;
+using namespace DMP;
 using dmps = Joint_DMPs;
 
 static void init_posture(vec7 & q0, int posture, bool verbose);
 
-void check_evolve_dmp() {
+void test_evolve_dmp() {
 
     // create a dmp
     const double T = 1.0;
-    std::string file = "json/dmp_all.json";
+    std::string file = "json/dmp2.json";
     dmps multi_dmp = dmps(file);
     mat M = multi_dmp.evolve(T);
     BOOST_TEST_MESSAGE("\nEvolving DMP: " << M.tail_cols(1).t());
@@ -41,6 +42,29 @@ void check_evolve_dmp() {
     BOOST_TEST(approx_equal(goal,M2.tail_cols(1),"absdiff",0.01));
     BOOST_TEST(approx_equal(goal_new,M3.tail_cols(1),"absdiff",0.01));
 
+}
+
+void test_speedup_dmp() {
+
+    // evolve dmp fast
+    // evolve dmp slowly
+    // subsample to check if equal
+    BOOST_TEST_MESSAGE("\nComparing sped-up dmp evolution to subsampled normal dmp...");
+
+    const double T = 1.0;
+    std::string file = "json/dmp4.json";
+    dmps multi_dmp = dmps(file);
+    double tau = 2.0;
+    multi_dmp.set_time_constant(tau);
+    mat M_fast = multi_dmp.evolve(T/tau);
+
+    multi_dmp.set_time_constant(tau/2);
+    mat M_slow = multi_dmp.evolve(T);
+    unsigned int N = T/DT;
+    uvec idx_sub = linspace<uvec>(1,N-1,N/2);
+    mat M_slow_subsamp = M_slow.cols(idx_sub);
+
+    BOOST_TEST(approx_equal(M_fast,M_slow_subsamp,"absdiff",0.01));
 }
 
 /*

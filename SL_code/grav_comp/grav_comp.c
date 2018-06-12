@@ -116,7 +116,7 @@ static int run_grav_comp_task(void) {
 	SL_InvDyn(joint_state, joint_des_state, endeff, &base_state, &base_orient );
 	//check_range( joint_des_state );
 
-	save_joint_data(joint_state);
+	save_joint_data(joint_state,joint_des_state,0);
 
 	return TRUE;
 }

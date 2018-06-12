@@ -22,7 +22,7 @@ static void compute_torques();
 static void check_safety();
 static int goto_custom_posture(double custom_pose[]);
 
-int init_dmp = FALSE;
+dmp_task_options opt = {FALSE,FALSE};
 
 /*
  * Adds the task to the task menu
@@ -58,7 +58,7 @@ static int init_serve_with_dmp_task(void) {
 	}
 
 	// init dmp
-	init_dmp_serve(custom_pose,&init_dmp);
+	init_dmp_serve(custom_pose,&opt);
 
 	/* go to a save posture */
 	goto_custom_posture(custom_pose);
@@ -91,7 +91,7 @@ static int init_serve_with_dmp_task(void) {
 static int run_serve_with_dmp_task(void) {
 
     // serve ball with a feed-forward DMP policy
-	serve_with_dmp(joint_state,joint_des_state,&init_dmp);
+	serve_with_dmp(joint_state,joint_des_state,&opt);
 
 	// compute torques based on inverse dynamics
 	compute_torques();
@@ -112,7 +112,10 @@ static void compute_torques() {
 
 	// control the robot
 	// calculate the feedforward commands with inverse dynamics
-	SL_InvDyn(NULL, joint_des_state, endeff, &base_state, &base_orient);
+	if (opt.use_inv_dyn_fb)
+	    SL_InvDyn(joint_state, joint_des_state, endeff, &base_state, &base_orient);
+	else
+	    SL_InvDyn(NULL, joint_des_state, endeff, &base_state, &base_orient);
 	/*if (friction_comp) {
 		addFrictionModel(joint_des_state);
 	}*/
