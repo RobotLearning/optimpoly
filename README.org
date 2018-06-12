@@ -617,6 +617,17 @@ Silly mistake found where qd_des, qdd_des were not updated!
 Having multiple json files could easily solve this problem.
 **** TODO Start on different initial conditions
 Test different postures. Check accelerations!
+*** TODO Compare different SL versions
+**** TODO Check gravity compensation with both SL 
+Now that the heavier metal racket is attached, I need to
+***** TODO Test Boris SL (sebastian/sl_xeno) grav_comp
+with different weights and mcm
+***** TODO Test on usual SL (projects/sl_xeno) grav_comp
+Adjusting different weights did not work here!
+***** TODO Record with this racket in grav comp mode
+if the previous movements do not work well on the robot
+
+**** TODO Compare inverse dynamics
 ** TODO Use Reinforcement Learning to improve DMPs
 There are a lot of open questions regarding the application of RL.
 The Desiderata for RL in robotics:

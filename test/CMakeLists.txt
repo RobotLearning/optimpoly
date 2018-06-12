@@ -38,11 +38,12 @@ target_include_directories (${TEST_EXEC} PRIVATE
 #MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
 
 add_library(boost_unit_test_framework STATIC IMPORTED)
-set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libboost_unit_test_framework.a)
-#set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
-#add_library(boost_program_options SHARED IMPORTED)
-#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
-#target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
+
+#set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libboost_unit_test_framework.a)
+set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
+add_library(boost_program_options SHARED IMPORTED)
+set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
+target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
 
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
 
@@ -53,7 +54,6 @@ target_link_libraries(${TEST_EXEC}
     ${PROJECT_NAME}
     armadillo
     boost_program_options
-    boost_unit_test_framework
     nlopt)
 
 # INSTALL FOLDER
