@@ -617,7 +617,35 @@ Silly mistake found where qd_des, qdd_des were not updated!
 Having multiple json files could easily solve this problem.
 **** TODO Start on different initial conditions
 Test different postures. Check accelerations!
-** TODO Use Reinforcement Learning to improve DMPs
+** TODO Cast it as an optimal control problem
+*** TODO Test ball information during serve
+**** TODO Plot ball and robot data during serve
+Check it in MATLAB and look for outliers.
+**** TODO How does the ball filtering look like?
+*** TODO Combine with movement primitives
+Even if the ball-takeoff model is not known, one can use
+movement primitives for at least the first part of the movement.
+**** TODO When to optimize?
+I think when it is clear that the racket will not return the 
+separated ball one can 'fire' the optimization.
+*** TODO Can we learn a model of the ball takeoff?
+Possibly from movement primitives and/or RL trajectories
+one could learn such a model.
+*** TODO Can it be solved with polynomials?
+Is the full planning problem with the two ball takeoff
+and racket impact models included a continuous
+trajectory? hybrid? polynomials?
+**** TODO Compare third order to fifth order on robot
+Third order or fifth order (minimum jerk)? Which
+is better?
+***** TODO Is it necessary to do MPC?
+I would guess fifth order should be better in this case
+****** TODO Check local perturbative feedback solutions
+If we can additionally solve for local feedback, then
+one does not need to optimize repeatedly 5th order
+polynomials. 
+
+** IN-PROGRESS Use Reinforcement Learning to improve DMPs
 There are a lot of open questions regarding the application of RL.
 The Desiderata for RL in robotics:
 1. Data efficiency
@@ -634,11 +662,30 @@ The Desiderata for RL in robotics:
 - relation to ILC?
 
 *** TODO Policy Search review
+**** TODO Check RL in MATLAB
+***** TODO Test Power in MATLAB
+using Jens Kober's implementation
+****** TODO Adapt to my own DMP implementation
+****** TODO Add an internal system
+e.g. a Barrett WAM forward dynamics
+****** TODO Increase dimensions of the state
+***** TODO Add Reps in MATLAB
+***** TODO Check Simone's RL toolbox (mips)
+***** TODO Test against a realistic mismatch scenario
+****** TODO Compare against ILC?
+******* TODO Extend ILC with improved trajectories
+As we use ILC and update the models, the models can also be
+used to update the reference trajectories progressively.
+******** TODO Relation to DDP?
 **** TODO Check reinforce on higher dimensions for convergence
 **** TODO Implement adaptive learning rates for reinforce
 **** TODO Extend library with other policy search algorithms
 **** TODO Add interface to MUJOCO
 **** TODO Read up on deep reinforcement learning blog post
+**** TODO Check out new papers on deep RL for robotics 
+Sergey Levine and Pieter Abbeel's new papers come to mind.
+Especially:
+TRPO, Guided Policy Search, ...
 *** TODO What is the reward function?
 The possibilities are:
 
@@ -647,15 +694,34 @@ The possibilities are:
 3. Maximum y-velocity of the ball
 
 or possible a combination of the above.
-*** TODO Which algorithm to use? 
-REPS, PILCO, POWER, etc.
-**** TODO Model free or model based RL?
-*** TODO How many basis functions to use in DMPs?
-*** TODO How many rollouts per policy update etc.
-** TODO Can we cast it as an optimal control problem?
-*** TODO Can we learn a model of the ball takeoff?
-Possibly from model-free RL examples, one could learn such a model.
-*** TODO Can it be solved with polynomials?
+**** TODO Can we adapt the reward function?
+Reward shaping comes to mind here.
+**** TODO Can an algorithm suggest trajectories?
+***** TODO Relation to relaxation learning control?
+*** IN-PROGRESS Which algorithm to use? 
+The options are model-free, model-based RL and
+maybe also using Bayesian Optimization.
+**** IN-PROGRESS Model free or model based RL?
+The approach must clearly be model-based as I do not want
+to have 'N' rollouts for each policy $\theta_k$.
+***** TODO Which type of model?
+The options are GPs or neural networks.
+***** TODO Learn model of what?
+Model for the ball take-off, ball-racket impact
+or robot dynamics? Or all three?
+***** TODO Is the ball or the robot rest posture a context?
+*** IN-PROGRESS Which representation to use?
+I will stick to DMPs for now. The parameters per dimension can be 
+adapted though.
+**** DONE How many basis functions to use in DMPs?
+5-20 is the usual number per dimension. I plan to use 10 per dim.
+**** TODO Is it possible to increase basis func. as needed?
+***** TODO Relation to Bayesian Optimization?
+The insight here is that one starts with only a few parameters
+optimizes them and then adds new parameters as needed. 
+****** TODO How to impose an hierarchy on the parameters?
+Could UCT be of help
+
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?

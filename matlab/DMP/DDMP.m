@@ -20,8 +20,6 @@ classdef DDMP < DMP
         goal
         % initial y,yd,ydd values
         y0
-        % unscaled states
-        z,zd
         % weights of the DMP
         w
         % regularization constant when regressing
@@ -43,8 +41,6 @@ classdef DDMP < DMP
             assert(length(yin)==3,'please provide initial vel and acc');
             obj.setInitState(yin);
             obj.setWeights(zeros(1,obj.can.nbf));
-            obj.z = 0;
-            obj.zd = 0;
             % reset all states and phases
             obj.resetStates();
         end
@@ -66,14 +62,6 @@ classdef DDMP < DMP
             %amp = g - obj.y0;
             tau = obj.can.tau;
             dt = obj.can.dt;
-            
-%             f = obj.forcing();
-%             obj.zd = (alpha	* (beta * (g - obj.y(1)) - obj.z) + amp * f) * tau;
-%         	obj.y(2) = obj.z * tau;
-%             obj.y(3) = obj.zd * tau;
-% 
-%             obj.z = obj.z + dt * obj.zd;
-%             obj.y(1) = obj.y(1) + dt * obj.y(2);
 
             A =  [0, 1;
                 -alpha*beta*(tau^2), -alpha*tau];
