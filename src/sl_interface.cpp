@@ -485,6 +485,8 @@ void serve_with_dmp(const SL_Jstate joint_state[],
 
     if (t < Tmax) {
         multi_dmp.step(DT,Qdes);
+        //clamp(Qdes.qdd,-1.0,1.0);
+        //cout << Qdes.qdd.t();
         vec7 qact;
         for (int i = 0; i < NDOF; i++) {
             joint_des_state[i+1].th = Qdes.q(i);

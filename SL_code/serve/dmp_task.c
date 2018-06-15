@@ -137,10 +137,10 @@ static void check_safety() {
 		printf("Joint des limits are exceeding limits! Freezing...\n");
 		freeze();
 	}
-	/*if(!check_range(joint_des_state)) {
+	if(!check_range(joint_des_state)) {
 		printf("Exceeding torque limits! Freezing...\n");
 		freeze();
-	}*/
+	}
 	if (collision_detection(racket_state)) {
 		printf("Collision with table detected!\n");
 		freeze();
