@@ -2,40 +2,51 @@
 # IMPORTANT NOTE: run in a subshell for cd commands: 
 # . install.sh
 
-usage() { echo "Argument missing for running unit tests. Usage: $0 [-t <1|0>] " 1>&2; exit 1; }
-
-while getopts ":t:" opt; do
-  case $opt in
-    t)
-	arg=${OPTARG}
-	((arg == 1 || arg == 0)) || usage
-        #echo "-t was triggered, Parameter: $OPTARG" >&2
-        ;;
-    \?)
-	echo "Invalid option: -$OPTARG" >2
-	usage
-        exit 1
-        ;;
-    :)
-        echo "Option -$OPTARG requires an argument." >&2
-	usage
-	exit 1
-	;;
-  esac
+DEBUG=false
+TEST=false
+BUILD="mpi/laptop"
+while true; do
+    case "$1" in
+	-b | --build ) BUILD="$2"; shift 2 ;;
+	-d | --debug ) DEBUG=true; shift ;;
+	-t | --test  ) TEST=true; shift ;;
+	* ) break ;;
+    esac
 done
 
-mkdir build/
-mkdir build/debug
-mkdir build/release
-cd build/release
-cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release ../..
-make
-make install
+if [ "$BUILD" = "robot" ]; then
+    echo "Loading robot cmake files..."
+    cp cmake_files/cmakelists_robot/CMakeLists.txt .
+    cp cmake_files/cmakelists_robot/src/CMakeLists.txt src/
+    cp cmake_files/cmakelists_robot/test/CMakeLists.txt test/
+fi
+
+if $DEBUG; then
+    echo "Building in debug mode..."
+    mkdir -p build/debug/
+    cd build/debug
+    if $TEST; then
+	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=True ../..
+    else
+	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
+    fi
+else
+    echo "Building in release mode..."
+    mkdir -p build/release
+    cd build/release
+    if $TEST; then
+	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=True ../..
+    else
+	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
+    fi
+    
+fi
+
+
+make && make install
 cd ../..
-#./unit_tests --show_progress=yes
-#echo "arg = ${arg}"
-if [ "$arg" == 1 ]; then
-   ./unit_tests --log_level=message --show_progress=yes
+if $TEST; then
+    ./unit_tests --log_level=message --show_progress=yes
 fi
 
 # FOR OLD SL

@@ -27,8 +27,6 @@ add_library (${PROJECT_NAME} SHARED ${SOURCES})
 # SET PROJECT VERSION
 set_target_properties(${PROJECT_NAME} PROPERTIES 
     VERSION ${PROJECT_VERSION})
-#    SOVERSION 1
-#    PUBLIC_HEADER api/mylib.h)
 
 # INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)
 target_include_directories (${PROJECT_NAME} PRIVATE
@@ -39,20 +37,14 @@ target_include_directories (${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include/player)
 
 # LINK EXTERNAL LIBRARIES HERE
-add_library(boost_program_options SHARED IMPORTED)
-set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
-target_link_libraries(${PROJECT_NAME} armadillo boost_program_options ${ZMQPP})
+#add_library(boost_program_options SHARED IMPORTED)
+#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
+target_link_libraries(${PROJECT_NAME}
+  armadillo
+  nlopt
+  boost_program_options
+  ${ZMQPP})
 
 # INSTALL FOLDER
 install(TARGETS ${PROJECT_NAME}
     LIBRARY DESTINATION ${CMAKE_SOURCE_DIR}/lib)
-#    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-# OPTIMIZATION OPTIONS
-#target_compile_options(${PROJECT_NAME} PRIVATE
-#                -O3 -Wall -DNDEBUG -std=c++11 -pthread)
-
-# DEBUG OPTIONS
-#target_compile_options(example PUBLIC 
-#        -g -DDEBUG -Wall -Wextra -pedantic 
-#        -std=c++11 -pthread)

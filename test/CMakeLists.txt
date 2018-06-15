@@ -34,31 +34,28 @@ target_include_directories (${TEST_EXEC} PRIVATE
 #message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 #message("suffix: ${CMAKE_FIND_LIBRARY_SUFFIXES}")
-#find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
+find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
 #MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
-
-add_library(boost_unit_test_framework STATIC IMPORTED)
+#add_library(boost_unit_test_framework STATIC IMPORTED)
 
 #set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libboost_unit_test_framework.a)
-set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
-add_library(boost_program_options SHARED IMPORTED)
-set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
-target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
+#set_target_properties(boost_unit_test_framework PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_unit_test_framework.a)
+#add_library(boost_program_options SHARED IMPORTED)
+#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
+#target_link_libraries(${TEST_EXEC} boost_unit_test_framework)
 
 #set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
 
 # INCLUDE "OUR" SHARED LIBRARY
 target_link_libraries(${TEST_EXEC}
+    ${UNIT_TEST}
     ${ZMQPP}
     ${ZMQ}
     ${PROJECT_NAME}
     armadillo
-    boost_program_options
-    nlopt)
+    boost_program_options)
 
 # INSTALL FOLDER
-#find_library(${SHARED_OBJ} ${PROJECT_NAME} HINTS ${CMAKE_SOURCE_DIR}/lib)
-#target_link_libraries(${TEST_EXEC} ${SHARED_OBJ})
 install(TARGETS ${TEST_EXEC}
     DESTINATION ${CMAKE_SOURCE_DIR})
 
