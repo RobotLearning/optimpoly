@@ -81,7 +81,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
     test_suite* ts = BOOST_TEST_SUITE("test_suite");
 
-    /*BOOST_TEST_MESSAGE("Testing kinematics functions...");
+    BOOST_TEST_MESSAGE("Testing kinematics functions...");
     ts->add(BOOST_TEST_CASE(&test_kinematics_calculations));
     ts->add(BOOST_TEST_CASE(&test_kin_deriv));
 
@@ -115,7 +115,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     BOOST_TEST_MESSAGE("Testing SL interface...");
     ts->add(BOOST_TEST_CASE(&test_zmqpp));
     ts->add(BOOST_TEST_CASE(&test_zmq_listener));
-    ts->add(BOOST_TEST_CASE(&test_new_interface));*/
+    ts->add(BOOST_TEST_CASE(&test_new_interface));
 
     BOOST_TEST_MESSAGE("Testing table tennis serve related functions...");
     ts->add(BOOST_TEST_CASE(&test_evolve_dmp));

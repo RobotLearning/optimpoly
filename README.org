@@ -545,19 +545,42 @@ to data from the different parts of the table.
 In the new approach we will test estimating the calibration 
 matrix together with the homogenous transformation.
 **** TODO Estimate the homogenous transf. between the robots.
-** TODO Add unit tests for two robots playing
+** IN-PROGRESS Add unit tests for two robots playing
 *** TODO Add graphics
 **** TODO Copy graphics from SL
 **** TODO Add graphics for a second robot
-*** TODO Reorganize/refactor code
-**** TODO Correct paths (load/save)
-Replace e.g. std::getenv()
+*** IN-PROGRESS Reorganize/refactor code
+**** IN-PROGRESS Add options to install script
+Now the install script takes the test,debug and build flags. 
+
+--test: make and install the tests and run them 
+--debug: make but not install in debug mode
+--build: if equal to robot copy the robot cmake scripts
+***** TODO Add argument for testing
+Not all tests need to be run so this could be centralized here
+in the script or in boost_unit_test provided fixtures rather than
+commenting out unit tests each time!
+***** IN-PROGRESS One cmake should build on the robot & mpi
+cmake can now run as is in both mpi computer and also in my laptop.
+Of course this is true because we set the LD_LIBRARY_PATH and other
+paths correctly in the bashrc script.
+
+So far the cmake files for the robot computers are different...
+**** IN-PROGRESS Build debug mode as well
+The install script does not 'make install' if called in
+debug mode: -d 
+
+Setting excessive options like -Werror and -Weffc++ to try to ensure
+a high quality of coding standards.
+**** TODO Use json for loading settings/config
+Instead of using armadillo load() function
 **** TODO Refactor filtering code
 boost program options can be replaced with either json
 or with property trees
-**** TODO Switch to shared nlopt lib
+**** DONE Switch to shared nlopt lib
 **** TODO Refactor/simplify interface
 Old interface play() is not needed for instance
+***** TODO Move listener class to ball_interface
 ***** TODO Add a zmq based sim code that simulates the ball
 ****** TODO Use same ZMQ interface written for real robot
 ****** TODO Call it from SL and check if it works
@@ -571,9 +594,6 @@ Loading robot startup parameterization and table related
 constants from a file would simplify the unit test for
 two robots playing
 **** TODO Introduce boost log framework?
-**** TODO Build debug mode as well
-The install script should not 'make install' if called in
-debug mode: -d 
 ** TODO Test with two robots playing against each other
 We first need to estimate the calibration matrix + 
 homogenous transformation between the robots.
