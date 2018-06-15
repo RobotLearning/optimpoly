@@ -37,8 +37,6 @@ target_include_directories (${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include/player)
 
 # LINK EXTERNAL LIBRARIES HERE
-#add_library(boost_program_options SHARED IMPORTED)
-#set_target_properties(boost_program_options PROPERTIES IMPORTED_LOCATION /home/robolab/software/lib/libboost_program_options.so)
 target_link_libraries(${PROJECT_NAME}
   armadillo
   nlopt
