@@ -19,6 +19,10 @@ if [ "$BUILD" = "robot" ]; then
     cp cmake_files/cmakelists_robot/CMakeLists.txt .
     cp cmake_files/cmakelists_robot/src/CMakeLists.txt src/
     cp cmake_files/cmakelists_robot/test/CMakeLists.txt test/
+else
+    cp cmake_files/cmakelists_mpi/CMakeLists.txt .
+    cp cmake_files/cmakelists_mpi/src/CMakeLists.txt src/
+    cp cmake_files/cmakelists_mpi/test/CMakeLists.txt test/
 fi
 
 if $DEBUG; then
@@ -30,6 +34,11 @@ if $DEBUG; then
     else
 	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
     fi
+    make
+    if $TEST; then
+	./unit_tests --log_level=message --show_progress=yes
+    fi
+    cd ../..
 else
     echo "Building in release mode..."
     mkdir -p build/release
@@ -39,14 +48,11 @@ else
     else
 	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
     fi
-    
-fi
-
-
-make && make install
-cd ../..
-if $TEST; then
-    ./unit_tests --log_level=message --show_progress=yes
+    make && make install
+    cd ../..
+    if $TEST; then
+	./unit_tests --log_level=message --show_progress=yes
+    fi
 fi
 
 # FOR OLD SL
