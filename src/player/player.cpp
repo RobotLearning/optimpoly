@@ -21,7 +21,6 @@
 #include "constants.h"
 #include "kalman.h"
 #include "tabletennis.h"
-#include "utils.h"
 #include "optim.h"
 #include "lookup.h"
 
@@ -29,6 +28,15 @@ using namespace arma;
 using namespace optim;
 
 namespace player {
+
+Player::Player(const Player & player) : filter(player.filter),
+                                        pflags(player.pflags),
+                                        ball_land_des(player.ball_land_des),
+                                        q_rest_des(player.q_rest_des) {
+    observations = zeros<mat>(3,pflags.min_obs);
+    times = zeros<vec>(pflags.min_obs);
+    set_optim();
+}
 
 Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
                    : filter(filter_), pflags(flags) {
@@ -39,40 +47,60 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
+	set_optim();
 
-	double lb[2*NDOF+1];
-	double ub[2*NDOF+1];
-	double SLACK = 0.02;
-	double Tmax = 1.0;
-	set_bounds(lb,ub,SLACK,Tmax);
-
-	switch (pflags.alg) {
-		case FOCUS: {
-			opt = new FocusedOptim(q0,lb,ub);
-			pred_params.Nmax = 1000;
-			break; }
-		case VHP: {
-			opt = new HittingPlane(q0,lb,ub);
-			break; }
-		case DP: {
-			opt = new DefensiveOptim(q0,lb,ub,true,true); // use lookup
-			DefensiveOptim *dp = static_cast<DefensiveOptim*>(opt);
-			dp->set_weights(pflags.weights);
-			dp->set_velocity_multipliers(pflags.mult_vel);
-			dp->set_penalty_loc(pflags.penalty_loc);
-			pred_params.Nmax = 1000;
-			break; }
-		default:
-			throw ("Algorithm is not recognized!\n");
-	}
-	opt->set_return_time(pflags.time2return);
-	opt->set_verbose(pflags.verbosity > 1);
-	opt->set_detach(pflags.detach);
 }
 
 Player::~Player() {
 
 	delete opt;
+}
+
+void Player::set_optim() {
+
+    double lb[2*NDOF+1];
+    double ub[2*NDOF+1];
+    double SLACK = 0.02;
+    double Tmax = 1.0;
+    set_bounds(lb,ub,SLACK,Tmax);
+
+    switch (pflags.alg) {
+        case FOCUS: {
+            opt = new FocusedOptim(q_rest_des,lb,ub);
+            pred_params.Nmax = 1000;
+            break; }
+        case VHP: {
+            opt = new HittingPlane(q_rest_des,lb,ub);
+            break; }
+        case DP: {
+            opt = new DefensiveOptim(q_rest_des,lb,ub,true,true); // use lookup
+            DefensiveOptim *dp = static_cast<DefensiveOptim*>(opt);
+            dp->set_weights(pflags.weights);
+            dp->set_velocity_multipliers(pflags.mult_vel);
+            dp->set_penalty_loc(pflags.penalty_loc);
+            pred_params.Nmax = 1000;
+            break; }
+        default:
+            throw ("Algorithm is not recognized!\n");
+    }
+    opt->set_return_time(pflags.time2return);
+    opt->set_verbose(pflags.verbosity > 1);
+    opt->set_detach(pflags.detach);
+}
+
+Player & Player::operator=(const Player & player) {
+
+    if (this != &player) {
+        filter = player.filter;
+        pflags = player.pflags;
+        ball_land_des = player.ball_land_des;
+        q_rest_des = player.q_rest_des;
+        observations = zeros<mat>(3,pflags.min_obs);
+        times = zeros<vec>(pflags.min_obs);
+        set_optim();
+    }
+    return *this;
+
 }
 
 bool Player::filter_is_initialized() const {

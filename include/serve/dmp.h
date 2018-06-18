@@ -50,7 +50,7 @@ private:
     vec c = zeros<vec>(10); //!< centers of the basis functions
     double alpha = 25.0; //!< time constant
     double beta = 25/4.0; //!< time constant
-    double g; //!< goal state
+    double g = 1.0; //!< goal state
 
     /** \brief  Create a vector of basis functions evaluated at current phase x */
     vec basis(const double & x) const;

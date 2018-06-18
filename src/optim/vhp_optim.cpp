@@ -7,7 +7,7 @@
  *  Created on: Mar 5, 2017
  *      Author: okoc
  */
-
+#include <assert.h>
 #include <armadillo>
 #include "constants.h"
 #include "utils.h"
@@ -153,6 +153,7 @@ static double penalize_dist_to_limits(unsigned n,
 	HittingPlane * vhp = (HittingPlane*)my_func_params;
 
 	if (grad) {
+	    assert(n == 2*NDOF); // to turn off unused-parameter warning
 		for (int i = 0; i < NDOF; i++) {
 			grad[i] = 2 * (x[i] - vhp->limit_avg[i]);
 			grad[i+NDOF] = 2 * x[i+NDOF];
@@ -203,6 +204,12 @@ static void kinematics_eq_constr(unsigned m,
 		result[i] = pos[i] - vhp->param_des->racket_pos(i);
 		result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
 		result[i + 2*NCART] = normal[i] - vhp->param_des->racket_normal(i);
+	}
+
+	if (grad) {// to turn off unused-param warning
+	    assert(m == 3*NCART);
+	    assert(n == 2*NDOF);
+	    // TODO
 	}
 }
 

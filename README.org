@@ -566,12 +566,14 @@ Of course this is true because we set the LD_LIBRARY_PATH and other
 paths correctly in the bashrc script.
 
 So far the cmake files for the robot computers are different...
-**** IN-PROGRESS Build debug mode as well
+**** DONE Build debug mode as well
 The install script does not 'make install' if called in
 debug mode: -d 
 
 Setting excessive options like -Werror and -Weffc++ to try to ensure
 a high quality of coding standards.
+I had to add -Wno-error=effc++ since effc++ was added before c++11
+and complains erroneously about c++11 type default initialization.
 **** TODO Use json for loading settings/config
 Instead of using armadillo load() function
 **** TODO Refactor filtering code

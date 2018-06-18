@@ -17,6 +17,17 @@ using namespace const_tt;
 
 namespace optim {
 
+/**
+ * @brief Data needed for resting state optimization
+ *
+ * Optimization tries to find a good resting posture close to the predicted ball locations ball_pred
+ * and a given hitting state q_hit with low jacobian norm (Frobenius)
+ */
+struct rest_optim_data {
+    mat ball_pred = zeros<mat>(3,100);
+    vec q_hit = zeros<vec>(NDOF);
+};
+
 /*
  * Interpolate ball positions at a given time point T.
  */
@@ -154,14 +165,19 @@ static void intersect_ball_path(unsigned m,
 
 	rest_optim_data *rest_data = (rest_optim_data*)data;
 	vec3 ball_pos;
-	vec q_rest(x,NDOF);
+	vec q_rest(x,n-1);
 	double T = x[NDOF];
 	static mat::fixed<6,7> jac = zeros<mat>(6,7);
 	vec3 robot_pos = player::get_jacobian(q_rest,jac);
 	interp_ball(rest_data->ball_pred,T,ball_pos);
 
-	for (int i = 0; i < NCART; i++) {
+	for (unsigned i = 0; i < m; i++) {
 		result[i] = robot_pos(i) - ball_pos(i);
+	}
+
+	if (grad) {
+	    //TODO:
+	    std::cerr << "TODO!\n";
 	}
 }
 

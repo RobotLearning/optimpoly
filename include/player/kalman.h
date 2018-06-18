@@ -39,12 +39,11 @@ private:
 
 protected:
 
-	vec x; //!< state
-	mat P; //!< covariance of the state
 	mat C; //!< observation matrix that EKF can also borrow
-
 	mat Q; //!< covariance of the process noise (discrete)
 	mat R; //!< covariance of the observation noise (discrete)
+    vec x; //!< state
+    mat P; //!< covariance of the state
 
 	/**
 	 * @brief Check if the matrix is symmetric positive semidefinite
@@ -211,41 +210,29 @@ public:
 	 * @return Sampled future observations.
 	 */
 	mat sample_observations(int N) const;
-
-	/**
-	 * TODO: Not implemented yet.
-	 */
-	mat smoothen(const mat & observations);
 };
+
+using model = vec (*)(const vec &, const double, const void *p);
 
 /**
  * @brief Extended Kalman Filter.
  *
  * Inherits the usual update method, but uses its own prediction method
  * based on the (nonlinear) function pointer data member.
- * predict() calls linearize if linearization flag is TRUE.
- * predict_path() does NOT call linearize!
- *
  */
 class EKF : public KF {
 
 private:
 
-	// parameters to function
-	void *fparams = nullptr;
-
-	// standard deviation multiplier to reject outliers
-	double outlier_reject_mult;
-
-	// function pointer
-	vec (*f)(const vec &, const double, const void *p);
+	void *fparams = nullptr; //!< parameters to function
+	double outlier_reject_mult; //!< standard deviation multiplier to reject outliers
+	model f; //!< pointer to function for prediction
 
 	/**
 	 * @brief Linearize the discrete function (that integrates a continuous functions dt seconds)
 	 * to get Ad matrix
 	 *
 	 * Using 'TWO-SIDED-SECANT' to do a stable linearization
-	 *
 	 */
 	mat linearize(const double dt, const double h) const;
 
@@ -277,6 +264,9 @@ public:
 	    mat & Qin,
 	    mat & Rin,
 	    double rej_mult = 2.0);
+
+    EKF(const EKF& ekf); //!< copy constructor
+	EKF& operator=(const EKF& ekf); //!< assignment operator
 
 	/** @brief Set function co-parameters for predicting */
 	void set_fun_params(void *params) { fparams = params; };

@@ -19,6 +19,7 @@ using arma::mat;
 using arma::vec;
 using arma::vec3;
 using arma::vec6;
+using arma::zeros;
 
 namespace player {
 
@@ -27,9 +28,9 @@ namespace player {
  * used to predict racket contact.
  */
 struct racket {
-	vec3 pos;
-	vec3 vel;
-	vec3 normal;
+	vec3 pos = zeros<vec>(3);
+	vec3 vel = zeros<vec>(3);
+	vec3 normal = zeros<vec>(3);
 };
 
 /**
@@ -80,14 +81,13 @@ class TableTennis {
 private:
 
 	bool CHECK_CONTACTS = true; // turn off for simplified debugging
-	bool SPIN_MODE; // turn on prediction with a spin model
-	bool VERBOSE;
+	bool SPIN_MODE = false; // turn on prediction with a spin model
+	bool VERBOSE = false;
 	status stats;
-
 	ball_params params; // ball prediction parameters
-	vec3 ball_pos;
-	vec3 ball_vel;
-	vec3 ball_spin; // ball angular velocity = 0 if spin mode is turned OFF
+	vec3 ball_pos = zeros<vec>(3);
+	vec3 ball_vel = zeros<vec>(3);
+	vec3 ball_spin = zeros<vec>(3); // ball angular velocity = 0 if spin mode is turned OFF
 
 	/**
 	 * @brief Initialize constant angular velocity (a.k.a. spin)

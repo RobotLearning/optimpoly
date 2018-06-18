@@ -81,7 +81,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
     test_suite* ts = BOOST_TEST_SUITE("test_suite");
 
-    BOOST_TEST_MESSAGE("Testing kinematics functions...");
+    /*BOOST_TEST_MESSAGE("Testing kinematics functions...");
     ts->add(BOOST_TEST_CASE(&test_kinematics_calculations));
     ts->add(BOOST_TEST_CASE(&test_kin_deriv));
 
@@ -92,12 +92,12 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts->add(BOOST_TEST_CASE(&test_predict_update));
     ts->add(BOOST_TEST_CASE(&check_ekf));
     ts->add(BOOST_TEST_CASE(&test_predict_path));
-    ts->add(BOOST_TEST_CASE(&check_mismatch_pred));
+    ts->add(BOOST_TEST_CASE(&check_mismatch_pred));*/
     //ts->add(BOOST_TEST_CASE(&test_outlier_detection)); // TOO LONG
 
     BOOST_TEST_MESSAGE("Testing optimization routines...");
     ts->add(BOOST_TEST_CASE(&test_vhp_optim));
-    ts->add(BOOST_TEST_CASE(&test_fp_optim));
+    /*ts->add(BOOST_TEST_CASE(&test_fp_optim));
     ts->add(BOOST_TEST_CASE(&test_dp_optim));
     ts->add(BOOST_TEST_CASE(&find_rest_posture));
     //ts->add(BOOST_TEST_CASE(&test_time_efficiency)); // TOO LONG
@@ -119,7 +119,7 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
     BOOST_TEST_MESSAGE("Testing table tennis serve related functions...");
     ts->add(BOOST_TEST_CASE(&test_evolve_dmp));
-    ts->add(BOOST_TEST_CASE(&test_speedup_dmp));
+    ts->add(BOOST_TEST_CASE(&test_speedup_dmp));*/
     return ts;
 }
 

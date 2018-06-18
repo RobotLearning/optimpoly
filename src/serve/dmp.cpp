@@ -109,7 +109,6 @@ void Joint_DMPs::reset() {
 
 Joint_DMPs::Joint_DMPs(const std::string & param_file) {
 
-    using std::vector;
     // load from json file
     std::ifstream stream(param_file);
     json jobs;

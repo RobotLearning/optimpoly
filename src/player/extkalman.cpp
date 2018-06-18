@@ -19,19 +19,24 @@ using namespace arma;
 
 namespace player {
 
-EKF::EKF(vec (*fp)(const vec &, const double, const void *p),
+EKF::EKF(model fp,
         mat & Cin,
         mat & Qin,
         mat & Rin,
-        double out_rej_mult) : KF(Cin,Qin,Rin) {
+        double rej_mult) : KF(Cin,Qin,Rin),outlier_reject_mult(rej_mult),f(fp) {}
 
-	this->f = fp;
-	outlier_reject_mult = out_rej_mult;
-	/*if (x(0) == datum::inf) {
-		std::cout
-		<< "EKF not initialized! Call set_prior before filtering!"
-		<< std::endl;
-	}*/
+EKF::EKF(const EKF & ekf_) : KF(ekf_),
+                            fparams(ekf_.fparams),
+                            outlier_reject_mult(ekf_.outlier_reject_mult),
+                            f(ekf_.f){}
+
+EKF& EKF::operator =(const EKF & ekf_) {
+    if (this != &ekf_) {
+        fparams = ekf_.fparams;
+        f = ekf_.f;
+        outlier_reject_mult = ekf_.outlier_reject_mult;
+    }
+    return *this;
 }
 
 mat EKF::linearize(const double dt, const double h) const {
@@ -110,7 +115,9 @@ bool check_new_obs(const vec3 & obs, double tol) {
     return false;
 }
 
-bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
+bool check_reset_filter(const bool newball,
+                        const int verbose,
+                        const double threshold) {
 
     bool reset = false;
     static int reset_cnt = 0;

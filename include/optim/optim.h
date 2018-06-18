@@ -21,18 +21,18 @@
 #include "constants.h"
 #include "kalman.h" // for estimate_prior
 
-using namespace const_tt;
+using arma::mat;
+using arma::vec;
+using arma::zeros;
+using arma::vec7;
+using const_tt::NCART;
+using const_tt::NDOF;
 
 // defines
 const int EQ_CONSTR_DIM = 3*NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF + 2*NDOF; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
-
-using arma::mat;
-using arma::vec;
-using arma::zeros;
-using arma::vec7;
 
 namespace optim {
 
@@ -95,17 +95,6 @@ struct weights {
 };
 
 /**
- * @brief Data needed for resting state optimization
- *
- * Optimization tries to find a good resting posture close to the predicted ball locations ball_pred
- * and a given hitting state q_hit with low jacobian norm (Frobenius)
- */
-struct rest_optim_data {
-	mat ball_pred;
-	vec7 q_hit;
-};
-
-/**
  * @brief Base class for all optimizers.
  *
  * Containts base class methods, members and virtual methods
@@ -121,8 +110,8 @@ protected:
 	bool update = false; //!< optim finished and soln. seems valid
 	bool running = false; //!< optim still RUNNING
 	bool detach = false; //!< detach optim in another thread
-	mat lookup_table; //!< lookup table used to init. optim values
-	nlopt_opt opt; //!< optimizer from NLOPT library
+	mat lookup_table = zeros<mat>(1,OPTIM_DIM+2*NCART); //!< lookup table used to init. optim values
+	nlopt_opt opt = nullptr; //!< optimizer from NLOPT library
 
 	double qf[NDOF] = {0.0}; //!< saved joint positions after optim
 	double qfdot[NDOF] = {0.0}; //!< saved joint velocities after optim
@@ -163,7 +152,7 @@ protected:
 	void optim();
 
 public:
-	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
+	optim_des *param_des = nullptr; //!< Desired racket and/or ball predicted vals.
 	double lb[2*NDOF+1]; //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	double ub[2*NDOF+1]; //!< Joint upper limits, joint vel. upper limit and max. hitting time
 	double qrest[NDOF] = {0.0}; //!< FIXED Resting posture for optimizers to compute return traj.

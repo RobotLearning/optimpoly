@@ -26,6 +26,7 @@
 
 using namespace arma;
 using namespace player;
+using namespace const_tt;
 
 player_flags pflags; //!< global structure for setting Player task options
 serve_flags sflags; //!< global structure for setting Serve task options

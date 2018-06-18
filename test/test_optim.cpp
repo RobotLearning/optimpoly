@@ -24,16 +24,14 @@ using namespace const_tt;
 using namespace optim;
 using namespace player;
 
-int randval;
-
 /**
  * @brief Initial ball data time stamps and position observations
  */
 struct des_ball_data {
-    vec3 ball_incoming;
-    vec3 ball_land_des;
-    double time_land_des;
-    double topspin;
+    vec ball_incoming = zeros<vec>(3);
+    vec ball_land_des = zeros<vec>(3);
+    double time_land_des = 0.5;
+    double topspin = 0.0;
 };
 
 static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
@@ -50,7 +48,8 @@ void test_vhp_optim() {
 
 	BOOST_TEST_MESSAGE("Testing VHP Trajectory Optimizer...");
 	const double VHPY = -0.3;
-	double lb[2*NDOF+1], ub[2*NDOF+1];
+	static double lb[2*NDOF+1];
+	static double ub[2*NDOF+1];
 	double SLACK = 0.01;
 	double Tmax = 1.0;
 	joint qact;
@@ -58,13 +57,13 @@ void test_vhp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
-	arma_rng::set_seed_random();
-	randval = (randi(1).at(0));
-	arma_rng::set_seed(randval);
-	vec::fixed<15> strike_params;
-	vec6 ball_state;
+    //int randval = (randi(1).at(0));
+    //arma_rng::set_seed(0);
+    arma_rng::set_seed_random();
+    vec strike_params = zeros<vec>(15);
+    vec ball_state = zeros<vec>(6);
 	lookup_random_entry(ball_state,strike_params);
-	//std::cout << ball_state << std::endl;
+	std::cout << ball_state << std::endl;
 	init_right_posture(qact.q);
 	set_bounds(lb,ub,SLACK,Tmax);
 
@@ -72,7 +71,7 @@ void test_vhp_optim() {
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 
-	double time_pred;
+	double time_pred = 0.0;
 	vec6 ball_pred;
 	game game_state = AWAITING;
 	vec2 ball_land_des = {0.0, dist_to_table - 3*table_length/4};
@@ -109,8 +108,9 @@ void test_fp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
-	arma_rng::set_seed(randval);
-	//arma_rng::set_seed_random();
+	//int randval = (randi(1).at(0));
+	//arma_rng::set_seed(0);
+	arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -153,6 +153,7 @@ void test_dp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
+	int randval = (randi(1).at(0));
 	arma_rng::set_seed(randval);
 	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
@@ -497,6 +498,7 @@ static double calc_landing_res(unsigned n, const double *x, double *grad, void *
     vel_out(X) = x[0];
     vel_out(Y) = x[1];
     vel_out(Z) = x[2];
+    assert(n == 3);
     init_state = join_vert(mydata->ball_incoming,vel_out);
     tt.set_ball_state(init_state);
     for (int i = 0; i < mydata->time_land_des/dt; i++)

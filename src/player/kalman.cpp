@@ -23,65 +23,46 @@ using namespace arma;
 
 namespace player {
 
-KF::KF(mat & Cin, mat & Qin, mat & Rin) {
+KF::KF(mat & Cin,
+       mat & Qin,
+       mat & Rin) : A(datum::inf * ones<mat>(Cin.n_cols,Cin.n_cols)),
+                    B(datum::inf * ones<mat>(Cin.n_cols,Cin.n_cols)),
+                    C(Cin), Q(Qin), R(Rin), // init model
+                    x(datum::inf * ones<vec>(Cin.n_cols)), // init state
+                    P(datum::inf * ones<mat>(Cin.n_cols,Cin.n_cols)) { //init covar
 
+    check_models(A,B,C);
 	// checking for correct noise covariances
 	check_spd(Qin);
 	check_spd(Rin);
-	int dimx = Cin.n_cols;
-
-	this->x = datum::inf * ones<vec>(dimx);
-	this->P = datum::inf * ones<mat>(dimx,dimx);
-
-	// set values
-	//this->A = zeros<mat>(dimx,dimx);
-	this->A = datum::inf * ones<mat>(dimx,dimx);
-	this->B = datum::inf * ones<mat>(dimx,dimx); // we dont know B's dimensions
-	this->C = Cin;
-	this->Q = Qin;
-	this->R = Rin;
 }
 
-KF::KF(mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
+KF::KF(mat & Ain,
+       mat & Bin,
+       mat & Cin,
+       mat & Qin,
+       mat & Rin) : A(Ain), B(Bin), C(Cin), Q(Qin), R(Rin), // init model
+                    x(datum::inf * ones<vec>(Ain.n_rows)), // init state
+                    P(datum::inf * ones<mat>(Ain.n_rows,Ain.n_rows)) { //init covar
+	check_models(Ain,Bin,Cin);
+	// checking for correct noise covariances
+	check_spd(Qin);
+	check_spd(Rin);
+}
 
+KF::KF(vec & x0,
+        mat & P0,
+        mat & Ain,
+        mat & Bin,
+        mat & Cin,
+        mat & Qin,
+        mat & Rin) : A(Ain), B(Bin), C(Cin), Q(Qin), R(Rin),  // init model
+                     x(x0), P(P0) { // init state
 
 	check_models(Ain,Bin,Cin);
 	// checking for correct noise covariances
 	check_spd(Qin);
 	check_spd(Rin);
-
-	int dimx = Ain.n_rows;
-	//int dimu = Bin.n_cols;
-	//int dimy = Cin.n_rows;
-
-	// initialize state mean and covariance
-	this->x = datum::inf * ones<vec>(dimx);
-	this->P = datum::inf * ones<mat>(dimx,dimx);
-	//P.eye();
-
-	// set values
-	//this->A = zeros<mat>(dimx,dimx);
-	this->A = Ain;
-	this->B = Bin;
-	this->C = Cin;
-	this->Q = Qin;
-	this->R = Rin;
-}
-
-KF::KF(vec & x0, mat & P0, mat & Ain, mat & Bin, mat & Cin, mat & Qin, mat & Rin) {
-
-	check_models(Ain,Bin,Cin);
-	// checking for correct noise covariances
-	check_spd(Qin);
-	check_spd(Rin);
-	set_prior(x0,P0);
-
-	// set values
-	this->A = Ain;
-	this->B = Bin;
-	this->C = Cin;
-	this->Q = Qin;
-	this->R = Rin;
 }
 
 void KF::set_prior(const vec & x0, const mat & P0) {
@@ -157,13 +138,6 @@ void KF::discretize(const mat & Ac, const mat & Bc, double dt) {
 
 	A = MD(span(0, dimx-1), span(0, dimx-1));
 	B = MD(span(0, dimx-1), span(dimx, dimx + dimu -1));
-
-}
-
-mat KF::smoothen(const mat & observations) {
-
-	// TODO: Only one iteration?
-	throw std::runtime_error("Unimplemented!");
 
 }
 
@@ -246,10 +220,6 @@ void KF::update(const vec & y) {
 }
 
 mat KF::sample_observations(int N) const {
-
-	// disable messages being printed to the err2 stream
-	std::ostream nullstream(0);
-	set_stream_err2(nullstream);
 
 	int dimy = C.n_rows;
 	int dimx = x.n_elem;

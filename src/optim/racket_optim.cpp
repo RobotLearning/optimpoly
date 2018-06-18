@@ -26,6 +26,7 @@
 #include "utils.h"
 
 using namespace arma;
+using namespace const_tt;
 
 namespace optim {
 
@@ -33,10 +34,10 @@ namespace optim {
  * @brief Incoming ball state (+topspin) and desired landing point and time
  */
 struct des_ball_data {
-	vec3 ball_incoming;
-	vec3 ball_land_des;
-	double time_land_des;
-	double topspin;
+	vec3 ball_incoming = zeros<vec>(3);
+	vec3 ball_land_des = zeros<vec>(3);
+	double time_land_des = 0.5;
+	double topspin = 0.0;
 };
 
 /*
@@ -175,7 +176,7 @@ static double calc_landing_res(unsigned n,
     tt.set_topspin(mydata->topspin);
     vel_out(X) = x[0];
     vel_out(Y) = x[1];
-    vel_out(Z) = x[2];
+    vel_out(Z) = x[n-1];
     tt.set_ball_state(join_vert(mydata->ball_incoming,vel_out));
 	for (int i = 0; i < mydata->time_land_des/dt; i++)
 		tt.integrate_ball_state(dt);

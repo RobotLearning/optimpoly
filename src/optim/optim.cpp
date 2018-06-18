@@ -19,7 +19,6 @@ namespace optim {
 
 /*
  * Give info about the optimization after termination
- *
  */
 static bool check_optim_result(const int res);
 
@@ -100,7 +99,7 @@ void Optim::set_des_params(optim_des *params_) {
 
 void Optim::init_lookup_soln(double *x) {
 
-    vec::fixed<15> robot_params;
+    vec::fixed<OPTIM_DIM> robot_params;
     vec6 ball_params;
     for (int i = 0; i < NCART; i++) {
         ball_params(i) = param_des->ball_pos(i,0);

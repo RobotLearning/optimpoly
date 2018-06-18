@@ -12,8 +12,7 @@
 #include "kalman.h"
 
 using namespace arma;
-
-#define fitnorm 2
+static const int fitnorm = 2;
 
 /*
  * Least squares to estimate prior given
@@ -57,8 +56,8 @@ namespace optim {
  * @brief Initial ball data time stamps and position observations
  */
 struct init_ball_data {
-	vec times;
-	mat obs;
+	vec times = zeros<vec>(10);
+	mat obs = zeros<mat>(3,10);
 };
 
 void estimate_prior(const mat & observations,
@@ -130,6 +129,7 @@ static double nlopt_estimate_ball(const mat & obs,
                                     const bool verbose,
                                     vec6 & est) {
 
+    using namespace const_tt;
     static const int TS = 6; // topspin
     double lb[7], ub[7];
     double x[7];  /* some initial guess */

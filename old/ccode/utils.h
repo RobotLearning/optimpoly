@@ -21,7 +21,6 @@ typedef double* Vector;
 typedef double** Matrix;
 
 long get_time();
-Vector my_vector(int nl, int nh);
 double vec_mult_inner(Vector a, Vector b);
 void vec_mult_scalar(Vector a, double scalar, Vector c);
 int vec_sub(Vector a, Vector b, Vector c);

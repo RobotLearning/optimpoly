@@ -81,22 +81,25 @@ class Player {
 private:
 
 	// data fields
+    EKF & filter; // filter for the ball estimation
+    player_flags pflags;
 	bool init_ball_state = false;
-	EKF & filter; // filter for the ball estimation
 	arma::vec2 ball_land_des = zeros<vec>(2); // desired landing position
-	arma::vec7 q_rest_des; // desired resting joint state
+	arma::vec7 q_rest_des = zeros<vec>(NDOF); // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	double t_poly = 0.0; // time passed on the hitting spline
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;
-	player_flags pflags;
 	optim::optim_des pred_params;
-	mat observations; // for initializing filter
-	mat times; // for initializing filter
+	mat observations = zeros<mat>(3,10); // for initializing filter
+	vec times = zeros<vec>(10); // for initializing filter
 	optim::spline_params poly;
-	mat lookup_table;
-	optim::Optim *opt; // optimizer
+	mat lookup_table = zeros<mat>(1,21);
+	optim::Optim *opt = nullptr; // optimizer
+
+	/** @brief Set optimizer opt based on (loaded) player flags */
+	void set_optim();
 
 	/**
 	 * @brief Filter the blob information with a Kalman Filter.
@@ -110,7 +113,8 @@ private:
 	 * it is not an outlier!
 	 *
 	 */
-	void estimate_ball_state(const arma::vec3 & obs, const double & dt = const_tt::DT);
+	void estimate_ball_state(const arma::vec3 & obs,
+	                        const double & dt = const_tt::DT);
 
 	/**
 	 * @brief Run optimizer for FOCUSED PLAYER
@@ -175,6 +179,9 @@ private:
 
 public:
 
+	/** @brief Copy constructor */
+	Player(const Player & player);
+
 	/**
 	 * @brief Initialize Table Tennis Player.
 	 *
@@ -189,6 +196,9 @@ public:
 	 *              or through player.cfg file (see sl_interface)
 	 */
 	Player(const vec7 & q0, EKF & filter, player_flags & flags);
+
+    /** @brief Assignment operator */
+    Player & operator=(const Player & player);
 
 	/**
 	 * @brief Deconstructor for the Player class.
@@ -251,7 +261,9 @@ public:
 	 * @param ballstate Ball state (positions AND velocities).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void cheat(const optim::joint & qact, const arma::vec6 & ballstate, optim::joint & qdes);
+	void cheat(const optim::joint & qact,
+	           const arma::vec6 & ballstate,
+	           optim::joint & qdes);
 
 };
 
@@ -330,9 +342,12 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
  * The location of the VHP is given as an argument (vhp-y-location vhpy)
  *
  */
-bool predict_hitting_point(const double & vhpy, const bool & check_b,
-		                   arma::vec6 & ball_pred, double & time_pred,
-		                   EKF & filter, game & game_state);
+bool predict_hitting_point(const double & vhpy,
+                           const bool & check_b,
+		                   arma::vec6 & ball_pred,
+		                   double & time_pred,
+		                   EKF & filter,
+		                   game & game_state);
 
 /**
  * @brief Check if the table tennis trial is LEGAL (hence motion planning can be started).
@@ -347,8 +362,8 @@ bool predict_hitting_point(const double & vhpy, const bool & check_b,
  *
  */
 bool check_legal_ball(const arma::vec6 & ball_est,
-                        const mat & balls_predicted,
-                        game & game_state);
+                      const mat & balls_predicted,
+                      game & game_state);
 
 /**
  * @brief Checks for legal ball bounce

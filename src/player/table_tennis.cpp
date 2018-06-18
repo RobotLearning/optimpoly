@@ -544,6 +544,9 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in,
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
+	if (fp != nullptr) { //complain to user, model is non-spinning
+	    cout << "WARNING! Topspin parameter not-used!\n";
+	}
 	tennis.integrate_ball_state(dt);
 	return tennis.get_ball_state();
 }

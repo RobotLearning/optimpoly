@@ -3,7 +3,7 @@
  *
  * @brief Here we include the kinematics related functions taken from SL
  *
- * Optimizators call these functions to calculate the Cartesian
+ * Optimizers call these functions to calculate the Cartesian
  * racket positions, velocities and normals
  *
  *  Created on: Jun 22, 2016
@@ -166,14 +166,14 @@ static void kinematics(const double state[NDOF],
 		                double Xaxis[NDOF+1][4],
 		                double Ahmat[NDOF+1][5][5]) {
 
-	static int firsttime = TRUE;
+	static bool firsttime = true;
 	static double basec[3+1] = {0.0};
 	static double baseo[4+1] = {0.0};
 	static double eff_a[NCART+1];
 	static double eff_x[NCART+1];
 
 	if (firsttime) {
-		firsttime = FALSE;
+		firsttime = false;
 		eff_x[3] = 0.3; // attach the racket
 		baseo[2] = 1.0;
 	}

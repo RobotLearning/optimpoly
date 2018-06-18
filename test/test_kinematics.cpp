@@ -27,8 +27,8 @@ static void cross_prods(const double mat[NCART][NDOF],
 static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
                             const double mat2[EQ_CONSTR_DIM][OPTIM_DIM],
                             int m1, int m2, int n1, int n2);
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-                                 const double *x, double *grad,
+static void kinematics_eq_constr(double *result,
+                                 const double *x,
                                  void *my_function_data);
 
 /*
@@ -37,7 +37,8 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 void test_kin_deriv() {
 
     BOOST_TEST_MESSAGE("Comparing kinematics derivatives with numerical diff...");
-	double lb[OPTIM_DIM], ub[OPTIM_DIM];
+	static double lb[OPTIM_DIM];
+	static double ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.0,1.0);
 	double q0[NDOF] = {1.0, -0.2, -0.1, 1.8, -1.57, 0.1, 0.3};
 	HittingPlane opt = HittingPlane(q0,lb,ub);
@@ -47,14 +48,16 @@ void test_kin_deriv() {
 	calc_racket_strategy(ball_pred,ball_land_des,0.8,pred_params);
 	opt.set_des_params(&pred_params);
 
-	double constr1[EQ_CONSTR_DIM], constr2[EQ_CONSTR_DIM];
-	double racket_pos[NCART], racket_normal[NCART];
-	double x[OPTIM_DIM];
-	double xdiff[OPTIM_DIM];
-	double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
-	double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM];
-	double jac[2*NCART][NDOF];
-	double jac_w[NCART][NDOF];
+	static double constr1[EQ_CONSTR_DIM];
+	static double constr2[EQ_CONSTR_DIM];
+	static double racket_pos[NCART];
+	static double racket_normal[NCART];
+	static double x[OPTIM_DIM];
+	static double xdiff[OPTIM_DIM];
+	static double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
+	static double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM];
+	static double jac[2*NCART][NDOF];
+	static double jac_w[NCART][NDOF];
 	double h = 0.001;
 
 	for (int i = 0; i < NDOF; i++) {
@@ -93,9 +96,9 @@ void test_kin_deriv() {
 	 */
 	for (int i = 0; i < OPTIM_DIM; i++) {
 		xdiff[i] = x[i] + h;
-		kinematics_eq_constr(EQ_CONSTR_DIM,constr1,OPTIM_DIM,xdiff,nullptr,(void*)&opt);
+		kinematics_eq_constr(constr1,xdiff,(void*)&opt);
 		xdiff[i] = x[i] - h;
-		kinematics_eq_constr(EQ_CONSTR_DIM,constr2,OPTIM_DIM,xdiff,nullptr,(void*)&opt);
+		kinematics_eq_constr(constr2,xdiff,(void*)&opt);
 		for (int j = 0; j < EQ_CONSTR_DIM; j++) {
 			num_deriv[j][i] = (constr1[j] - constr2[j]) / (2*h);
 		}
@@ -187,8 +190,8 @@ void test_kinematics_calculations() {
 /*
  * This is the constraint that makes sure we hit the ball
  */
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
-                                 const double *x, double *grad,
+static void kinematics_eq_constr(double *result,
+                                 const double *x,
                                  void *my_function_data) {
 
     static double pos[NCART];
@@ -221,7 +224,7 @@ static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
                             int m1, int m2, int n1, int n2) {
 
     double maxdiff = 0.0;
-    double absdiff;
+    double absdiff = 0.0;
     for (int i = m1; i < m2; i++) {
         for (int j = n1; j < n2; j++) {
             //printf("jac[%d,%d] = %f, numjac[%d,%d] = %f\n", i,j, mat1[i][j], i,j, mat2[i][j]);

@@ -94,7 +94,8 @@ DefensiveOptim::DefensiveOptim(const vec7 & qrest_,
                                 double ub_[],
                                 bool land_,
                                 bool lookup_)
-                                  : FocusedOptim() { //FocusedOptim(qrest_, lb_, ub_) {
+                                  : FocusedOptim(),
+                                    land(land_) { //FocusedOptim(qrest_, lb_, ub_) {
 
 	lookup = lookup_;
 	player::load_lookup_table(lookup_table);
@@ -111,12 +112,10 @@ DefensiveOptim::DefensiveOptim(const vec7 & qrest_,
 		lb[i] = lb_[i];
 	}
 
-	if (land_) {
-		land = true;
+	if (land) {
 		set_land_constr();
 	}
 	else {
-		land = false;
 		set_hit_constr();
 	}
 }
@@ -231,8 +230,8 @@ void DefensiveOptim::calc_times(const double x[]) { // ball projected to racket 
 
 		// calculate ball planned landing
 		d = ballpos[Z] - table_z;
-		if (sqr(ballvel[Z]) > 2*g*d) {
-			discr = sqrt(sqr(ballvel[Z]) - 2*g*d);
+		if (pow(ballvel[Z],2) > 2*g*d) {
+			discr = sqrt(pow(ballvel[Z],2) - 2*g*d);
 		}
 		t_land = fmax((-ballvel[Z] - discr)/g,(-ballvel[Z] + discr)/g);
 		t_net = (net_y - ballpos[Y])/ballvel[Y];
@@ -248,10 +247,10 @@ double DefensiveOptim::calc_punishment() {
 	double Jhit = 0;
 	double Jland = 0;
 	if (land) {
-		Jland = sqr(x_net[X] - penalty_loc[0])*w.R_net + sqr(x_net[Z] - penalty_loc[1])*w.R_net +
-				sqr(x_land[X] - penalty_loc[2]*w.R_land + sqr(x_land[Y] - penalty_loc[3])*w.R_land);
+		Jland = pow(x_net[X] - penalty_loc[0],2)*w.R_net + pow(x_net[Z] - penalty_loc[1],2)*w.R_net +
+				pow(x_land[X] - penalty_loc[2],2)*w.R_land + pow(x_land[Y] - penalty_loc[3],2)*w.R_land;
 	}
-	Jhit = w.R_hit * sqr(dist_b2r_proj); // punish for hitting properly
+	Jhit = w.R_hit * pow(dist_b2r_proj,2); // punish for hitting properly
 	return Jhit + Jland;
 }
 

@@ -82,7 +82,7 @@ static void sub_zmq(const int & num_max, int & num_received) {
     //socket.disconnect(url);
 }
 
-static void pub_ball(const int & num_balls) {
+static void pub_ball(const unsigned & num_balls) {
     // create zmq server
     zmqpp::context ctx;
     auto socket_type = zmqpp::socket_type::pub;

@@ -1,6 +1,4 @@
 #!/bin/bash
-# IMPORTANT NOTE: run in a subshell for cd commands: 
-# . install.sh
 
 DEBUG=false
 TEST=false
@@ -30,13 +28,13 @@ if $DEBUG; then
     mkdir -p build/debug/
     cd build/debug
     if $TEST; then
-	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=True ../..
+	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=True ../..
     else
-	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
+	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
     fi
     make
     if $TEST; then
-	./unit_tests --log_level=message --show_progress=yes
+	test/unit_tests --log_level=message --show_progress=yes
     fi
     cd ../..
 else
@@ -44,9 +42,9 @@ else
     mkdir -p build/release
     cd build/release
     if $TEST; then
-	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=True ../..
+	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=True ../..
     else
-	cmake -Wno-dev -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
+	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
     fi
     make && make install
     cd ../..
