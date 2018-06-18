@@ -79,48 +79,53 @@ void test_speedup_dmp();
  */
 test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
-    test_suite* ts = BOOST_TEST_SUITE("test_suite");
+    test_suite* ts_kin = BOOST_TEST_SUITE("KIN");
+    ts_kin->add(BOOST_TEST_CASE(&test_kinematics_calculations));
+    ts_kin->add(BOOST_TEST_CASE(&test_kin_deriv));
 
-    /*BOOST_TEST_MESSAGE("Testing kinematics functions...");
-    ts->add(BOOST_TEST_CASE(&test_kinematics_calculations));
-    ts->add(BOOST_TEST_CASE(&test_kin_deriv));
-
-    BOOST_TEST_MESSAGE("Testing Kalman Filtering...");
-    ts->add(BOOST_TEST_CASE(&test_kf_init));
-    ts->add(BOOST_TEST_CASE(&test_kf_discretize));
-    ts->add(BOOST_TEST_CASE(&test_random_gen));
-    ts->add(BOOST_TEST_CASE(&test_predict_update));
-    ts->add(BOOST_TEST_CASE(&check_ekf));
-    ts->add(BOOST_TEST_CASE(&test_predict_path));
-    ts->add(BOOST_TEST_CASE(&check_mismatch_pred));*/
+    test_suite* ts_kf = BOOST_TEST_SUITE("KF");
+    ts_kf->add(BOOST_TEST_CASE(&test_kf_init));
+    ts_kf->add(BOOST_TEST_CASE(&test_kf_discretize));
+    ts_kf->add(BOOST_TEST_CASE(&test_random_gen));
+    ts_kf->add(BOOST_TEST_CASE(&test_predict_update));
+    ts_kf->add(BOOST_TEST_CASE(&check_ekf));
+    ts_kf->add(BOOST_TEST_CASE(&test_predict_path));
+    ts_kf->add(BOOST_TEST_CASE(&check_mismatch_pred));
     //ts->add(BOOST_TEST_CASE(&test_outlier_detection)); // TOO LONG
 
-    BOOST_TEST_MESSAGE("Testing optimization routines...");
-    ts->add(BOOST_TEST_CASE(&test_vhp_optim));
-    /*ts->add(BOOST_TEST_CASE(&test_fp_optim));
-    ts->add(BOOST_TEST_CASE(&test_dp_optim));
-    ts->add(BOOST_TEST_CASE(&find_rest_posture));
+    test_suite* ts_opt = BOOST_TEST_SUITE("OPT");
+    ts_opt->add(BOOST_TEST_CASE(&test_vhp_optim));
+    ts_opt->add(BOOST_TEST_CASE(&test_fp_optim));
+    ts_opt->add(BOOST_TEST_CASE(&test_dp_optim));
+    ts_opt->add(BOOST_TEST_CASE(&find_rest_posture));
     //ts->add(BOOST_TEST_CASE(&test_time_efficiency)); // TOO LONG
-    ts->add(BOOST_TEST_CASE(&check_accuracy_spin_based_racket_calc));
-    ts->add(BOOST_TEST_CASE(&check_speed_spin_based_racket_calc));
-    ts->add(BOOST_TEST_CASE(&test_symplectic_int_4th));
+    ts_opt->add(BOOST_TEST_CASE(&check_accuracy_spin_based_racket_calc));
+    ts_opt->add(BOOST_TEST_CASE(&check_speed_spin_based_racket_calc));
+    ts_opt->add(BOOST_TEST_CASE(&test_symplectic_int_4th));
 
-    BOOST_TEST_MESSAGE("Testing table tennis tasks...");
-    ts->add(BOOST_TEST_CASE(&test_touch_ground));
-    ts->add(BOOST_TEST_CASE(&test_ball_ekf));
-    ts->add(BOOST_TEST_CASE(&test_player_ekf_filter));
-    ts->add(BOOST_TEST_CASE(&count_land));
-    ts->add(BOOST_TEST_CASE(&count_land_mpc));
+    test_suite* ts_tt = BOOST_TEST_SUITE("TT");
+    ts_tt->add(BOOST_TEST_CASE(&test_touch_ground));
+    ts_tt->add(BOOST_TEST_CASE(&test_ball_ekf));
+    ts_tt->add(BOOST_TEST_CASE(&test_player_ekf_filter));
+    ts_tt->add(BOOST_TEST_CASE(&count_land));
+    ts_tt->add(BOOST_TEST_CASE(&count_land_mpc));
 
-    BOOST_TEST_MESSAGE("Testing SL interface...");
-    ts->add(BOOST_TEST_CASE(&test_zmqpp));
-    ts->add(BOOST_TEST_CASE(&test_zmq_listener));
-    ts->add(BOOST_TEST_CASE(&test_new_interface));
+    test_suite* ts_sl = BOOST_TEST_SUITE("SL");
+    ts_sl->add(BOOST_TEST_CASE(&test_zmqpp));
+    ts_sl->add(BOOST_TEST_CASE(&test_zmq_listener));
+    ts_sl->add(BOOST_TEST_CASE(&test_new_interface));
 
-    BOOST_TEST_MESSAGE("Testing table tennis serve related functions...");
-    ts->add(BOOST_TEST_CASE(&test_evolve_dmp));
-    ts->add(BOOST_TEST_CASE(&test_speedup_dmp));*/
-    return ts;
+    test_suite* ts_serve = BOOST_TEST_SUITE("SERVE");
+    ts_serve->add(BOOST_TEST_CASE(&test_evolve_dmp));
+    ts_serve->add(BOOST_TEST_CASE(&test_speedup_dmp));
+
+    framework::master_test_suite().add( ts_kin );
+    framework::master_test_suite().add( ts_kf );
+    framework::master_test_suite().add( ts_opt );
+    framework::master_test_suite().add( ts_tt );
+    framework::master_test_suite().add( ts_sl );
+    framework::master_test_suite().add( ts_serve );
+    return 0;
 }
 
 /*
@@ -150,7 +155,7 @@ void count_land_mpc() {
         double std_model = 0.3;
         joint qact;
         vec3 obs;
-        EKF filter = init_filter(std_model,std_noise);
+        EKF filter = init_ball_filter(std_model,std_noise);
         player_flags flags;
         flags.alg = algs[i];
         flags.mpc = true;
@@ -221,7 +226,7 @@ void count_land() {
         joint qact;
         init_posture(qact.q,1,false);
         vec3 obs;
-        EKF filter = init_filter(0.03,std_obs);
+        EKF filter = init_ball_filter(0.03,std_obs);
         player_flags flags;
         flags.verbosity = 0;
         flags.mpc = false;
@@ -338,7 +343,7 @@ void test_player_ekf_filter() {
 	const double std_noise = 0.001;
 	const double std_model = 0.001;
 	TableTennis tt = TableTennis(false,true);
-	EKF filter = init_filter(std_model,std_noise);
+	EKF filter = init_ball_filter(std_model,std_noise);
 	player_flags flags;
 	Player cp = Player(zeros<vec>(NDOF),filter,flags);
 	tt.set_ball_gun(0.2);

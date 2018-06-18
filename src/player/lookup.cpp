@@ -18,11 +18,8 @@ namespace player {
 
 void load_lookup_table(mat & lookup) {
 
-    cout << "Hello!\n";
 	string env = getenv("HOME");
-    cout << "World!\n";
 	string filename = env + "/table-tennis/config/lookup/" + LOOKUP_TABLE_NAME + ".txt";
-	cout << filename << endl;
 	lookup.load(filename);
 	int row_size = lookup.n_elem / LOOKUP_COLUMN_SIZE;
 	lookup.reshape(row_size,LOOKUP_COLUMN_SIZE);
@@ -31,7 +28,6 @@ void load_lookup_table(mat & lookup) {
 
 void lookup_random_entry(vec & coparams, vec & params) {
 
-    cout << "Coming here!\n";
 	mat lookup = zeros<mat>(100,LOOKUP_COLUMN_SIZE);
 	load_lookup_table(lookup);
 	int entry = as_scalar(randi<vec>(1,distr_param(0,lookup.n_rows-1)));

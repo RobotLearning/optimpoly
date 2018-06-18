@@ -550,23 +550,25 @@ matrix together with the homogenous transformation.
 **** TODO Copy graphics from SL
 **** TODO Add graphics for a second robot
 *** IN-PROGRESS Reorganize/refactor code
-**** IN-PROGRESS Add options to install script
+**** DONE Add options to install script
 Now the install script takes the test,debug and build flags. 
 
 --test: make and install the tests and run them 
 --debug: make but not install in debug mode
 --build: if equal to robot copy the robot cmake scripts
-***** TODO Add argument for testing
-Not all tests need to be run so this could be centralized here
-in the script or in boost_unit_test provided fixtures rather than
-commenting out unit tests each time!
+***** DONE Add argument for testing
+By providing options to boost_unit_test in command line
+with --run_test=TEST_SUITE where TEST_SUITE is one of
+SL,OPT,KIN,KF,TT,SERVE or a comma separated combination
+of them we can run particular suites.
+
 ***** IN-PROGRESS One cmake should build on the robot & mpi
 cmake can now run as is in both mpi computer and also in my laptop.
 Of course this is true because we set the LD_LIBRARY_PATH and other
 paths correctly in the bashrc script.
 
 So far the cmake files for the robot computers are different...
-**** DONE Build debug mode as well
+**** IN-PROGRESS Build debug mode as well
 The install script does not 'make install' if called in
 debug mode: -d 
 
@@ -574,6 +576,8 @@ Setting excessive options like -Werror and -Weffc++ to try to ensure
 a high quality of coding standards.
 I had to add -Wno-error=effc++ since effc++ was added before c++11
 and complains erroneously about c++11 type default initialization.
+***** TODO Unit tests do not pass the debug mode
+The problem appears to be mostly due to the json library in debug mode.
 **** TODO Use json for loading settings/config
 Instead of using armadillo load() function
 **** TODO Refactor filtering code
@@ -668,7 +672,7 @@ Possibly from movement primitives and/or RL trajectories
 one could learn such a model.
 *** TODO Can it be solved with polynomials?
 Is the full planning problem with the two ball takeoff
-and racket impact models included a continuous
+and racket impact models included result in a continuous
 trajectory? hybrid? polynomials?
 **** TODO Compare third order to fifth order on robot
 Third order or fifth order (minimum jerk)? Which
@@ -687,6 +691,7 @@ The Desiderata for RL in robotics:
 - no rollouts
 - this implies model based or something in between?
 2. Safety
+- small and/or local perturbations
 - model based is more promising
 - relation to relaxation learning control?
 3. Reduced reward engineering

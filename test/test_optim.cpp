@@ -34,6 +34,8 @@ struct des_ball_data {
     double topspin = 0.0;
 };
 
+int randval = (randi(1).at(0));
+
 static double calc_landing_res(unsigned n, const double *x, double *grad, void *data);
 static void optim_spin_outgoing_ball_vel(const des_ball_data & data, const bool verbose, vec3 & est); // spin based optimization
 static void init_right_posture(vec7 & q0);
@@ -57,17 +59,15 @@ void test_vhp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
-    //int randval = (randi(1).at(0));
-    //arma_rng::set_seed(0);
-    arma_rng::set_seed_random();
+    arma_rng::set_seed(randval);
+    //arma_rng::set_seed_random();
     vec strike_params = zeros<vec>(15);
     vec ball_state = zeros<vec>(6);
 	lookup_random_entry(ball_state,strike_params);
-	std::cout << ball_state << std::endl;
 	init_right_posture(qact.q);
 	set_bounds(lb,ub,SLACK,Tmax);
 
-	EKF filter = init_filter();
+	EKF filter = init_ball_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 
@@ -108,9 +108,8 @@ void test_fp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
-	//int randval = (randi(1).at(0));
-	//arma_rng::set_seed(0);
-	arma_rng::set_seed_random();
+	arma_rng::set_seed(randval);
+	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -120,7 +119,7 @@ void test_fp_optim() {
 	int N = 1000;
 	racket_params.Nmax = 1000;
 
-	EKF filter = init_filter();
+	EKF filter = init_ball_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 
@@ -153,9 +152,7 @@ void test_dp_optim() {
 
 	// update initial parameters from lookup table
 	BOOST_TEST_MESSAGE("Looking up a random ball entry...");
-	int randval = (randi(1).at(0));
 	arma_rng::set_seed(randval);
-	//arma_rng::set_seed_random();
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	lookup_random_entry(ball_state,strike_params);
@@ -163,7 +160,7 @@ void test_dp_optim() {
 	set_bounds(lb,ub,SLACK,Tmax);
 
 	int N = 1000;
-	EKF filter = init_filter();
+	EKF filter = init_ball_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
@@ -281,7 +278,7 @@ void find_rest_posture() {
 
 	set_bounds(lb,ub,SLACK,Tmax);
 	int N = 1000;
-	EKF filter = init_filter();
+	EKF filter = init_ball_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);

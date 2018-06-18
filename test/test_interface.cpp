@@ -94,7 +94,7 @@ static void pub_ball(const unsigned & num_balls) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // create table tennis ball and create path
-    EKF filter = init_filter();
+    EKF filter = init_ball_filter();
     TableTennis tt = TableTennis();
     tt.set_ball_gun(0.01);
     filter.set_prior(tt.get_ball_state(),0.01*eye<mat>(6,6));

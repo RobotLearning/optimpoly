@@ -15,13 +15,14 @@
  *
  *
  */
-
 #include <boost/program_options.hpp>
 #include <armadillo>
 #include "tabletennis.h"
 
 using namespace arma;
 using namespace const_tt;
+
+#define _unused(x) ((void)(x))
 
 /* Forms the rotation matrix that corresponds to the quaternion */
 //static mat33 quat2mat(const vec4 & q);
@@ -544,9 +545,7 @@ void TableTennis::calc_des_racket_vel(const mat & vel_ball_in,
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
 	TableTennis tennis = TableTennis(xnow,false,false);
-	if (fp != nullptr) { //complain to user, model is non-spinning
-	    cout << "WARNING! Topspin parameter not-used!\n";
-	}
+	_unused(fp);
 	tennis.integrate_ball_state(dt);
 	return tennis.get_ball_state();
 }

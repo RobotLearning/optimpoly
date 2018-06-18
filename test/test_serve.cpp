@@ -32,7 +32,7 @@ void test_evolve_dmp() {
     vec goal = zeros<vec>(NDOF);
     multi_dmp.get_goal_pos(goal);
     BOOST_TEST_MESSAGE("Goal positions: " << goal.t());
-    vec goal_new = goal + 0.01*randn(NDOF);
+    vec goal_new = goal + 0.01*randn(NDOF,1);
     multi_dmp.set_goal_pos(goal_new);
     // evolve it
     mat M3 = multi_dmp.evolve(T);

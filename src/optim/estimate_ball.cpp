@@ -67,7 +67,7 @@ void estimate_prior(const mat & observations,
 					player::EKF & filter) {
 
 	NLOPT_FINISHED = false;
-	static double topspin;
+	static double topspin = -50;
 	vec6 x;
 	vec times_z = times - times(0); // times zeroed
 	estimate_ball_linear(observations,times_z,verbose > 2,x);

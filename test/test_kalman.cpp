@@ -139,9 +139,10 @@ void test_predict_update() {
 	mat C(dimy,dimx,fill::zeros);
 	C(0,1) = 1;
 	// diagonal covariances
-	mat Q(dimx,dimx,fill::zeros);
+	mat Q(dimx,dimx,fill::eye);
 	mat R(dimy,dimy,fill::eye);
 	R *= eps;
+	Q *= 1e-10;
 
 	vec x0;
 	x0 << 10 << 1;
@@ -212,7 +213,7 @@ void test_predict_path() {
 	arma_rng::set_seed(5);
 
 	// initialize a filter to predict
-	EKF filter = init_filter();
+	EKF filter = init_ball_filter();
 
 	int N = 1000;
 	double dt = 0.002;
@@ -242,7 +243,7 @@ void check_mismatch_pred() {
 	BOOST_TEST_MESSAGE("Checking ball prediction accuracy in mismatch case (spin)...");
 	TableTennis tt = TableTennis(true, false); //init with spin
 	arma_rng::set_seed(5);
-	EKF filter = init_filter(0.3,0.001);
+	EKF filter = init_ball_filter(0.3,0.001);
 	int N = 100;
 	tt.set_ball_gun(0.2);
 	vec6 ball_init = tt.get_ball_state();
@@ -305,7 +306,7 @@ void test_outlier_detection() {
 	flags.var_model = 0.1;
 	flags.var_noise = 0.001;
 	flags.detach = true;
-	EKF filter = init_filter(flags.var_model,flags.var_noise,predict_with_spin);
+	EKF filter = init_ball_filter(flags.var_model,flags.var_noise,predict_with_spin);
 	Player cp = Player(zeros<vec>(7),filter,flags);
 	for (unsigned i = 0; i < real_ball_data.n_rows; i++) {
 		status1 = real_ball_data(i,1);

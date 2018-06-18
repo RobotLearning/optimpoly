@@ -259,7 +259,7 @@ public:
 	 * @param Rin Observation noise covariance R.
 	 * @param out_rej_mult Outlier rejection standard deviation multiplier
 	 */
-	EKF(vec (*fp)(const vec & state, const double dt, const void *p),
+	EKF(model fp,
 	    mat & Cin,
 	    mat & Qin,
 	    mat & Rin,
@@ -319,15 +319,14 @@ public:
  * @param var_noise Observation noise mult. for identity matrix.
  * @param spin Use spin model if true
  * @param out_reject_mult Mult. for outlier rejection.
- * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction
- * if spin is TRUE
+ * @param topspin Set topspin parameter (NOT state!) for kalman filter prediction if spin is TRUE
  * @return EKF Extended Kalman Filter (state uninitialized!)
  */
-EKF init_filter(const double var_model = 0.001,
-                const double var_noise = 0.001,
-                const bool spin = false,
-                const double out_reject_mult = 2.0,
-                const double *topspin = nullptr);
+EKF init_ball_filter(const double var_model = 0.001,
+                    const double var_noise = 0.001,
+                    const bool spin = false,
+                    const double out_reject_mult = 2.0,
+                    const double *topspin = nullptr);
 
 /**
  * @brief Checks to see if the observation is new (updated)

@@ -116,7 +116,7 @@ void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
 	valid_obs = false;
 
 	if (check_reset_filter(newball,verb,pflags.t_reset_thresh)) {
-		filter = init_filter(pflags.var_model,pflags.var_noise,pflags.spin,pflags.out_reject_mult);
+		filter = init_ball_filter(pflags.var_model,pflags.var_noise,pflags.spin,pflags.out_reject_mult);
 		num_obs = 0;
 		init_ball_state = false;
 		game_state = AWAITING;
@@ -358,7 +358,7 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 void Player::reset_filter(double var_model, double var_noise) {
 
-	filter = init_filter(var_model,var_noise,pflags.spin,pflags.out_reject_mult);
+	filter = init_ball_filter(var_model,var_noise,pflags.spin,pflags.out_reject_mult);
 	init_ball_state = false;
 	num_obs = 0;
 	game_state = AWAITING;

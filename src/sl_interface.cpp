@@ -199,7 +199,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static std::ofstream stream_balls;
 	static std::string home = std::getenv("HOME");
 	static std::string ball_file = home + "/table-tennis/balls.txt";
-	static EKF filter = init_filter(0.3,0.001,pflags.spin);
+	static EKF filter = init_ball_filter(0.3,0.001,pflags.spin);
 	static int firsttime = true;
 
 	if (firsttime && pflags.save) {
@@ -213,7 +213,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_filter(0.3,0.001,pflags.spin);
+		filter = init_ball_filter(0.3,0.001,pflags.spin);
 		delete robot;
 		robot = new Player(q0,filter,pflags);
 		pflags.reset = false;
@@ -246,7 +246,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
     static optim::joint qact;
     static optim::joint qdes;
     static Player *cp; // centered player
-    static EKF filter = init_filter();
+    static EKF filter = init_ball_filter();
 
     if (pflags.reset) {
         for (int i = 0; i < NDOF; i++) {

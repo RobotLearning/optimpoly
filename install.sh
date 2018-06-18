@@ -2,12 +2,14 @@
 
 DEBUG=false
 TEST=false
+TEST_CMD="" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
 BUILD="mpi/laptop"
 while true; do
     case "$1" in
 	-b | --build ) BUILD="$2"; shift 2 ;;
 	-d | --debug ) DEBUG=true; shift ;;
 	-t | --test  ) TEST=true; shift ;;
+	--run_test   ) TEST_CMD="$2"; shift ;;
 	* ) break ;;
     esac
 done
@@ -34,7 +36,7 @@ if $DEBUG; then
     fi
     make
     if $TEST; then
-	test/unit_tests --log_level=message --show_progress=yes
+	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD"
     fi
     cd ../..
 else
@@ -49,7 +51,7 @@ else
     make && make install
     cd ../..
     if $TEST; then
-	./unit_tests --log_level=message --show_progress=yes
+	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD"
     fi
 fi
 

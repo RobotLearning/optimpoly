@@ -141,7 +141,7 @@ bool check_reset_filter(const bool newball,
     return reset;
 }
 
-EKF init_filter(const double var_model,
+EKF init_ball_filter(const double var_model,
                 const double var_noise,
                 const bool spin,
                 const double out_reject_mult,
@@ -156,6 +156,7 @@ EKF init_filter(const double var_model,
         return filter;
     }
     else {
+        //cout << "Init spin-free model\n";
         EKF filter = EKF(calc_next_ball,C,Q,R,out_reject_mult);
         return filter;
     }
