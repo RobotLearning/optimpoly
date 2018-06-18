@@ -36,7 +36,7 @@ if $DEBUG; then
     fi
     make
     if $TEST; then
-	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD"
+	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
     fi
     cd ../..
 else
@@ -51,7 +51,7 @@ else
     make && make install
     cd ../..
     if $TEST; then
-	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD"
+	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
     fi
 fi
 
