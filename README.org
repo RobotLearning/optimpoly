@@ -323,7 +323,7 @@ This seems to be happening when MPC is turned on.
 **** DONE predict_ball() doesn't need to predict for 2.0 secs long always
 Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)     
 **** TODO Check predict_ball() time with spinning ball model
-* Two robots playing Table Tennis 				   :@conference:
+* Two robots playing Table Tennis 				:@conference:
 ** IN-PROGRESS Test with simulated ball on both robots
 *** DONE Run code in PING
 When I tested the code with simulated ball, the code
@@ -550,7 +550,7 @@ matrix together with the homogenous transformation.
 **** TODO Copy graphics from SL
 **** TODO Add graphics for a second robot
 *** IN-PROGRESS Reorganize/refactor code
-**** DONE Add options to install script
+**** IN-PROGRESS Add options to install script
 Now the install script takes the test,debug and build flags. 
 
 --test: make and install the tests and run them 
@@ -643,8 +643,17 @@ Silly mistake found where qd_des, qdd_des were not updated!
 Having multiple json files could easily solve this problem.
 **** TODO Start on different initial conditions
 Test different postures. Check accelerations!
+*** WAITING Investigate dimensionality reduction on demonstration data
+The idea is to find a reduced dim. latent space
+on which we can perform policy search/BO.
+**** TODO Perform PCA
+**** TODO Perform Lasso on the regression
+As opposed to PCA, Lasso would start with many 
+hypotheses corresponding to basis functions at various time points
+and would hopefully prune them as some parameters are set to zero.
+**** TODO Investigate autoencoders
 ** TODO Cast it as an optimal control problem
-*** TODO Compare different SL versions
+*** WAITING Compare different SL versions
 After changing the racket check which one controls
 better for inverse dynamics and also for gravity compensation.
 **** TODO Check gravity compensation with both SL 
@@ -661,7 +670,7 @@ if the previous movements do not work well on the robot
 **** TODO Plot ball and robot data during serve
 Check it in MATLAB and look for outliers.
 **** TODO How does the ball filtering look like?
-*** TODO Combine with movement primitives
+*** TODO Combine optimization with movement primitives
 Even if the ball-takeoff model is not known, one can use
 movement primitives for at least the first part of the movement.
 **** TODO When to optimize?
@@ -685,21 +694,20 @@ one does not need to optimize repeatedly 5th order
 polynomials. 
 
 ** IN-PROGRESS Use Reinforcement Learning to improve DMPs
-There are a lot of open questions regarding the application of RL.
 The Desiderata for RL in robotics:
 1. Data efficiency
 - no rollouts
-- this implies model based or something in between?
+- this implies model based or something in between (BayesOpt.?)
 2. Safety
 - small and/or local perturbations
 - model based is more promising
-- relation to relaxation learning control?
-3. Reduced reward engineering
+3. Reward engineering
 - unsupervised learning?
 - reward shaping?
+- building models on trajectories
 4. Parameterized policies
 - starting overparameterized or underparam.
-- relation to ILC?
+- relation to ILC as a result of optim.
 
 *** TODO Policy Search review
 **** TODO Check RL in MATLAB
@@ -717,6 +725,9 @@ e.g. a Barrett WAM forward dynamics
 As we use ILC and update the models, the models can also be
 used to update the reference trajectories progressively.
 ******** TODO Relation to DDP?
+**** TODO Checkout Policy Search on Latent Space
+Dimensionality Reduction on the parameters of policy search
+Check out Jan's suggested paper
 **** TODO Check reinforce on higher dimensions for convergence
 **** TODO Implement adaptive learning rates for reinforce
 **** TODO Extend library with other policy search algorithms
@@ -726,6 +737,10 @@ used to update the reference trajectories progressively.
 Sergey Levine and Pieter Abbeel's new papers come to mind.
 Especially:
 TRPO, Guided Policy Search, ...
+***** TODO Read Latent Space Policy Search
+Kevin Down et al. Compare with Bayes Opt approaches.
+***** TODO Read Massive Uninformed Search vs RL
+Benjamin Recht et al.
 *** TODO What is the reward function?
 The possibilities are:
 
@@ -739,29 +754,38 @@ Reward shaping comes to mind here.
 **** TODO Can an algorithm suggest trajectories?
 ***** TODO Relation to relaxation learning control?
 *** IN-PROGRESS Which algorithm to use? 
-The options are model-free, model-based RL and
-maybe also using Bayesian Optimization.
-**** IN-PROGRESS Model free or model based RL?
+The options are model-based RL and Bayesian Optimization (BO).
+**** IN-PROGRESS Which type of model?
 The approach must clearly be model-based as I do not want
 to have 'N' rollouts for each policy $\theta_k$.
-***** TODO Which type of model?
-The options are GPs or neural networks.
+
+As opposed to GPs or neural networks, we could first try
+local linear models as an extension of DMPs.
 ***** TODO Learn model of what?
 Model for the ball take-off, ball-racket impact
-or robot dynamics? Or all three?
+or robot dynamics? Or all three? Couple the ball as part
+of the state as well?
 ***** TODO Is the ball or the robot rest posture a context?
-*** IN-PROGRESS Which representation to use?
-I will stick to DMPs for now. The parameters per dimension can be 
-adapted though.
-**** DONE How many basis functions to use in DMPs?
-5-20 is the usual number per dimension. I plan to use 10 per dim.
-**** TODO Is it possible to increase basis func. as needed?
-***** TODO Relation to Bayesian Optimization?
-The insight here is that one starts with only a few parameters
-optimizes them and then adds new parameters as needed. 
-****** TODO How to impose an hierarchy on the parameters?
-Could UCT be of help
+We have to make sure that local policy generalizes to different
+ball positions and robot rest postures.
+**** TODO How to apply BO for Barrett WAM
+In high dimensional cases it seems important to do dimensionality
+reduction.
 
+The initial posture of the robot corresponds to the 'context'
+of the problem and contextual bandits would learn a GP over
+the contexts as well.
+***** TODO How to do dimensionality reduction on policy params
+Jan suggested performing PCA analysis.
+***** TODO Check out latent space approaches to BO
+The recent BO survey should be of help.
+***** TODO Read the recent gradient based BO paper in NIPS last year
+***** TODO Investigate hierarchical approaches to Bayes Optimization
+UCT algorithm comes to mind
+**** TODO How to merge the two?
+This would mean: how would observing the trajectories of
+the ball and the robot help in Bayesian Optimization where
+we want to do black-box optim on the reward.
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?

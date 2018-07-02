@@ -110,6 +110,7 @@ void Joint_DMPs::reset() {
 Joint_DMPs::Joint_DMPs(const std::string & param_file) {
 
     // load from json file
+    //cout << param_file;
     std::ifstream stream(param_file);
     json jobs;
     stream >> jobs;
@@ -151,6 +152,24 @@ mat Joint_DMPs::evolve(const double & T) {
     }
     reset();
     return q_evolve;
+
+}
+
+void Joint_DMPs::evolve(const double & T, mat & Q, mat & Qd, mat & Qdd) {
+    using namespace const_tt;
+    unsigned N = T/DT;
+    reset();
+    Q = zeros<mat>(NDOF,N);
+    Qd = zeros<mat>(NDOF,N);
+    Qdd = zeros<mat>(NDOF,N);
+    joint J;
+    for (unsigned i = 0; i < N; i++) {
+        step(DT,J);
+        Q.col(i) = J.q;
+        Qd.col(i) = J.qd;
+        Qdd.col(i) = J.qdd;
+    }
+    reset();
 
 }
 

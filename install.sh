@@ -2,7 +2,7 @@
 
 DEBUG=false
 TEST=false
-TEST_CMD="" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
+TEST_CMD="*" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
 BUILD="mpi/laptop"
 while true; do
     case "$1" in

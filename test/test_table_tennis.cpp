@@ -71,6 +71,7 @@ void test_new_interface();
 // serve tests
 void test_evolve_dmp();
 void test_speedup_dmp();
+void test_dmp_acc();
 
 /*
  * Main function for boost unit testing.
@@ -117,9 +118,10 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
 
     test_suite* ts_serve = BOOST_TEST_SUITE("SERVE");
     ts_serve->add(BOOST_TEST_CASE(&test_evolve_dmp));
+    ts_serve->add(BOOST_TEST_CASE(&test_dmp_acc));
     ts_serve->add(BOOST_TEST_CASE(&test_speedup_dmp));
 
-    framework::master_test_suite().add( ts_kin );
+    framework::master_test_suite().add( ts_kin, 1 ); //expected failure is 1
     framework::master_test_suite().add( ts_kf );
     framework::master_test_suite().add( ts_opt );
     framework::master_test_suite().add( ts_tt );

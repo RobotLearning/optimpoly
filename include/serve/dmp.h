@@ -111,8 +111,11 @@ public:
     /** @brief Evolve the DMPs dt seconds */
     void step(const double & dt, joint & Q);
 
-    /** @brief Evolve the DMPs DT seconds for a total duration of T sec.*/
+    /** @brief Evolve the DMPs DT seconds for a total duration of T sec and return positions.*/
     mat evolve(const double & T);
+
+    /** \brief Evolve DMPs every DT sec for a total of T sec, updating pos, vel and acc matrices */
+    void evolve(const double & T, mat & Q, mat & Qd, mat & Qdd);
 
     /** @brief Set initial positions of the DMPs */
     void set_init_pos(const vec & pos);

@@ -36,7 +36,7 @@ static void kinematics_eq_constr(double *result,
  */
 void test_kin_deriv() {
 
-    BOOST_TEST_MESSAGE("Comparing kinematics derivatives with numerical diff...");
+    BOOST_TEST_MESSAGE("\nComparing kinematics derivatives with numerical diff...");
 	static double lb[OPTIM_DIM];
 	static double ub[OPTIM_DIM];
 	set_bounds(lb,ub,0.0,1.0);
@@ -147,7 +147,7 @@ void test_kin_deriv() {
  */
 void test_kinematics_calculations() {
 
-	BOOST_TEST_MESSAGE("Comparing racket state calculations with MATLAB...");
+	BOOST_TEST_MESSAGE("\nComparing racket state calculations with MATLAB...");
 
 	static double q[NDOF], qdot[NDOF], pos[NCART], vel[NCART], normal[NCART];
 	for (int i = 0; i < NDOF; i++) {
