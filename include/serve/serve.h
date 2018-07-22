@@ -13,17 +13,31 @@ namespace serve {
 using dmps = Joint_DMPs;
 using vec_str = std::vector<std::string>;
 
-/**
- * \brief Serve a table tennis ball
- *
- * Initialize the serve with a DMP and then repeatedly correct
- * with optimization whenever the predicted ball is not hit by the
- * predicted movement.
- */
-void serve(const double & T,
-           const player::EKF & filter,
-            dmps & multi_dmp,
-            joint & Q);
+class ServeBall {
+
+private:
+    double T = 1.0;
+    vec7 q_rest_des;
+    vec7 q_hit_des;
+    optim::Optim *opt = nullptr; // optimizer
+
+public:
+
+    /**
+     * \brief Serve a table tennis ball
+     *
+     * Initialize the serve with a DMP and then repeatedly correct
+     * with optimization whenever the predicted ball is not hit by the
+     * predicted movement.
+     */
+    void serve(const player::EKF & filter,
+                dmps & multi_dmp,
+                joint & Q);
+
+    ServeBall(const double & T, dmps & multi_dmp);
+    ~ServeBall();
+
+};
 
 /** \brief Initialize DMP from a random JSON file */
 dmps init_dmps();

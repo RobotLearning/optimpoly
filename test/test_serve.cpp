@@ -23,12 +23,13 @@ vec6 init_ball_vertical(const double & T,
 
 void test_serve() {
 
+
     // start evolving dmp
     // have a ball coming down to goal state
     // track the ball with a filter
     // if we predict miss then run an optimizer to correct
     // switch to optimizer
-
+    BOOST_TEST_MESSAGE("\nTesting OPTIMIZATION after DMP...");
     const double T = 1.0;
     dmps multi_dmp = init_dmps();
     optim::joint Q;
@@ -37,11 +38,12 @@ void test_serve() {
     tt.set_ball_state(init_ball_state);
     racket racket_state;
     EKF filter = init_ball_filter(0.03,0.0001);
+    ServeBall server = ServeBall(T,multi_dmp);
 
     // check interaction and make sure ball is served correctly
     while (!tt.touched_ground() && !tt.was_served()) {
 
-        serve::serve(T,filter,multi_dmp,Q);
+        server.serve(filter,multi_dmp,Q);
         calc_racket_state(Q,racket_state);
         tt.integrate_ball_state(racket_state,DT);
         vec3 obs = tt.get_ball_position();

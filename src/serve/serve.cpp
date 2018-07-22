@@ -26,7 +26,7 @@ using vec_str = std::vector<std::string>;
 
 static void correct_with_optim(const joint & Q,
                         const player::EKF & filter,
-                        optim::FocusedOptim & fp,
+                        Optim *opt,
                         bool & ran_optim,
                         bool & read_optim);
 static bool predict_ball_hit(const player::EKF & filter,
@@ -44,42 +44,42 @@ dmps init_dmps() {
     arma_rng::set_seed_random();
     int val = (randi(1,distr_param(0,files.size()-1)).at(0));
     std::string file = files[val];
-    std::cout << "\nTesting OPTIMIZATION after DMP " << file << std::endl;
+    std::cout << "Loading DMP " << file << std::endl;
     std::string full_file = home + "/table-tennis/json/" + file;
     return dmps(full_file);
 }
 
-void serve(const double & T,
-           const EKF & filter,
-           dmps & multi_dmp,
-           joint & Q) {
+ServeBall::ServeBall(const double & T_, dmps & multi_dmp) {
+    T = T_;
+    double Tmax = 2.0;
+    double lb[2*NDOF+1], ub[2*NDOF+1];
+    set_bounds(lb,ub,0.01,Tmax);
+    multi_dmp.get_init_pos(q_rest_des);
+    opt = new FocusedOptim(q_rest_des,lb,ub);
+
+}
+
+ServeBall::~ServeBall() {
+    delete opt;
+}
+
+void ServeBall::serve(const EKF & filter,
+                       dmps & multi_dmp,
+                       joint & Q) {
 
     const int N = T/DT;
-    static FocusedOptim fp;
-    static bool firsttime = true;
-    static vec7 q_rest_des;
     static bool ran_optim = false;
     static bool read_optim = false;
-    static spline_params p;
+    spline_params p;
     static int i = 0;
     static double t_poly = 0.0;
 
-    if (firsttime) {
-        multi_dmp.get_init_pos(q_rest_des);
-        double Tmax = 2.0;
-        double lb[2*NDOF+1], ub[2*NDOF+1];
-        set_bounds(lb,ub,0.01,Tmax);
-        fp = FocusedOptim(q_rest_des,lb,ub);
-        firsttime = false;
-    }
-
     if (ran_optim) {
         if (!read_optim) {
-            fp.get_params(Q,p);
+            opt->get_params(Q,p);
             t_poly = 0.0;
             read_optim = true;
         }
-
         update_next_state(p,q_rest_des,1.0,t_poly,Q);
     }
     else {
@@ -89,7 +89,7 @@ void serve(const double & T,
     if (!predict_ball_hit(filter,q_rest_des,multi_dmp,p,t_poly,N,i,ran_optim)) {
         // launch optimizer
         cout << "Ball won't be hit! Launching optimization to correct traj...\n";
-        correct_with_optim(Q,filter,fp,ran_optim,read_optim);
+        correct_with_optim(Q,filter,opt,ran_optim,read_optim);
     }
     else {
         //BOOST_TEST_MESSAGE("Predicting ball hit...");
@@ -177,7 +177,7 @@ static bool predict_ball_hit(const EKF & filter,
  */
 static void correct_with_optim(const joint & Q,
                         const EKF & filter,
-                        FocusedOptim & fp,
+                        Optim * opt,
                         bool & ran_optim,
                         bool & read_optim) {
 
@@ -193,14 +193,15 @@ static void correct_with_optim(const joint & Q,
     optim_des pred_params;
     pred_params.Nmax = 1000;
     calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
-    fp.set_return_time(1.0);
-    fp.set_detach(false);
-    fp.set_des_params(&pred_params);
-    fp.set_verbose(false);
-    fp.update_init_state(Q);
-    fp.run();
+    FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
+    fp->set_return_time(1.0);
+    fp->set_detach(false);
+    fp->set_des_params(&pred_params);
+    fp->set_verbose(false);
+    fp->update_init_state(Q);
+    fp->run();
 
-    if (fp.check_update()) {
+    if (fp->check_update()) {
         ran_optim = true;
         read_optim = false;
     }
