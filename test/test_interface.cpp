@@ -139,7 +139,7 @@ void test_zmq_listener() {
     int num_balls = 500;
     pub_ball(num_balls);
     // stop listener
-    sleep(0.1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     listener.stop();
 
     //print data

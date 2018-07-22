@@ -23,12 +23,12 @@ vec6 init_ball_vertical(const double & T,
 
 void test_serve() {
 
-
     // start evolving dmp
     // have a ball coming down to goal state
     // track the ball with a filter
     // if we predict miss then run an optimizer to correct
     // switch to optimizer
+
     BOOST_TEST_MESSAGE("\nTesting OPTIMIZATION after DMP...");
     const double T = 1.0;
     dmps multi_dmp = init_dmps();

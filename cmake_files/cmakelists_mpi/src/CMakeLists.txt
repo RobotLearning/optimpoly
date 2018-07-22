@@ -22,6 +22,7 @@ set(SOURCES
     serve/dmp.cpp
     serve/serve.cpp
     sl_interface.cpp
+    ball_interface.cpp
 )
 add_library (${PROJECT_NAME} SHARED ${SOURCES})
 
