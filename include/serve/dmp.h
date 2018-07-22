@@ -1,27 +1,17 @@
 #include <armadillo>
 #include "constants.h"
+#include "optim.h"
 
 using arma::zeros;
 using arma::vec;
 using arma::vec3;
 using arma::vec7;
 using arma::mat;
+using optim::joint;
 
 namespace DMP {
 
 using namespace const_tt;
-
-/**
- * @brief Desired/actual joint positions, velocities, accelerations.
- *
- * Main Player function play() updates desired joint values
- * every 2ms for Barrett WAM.
- */
-struct joint {
-    vec7 q = zeros<vec>(NDOF); //!< desired joint pos
-    vec7 qd = zeros<vec>(NDOF); //!< desired joint vels
-    vec7 qdd = zeros<vec>(NDOF); //!< desired joint accs
-};
 
 /**
  * \brief Canonical 1-D system in phase space to evolve (multiple) DMPs.
@@ -43,6 +33,7 @@ struct Canonical {
 class DMP {
 
 private:
+
     vec3 x0 = zeros<vec>(3); //!< initial state of the DMP
     vec3 x = zeros<vec>(3); //!< state of the DMP
     vec w = zeros<vec>(10); //!< weights of the DMP
@@ -59,6 +50,8 @@ private:
     double forcing(const double & phase) const;
 
 public:
+
+    bool SAFE_ACC = false; //!< Jens' modification for less severe initial accelerations
 
     /** \brief Initialize the DMP weights, goal, init. state etc. */
     DMP(std::vector<double> weights_,
@@ -134,6 +127,9 @@ public:
 
     /** \brief Set speed of the movement */
     void set_time_constant(const double & tau);
+
+    /** \brief Turn on SAFE ACC flag (Jens' modification) for all DMPs */
+    void turn_on_safe_acc();
 };
 
 }

@@ -10,7 +10,7 @@
 classdef RDMP < DMP
     
     properties
-        
+        SAFE_ACC
         % state of the dmp
         y
         % canonical system
@@ -30,7 +30,13 @@ classdef RDMP < DMP
     methods
         
         %% Constructor for the rhythmic DMP
-        function obj = RDMP(canonical,alpha,beta,goal,amplitude,yin)
+        function obj = RDMP(safe,canonical,alpha,beta,goal,amplitude,yin)
+            
+            if safe
+                obj.SAFE_ACC = true;
+            else
+                obj.SAFE_ACC = false;
+            end
             
             assert(strcmp(canonical.pattern, 'r'),...
                    'Please provide a rhythmic canonical system');

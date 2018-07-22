@@ -42,13 +42,23 @@ classdef CAN < handle
             t_total_guess = ttotal; % guess running time
             t = (t_total_guess/(bfs-1)) * ((1:bfs)-1);
             if strcmp(pat,'d')
+                %%{
                 for i = 1:bfs
                     obj.c(i) = exp(-ax * t(i));
                 end
+                    
+                %}
+                %%{
                 for i = 1:bfs-1
                     obj.h(i) = 0.5 / ((0.65 * (obj.c(i+1)-obj.c(i))) ^ 2);
                 end
                 obj.h(end) = obj.h(end-1);
+                %}
+                
+                %{
+                obj.c = exp(-ax * t);
+                obj.h = ones(1,bfs); %*.1*bfs^2;
+                %}
             else
                 obj.c = (2*pi/(bfs-1)) * ((1:bfs)-1);
                 obj.h = ones(1,bfs)*.1*bfs^2;

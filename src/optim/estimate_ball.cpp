@@ -15,20 +15,6 @@ using namespace arma;
 static const int fitnorm = 2;
 
 /*
- * Least squares to estimate prior given
- * matrix of observations Y of column length N, each row
- * corresponding to one
- *
- * If observations arrive as column vectors then we take
- * transpose of it.
- *
- */
-static void estimate_ball_linear(const mat & observations,
-		                          const vec & times,
-		                          const bool verbose,
-		                          vec6 & init_est);
-
-/*
  * Returns the estimated topspin value
  */
 static double nlopt_estimate_ball(const mat & obs,
@@ -88,17 +74,7 @@ void estimate_prior(const mat & observations,
 	NLOPT_FINISHED = true;
 }
 
-}
-
-static long get_time() {
-	struct timeval tv;
-	if (gettimeofday(&tv, (struct timezone *)0) == 0)
-		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
-
-	return 0.;
-}
-
-static void estimate_ball_linear(const mat & observations,
+void estimate_ball_linear(const mat & observations,
                                   const vec & times,
                                   const bool verbose,
                                   vec6 & init_est) {
@@ -122,6 +98,16 @@ static void estimate_ball_linear(const mat & observations,
         cout << "Data:\n" << observations.t() << endl;
         cout << "Initial est:" << init_est.t() << endl;
     }
+}
+
+}
+
+static long get_time() {
+	struct timeval tv;
+	if (gettimeofday(&tv, (struct timezone *)0) == 0)
+		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
+
+	return 0.;
 }
 
 static double nlopt_estimate_ball(const mat & obs,

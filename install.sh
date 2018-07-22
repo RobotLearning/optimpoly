@@ -25,6 +25,18 @@ else
     cp cmake_files/cmakelists_mpi/test/CMakeLists.txt test/
 fi
 
+run_test() {
+    if $1; then
+	../../unit_tests --log_level=message --show_progress=yes --run_test="$2" --color_output=yes
+    fi
+}
+
+run_debug_test() {
+    if $1; then
+	test/unit_tests --log_level=message --show_progress=yes --run_test="$2" --color_output=yes
+    fi
+}
+
 if $DEBUG; then
     echo "Building in debug mode..."
     mkdir -p build/debug/
@@ -34,10 +46,10 @@ if $DEBUG; then
     else
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
     fi
-    make
-    if $TEST; then
-	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
-    fi
+    make && run_debug_test $TEST $TEST_CMD
+#    if $TEST; then
+#	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
+#    fi
     cd ../..
 else
     echo "Building in release mode..."
@@ -48,11 +60,11 @@ else
     else
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
     fi
-    make && make install
+    make && make install && run_test $TEST $TEST_CMD #only run tests if make passes
     cd ../..
-    if $TEST; then
-	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
-    fi
+#    if $TEST; then
+#	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
+#    fi
 fi
 
 # FOR OLD SL

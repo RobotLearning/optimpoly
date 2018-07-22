@@ -14,11 +14,11 @@ q = dlmread(file);
 N = size(q,1);
 dt = 0.002;
 t = dt * (1:N);
-figure;
-for i = 1:7
-    subplot(7,1,i);
-    plot(t,q(:,i));
-end
+% figure;
+% for i = 1:7
+%     subplot(7,1,i);
+%     plot(t,q(:,i));
+% end
 
 %% Find the prominent fast moving segments
 
@@ -70,7 +70,9 @@ end
 
 %% Plot the motions
 
-examples = 9; %[15,18,19,20,21]; %[2,4,6,9,10]; % FIRST: [1;7;10;5;9];
+examples = 9; 
+%SECOND = [2,4,6,9,10,12,15,16,18,19,20,21]; 
+% FIRST: [1;7;10;5;9];
 num_examples = length(examples);
 q_train = cell(1,num_examples);
 t_train = cell(1,num_examples);
@@ -95,40 +97,107 @@ for i = 1:7
     plot(t_train{1},q_train{1}(:,i));
 end
 %}
+
+wam = init_wam();
+qd_plot = diff(q_plot)/dt;
+qd_plot = [qd_plot; qd_plot(end,:)];
+ref_plot = [q_plot'; qd_plot'];
+train_cart = wam.kinematics(ref_plot);
+% draw Cartesian output
+%{
+figure('Name','Training cartesian data');
+hold on;
+grid on;
+plot3(train_cart(1,:),train_cart(2,:),train_cart(3,:),'r--');
+xlabel('x'); ylabel('y'); zlabel('z');
+drawTimeIter = 40;
+tLabel = t_plot(1:drawTimeIter:max_duration_movement/dt);
+precision = 4;
+tLabelCell = num2cell(tLabel,precision);
+for i = 1:length(tLabelCell)
+    tLabelCell{i} = num2str(tLabelCell{i});
+end
+% annotate some of the ball positions
+xDraw = train_cart(1,1:drawTimeIter:end);
+yDraw = train_cart(2,1:drawTimeIter:end);
+zDraw = train_cart(3,1:drawTimeIter:end);
+text(xDraw,yDraw,zDraw,tLabelCell)
+scatter3(xDraw,yDraw,zDraw,20,'b','*');
+hold off;
+%}
+
+%% Test learning with basis functions
+%%{
+[W,phi,q_reg,qd_reg,qdd_reg] = regress_basis_fncs(5,t_train{1},q_train{1},10);
+figure('Name','Regressing on basis functs');
+for i = 1:7
+    subplot(7,3,3*(i-1)+1);
+    plot(t_plot,q_reg(:,i));
+    hold on;
+    plot(t_plot,q_plot(:,i));
+    subplot(7,3,3*(i-1)+2);
+    plot(t_plot,qd_reg(:,i));
+    subplot(7,3,3*(i-1)+3);
+    plot(t_plot,qdd_reg(:,i));
+end
+% report maximum acc
+loss_basis = norm(q_train{1} - q_reg,'fro')
+max_acc_basis = max(max(abs(qdd_reg)))
+%}
+
 %% Train DMPs and evolve one
 
 n_bf = 10;
-tau = 2.0; % speed up/slow down movement
-dmps = trainMultiDMPs(t_train,q_train,'d',n_bf);
+tau = 1.0; % speed up/slow down movement
+safe = false; %Jens' modification for safe-acc at the start of movement
+cutoff = 10; % cutoff frequency
+dmps = trainMultiDMPs(safe,cutoff,t_train,q_train,'d',n_bf);
 dmps(1).can.tau = tau;
 t_evolve = 1.0/tau;
 N_evolve = t_evolve/dt;
 q_dmp = zeros(7,N_evolve);
+qd_dmp = zeros(7,N_evolve);
+qdd_dmp = zeros(7,N_evolve);
 ref = zeros(2*7,N_evolve);
 for i = 1:7
     dmps(i).y0 = [q_train{1}(1,i);0;0];
     [x,y] = dmps(i).evolve(N_evolve);
     dmps(i).resetStates();
     q_dmp(i,:) = y(1,:);
+    qd_dmp(i,:) = y(2,:);
+    qdd_dmp(i,:) = y(3,:);
     ref(i,:) = y(1,:)';
     ref(i+7,:) = y(2,:)';
 end
+loss_dmp = norm(q_train{1} - q_dmp(:,1:end-1)','fro')
+max_acc_dmp = max(max(abs(qdd_dmp)))
 t_dmp = dt*(1:N_evolve);
 figure('Name','DMP evolve');
 for i = 1:7
-    subplot(7,1,i);
+    subplot(7,3,3*(i-1)+1);
     plot(t_dmp,q_dmp(i,:));
+    %%{
+    hold on;
+    plot(t_dmp(1:end-1),q_plot(:,i));
+    %legend('dmp','training');
+    hold off;
+    %}
+    subplot(7,3,3*(i-1)+2);
+    plot(t_dmp,qd_dmp(i,:));
+    subplot(7,3,3*(i-1)+3);
+    plot(t_dmp,qdd_dmp(i,:));
 end
 
 %% Visualize DMP in Cartesian space
 
 % draw Cartesian output
-wam = init_wam();
-y_des_cart = wam.kinematics(ref);
-figure;
+dmp_cart = wam.kinematics(ref);
+figure('Name','DMP cartesian');
 hold on;
 grid on;
-plot3(y_des_cart(1,:),y_des_cart(2,:),y_des_cart(3,:),'r--');
+plot3(train_cart(1,:),train_cart(2,:),train_cart(3,:),'k-');
+plot3(dmp_cart(1,:),dmp_cart(2,:),dmp_cart(3,:),'r--');
+legend('training','dmp');
 xlabel('x'); ylabel('y'); zlabel('z');
 drawTimeIter = 40;
 tLabel = t(1:drawTimeIter:N_evolve);
@@ -138,12 +207,58 @@ for i = 1:length(tLabelCell)
     tLabelCell{i} = num2str(tLabelCell{i});
 end
 % annotate some of the ball positions
-xDraw = y_des_cart(1,1:drawTimeIter:end);
-yDraw = y_des_cart(2,1:drawTimeIter:end);
-zDraw = y_des_cart(3,1:drawTimeIter:end);
+xDraw = dmp_cart(1,1:drawTimeIter:end);
+yDraw = dmp_cart(2,1:drawTimeIter:end);
+zDraw = dmp_cart(3,1:drawTimeIter:end);
 text(xDraw,yDraw,zDraw,tLabelCell)
 scatter3(xDraw,yDraw,zDraw,20,'b','*');
 hold off;
+
+%% Compare safe dmps with unsafe dmps
+%{
+n_bf = 10;
+tau = 1.0; % speed up/slow down movement
+safe = true; %Jens' modification for safe-acc at the start of movement
+dmps_safe = trainMultiDMPs(safe,t_train,q_train,'d',n_bf);
+dmps_safe(1).can.tau = tau;
+t_evolve = 1.0/tau;
+N_evolve = t_evolve/dt;
+q_dmp = zeros(7,N_evolve);
+qd_dmp = zeros(7,N_evolve);
+qdd_dmp = zeros(7,N_evolve);
+ref_safe = zeros(2*7,N_evolve);
+for i = 1:7
+    dmps_safe(i).y0 = [q_train{1}(1,i);0;0];
+    [x,y] = dmps_safe(i).evolve(N_evolve);
+    dmps_safe(i).resetStates();
+    q_dmp(i,:) = y(1,:);
+    qd_dmp(i,:) = y(2,:);
+    qdd_dmp(i,:) = y(3,:);
+    ref_safe(i,:) = y(1,:)';
+    ref_safe(i+7,:) = y(2,:)';
+end
+t_dmp = dt*(1:N_evolve);
+figure('Name','DMP evolve');
+for i = 1:7
+    subplot(7,3,3*(i-1)+1);
+    plot(t_dmp,q_dmp(i,:));
+    subplot(7,3,3*(i-1)+2);
+    plot(t_dmp,qd_dmp(i,:));
+    subplot(7,3,3*(i-1)+3);
+    plot(t_dmp,qdd_dmp(i,:));
+end
+% Visualize DMP in Cartesian space
+
+% draw Cartesian output
+dmp_cart_safe = wam.kinematics(ref_safe);
+figure('Name','Save cart vs. unsafe cart');
+hold on;
+grid on;
+plot3(train_cart(1,:),train_cart(2,:),train_cart(3,:),'r--');
+plot3(dmp_cart(1,:),dmp_cart(2,:),dmp_cart(3,:),'b');
+plot3(dmp_cart_safe(1,:),dmp_cart_safe(2,:),dmp_cart_safe(3,:),'k');
+hold off;
+%}
 
 %% Save DMPs in JSON format
 %{

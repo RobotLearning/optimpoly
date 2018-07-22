@@ -484,6 +484,21 @@ void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball
 	}
 }
 
+bool TableTennis::was_served() const {
+
+    if (stats.hit)
+        return true;
+    else
+        return false;
+}
+
+bool TableTennis::touched_ground() const {
+    if (stats.touched_ground)
+        return true;
+    else
+        return false;
+}
+
 bool TableTennis::has_legally_landed() const {
 
 	if (stats.legal_land && stats.legal_bounce)

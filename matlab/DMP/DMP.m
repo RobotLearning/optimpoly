@@ -7,7 +7,7 @@
 classdef (Abstract) DMP < handle
     
     properties (Abstract)
-        
+        SAFE_ACC
         % state of the dmp
         y
         % canonical system
@@ -111,7 +111,6 @@ classdef (Abstract) DMP < handle
             % or with linear regression
             obj.regression(g,path);
             
-            
         end
         
         % Regression on processed actual demonstrations
@@ -136,14 +135,18 @@ classdef (Abstract) DMP < handle
             goals = repmat(goals',N,1);
             goals = goals(:);
 
-            % calculate fd
-            fd = qdd - alpha * (beta * (goals - q) - qd);
-
             % number of weights to regress 
             x = obj.can.evolve(N);
             % make sure x is column vector
             x = x(:);
-
+            
+            % calculate fd
+            if obj.SAFE_ACC
+                xx = repmat(x,D,1);
+                fd = qdd - (1-xx).*alpha.*(beta*(goals-q)-qd); 
+            else
+                fd = qdd - alpha * (beta * (goals - q) - qd);
+            end
             % regress on the weights
             Psi = zeros(N,lenw);
             for i = 1:N
@@ -163,15 +166,15 @@ classdef (Abstract) DMP < handle
             
             % use pinv or add lambda to smoothen inverse
             %w = pinv(Psi) * fd(:);
-            w = Psi \ fd(:);
+            %w = Psi \ fd(:);
             
             % penalize the first weights
-            %C = diag(ones(1,lenw))-2*diag(ones(1,lenw-1),1)+diag(ones(1,lenw-2),2);
-            %C(end-1:end,:) = 0;
+            C = diag(ones(1,lenw))-2*diag(ones(1,lenw-1),1)+diag(ones(1,lenw-2),2);
+            C(end-1:end,:) = 0;
             %D = -diag(ones(1,lenw))+diag(ones(1,lenw-1),1);
             %D(end,:) = 0;
-            %lambda = 1e1;
-            %w = ((Psi' * Psi + obj.lambda*C) \ (Psi')) * fd(:);
+            lambda = 1e0;
+            w = ((Psi' * Psi + lambda*C) \ (Psi')) * fd(:);
 
             obj.setWeights(w);
 

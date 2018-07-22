@@ -1,8 +1,9 @@
 %% Train multi-dmps
 % pattern determines rhythmic or discrete pattern generation
-function dmp = trainMultiDMPs(t,q,pat,n_bf)
+function dmp = trainMultiDMPs(safe,filt_freq,t,q,pat,n_bf)
 
-f = 500; %200 Hz recording
+fc = filt_freq;
+fs = 500; % Hz recording
 
 % number of demonstrations
 D = length(q);
@@ -13,8 +14,12 @@ dt = tf(2) - tf(1);
 t_common = linspace(dt,tf(end)-tf(1),length(tf)); 
 goals = zeros(D,dof);
 inits = zeros(D,dof);
+[b,a] = myButter2ndOrder(fc/(fs/2));
+%filt_order = 2;
+%[b,a] = butter(filt_order,fc/(fs/2));
 
 for i = 1:D
+    q{i} = filtfilt(b,a,q{i});
     qd{i} = diff(q{i})/dt;
     t{i} = t{i} - t{i}(1);
     td = t{i}(1:end-1);
@@ -39,7 +44,7 @@ for i = 1:D
 end
 
 % canonical system
-h = 1/f; % 200 Hz recordings
+h = 1/fs; 
 tau = 1/t_common(end);
 alpha = 25;
 beta = alpha/4;
@@ -69,10 +74,10 @@ for i = 1:dof
     g(i) = goals(1,i);
     % initial states of DMPs
     if strcmp(pat,'d')
-        dmp(i) = DDMP(can,alpha,beta,g(i),yin(:,i));
+        dmp(i) = DDMP(safe,can,alpha,beta,g(i),yin(:,i));
     else
         amp(i) = 1;
-        dmp(i) = RDMP(can,alpha,beta,g(i),amp(i),yin(:,i));
+        dmp(i) = RDMP(safe,can,alpha,beta,g(i),amp(i),yin(:,i));
     end
     dmp(i).regressLive(q_reg(:,i),qd_reg(:,i),qdd_reg(:,i),goals(:,i));
     

@@ -24,6 +24,7 @@
 using arma::mat;
 using arma::vec;
 using arma::zeros;
+using arma::vec6;
 using arma::vec7;
 using const_tt::NCART;
 using const_tt::NDOF;
@@ -602,6 +603,20 @@ void estimate_prior(const mat & observations,
                     const int & verbose,
                     bool & init_ball,
                     player::EKF & filter);
+
+/**
+ * @brief Least squares to estimate prior given
+ * matrix of observations Y of column length N, each row
+ * corresponding to one
+ *
+ * If observations arrive as column vectors then we take
+ * transpose of it.
+ *
+ */
+void estimate_ball_linear(const mat & observations,
+                          const vec & times,
+                          const bool verbose,
+                          vec6 & init_est);
 }
 
 #endif /* OPTIMPOLY_H_ */

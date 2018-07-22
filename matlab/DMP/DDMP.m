@@ -9,7 +9,7 @@
 classdef DDMP < DMP
     
     properties
-        
+        SAFE_ACC
         % state of the dmp
         y        
         % canonical system
@@ -29,8 +29,14 @@ classdef DDMP < DMP
     methods
         
         %% Constructor for discrete DMP
-        function obj = DDMP(canonical,alpha,beta,goal,yin)
+        function obj = DDMP(safe,canonical,alpha,beta,goal,yin)
             
+            if safe
+                obj.SAFE_ACC = true;
+            else
+                obj.SAFE_ACC = false;
+            end
+                
             assert(strcmp(canonical.pattern, 'd'),...
                    'Please provide a discrete canonical system');
             obj.can = canonical;
@@ -63,10 +69,10 @@ classdef DDMP < DMP
             tau = obj.can.tau;
             dt = obj.can.dt;
 
+            f = obj.forcing();
+            %{
             A =  [0, 1;
                 -alpha*beta*(tau^2), -alpha*tau];
-
-            f = obj.forcing();
             % forcing function acts on the accelerations
             B = tau * tau * [0; alpha*beta*g + amp*f];
 
@@ -77,6 +83,18 @@ classdef DDMP < DMP
             obj.y(2) = obj.y(2) + dt * ydot(2);
             % acceleration
             obj.y(3) = ydot(2);
+            %}
+            
+            obj.y(3) = tau*tau*alpha*beta*(g-obj.y(1)) - tau*alpha*obj.y(2);
+            if obj.SAFE_ACC
+                obj.y(3) = obj.y(3) * (1-obj.can.x);
+            end
+            
+            obj.y(3) = obj.y(3) + tau*tau*amp*f;
+            obj.y(1) = obj.y(1) + dt*obj.y(2);
+            obj.y(2) = obj.y(2) + dt*obj.y(3);
+            
+            
             obj.can.step(err);
         end
         

@@ -282,6 +282,15 @@ public:
 	/** @brief Checks for legal bounce of the ball (on the robot court).*/
 	bool has_legally_bounced() const;
 
+	/** @brief Checks for a hit by the racket during serve
+	 *
+	 * TODO: should check for a bounce on robot court + bounce on opponent court
+	 */
+	bool was_served() const;
+
+	/** @brief Checks for contact with ground */
+	bool touched_ground() const;
+
 	/**
 	 * @brief Reset statistics of the game.
 	 *

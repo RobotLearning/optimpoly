@@ -73,12 +73,23 @@ vec3 DMP::step(const Canonical & can, const double & dt) {
 
     const double amp = 1.0;
     double f = forcing(can.phase);
-    mat22 A = {{0,1}, {-alpha*beta*can.tau*can.tau, -alpha*can.tau}};
+
+    // OLD VERSION written as a multivar. system
+    /*mat22 A = {{0,1}, {-alpha*beta*can.tau*can.tau, -alpha*can.tau}};
     vec2 b = {0,can.tau*can.tau*(alpha*beta*g + amp*f)};
     vec2 xdot = A * x.head(2) + b;
     x(0) += dt * xdot(0);
     x(1) += dt * xdot(1);
-    x(2) = xdot(1);
+    x(2) = xdot(1);*/
+
+    // compute accelerations
+    x(2) = can.tau*can.tau*alpha*beta*(g-x(0)) - can.tau*alpha*x(1);
+    if (SAFE_ACC)
+        x(2) *= (1-can.phase);
+    x(2) += can.tau*can.tau*amp*f;
+    x(0) += dt * x(1);
+    x(1) += dt * x(2);
+
     return x;
 }
 
@@ -110,7 +121,7 @@ void Joint_DMPs::reset() {
 Joint_DMPs::Joint_DMPs(const std::string & param_file) {
 
     // load from json file
-    //cout << param_file;
+    //cout << param_file << endl;
     std::ifstream stream(param_file);
     json jobs;
     stream >> jobs;
@@ -231,6 +242,12 @@ double Joint_DMPs::get_time_constant() const {
 
 void Joint_DMPs::set_time_constant(const double & tau) {
     can.tau = tau;
+}
+
+void Joint_DMPs::turn_on_safe_acc() {
+    for (unsigned int i = 0; i < dmps.size(); i++) {
+        dmps[i].SAFE_ACC = true;
+    }
 }
 
 }
