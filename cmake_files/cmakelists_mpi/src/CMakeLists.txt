@@ -20,6 +20,7 @@ set(SOURCES
     optim/utils.cpp   
     optim/vhp_optim.cpp
     serve/dmp.cpp
+    serve/serve.cpp
     sl_interface.cpp
 )
 add_library (${PROJECT_NAME} SHARED ${SOURCES})

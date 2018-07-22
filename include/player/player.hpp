@@ -331,7 +331,9 @@ void gen_3rd_poly(const arma::rowvec & times,
  * parameters
  *
  */
-void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
+void predict_ball(const double & time_pred,
+                  mat & balls_pred,
+                  const EKF & filter);
 
 /**
  * @brief Predict hitting point on the Virtual Hitting Plane (VHP)

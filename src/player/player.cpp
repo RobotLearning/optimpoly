@@ -432,7 +432,7 @@ bool predict_hitting_point(const double & vhpy,
 
 void predict_ball(const double & time_pred,
                     mat & balls_pred,
-                    EKF & filter) {
+                    const EKF & filter) {
 
 	//static wall_clock timer;
 	//timer.tic();

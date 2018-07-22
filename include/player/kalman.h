@@ -291,7 +291,7 @@ public:
 	 * @return Matrix of ball mean and variances as columns.
 	 *
 	 */
-	mat predict_path(const double dt, const int N);
+	mat predict_path(const double dt, const int N) const;
 
 	/**
 	 * @brief Checks to see if the ball observation could be an

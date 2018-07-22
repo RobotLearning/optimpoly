@@ -1,6 +1,6 @@
-;; This buffer is for notes you don't want to save, and for Lisp evaluation.
-;; If you want to create a file, visit that file with C-x C-f,
-;; then enter the text in that file's own buffer.
+;; This buffer is for notes you don't want to save, and for Lisp
+;; evaluation.  If you want to create a file, visit that file with C-x
+;; C-f, then enter the text in that file's own buffer.
 
 #-*- mode: org -*-
 #+STARTUP: showall
@@ -11,76 +11,74 @@
 ** Writing/reading side: 
 *** DONE Merge the two paper contents
 *** DONE Update the Defensive Player version 
-Removed the free rest time/rest joints criterion in Lazy Player
-and made experiments with the q0-independent player.
+Removed the free rest time/rest joints criterion in Lazy Player and
+made experiments with the q0-independent player.
 
-Here we're considering another optimization where
-the resting state posture is optimized based on the jacobian
-of the resting joint posture and the previous incoming
-ball trajectory.
+Here we're considering another optimization where the resting state
+posture is optimized based on the jacobian of the resting joint
+posture and the previous incoming ball trajectory.
 
 **** DONE Include penalty on jacobian of resting joints
 **** DONE Include penalty based on incoming ball pattern?
 *** DONE Update unit test Defensive Player results to MPC section
-Discrepancy between unit test results and SL simulation results
-for DEFENSIVE PLAYER (DP). In SL, DP can return most spinning balls
-(ball mismatch case) after a few failed attempts at the start, 
-whereas in unit tests DP is much less successful (compared to FP).
-What is the problem here?
+Discrepancy between unit test results and SL simulation results for
+DEFENSIVE PLAYER (DP). In SL, DP can return most spinning balls (ball
+mismatch case) after a few failed attempts at the start, whereas in
+unit tests DP is much less successful (compared to FP).  What is the
+problem here?
 
 *** DONE Motivate the two players better
-Guilherme's comment was that the two players introduced in the 
-journal were not connected. I write in the journal that 'a higher
-strategy' could decide/switch between the two players as needed.
+Guilherme's comment was that the two players introduced in the journal
+were not connected. I write in the journal that 'a higher strategy'
+could decide/switch between the two players as needed.
 *** DONE Add more related work on Table Tennis
 This was specifically asked by the first reviewer.
 *** DONE Include more discussions for real robot experiments
-The discussions focused more on the distribution of the ball
-landing positions, DP distribution was shown to be wider 
-(as it should be).
+The discussions focused more on the distribution of the ball landing
+positions, DP distribution was shown to be wider (as it should be).
 *** DONE Include table with parameter estimates for real robot
 **** DONE Include spin model
-I have decided to include the spin models since they make enough 
+I have decided to include the spin models since they make enough
 difference in the real robot experiments
 **** DONE Table with parameter values
 Included a table with rebound model and free flight model parameters
 ** Theory side: 
 *** DONE Go through Applied Optimal Control [Bryson&Ho]
-Of particular interest is the section on perturbative feedback
-(rather than solving HJB, only local feedback is generated). 
-This is the same as LQR around a trajectory but with cross-terms
-coming from second derivatives of the Hamiltonian
+Of particular interest is the section on perturbative feedback (rather
+than solving HJB, only local feedback is generated).  This is the same
+as LQR around a trajectory but with cross-terms coming from second
+derivatives of the Hamiltonian
 
 *** DONE Can we include free time optimization in HJB?
-MP + Transversality conditions can be derived from (generalized) HJB by
-including final time as another control variable.
+MP + Transversality conditions can be derived from (generalized) HJB
+by including final time as another control variable.
 
 The HJB is generalized in the sense that the equality constraints for
 hitting the ball are enforced: the value function is not defined
 otherwise
 *** WAITING Incorporate table constraints in the optimization?
-Incorporating cartesian constraints in a viable way seem to be quite tricky.
-It seems to check for the extrema values we would have to check for
-the singularity of the Jacobian as well, i.e.,
+Incorporating cartesian constraints in a viable way seem to be quite
+tricky.  It seems to check for the extrema values we would have to
+check for the singularity of the Jacobian as well, i.e.,
 
-If the Kinematics function is K(), we need to enforce
-K(q(t)) < x_lim at all times t \in [0,T]!
+If the Kinematics function is K(), we need to enforce K(q(t)) < x_lim
+at all times t \in [0,T]!
 
-To do that we can check for the endpoints q0 and qf AND enforce
-the extrema values to be below x_lim. That is, solutions of 
-J(q)q_dot = 0 should be always feasible. Checking this requires knowing
-when q_dot = 0 as well as when J(q(t)) = 0. 
+To do that we can check for the endpoints q0 and qf AND enforce the
+extrema values to be below x_lim. That is, solutions of J(q)q_dot = 0
+should be always feasible. Checking this requires knowing when q_dot =
+0 as well as when J(q(t)) = 0.
 
 *** WAITING How can we solve MP with state constraints explicitly?
 Including maximum joint limit constraint explicitly within MP should
-be possible. For now we're only adding the extrema checking on top
-of the unconstrained MP based algorithm.
+be possible. For now we're only adding the extrema checking on top of
+the unconstrained MP based algorithm.
 
-More rigorously, the algorithm derived can be proved to converge
-to a local optima using the Maximum Principle that assumes
-unconstrained inputs and state space. What we need is a (constrained)
-MP that accounts for the convergence of the full algorithm (that
-includes the joint extrema checking). 
+More rigorously, the algorithm derived can be proved to converge to a
+local optima using the Maximum Principle that assumes unconstrained
+inputs and state space. What we need is a (constrained) MP that
+accounts for the convergence of the full algorithm (that includes the
+joint extrema checking).
 
 **** WAITING Can the joint extrema checking be derived from constr. MP?
 *** IN-PROGRESS Check KKT conditions 
@@ -88,19 +86,19 @@ For the Defensive Player the KKT conditions are satisfied by taking
 derivatives of the augmented cost function. This should be checked
 more carefully.
 *** DONE Sufficiency of the optimization should be proved
-Using HJB equation should provide us with sufficiency but
-the Value Function is hard to find.
-The strong Legendre-Clebsch conditions for local optimality and
-the nonblowup of modified Ricatti matrix gives local sufficiency conditions.
+Using HJB equation should provide us with sufficiency but the Value
+Function is hard to find.  The strong Legendre-Clebsch conditions for
+local optimality and the nonblowup of modified Ricatti matrix gives
+local sufficiency conditions.
 ** Coding/SL: 
 *** Coding in MATLAB
 **** IN-PROGRESS Check punished Defensive Player in MATLAB [without MPC]
-Coded the basic Lazy Player 
+Coded the basic Lazy Player
 **** WAITING Can we add MPC and a fast optimization loop with IPOPT?
 **** WAITING Can we show the benefits of correction in MATLAB?
 **** IN-PROGRESS Simplify kinematics function in MATLAB
-Changed the math operations to matrix multiplications, doubled the speed
-for polynomial optimization in MATLAB
+Changed the math operations to matrix multiplications, doubled the
+speed for polynomial optimization in MATLAB
 ***** IN-PROGRESS Kinematics function returns unnecessary matrices for calc_racket_state
 *** Coding in C++
 **** DONE Update documentation
@@ -121,9 +119,9 @@ DP has problems converging.
 ***** WAITING Test over hundreds of tests
 We can use the unit test that was asked by reviewer 1.
 ****** WAITING Add unit test with different initializations
-I want to test if the algorithm can converge from any arbitrary 
-initialization. This is false I think since there were so many
-issues in the online implementation.
+I want to test if the algorithm can converge from any arbitrary
+initialization. This is false I think since there were so many issues
+in the online implementation.
 ***** WAITING Is it possible to remove/robustify LOOKUP TABLE and still optimize well?
 ***** WAITING Otherwise we can train 3 different lookup tables that are globally opt.
 One each for RIGHT_SIDE, CENTER, LEFT_SIDE initial postures
@@ -131,44 +129,44 @@ One each for RIGHT_SIDE, CENTER, LEFT_SIDE initial postures
 ***** DONE Read COBYLA
 ***** WAITING Calculating derivatives of calc_racket_state
 ****** WAITING Calculate analytical derivatives
-I have created a unit test to test the analytical derivatives.
-But I could not make progress after a while, computing the derivatives
-of the racket normal was not working (when compared with numerical diffs).
+I have created a unit test to test the analytical derivatives.  But I
+could not make progress after a while, computing the derivatives of
+the racket normal was not working (when compared with numerical
+diffs).
 ****** WAITING Test automatic differentiation for derivatives of calc_racket_state
 ******* DONE Testing automatic differentiation for a simple kinematics function
 ******* WAITING Testing autodiff on a simpler 2D calc_racket_state function 
 ***** DONE Solve the simpler problem of touching the ball
-Added a boolean variable land which if FALSE 
-we only try to satisfy hitting (and not landing) constraints
-This is an additional way to debug the optimizer
+Added a boolean variable land which if FALSE we only try to satisfy
+hitting (and not landing) constraints This is an additional way to
+debug the optimizer
 ***** DONE Solve with a derivative-based optimizer in NLOPT
 Using numerical differentiation was possible with der. based solvers
 in NLOPT, surprisingly (AUGLAG + VAR2 was the best performing)
 ***** WAITING Solve with an IPOPT optimizer
-Computing also the derivatives either analytically or automatically is required
-hence halting this branch
+Computing also the derivatives either analytically or automatically is
+required hence halting this branch
 
 ***** WAITING Test adding Tland as another optimization variable
 Instead of using a discontinuous inversion to compute the landing time
 as a discontinuous function of hitting time T and checking the landing
-constraints at this Tland, why not include Tland as another optimization
-variable?
+constraints at this Tland, why not include Tland as another
+optimization variable?
 
 **** DONE Resolve hitting time T becoming NaN in inter_ball function
 **** WAITING Determine a normal from spin racket model
-We introduced a spin racket model for the paper but
-how to determine a (unique) ndes from the nonlinear spin racket model
-is not clear to me. 
+We introduced a spin racket model for the paper but how to determine a
+(unique) ndes from the nonlinear spin racket model is not clear to me.
 **** DONE Reorganize optimization algorithms
 ***** DONE Add class structure to optimization algorithms
 ***** DONE Read up on C++ inheritance
 ***** DONE Try removing legal ball detection
-Added check_bounce option in the player configuration file,
-which if disabled turns off legal ball detection (which is problematic
-for REAL ROBOT experiments).
+Added check_bounce option in the player configuration file, which if
+disabled turns off legal ball detection (which is problematic for REAL
+ROBOT experiments).
 ***** DONE Reduce racket/ball prediction time to below 2ms
-Using -O3 optimization in player (release mode) reduced prediction time
-to 0.2-0.3 ms from around 1.5-2.5 ms!
+Using -O3 optimization in player (release mode) reduced prediction
+time to 0.2-0.3 ms from around 1.5-2.5 ms!
 ***** DONE Fix tabletennis class bug where after bouncing on robot side the ball is still counted as valid
 ***** DONE Remove the mode_operate enum and introduce detach and outlier detection booleans
 ***** DONE Organize the player and tabletennis class to avoid global variables
@@ -177,15 +175,16 @@ to 0.2-0.3 ms from around 1.5-2.5 ms!
 ***** DONE Corrections in filter mode should be working
 ***** DONE Unit test to compare performance of three algs
 - Two robots playing against each other would also be a good simulation
-where FOCUSED player would play against LAZY player. However this
-is not strictly necessary for the paper.
+where FOCUSED player would play against LAZY player. However this is
+not strictly necessary for the paper.
 **** WAITING Add filtering also for the robot 
 **** DONE Limit allowed accelerations, or velocities 
-Crazy trajectories should never appear in simulation nor the real robot     
+Crazy trajectories should never appear in simulation nor the real
+robot
 **** DONE Change to cmake
 ***** DONE Create simple hello world example with cmake
-cmake_minimum_required, project, add_executable 
-are the important commands here
+cmake_minimum_required, project, add_executable are the important
+commands here
 
 ***** DONE Add include folder
 Adding an include folder requires setting target_include_directories
@@ -196,72 +195,63 @@ cmake file.
 ***** DONE Add an external library
 Adding an external library requires target_link_libraries command.
 But the library should be in the systems usual library folders like
-/usr /usr/local etc.
-Otherwise the library has to be added with a find_package() command
-or find_path, find_library commands [in case find_package doesnt work]
+/usr /usr/local etc.  Otherwise the library has to be added with a
+find_package() command or find_path, find_library commands [in case
+find_package doesnt work]
 ***** DONE Add compilation options
 Cmake is very flexible, compilation options can be usually set in many
-different, sometimes equivalent ways. The best strategy could be to set
-initially CMAKE_CXX_FLAGS_RELEASE and CMAKE_CXX_FLAGS_DEBUG flags.
+different, sometimes equivalent ways. The best strategy could be to
+set initially CMAKE_CXX_FLAGS_RELEASE and CMAKE_CXX_FLAGS_DEBUG flags.
 Cmake should then be called with -DCMAKE_BUILD_TYPE=Release or Debug.
 
 I was initially using the command target_compile_options.
 ***** DONE Include out-of-source build
-Including out-ouf-source build is very easy and also recommended.
-To do so simply mkdir a build folder and call cmake from there:
-cmake ..
+Including out-ouf-source build is very easy and also recommended.  To
+do so simply mkdir a build folder and call cmake from there: cmake ..
 ***** DONE Compile as shared object
-The command to compiling as shared object is 
-add_library(${TARGET} SHARED ${SOURCES})
+The command to compiling as shared object is add_library(${TARGET}
+SHARED ${SOURCES})
 ***** DONE Call shared object from test
-Calling shared object from test requires again the 
+Calling shared object from test requires again the
 target_link_libraries command in the test/CMakeLists file.
 
-Don't forget to add the library in LD_LIBRARY_PATH after
-make install.
+Don't forget to add the library in LD_LIBRARY_PATH after make install.
 ***** DONE Add subfolder structure (include, src, test)
-Adding a subfolder structure requires putting the relevant
-CMakeLists files in the subfolders.
+Adding a subfolder structure requires putting the relevant CMakeLists
+files in the subfolders.
 ***** DONE Have release and debug versions independently
-By creating release/ and debug/ folders in build/ 
-and calling the relevant compilation flags from there 
-(e.g. CMAKE_CXX_FLAGS_RELEASE for release/ folder)
-we can keep two different builds separate.
+By creating release/ and debug/ folders in build/ and calling the
+relevant compilation flags from there (e.g. CMAKE_CXX_FLAGS_RELEASE
+for release/ folder) we can keep two different builds separate.
 
-For exposing the library, the release shared object
-can be put to a lib/ subfolder in the top repository folder
-by calling make install
+For exposing the library, the release shared object can be put to a
+lib/ subfolder in the top repository folder by calling make install
 
 ***** DONE Require packages before compilation
-Requiring packages before compilation is quite tricky,
-often find_package(LIBRARY REQUIRED) fails. This 
-command requires a FindLIBRARY.cmake file if the system
-doesnt know the library (it knows e.g. boost and 
-armadillo libraries but not nlopt it seems)
+Requiring packages before compilation is quite tricky, often
+find_package(LIBRARY REQUIRED) fails. This command requires a
+FindLIBRARY.cmake file if the system doesnt know the library (it knows
+e.g. boost and armadillo libraries but not nlopt it seems)
 
-After find_package finds the libraries the
-include folders need to be added by calling
-include_directories(${LIBRARY_INCLUDE_DIRS})
+After find_package finds the libraries the include folders need to be
+added by calling include_directories(${LIBRARY_INCLUDE_DIRS})
 
-If find_package doesn't work, find_path
-and find_library commands can be used.
+If find_package doesn't work, find_path and find_library commands can
+be used.
 
 ***** DONE Test with SL
-Testing with SL didn't cause many issues.
-ADOLC doesn't have a find_package command,
-so we need to explicitly add its includes in each
-cmake file I think.
+Testing with SL didn't cause many issues.  ADOLC doesn't have a
+find_package command, so we need to explicitly add its includes in
+each cmake file I think.
 
 ***** DONE Test compilation in another computer
-This worked well in my older laptop after
-a brief struggle.
+This worked well in my older laptop after a brief struggle.
 
-In the robot computers, boost was loading the previous
-versions which had a crazy incompatibility issue with
-one of the load() functions. The string passed to the function
-was NULL, and was causing crazy errors. This was resolved
-by again using find_path(), find_library() cmake functions
-and specifying the paths explicitly.
+In the robot computers, boost was loading the previous versions which
+had a crazy incompatibility issue with one of the load()
+functions. The string passed to the function was NULL, and was causing
+crazy errors. This was resolved by again using find_path(),
+find_library() cmake functions and specifying the paths explicitly.
 
 **** DONE Move comments to header
 **** DONE Add namespaces to avoid name-collisions
@@ -269,25 +259,26 @@ and specifying the paths explicitly.
 **** DONE Introduce install script and organize folders
 ** Experiments:   
 *** DONE Solve the problem of robot halting
-Testing on the new computer + vision should settle the issue.
-Thread launching on Xenomai could also be an issue.
+Testing on the new computer + vision should settle the issue.  Thread
+launching on Xenomai could also be an issue.
 **** DONE Test with Valgrind (memcheck specifically)
-There was a memory leak due to nlopt_destroy not being called
-in multiple places.
+There was a memory leak due to nlopt_destroy not being called in
+multiple places.
 
 *** WAITING Can we learn/test the more general racket-ball contact model?
 **** WAITING Show it outperforms the reflection law
 *** IN-PROGRESS Analyze collected real ball/sim robot data 
 **** WAITING Filter after resetting every 300 ms should work?
-It doesnt seem to work so well if the balls are coming fast
-Test maybe another method (like difference to last 
-ball observation) in combination
+It doesnt seem to work so well if the balls are coming fast Test maybe
+another method (like difference to last ball observation) in
+combination
 
-In the experiments I was turning off the ball gun to avoid this problem.
+In the experiments I was turning off the ball gun to avoid this
+problem.
 
 **** IN-PROGRESS Estimate initial ball spin
-Estimating initial ball spin with 12 balls 
-Using NLOPT + NEWTON type method to optimize
+Estimating initial ball spin with 12 balls Using NLOPT + NEWTON type
+method to optimize
 ***** DONE Add detach for real robot experiments
 ***** TODO How to make sure spin estimation is not overfitting?
 ***** DONE How to change the topspin constants for filter?
@@ -305,8 +296,8 @@ some examples)
 5. Removed the roll version for bounce. It seems all balls slide.
 
 **** WAITING Train ball models that account for spin
-Jans suggestion:
-Look into data with an FIR filter and try to fix number of samples
+Jans suggestion: Look into data with an FIR filter and try to fix
+number of samples
 - Gaussian Process
 - Local linear models
 - Neural network
@@ -321,13 +312,13 @@ MPC is making too rapid corrections. Why?
 This seems to be happening when MPC is turned on.
 *** IN-PROGRESS Check how long predict() takes in experiments
 **** DONE predict_ball() doesn't need to predict for 2.0 secs long always
-Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)     
+Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)
 **** TODO Check predict_ball() time with spinning ball model
 * Two robots playing Table Tennis 				:@conference:
 ** IN-PROGRESS Test with simulated ball on both robots
 *** DONE Run code in PING
-When I tested the code with simulated ball, the code
-was printing legal lands.
+When I tested the code with simulated ball, the code was printing
+legal lands.
 *** TODO Run code in PONG
 *** TODO Check for tracking errors
 Saving some of the movements to a file will help.
@@ -335,24 +326,23 @@ Saving some of the movements to a file will help.
 *** DONE Compile vision code in laptop
 This was a lot of work and took me one full day!
 
-I needed to compile ball_tracking but it had too many dependencies.
-I downloaded Sebastian's repositories, and to compile them all I
-had to:
+I needed to compile ball_tracking but it had too many dependencies.  I
+downloaded Sebastian's repositories, and to compile them all I had to:
 
 - Use find_path() and find_library() commands in cmake rather
-than the find_package() commands which could not locate user
-specified include and library paths automatically.
+than the find_package() commands which could not locate user specified
+include and library paths automatically.
 
 - Add the PvApi library. I found these (lib+includes) in google in a github repo.
 
 - Install new version of libprotobuf from source. This is quite tricky as there
-is an older protobuf library in Ubuntu folders and that should NOT
-be replaced. The new libraries should be added in cmake with commands
+is an older protobuf library in Ubuntu folders and that should NOT be
+replaced. The new libraries should be added in cmake with commands
 mentioned above.
 
 - Getting json.hpp from nlohmann's github (single include) did not work
-as the version is too new. Some of the repositories are using json v1.0
-so this header should be copied uniformly throughout the repos.
+as the version is too new. Some of the repositories are using json
+v1.0 so this header should be copied uniformly throughout the repos.
 
 - NLOPT should be compiled as a shared object. The new version in the github
 repo includes a cmake file and compiles it as a shared object now.
@@ -363,13 +353,13 @@ before.
 *** DONE Compile vision code in vision computer
 I'm using my own account to compile the vision.
 
-The difference is that GPU will be used to track
-the ball (using then CUDA libraries).
+The difference is that GPU will be used to track the ball (using then
+CUDA libraries).
 
-After talking to Sebastian, it seems I need to run
-at least the 2d server in the vision computer (HELBE). So in any
-case I have to compile all the code in HELBE as well. I need to
-also update the json files with new versions that Sebastian uses.
+After talking to Sebastian, it seems I need to run at least the 2d
+server in the vision computer (HELBE). So in any case I have to
+compile all the code in HELBE as well. I need to also update the json
+files with new versions that Sebastian uses.
 
 The libs to be compiled are: ball_tracking, camera, robcpp, rob_protos
 and robpy libraries. (this should be simplified later).
@@ -383,167 +373,160 @@ because the Ubuntu system protobuf libraries are older versions
 (protoc in particular was 2.6).
 
 I had to first install it with --disable-shared and then install
-protoc exe and the static protobuf libraries. I then had to 
-enable shared again and install the .so files. This however
-reverted somehow the protoc exe back to 2.6!!! I then installed
-again with --disable-shared to update protoc again back to 3.5.1!!
+protoc exe and the static protobuf libraries. I then had to enable
+shared again and install the .so files. This however reverted somehow
+the protoc exe back to 2.6!!! I then installed again with
+--disable-shared to update protoc again back to 3.5.1!!
 
 2. I made sure all the PATH, LD_LIBRARY_PATH, LIBRARY_PATH, 
-LD_RUN_PATH, CPLUS_INCLUDE_PATH, C_INCLUDE_PATH are pointing
-to /is/ei/okoc/install/include, lib or bin folders! Some of them
-might be unnecessary!
+LD_RUN_PATH, CPLUS_INCLUDE_PATH, C_INCLUDE_PATH are pointing to
+/is/ei/okoc/install/include, lib or bin folders! Some of them might be
+unnecessary!
 
 3. When compiling rob_protos FindProtobuf.cmake file was creating
-a big mess and initially loading the older protobuf library. 
-After completing items (1) and (2) and setting:
+a big mess and initially loading the older protobuf library.  After
+completing items (1) and (2) and setting:
 
-set(Protobuf_DEBUG ON)
-set(PROTOBUF_PROTOC_EXECUTABLE /is/ei/okoc/install/bin/protoc)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-include(FindProtobuf)
+set(Protobuf_DEBUG ON) set(PROTOBUF_PROTOC_EXECUTABLE
+/is/ei/okoc/install/bin/protoc) list(APPEND CMAKE_MODULE_PATH
+"${CMAKE_CURRENT_LIST_DIR}/cmake")
+include_directories(${CMAKE_CURRENT_BINARY_DIR}) include(FindProtobuf)
 
-(some of them are probably redundant) I speficied the newly
-installed Protobuf shared libraries explicitly with the
-find_library, find_path, include_directories commands.
+(some of them are probably redundant) I speficied the newly installed
+Protobuf shared libraries explicitly with the find_library, find_path,
+include_directories commands.
 
 4. Compiling camera was also quite tough. There was a very
-obscure linkage error, which was apparently due to 
-boost_log_setup not being included.
+obscure linkage error, which was apparently due to boost_log_setup not
+being included.
 
 I ended up installing boost v1.67 log,program_options,system,
-filesystem in the computer. This was probably unnecessary.
-The previous versions were v1.58.
+filesystem in the computer. This was probably unnecessary.  The
+previous versions were v1.58.
 
 5. To link lib_robotics with shared nlopt library found in 
-the system folders, I had to remove the explicit nlopt 
-find_path, find_library commands I was using before in
-my laptop. Instead I just added FindNLOPT.cmake in a
-cmake subfolder and then used find_package command.
-NLOPT should then be linked with NLOPT_LIBRARIES command.
+the system folders, I had to remove the explicit nlopt find_path,
+find_library commands I was using before in my laptop. Instead I just
+added FindNLOPT.cmake in a cmake subfolder and then used find_package
+command.  NLOPT should then be linked with NLOPT_LIBRARIES command.
 
 6. To link some example code of table_tennis folder
-I had to additionally compile BOOST_THREAD. I then had to
-additionally specify BOOST_LOG and BOOST_LOG_SETUP libraries
-for a particular example target.
+I had to additionally compile BOOST_THREAD. I then had to additionally
+specify BOOST_LOG and BOOST_LOG_SETUP libraries for a particular
+example target.
 
 7. Compiling slpp was one of the hardest. There was a very
-obscure error with protobuf library header not being found,
-which was maybe because the slpp proto files were pre-generated
-before. Putting the generated files from the rob_protos repo
-solved that issue.
+obscure error with protobuf library header not being found, which was
+maybe because the slpp proto files were pre-generated before. Putting
+the generated files from the rob_protos repo solved that issue.
 
-As a minor issue, boost thread, system, log_setup libraries
-were not added and one of the examples was giving an error.
-Adding them in the top cmake file using find_package
-with components option resolved the issue.
+As a minor issue, boost thread, system, log_setup libraries were not
+added and one of the examples was giving an error.  Adding them in the
+top cmake file using find_package with components option resolved the
+issue.
 
 8. Finally compiling ball_tracking was I guess the hardest.
-Tracking the ball with GPU processing requires installing 
-the library with opencv and cuda libraries. The ubuntu
-opencv libraries that come with apt-get do not have cuda
-installed. Hence I had to compile & install opencv in the
-vision computer from source.
+Tracking the ball with GPU processing requires installing the library
+with opencv and cuda libraries. The ubuntu opencv libraries that come
+with apt-get do not have cuda installed. Hence I had to compile &
+install opencv in the vision computer from source.
 
-I installed opencv 4.0 with Release mode, with the extra modules,
-and with fast-math enabled. 
+I installed opencv 4.0 with Release mode, with the extra modules, and
+with fast-math enabled.
 
--D CMAKE_BUILD_TYPE=Release \
--D CMAKE_INSTALL_PREFIX=/is/ei/okoc/install/ \
--D WITH_CUDA=ON -D ENABLE_FAST_MATH=1 -D CUDA_FAST_MATH=1 \
--D WITH_CUBLAS=1 \
--D OPENCV_EXTRA_MODULES_PATH = ../../opencv_contrib/modules/ \
--D BUILD_EXAMPLES=ON ..
+-D CMAKE_BUILD_TYPE=Release \ D
+-CMAKE_INSTALL_PREFIX=/is/ei/okoc/install/ \ D WITH_CUDA=ON -D
+-ENABLE_FAST_MATH=1 -D CUDA_FAST_MATH=1 \ D WITH_CUBLAS=1 \ D
+-OPENCV_EXTRA_MODULES_PATH = ../../opencv_contrib/modules/ \ D
+-BUILD_EXAMPLES=ON ..
 
-I ended up using ccmake to specify these along with several other options
-(lapacke directory, cuda specific architecture, see below)
+I ended up using ccmake to specify these along with several other
+options (lapacke directory, cuda specific architecture, see below)
 
 Many CUDA libraries were already installed in a system-wide common
-nvidia folder, and I chose cuda-9.1 as the cuda of choice.
-Checking with NVIDIA and using the "nvidia-smi" command in ubuntu
-revealed that the GPU is GeForce GTX 1080 which if you check online
-is Pascal 6.1. I then specified Pascal and 6.1 in separate options
-in ccmake.
+nvidia folder, and I chose cuda-9.1 as the cuda of choice.  Checking
+with NVIDIA and using the "nvidia-smi" command in ubuntu revealed that
+the GPU is GeForce GTX 1080 which if you check online is Pascal 6.1. I
+then specified Pascal and 6.1 in separate options in ccmake.
 
-While compiling, I specified make with -j8 option to compile it
-using parallel processors, which makes a big difference when you
-compile big projects like opencv.
+While compiling, I specified make with -j8 option to compile it using
+parallel processors, which makes a big difference when you compile big
+projects like opencv.
 
 Finally, after compiling opencv, ball_tracking and camera libraries
-had to be recompiled! They were previously compiled with Opencv 2
-and opencv 3 is not fully compatible. 
-For instance, Opencv 3 dropped all of the CV_ prefixes in
-some constants and added COLOR_ in several (BayerGB2RGB I think).
+had to be recompiled! They were previously compiled with Opencv 2 and
+opencv 3 is not fully compatible.  For instance, Opencv 3 dropped all
+of the CV_ prefixes in some constants and added COLOR_ in several
+(BayerGB2RGB I think).
 
 9. GPU mode in ball_tracking was not working. There was a segmentation fault
-which after debugging with valgrind revealed that cuda 9.1 was not compatible
-with NVIDIA driver. Updating the driver to 396 (which is compatible with the
-current GEFORCE GTX 1080 graphics card, I checked in nvidia webpage) and 
-rebooting solved the issue.
+which after debugging with valgrind revealed that cuda 9.1 was not
+compatible with NVIDIA driver. Updating the driver to 396 (which is
+compatible with the current GEFORCE GTX 1080 graphics card, I checked
+in nvidia webpage) and rebooting solved the issue.
 
 *** DONE Test vision code with a fixed ball
 **** DONE Test with CPU in vision computer
-Testing with CPU slows down the computer like
-crazy. 
+Testing with CPU slows down the computer like crazy.
 **** DONE Test with GPU in vision computer
 Problem fixed after updating nvidia driver
 **** DONE Test in desktop computer (SILL)
 Connecting to helbe.
 **** DONE Test in robot computer
 *** DONE Test vision code with a flying ball
-Testing on the PING side with both PING can PONG calibrations reveals that
-the ball is detected very well even with oscillating ballgun if the ballgun
-is at the centre. Putting the ballgun to the right side however, we start
-seeing some detection failures. 
+Testing on the PING side with both PING can PONG calibrations reveals
+that the ball is detected very well even with oscillating ballgun if
+the ballgun is at the centre. Putting the ballgun to the right side
+however, we start seeing some detection failures.
 
-I saved the python plot results due to different configurations (ballgun
-center/right, calibration values PING/PONG) in robot computer in okan_vision.
+I saved the python plot results due to different configurations
+(ballgun center/right, calibration values PING/PONG) in robot computer
+in okan_vision.
 *** TODO Simplify vision code
-Reduce the dependencies foremost!
-At least, robcpp and rob_protos folders should not be
-required.
+Reduce the dependencies foremost!  At least, robcpp and rob_protos
+folders should not be required.
 *** TODO Make sure to compile vision code in release mode
 *** IN-PROGRESS Adapt interface code for new vision
 **** DONE Write the new SL interface
-I'm using ZMQ interface with the SUBSCRIBE pattern to communicate
-to the vision server. A listener receives the json structure sent
-from 3d vision server in a detached thread and a fetch() function 
-retrieves the latest ball data to the play() function.
+I'm using ZMQ interface with the SUBSCRIBE pattern to communicate to
+the vision server. A listener receives the json structure sent from 3d
+vision server in a detached thread and a fetch() function retrieves
+the latest ball data to the play() function.
 
-Other than that I did not modify the previous code, e.g. 
-the filtering methods, outlier detection, movement timing, etc.
+Other than that I did not modify the previous code, e.g.  the
+filtering methods, outlier detection, movement timing, etc.
 **** DONE Test the new SL interface
-Testing requires setting up also a publisher 
+Testing requires setting up also a publisher
 **** DONE Test simulated robot with real ball
-Tested on both ping and pong, of course with different ports
-7660 and 7661 respectively. 
+Tested on both ping and pong, of course with different ports 7660 and
+7661 respectively.
 **** IN-PROGRESS Test real robot with real ball
 ***** DONE Test PING with vision
 Using port 7660
 ***** IN-PROGRESS Test PONG with vision
-Using port 7661, the real robot for some reason
-was not working, even though simulation was working
+Using port 7661, the real robot for some reason was not working, even
+though simulation was working
 ** TODO Calibrate the vision
 *** TODO Read computer vision book initial chapters
-The first chapters of the computer vision book covers the
-fundamentals as well as the camera stereo calibration.
+The first chapters of the computer vision book covers the fundamentals
+as well as the camera stereo calibration.
 **** TODO Follow up with opencv tutorials
 *** TODO Record a video with the cameras and analyze
-Analysis should be possible with some of the example
-code in ball_tracking.
+Analysis should be possible with some of the example code in
+ball_tracking.
 *** TODO Is it possible to calibrate without ground truth?
 In a possible scenario, one would estimate the initial 3d ball
-positions velocities and spin along with a calibration matrix.
-One needs a ball model to get the 3d ball positions in the video.
+positions velocities and spin along with a calibration matrix.  One
+needs a ball model to get the 3d ball positions in the video.
 **** TODO Is it possible to learn the ball model with the calibration?
 One needs a restricted neural network architecture I guess?
 *** TODO Estimate calibration matrix with LED data
-The plan is to extend Sebastian's calibration framework
-by using LED data from the two robots and make it robust
-to data from the different parts of the table.
+The plan is to extend Sebastian's calibration framework by using LED
+data from the two robots and make it robust to data from the different
+parts of the table.
 
-In the new approach we will test estimating the calibration 
-matrix together with the homogenous transformation.
+In the new approach we will test estimating the calibration matrix
+together with the homogenous transformation.
 **** TODO Estimate the homogenous transf. between the robots.
 ** IN-PROGRESS Add unit tests for two robots playing
 *** TODO Add graphics
@@ -551,16 +534,16 @@ matrix together with the homogenous transformation.
 **** TODO Add graphics for a second robot
 *** IN-PROGRESS Reorganize/refactor code
 **** IN-PROGRESS Add options to install script
-Now the install script takes the test,debug and build flags. 
+Now the install script takes the test,debug and build flags.
 
---test: make and install the tests and run them 
---debug: make but not install in debug mode
---build: if equal to robot copy the robot cmake scripts
+--test: make and install the tests and run them debug: make but not
+--install in debug mode build: if equal to robot copy the robot cmake
+--scripts
 ***** DONE Add argument for testing
-By providing options to boost_unit_test in command line
-with --run_test=TEST_SUITE where TEST_SUITE is one of
-SL,OPT,KIN,KF,TT,SERVE or a comma separated combination
-of them we can run particular suites.
+By providing options to boost_unit_test in command line with
+--run_test=TEST_SUITE where TEST_SUITE is one of
+SL,OPT,KIN,KF,TT,SERVE or a comma separated combination of them we can
+run particular suites.
 
 ***** IN-PROGRESS One cmake should build on the robot & mpi
 cmake can now run as is in both mpi computer and also in my laptop.
@@ -569,20 +552,20 @@ paths correctly in the bashrc script.
 
 So far the cmake files for the robot computers are different...
 **** IN-PROGRESS Build debug mode as well
-The install script does not 'make install' if called in
-debug mode: -d 
+The install script does not 'make install' if called in debug mode: -d
 
-Setting excessive options like -Werror and -Weffc++ to try to ensure
-a high quality of coding standards.
-I had to add -Wno-error=effc++ since effc++ was added before c++11
-and complains erroneously about c++11 type default initialization.
+Setting excessive options like -Werror and -Weffc++ to try to ensure a
+high quality of coding standards.  I had to add -Wno-error=effc++
+since effc++ was added before c++11 and complains erroneously about
+c++11 type default initialization.
 ***** TODO Unit tests do not pass the debug mode
-The problem appears to be mostly due to the json library in debug mode.
+The problem appears to be mostly due to the json library in debug
+mode.
 **** TODO Use json for loading settings/config
 Instead of using armadillo load() function
 **** TODO Refactor filtering code
-boost program options can be replaced with either json
-or with property trees
+boost program options can be replaced with either json or with
+property trees
 **** DONE Switch to shared nlopt lib
 **** TODO Refactor/simplify interface
 Old interface play() is not needed for instance
@@ -596,66 +579,83 @@ Replace with armadillo based linear algebra
 Replacement should not slow down the optimizations
 
 **** TODO Parameterize robot startup 
-Loading robot startup parameterization and table related
-constants from a file would simplify the unit test for
-two robots playing
+Loading robot startup parameterization and table related constants
+from a file would simplify the unit test for two robots playing
 **** TODO Introduce boost log framework?
 ** TODO Test with two robots playing against each other
-We first need to estimate the calibration matrix + 
-homogenous transformation between the robots.
+We first need to estimate the calibration matrix + homogenous
+transformation between the robots.
 * Learning To Serve 						   :@journal:
 ** DONE Hold the ball on the racket with an egg-holder
 Heiko 3d-print-ed an egg holder for me to try
-** IN-PROGRESS Test for idea with movement primitives
-Is it necessary to record ball positions as well during
-the recordings?
+** IN-PROGRESS Learning from Demonstrations
+Is it necessary to record ball positions as well during the
+recordings?
 *** DONE Can we teach the robot how to serve
-With the egg-hold it is possible to teach, but the
-shoulder is as suspected difficult to move, even with the PD turned off.
-I was moving more the elbow so far.
+With the egg-hold it is possible to teach, but the shoulder is as
+suspected difficult to move, even with the PD turned off.  I was
+moving more the elbow so far.
 *** DONE Can we learn/extract movement primitives?
 **** DONE Record movement in gravity compensation mode
 PD should be switched off.
 **** DONE Extract movement primitives
-Extracting movement primitives with 5 examples so far.
-One can remove/add more examples and also basis functions
-to test on the robot.
+Extracting movement primitives with 5 examples so far.  One can
+remove/add more examples and also basis functions to test on the
+robot.
 **** DONE Test on robot
-Testing on the robot was tricky, as we need to make sure
-that during the kinesthetic teachin, the joint limits are never exceeded.
-It seems that the hardware limits are not the same as the software limits.
+Testing on the robot was tricky, as we need to make sure that during
+the kinesthetic teachin, the joint limits are never exceeded.  It
+seems that the hardware limits are not the same as the software
+limits.
 
-After teaching for the second time with the eggholder on the red side of
-the racket, the movement could be executed on the robot. 
+After teaching for the second time with the eggholder on the red side
+of the racket, the movement could be executed on the robot.
 
 *** IN-PROGRESS Tune the movement primitives
-We should have a json file with additional settings that
-we can adjust.
+We should have a json file with additional settings that we can
+adjust.
 **** DONE Pretty format the JSON file
-MATLAB dumps the JSON file in an unreadable way.
-Opening in Python and formatting solves the problem.
+MATLAB dumps the JSON file in an unreadable way.  Opening in Python
+and formatting solves the problem.
 **** DONE Adjust timing of the motion
-Unit test added that checks if subsampling the sped-up
-signal restores it to the original movement.
+Unit test added that checks if subsampling the sped-up signal restores
+it to the original movement.
 
 Silly mistake found where qd_des, qdd_des were not updated!
 **** DONE Train on different examples in the dataset
 Having multiple json files could easily solve this problem.
-**** TODO Start on different initial conditions
-Test different postures. Check accelerations!
-*** WAITING Investigate dimensionality reduction on demonstration data
-The idea is to find a reduced dim. latent space
-on which we can perform policy search/BO.
-**** TODO Perform PCA
-**** TODO Perform Lasso on the regression
-As opposed to PCA, Lasso would start with many 
-hypotheses corresponding to basis functions at various time points
-and would hopefully prune them as some parameters are set to zero.
-**** TODO Investigate autoencoders
+**** DONE Start on different initial conditions
+Testing different postures, different DMPs and different starting
+positions we see that the I.C changes the accelerations like crazy!
+**** IN-PROGRESS Resolve the problem of high initial accelerations
+Jens suggestion to reduce the initial accelerations does not work
+unfortunately.
+***** IN-PROGRESS Penalize the accelerations throughout
+This actually generates smoothing splines. 
+
+*** WAITING Learn invariants of motion/policy from demonstrations
+The idea is to learn invariants of motion / parameterize the relative
+motion between the joints using a graph (graphical model?).
+
+The improvement for RL is to find a reduced dim. latent space on which
+we can perform policy search/BO.
+
+**** WAITING Learn a policy that depends on joint state and ball state
+The policy that the graph generates is relative, i.e. it can be
+grounded by specifying an initial joint state and possibly also ball
+state.
+
+Ideally the policy should also have low accelerations and ideally it
+should involve some sort of planning, e.g. it should know
+intrinsically the value of a certain distance from the ball.
+
+**** WAITING Learn a policy that understands the intention of the teacher
+Inverse Reinforcement Learning maybe?
+
 ** TODO Cast it as an optimal control problem
 *** WAITING Compare different SL versions
-After changing the racket check which one controls
-better for inverse dynamics and also for gravity compensation.
+After changing the racket check which one controls better for inverse
+dynamics and also for gravity compensation.
 **** TODO Check gravity compensation with both SL 
 Now that the heavier metal racket is attached, I need to
 ***** TODO Test Boris SL (sebastian/sl_xeno) grav_comp
@@ -671,29 +671,27 @@ if the previous movements do not work well on the robot
 Check it in MATLAB and look for outliers.
 **** TODO How does the ball filtering look like?
 *** TODO Combine optimization with movement primitives
-Even if the ball-takeoff model is not known, one can use
-movement primitives for at least the first part of the movement.
+Even if the ball-takeoff model is not known, one can use movement
+primitives for at least the first part of the movement.
 **** TODO When to optimize?
-I think when it is clear that the racket will not return the 
-separated ball one can 'fire' the optimization.
+I think when it is clear that the racket will not return the separated
+ball one can 'fire' the optimization.
 *** TODO Can we learn a model of the ball takeoff?
-Possibly from movement primitives and/or RL trajectories
-one could learn such a model.
+Possibly from movement primitives and/or RL trajectories one could
+learn such a model.
 *** TODO Can it be solved with polynomials?
-Is the full planning problem with the two ball takeoff
-and racket impact models included result in a continuous
-trajectory? hybrid? polynomials?
+Is the full planning problem with the two ball takeoff and racket
+impact models included result in a continuous trajectory? hybrid?
+polynomials?
 **** TODO Compare third order to fifth order on robot
-Third order or fifth order (minimum jerk)? Which
-is better?
+Third order or fifth order (minimum jerk)? Which is better?
 ***** TODO Is it necessary to do MPC?
 I would guess fifth order should be better in this case
 ****** TODO Check local perturbative feedback solutions
-If we can additionally solve for local feedback, then
-one does not need to optimize repeatedly 5th order
-polynomials. 
+If we can additionally solve for local feedback, then one does not
+need to optimize repeatedly 5th order polynomials.
 
-** IN-PROGRESS Use Reinforcement Learning to improve DMPs
+** IN-PROGRESS Use Reinforcement Learning to improve execution
 The Desiderata for RL in robotics:
 1. Data efficiency
 - no rollouts
@@ -722,12 +720,12 @@ e.g. a Barrett WAM forward dynamics
 ***** TODO Test against a realistic mismatch scenario
 ****** TODO Compare against ILC?
 ******* TODO Extend ILC with improved trajectories
-As we use ILC and update the models, the models can also be
-used to update the reference trajectories progressively.
+As we use ILC and update the models, the models can also be used to
+update the reference trajectories progressively.
 ******** TODO Relation to DDP?
 **** TODO Checkout Policy Search on Latent Space
-Dimensionality Reduction on the parameters of policy search
-Check out Jan's suggested paper
+Dimensionality Reduction on the parameters of policy search Check out
+Jan's suggested paper
 **** TODO Check reinforce on higher dimensions for convergence
 **** TODO Implement adaptive learning rates for reinforce
 **** TODO Extend library with other policy search algorithms
@@ -735,8 +733,7 @@ Check out Jan's suggested paper
 **** TODO Read up on deep reinforcement learning blog post
 **** TODO Check out new papers on deep RL for robotics 
 Sergey Levine and Pieter Abbeel's new papers come to mind.
-Especially:
-TRPO, Guided Policy Search, ...
+Especially: TRPO, Guided Policy Search, ...
 ***** TODO Read Latent Space Policy Search
 Kevin Down et al. Compare with Bayes Opt approaches.
 ***** TODO Read Massive Uninformed Search vs RL
@@ -756,25 +753,24 @@ Reward shaping comes to mind here.
 *** IN-PROGRESS Which algorithm to use? 
 The options are model-based RL and Bayesian Optimization (BO).
 **** IN-PROGRESS Which type of model?
-The approach must clearly be model-based as I do not want
-to have 'N' rollouts for each policy $\theta_k$.
+The approach must clearly be model-based as I do not want to have 'N'
+rollouts for each policy $\theta_k$.
 
-As opposed to GPs or neural networks, we could first try
-local linear models as an extension of DMPs.
+As opposed to GPs or neural networks, we could first try local linear
+models as an extension of DMPs.
 ***** TODO Learn model of what?
-Model for the ball take-off, ball-racket impact
-or robot dynamics? Or all three? Couple the ball as part
-of the state as well?
+Model for the ball take-off, ball-racket impact or robot dynamics? Or
+all three? Couple the ball as part of the state as well?
 ***** TODO Is the ball or the robot rest posture a context?
-We have to make sure that local policy generalizes to different
-ball positions and robot rest postures.
+We have to make sure that local policy generalizes to different ball
+positions and robot rest postures.
 **** TODO How to apply BO for Barrett WAM
 In high dimensional cases it seems important to do dimensionality
 reduction.
 
-The initial posture of the robot corresponds to the 'context'
-of the problem and contextual bandits would learn a GP over
-the contexts as well.
+The initial posture of the robot corresponds to the 'context' of the
+problem and contextual bandits would learn a GP over the contexts as
+well.
 ***** TODO How to do dimensionality reduction on policy params
 Jan suggested performing PCA analysis.
 ***** TODO Check out latent space approaches to BO
@@ -783,26 +779,26 @@ The recent BO survey should be of help.
 ***** TODO Investigate hierarchical approaches to Bayes Optimization
 UCT algorithm comes to mind
 **** TODO How to merge the two?
-This would mean: how would observing the trajectories of
-the ball and the robot help in Bayesian Optimization where
-we want to do black-box optim on the reward.
+This would mean: how would observing the trajectories of the ball and
+the robot help in Bayesian Optimization where we want to do black-box
+optim on the reward.
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?
-Stochastic Minimum Principle should be used as the framework
-of choice.
+Stochastic Minimum Principle should be used as the framework of
+choice.
 *** Is there an algorithm for it?
-Which stochastic MP generates the cautious trajectories
-that would satisfy me?
+Which stochastic MP generates the cautious trajectories that would
+satisfy me?
 
 ** WAITING How can we introduce adaptation within this robust framework?
 *** WAITING Plot tradeoff curve for ball-info vs. accelerations
 Jan suggested at some point while going through the first journal
-draft to show the trade-off curve for the initialization
-of trajectory generation optimization process:
+draft to show the trade-off curve for the initialization of trajectory
+generation optimization process:
 1. we estimate ball state better with more ball observations
 2. we can hit with less accelerations if we start earlier
 
-The stochastic optimal control based trajectory generation
-approach should strike a balance between the two.
+The stochastic optimal control based trajectory generation approach
+should strike a balance between the two.
 *** Reduce variance of predictions as we update the models?

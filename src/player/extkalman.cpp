@@ -64,21 +64,17 @@ void EKF::predict(const double dt, const bool lin_flag) {
 	}
 }
 
-mat EKF::predict_path(const double dt, const int N) {
+mat EKF::predict_path(const double dt, const int N) const {
 
 	int dimx = x.n_elem;
 	mat XX(dimx,N);
-
-	// save mean and covariance
-	vec x0 = x;
-	mat P0 = P;
+	EKF filter_pred = *this;
 
 	for (int i = 0; i < N; i++) {
-		predict(dt,false);
-		XX.col(i) = x;
+		filter_pred.predict(dt,false);
+		XX.col(i) = filter_pred.get_mean();
 	}
-	// load mean and variance
-	this->set_prior(x0,P0);
+
 	return XX;
 }
 

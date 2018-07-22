@@ -405,7 +405,7 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 
 void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
 
-    using namespace DMP;
+    using namespace serve;
     namespace po = boost::program_options;
     using std::string;
 
@@ -459,7 +459,7 @@ void serve_with_dmp(const SL_Jstate joint_state[],
                     SL_DJstate joint_des_state[],
                     dmp_task_options * opt) {
 
-    using namespace DMP;
+    using namespace serve;
     using dmps = Joint_DMPs;
     static double Tmax = 1.0;
     const std::string home = std::getenv("HOME");

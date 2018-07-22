@@ -13,7 +13,7 @@
 using namespace arma;
 using json = nlohmann::json;
 
-namespace DMP {
+namespace serve {
 
 void Canonical::reset() {
     phase = 1.0;

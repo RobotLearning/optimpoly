@@ -9,7 +9,7 @@ using arma::vec7;
 using arma::mat;
 using optim::joint;
 
-namespace DMP {
+namespace serve {
 
 using namespace const_tt;
 
