@@ -14,30 +14,30 @@
 #include "table_tennis_common.h"
 #include "sl_interface.h"
 
-void add_serve_with_dmp_task( void );
-static int change_serve_with_dmp_task(void);
-static int init_serve_with_dmp_task(void);
-static int run_serve_with_dmp_task(void);
+void add_serve_task( void );
+static int change_serve_task(void);
+static int init_serve_task(void);
+static int run_serve_task(void);
 static void compute_torques();
 static void check_safety();
 static int goto_custom_posture(double custom_pose[]);
 
-dmp_task_options opt = {FALSE,FALSE};
+serve_task_options opt = {FALSE};
 
 /*
  * Adds the task to the task menu
  */
-void add_serve_with_dmp_task( void ) {
+void add_serve_task( void ) {
 	int i;
 	char varname[30];
 
-	addTask("SERVE WITH DMP task", init_serve_with_dmp_task, run_serve_with_dmp_task, change_serve_with_dmp_task);
+	addTask("SERVE task", init_serve_task, run_serve_task, change_serve_task);
 }
 
 /*
  * Changes task parameters
  */
-static int change_serve_with_dmp_task(void) {
+static int change_serve_task(void) {
 	int i,j;
 	return TRUE;
 }
@@ -46,7 +46,7 @@ static int change_serve_with_dmp_task(void) {
  * Initialization for task
  *
  */
-static int init_serve_with_dmp_task(void) {
+static int init_serve_task(void) {
 
 	int ready; // flags
 	double custom_pose[N_DOFS] = {0.0};
@@ -58,7 +58,7 @@ static int init_serve_with_dmp_task(void) {
 	}
 
 	// init dmp
-	init_dmp_serve(custom_pose,&opt);
+	load_serve_options(custom_pose,&opt);
 
 	/* go to a save posture */
 	goto_custom_posture(custom_pose);
@@ -88,10 +88,10 @@ static int init_serve_with_dmp_task(void) {
  * Runs the task from the task servo: REAL TIME requirements!
  *
  */
-static int run_serve_with_dmp_task(void) {
+static int run_serve_task(void) {
 
     // serve ball with a feed-forward DMP policy
-	serve_with_dmp(joint_state,joint_des_state,&opt);
+	serve_ball(joint_state,joint_des_state,&opt);
 
 	// compute torques based on inverse dynamics
 	compute_torques();

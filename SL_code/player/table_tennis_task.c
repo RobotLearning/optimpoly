@@ -96,7 +96,7 @@ static int init_table_tennis_task(void) {
 	if (!goto_posture(posture))
 		return FALSE;
 
-	load_options();
+	load_player_options();
 
 	// for real setup
 	setDefaultEndeffector();

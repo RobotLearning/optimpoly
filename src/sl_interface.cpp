@@ -19,12 +19,15 @@
 #include <sys/time.h>
 #include "kalman.h"
 #include "player.hpp"
-#include "tabletennis.h"
 #include "dmp.h"
+#include "serve.h"
+#include "tabletennis.h"
 #include "sl_interface.h"
+#include "ball_interface.h"
 
 using namespace arma;
 using namespace player;
+using namespace serve;
 using namespace const_tt;
 
 player_flags pflags; //!< global structure for setting Player task options
@@ -57,22 +60,12 @@ static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs);
 static bool check_blob_validity(const blob_state & blob, bool verbose);
 
 /*
- *
- * Saves actual ball data if save flag is set to TRUE
- * and the ball observations and estimated ball state one another
- */
-static void save_ball_data(const blob_state blobs[NBLOBS],
-                           const Player *robot,
-                           const KF & filter,
-                           std::ofstream & stream);
-
-/*
  *  Set algorithm to initialize Player with.
  *  alg_num selects between three algorithms: VHP/FOCUSED/DEFENSIVE.
  */
-static void set_algorithm(const int alg_num);
+static void set_player_algorithm(const int alg_num);
 
-void set_algorithm(const int alg_num) {
+void set_player_algorithm(const int alg_num) {
 
 	switch (alg_num) {
 		case 0:
@@ -92,7 +85,7 @@ void set_algorithm(const int alg_num) {
 	}
 }
 
-void load_options() {
+void load_player_options() {
 
 	namespace po = boost::program_options;
 	using namespace std;
@@ -160,7 +153,7 @@ void load_options() {
     catch(exception& e) {
         cout << e.what() << "\n";
     }
-    set_algorithm(alg_num);
+    set_player_algorithm(alg_num);
     pflags.detach = true; // always detached in SL/REAL ROBOT!
 }
 
@@ -194,17 +187,10 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static vec3 ball_obs;
 	static optim::joint qact;
 	static optim::joint qdes;
-	static Player *robot = nullptr; // centered player
-	static std::ofstream stream_balls;
+	static Player *robot = nullptr;
 	static std::string home = std::getenv("HOME");
 	static std::string ball_file = home + "/table-tennis/balls.txt";
 	static EKF filter = init_ball_filter(0.3,0.001,pflags.spin);
-	static int firsttime = true;
-
-	if (firsttime && pflags.save) {
-		stream_balls.open(ball_file,std::ofstream::out | std::ofstream::app);
-		firsttime = false;
-	}
 
 	if (pflags.reset) {
 		for (int i = 0; i < NDOF; i++) {
@@ -225,7 +211,8 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
-		save_ball_data(blobs,robot,filter,stream_balls);
+		if (pflags.save)
+		    save_ball_data(blobs,filter);
 	}
 
 	// update desired joint state
@@ -307,16 +294,82 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
             stream_joints << q;
         }
     }
-    //stream_balls.close();
+    //stream_joints.close();
 }
 
-void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
+void save_ball_data(char* url_string, bool debug_vision) {
 
-    using namespace serve;
+    static Listener listener(url_string,debug_vision);
+    static blob_state blobs[NBLOBS];
+
+    // update blobs structure with new ball data
+    listener.fetch(blobs[1]);
+
+    static bool firsttime = true;
+    static std::ofstream stream_balls;
+    static std::string home = std::getenv("HOME");
+    static std::string ball_file = home + "/table-tennis/balls.txt";
+
+    if (firsttime) {
+        stream_balls.open(ball_file,std::ofstream::out);
+        firsttime = false;
+    }
+    vec6 ball_vec;
+
+    if (blobs[0].status || blobs[1].status) {
+
+        try {
+            ball_vec << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
+                      << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
+
+            if (stream_balls.is_open()) {
+                stream_balls << ball_vec;
+            }
+        }
+        catch (const std::exception & not_init_error) {
+            // filter not yet initialized
+        }
+        //stream_balls.close();
+    }
+}
+
+void save_ball_data(const blob_state blobs[NBLOBS],
+                    const KF & filter) {
+
+    static rowvec ball_full;
+    static bool firsttime = true;
+    static std::ofstream stream_balls;
+    static std::string home = std::getenv("HOME");
+    static std::string ball_file = home + "/table-tennis/balls.txt";
+    if (firsttime) {
+        stream_balls.open(ball_file,std::ofstream::out);
+        firsttime = false;
+    }
+    vec6 ball_est = zeros<vec>(6);
+
+    if (blobs[0].status || blobs[1].status) {
+
+        try {
+            ball_est = filter.get_mean();
+            ball_full << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
+                      << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
+            //cout << ball_full << endl;
+            ball_full = join_horiz(ball_full,ball_est.t());
+            if (stream_balls.is_open()) {
+                stream_balls << ball_full;
+            }
+        }
+        catch (const std::exception & not_init_error) {
+            // filter not yet initialized
+        }
+        //stream_balls.close();
+    }
+}
+
+void load_serve_options(double custom_pose[], serve_task_options *options) {
+
     namespace po = boost::program_options;
     using std::string;
-
-    pflags.reset = true;
     const std::string home = std::getenv("HOME");
     string config_file = home + "/table-tennis/config/serve.cfg";
 
@@ -325,16 +378,20 @@ void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
         // allowed in config file
         po::options_description config("Configuration");
         config.add_options()
-            ("Tmax", po::value<double>(&sflags.Tmax)->default_value(1.0),
-                  "Time to evolve DMP if tau = 1.0")
-            ("json_file", po::value<string>(&sflags.json_file),
-                  "JSON File to load DMP values from")
-            ("save_act_joint", po::value<bool>(&sflags.save_joint_act_data),
-                  "Save act joint data during movement to txt file")
-            ("save_des_joint", po::value<bool>(&sflags.save_joint_des_data),
-                        "Save des joint data during movement to txt file")
-            ("use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
-                        "Use computed-torque control if false");
+        ("json_file", po::value<string>(&sflags.json_file),
+        "JSON File to load DMP values from")
+        ("start_dmp_from_act_state", po::value<bool>(&sflags.start_dmp_from_act_state)->default_value(false),
+        "Evolve DMP from actual sensor state vs. desired state")
+        ("save_act_joint", po::value<bool>(&sflags.save_joint_act_data),
+        "Save act joint data during movement to txt file")
+        ("save_des_joint", po::value<bool>(&sflags.save_joint_des_data),
+        "Save des joint data during movement to txt file")
+        ("save_ball_data", po::value<bool>(&sflags.save_ball_data),
+        "Save ball data acquired via Listener to txt file")
+        ("use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
+        "Use computed-torque control if false")
+        ("url", po::value<std::string>(&pflags.zmq_url), "TCP URL for ZMQ connection")
+        ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener");
         po::variables_map vm;
         std::ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -348,7 +405,7 @@ void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
     catch(std::exception& e) {
         cout << e.what() << "\n";
     }
-    opt->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
+    options->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
     using dmps = Joint_DMPs;
     string json_file = home + "/table-tennis/json/" + sflags.json_file;
     dmps multi_dmp = dmps(json_file);
@@ -357,86 +414,66 @@ void init_dmp_serve(double custom_pose[], dmp_task_options *opt) {
     for (int i = 0; i < NDOF; i++) {
         custom_pose[i] = pose(i);
     }
-    opt->init_dmp = 1;
-
+    sflags.reset = true;
 
 }
 
-void serve_with_dmp(const SL_Jstate joint_state[],
-                    SL_DJstate joint_des_state[],
-                    dmp_task_options * opt) {
+void serve_ball(const SL_Jstate joint_state[],
+                 SL_DJstate joint_des_state[],
+                 serve_task_options * opt) {
 
-    using namespace serve;
+    static Listener listener(pflags.zmq_url,pflags.debug_vision);
+    static blob_state blobs[NBLOBS];
     using dmps = Joint_DMPs;
-    static double Tmax = 1.0;
-    const std::string home = std::getenv("HOME");
-    std::string file = home + "/table-tennis/json/" + sflags.json_file;
     static dmps multi_dmp;
-    static joint Qdes;
-    static double t = 0.0;
-    static double track_error_sse = 0.0;
-    static bool print_error = false;
+    static optim::joint qact;
+    static optim::joint qdes;
+    static ServeBall *robot = nullptr; // class for serving ball
+    static EKF filter = init_ball_filter(0.3,0.001,false);
 
-    if (opt->init_dmp) {
+    // update blobs structure with new ball data
+    listener.fetch(blobs[1]);
+
+    if (sflags.reset) {
+        std::string home = std::getenv("HOME");
+        std::string file = home + "/table-tennis/json/" + sflags.json_file;
         multi_dmp = dmps(file);
-        opt->init_dmp = 0;
-        t = 0.0;
-        print_error = true;
-        track_error_sse = 0.0;
-        Tmax = sflags.Tmax/multi_dmp.get_time_constant();
-        vec7 qinit;
-        for (int i = 0; i < NDOF; i++) {
-            qinit(i) = joint_state[i+1].th;
+        if (sflags.start_dmp_from_act_state) {
+            vec7 qinit;
+            for (int i = 0; i < NDOF; i++) {
+                qinit(i) = joint_state[i+1].th;
+            }
+            multi_dmp.set_init_pos(qinit);
         }
-        multi_dmp.set_init_pos(qinit);
+        for (int i = 0; i < NDOF; i++) {
+            qdes.q(i) = joint_state[i+1].th;
+            qdes.qd(i) = 0.0;
+            qdes.qdd(i) = 0.0;
+        }
+        filter = init_ball_filter(0.3,0.001,false);
+        delete robot;
+        robot = new ServeBall(1.0,multi_dmp);
+        sflags.reset = false;
     }
-
-    if (t < Tmax) {
-        multi_dmp.step(DT,Qdes);
-        //clamp(Qdes.qdd,-1.0,1.0);
-        //cout << Qdes.qdd.t();
-        vec7 qact;
+    else {
         for (int i = 0; i < NDOF; i++) {
-            joint_des_state[i+1].th = Qdes.q(i);
-            joint_des_state[i+1].thd = Qdes.qd(i);
-            joint_des_state[i+1].thdd = Qdes.qdd(i);
-            qact(i) = joint_state[i+1].th;
+            qact.q(i) = joint_state[i+1].th;
+            qact.qd(i) = joint_state[i+1].thd;
+            qact.qdd(i) = joint_state[i+1].thdd;
         }
-        t += DT;
-        track_error_sse += pow(norm(qact-Qdes.q),2);
+        robot->serve(filter,multi_dmp,qdes);
         if (sflags.save_joint_act_data)
             save_joint_data(joint_state,joint_des_state,sflags.save_joint_des_data);
+        if (sflags.save_ball_data)
+            save_ball_data(blobs,filter);
     }
-    else if (t >= Tmax && print_error) {
-        // print trajectory tracking error
-        int N = Tmax/DT;
-        std::cout << "Traj error (RMS) : " << sqrt(track_error_sse/N) << std::endl;
-        print_error = false;
+
+    // update desired joint state
+    for (int i = 0; i < NDOF; i++) {
+        joint_des_state[i+1].th = qdes.q(i);
+        joint_des_state[i+1].thd = qdes.qd(i);
+        joint_des_state[i+1].thdd = qdes.qdd(i);
     }
-}
-
-static void save_ball_data(const blob_state blobs[NBLOBS],
-                            const Player *robot,
-                            const KF & filter,
-                            std::ofstream & stream) {
-
-	static rowvec ball_full;
-	vec6 ball_est = zeros<vec>(6);
-
-	if (pflags.save && (blobs[0].status || blobs[1].status)) {
-
-		if (robot->filter_is_initialized()) {
-			ball_est = filter.get_mean();
-		}
-		ball_full << 1 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
-				  << 3 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
-		//cout << ball_full << endl;
-		ball_full = join_horiz(ball_full,ball_est.t());
-		if (stream.is_open()) {
-			stream << ball_full;
-		}
-		//stream_balls.close();
-	}
 }
 
 static bool check_blob_validity(const blob_state & blob, bool verbose) {

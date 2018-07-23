@@ -5,15 +5,29 @@ plot an example
 '''
 
 import numpy as np
+import argparse
+import barrett_wam_kinematics as wam
 
-filename = './data/10.6.18/joints.txt'
-M = np.fromfile(filename, sep=" ")
+parser = argparse.ArgumentParser(
+    description='Load saved joint and ball data from demonstrations. Process it and plot.')
+parser.add_argument('--joint_file', help='joint file')
+parser.add_argument('--ball_file', help='ball file')
+parser.add_argument(
+    '--num_examples', help='number of demonstrations', type=int)
+parser.add_argument('--plot_example', help='plot a specific example', type=int)
+parser.add_argument(
+    '--plot_3d', help='also plot the cartesian values', action="store_true")
+args = parser.parse_args()
+assert (args.plot_example <
+        args.num_examples), "example to plot must be less than num of examples"
+joint_file = args.joint_file  # './data/10.6.18/joints.txt'
+num_examples = args.num_examples  # 21  # first dataset = 20, second = 21
+M = np.fromfile(joint_file, sep=" ")
 ndof = 7
 N = M.size/ndof
 q = np.reshape(M, [N, ndof])
 dt = 0.002
 t = dt * np.linspace(1, N, N)
-num_examples = 21  # first dataset = 20, second = 21
 
 
 def detect_movements(q, num_examples, dt):
@@ -67,10 +81,10 @@ idx_movements = detect_movements(q, num_examples, dt)
 #print idx_movements
 
 
-def plot_examples(examples, t, q, idx_movements):
+def plot_examples(examples, t, q, idx_movements, plot_3d=False):
     import matplotlib.pyplot as plt
     from scipy.interpolate import UnivariateSpline
-    #from mpl_toolkits.mplot3d import Axes3D
+    from mpl_toolkits.mplot3d import Axes3D
 
     num_examples = examples.size
     for i in range(num_examples):
@@ -87,6 +101,16 @@ def plot_examples(examples, t, q, idx_movements):
             q_smooth = spl(t_plot)
             axs[j].plot(t_plot, q_plot[:, j])
             axs[j].plot(t_plot, q_smooth)
+        # KINEMATICS PLOT
+        if plot_3d:
+            x_plot = np.zeros((3, idx_plot.size))
+            for idx, val in enumerate(idx_plot):
+                As = wam.barrett_wam_kinematics(np.transpose(q_plot[idx, :]))
+                x_plot[:, idx] = np.transpose(As[-1])[-1][0:3]
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            for i in range(3):
+                ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="b")
         plt.show()
 
 
@@ -95,5 +119,10 @@ def plot_examples(examples, t, q, idx_movements):
 GOOD MOTIONS (21 TOTAL)
 [2,4,6,9,10,12,15,16,18,19,20,21]-1 (zero indexing)
 '''
-examples = np.array([8])
-plot_examples(examples, t, q, idx_movements)
+#examples = np.array([8])
+if args.plot_example:
+    examples = np.array([args.plot_example])
+    if args.plot_3d:
+        plot_examples(examples, t, q, idx_movements, plot_3d=True)
+    else:
+        plot_examples(examples, t, q, idx_movements)

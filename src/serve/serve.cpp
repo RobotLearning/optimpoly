@@ -70,7 +70,7 @@ void ServeBall::serve(const EKF & filter,
     const int N = T/DT;
     static bool ran_optim = false;
     static bool read_optim = false;
-    spline_params p;
+    static spline_params p;
     static int i = 0;
     static double t_poly = 0.0;
 
@@ -92,7 +92,7 @@ void ServeBall::serve(const EKF & filter,
         correct_with_optim(Q,filter,opt,ran_optim,read_optim);
     }
     else {
-        //BOOST_TEST_MESSAGE("Predicting ball hit...");
+        //cout << "Predicting ball hit..." << endl;
     }
     i++;
 }

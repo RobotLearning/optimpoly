@@ -13,9 +13,22 @@ namespace serve {
 using dmps = Joint_DMPs;
 using vec_str = std::vector<std::string>;
 
+struct serve_flags {
+    bool reset = false; //!< reset the serve class
+    bool save_joint_act_data = false;
+    bool save_joint_des_data = false;
+    bool save_ball_data = false;
+    bool start_dmp_from_act_state = false;
+    bool use_inv_dyn_fb = false; //!< in SL apply inv. dyn. feedback
+    std::string json_file = "dmp4.json"; //!< json file to load dmp from
+    std::string zmq_url = "tcp://helbe:7660"; //!< URL for ZMQ connection
+    bool debug_vision = false; //!< print received vision info
+};
+
 class ServeBall {
 
 private:
+    serve_flags sflags;
     double T = 1.0;
     vec7 q_rest_des;
     vec7 q_hit_des;

@@ -11,17 +11,12 @@
 
 #ifdef __cplusplus
 
-#include "constants.h"
 #include "sl_structs.h"
-#include "ball_interface.h"
+#include "kalman.h"
 
-struct serve_flags {
-    bool save_joint_act_data = false;
-    bool save_joint_des_data = false;
-    bool use_inv_dyn_fb = false;
-    double Tmax = 1.0; //!< time to evolve dmp if tau = 1.0
-    std::string json_file = "dmp4.json"; //!< json file to load dmp from
-};
+/* \brief Saves actual ball data and estimated ball state in one file */
+void save_ball_data(const blob_state blobs[],
+                    const player::KF & filter);
 
 #endif
 
@@ -70,25 +65,29 @@ extern void cheat(const SL_Jstate joint_state[],
  * the play() function will use it to initialize the Player class.
  *
  */
-extern void load_options();
+extern void load_player_options();
 
 /** \brief Save joint data to a file. If save_qdes is true, then save also the desired joints. */
 extern void save_joint_data(const SL_Jstate joint_state[],
                      const SL_DJstate joint_des_state[],
                      const int save_qdes);
 
-typedef struct {
-    int init_dmp; //!< initialize dmp code if true
-    int use_inv_dyn_fb; //!< use computed-torque if false
-} dmp_task_options;
+/* \brief Called from SL, creates a Listener with given URL and saves data that it can fetch with it */
+extern void save_ball_data(char* url_string, bool debug_vision);
 
-/** \brief Initialize DMP for the serve */
-extern void init_dmp_serve(double custom_pose[], dmp_task_options *opt);
+/* SERVE FUNCTIONS AND STRUCTS EXPOSED */
+
+typedef struct {
+    int use_inv_dyn_fb; //!< use computed-torque if false
+} serve_task_options;
+
+/** \brief Set options for the serve, i.e. ServeBall class */
+extern void load_serve_options(double custom_pose[], serve_task_options *opt);
 
 /** \brief Serve with learned DMPs */
-extern void serve_with_dmp(const SL_Jstate joint_state[],
-                            SL_DJstate joint_des_state[],
-                            dmp_task_options *opt);
+extern void serve_ball(const SL_Jstate joint_state[],
+                     SL_DJstate joint_des_state[],
+                     serve_task_options *opt);
 
 
 #ifdef __cplusplus

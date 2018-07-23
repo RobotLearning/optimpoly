@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-set(TASKNAME serve_with_dmp)
+set(TASKNAME serve)
 
 project(${TASKNAME})
 
@@ -20,7 +20,7 @@ include_directories(
 
 # for executables
 set(ADD_SRCS_TASK
-    dmp_task.c
+    serve_task.c
     table_tennis_common.c
     # any other additional file needed
 )

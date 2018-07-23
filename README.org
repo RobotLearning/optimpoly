@@ -536,9 +536,11 @@ together with the homogenous transformation.
 **** IN-PROGRESS Add options to install script
 Now the install script takes the test,debug and build flags.
 
---test: make and install the tests and run them debug: make but not
---install in debug mode build: if equal to robot copy the robot cmake
---scripts
+--test: make and install the tests and run them
+--debug: make but not install in debug mode
+--build: if equal to robot copy the robot cmake scripts
+
+If make does not pass, tests are not run.
 ***** DONE Add argument for testing
 By providing options to boost_unit_test in command line with
 --run_test=TEST_SUITE where TEST_SUITE is one of
@@ -567,9 +569,9 @@ Instead of using armadillo load() function
 boost program options can be replaced with either json or with
 property trees
 **** DONE Switch to shared nlopt lib
-**** TODO Refactor/simplify interface
+**** IN-PROGRESS Refactor/simplify interface
 Old interface play() is not needed for instance
-***** TODO Move listener class to ball_interface
+***** DONE Move listener class to ball_interface
 ***** TODO Add a zmq based sim code that simulates the ball
 ****** TODO Use same ZMQ interface written for real robot
 ****** TODO Call it from SL and check if it works

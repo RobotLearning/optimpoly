@@ -6,6 +6,7 @@
 #include <chrono>
 #include <boost/test/unit_test.hpp>
 #include "sl_interface.h"
+#include "ball_interface.h"
 #include "zmqpp/zmqpp.hpp"
 #include "json.hpp"
 #include "tabletennis.h"
@@ -195,7 +196,7 @@ void test_new_interface() {
     racket robot_racket;
 
     BOOST_TEST_MESSAGE("Loading settings from config file...");
-    load_options();
+    load_player_options();
 
     //robot.reset_filter(std_model,std_noise);
     for (int i = 0; i < N; i++) { // one trial
