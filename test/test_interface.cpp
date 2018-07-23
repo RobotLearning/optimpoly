@@ -1,10 +1,11 @@
 /*
  * Test cases for the SL/ZMQ interface.
  */
+#define BOOST_TEST_DYN_LINK
+#include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include <thread>
 #include <chrono>
-#include <boost/test/unit_test.hpp>
 #include "sl_interface.h"
 #include "ball_interface.h"
 #include "zmqpp/zmqpp.hpp"

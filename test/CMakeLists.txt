@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 2.8)
 project(${PROJECT_NAME})
-
+enable_testing()
 find_library(ZMQ zmq)
 # Using BOOST UNIT TEST FRAMEWORK for testing
 
@@ -28,16 +28,25 @@ target_include_directories (${TEST_EXEC} PRIVATE
     ${CMAKE_SOURCE_DIR}/include/optim
     ${CMAKE_SOURCE_DIR}/include/player)
 
-find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
+message(STATUS "unit test lib path = " ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+
+#find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
 #MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
-# INCLUDE "OUR" SHARED LIBRARY
+
+# indicates the shared library variant
+target_compile_definitions(${TEST_EXEC} PRIVATE "BOOST_TEST_DYN_LINK=1")
+
 target_link_libraries(${TEST_EXEC}
-    ${UNIT_TEST}
     ${ZMQPP}
     ${ZMQ}
     ${PROJECT_NAME}
-    armadillo
-    boost_program_options)
+    ${ARMADILLO_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+)
+
+# declares a test with our executable
+add_test(NAME test_table_tennis COMMAND ${TEST_EXEC})
 
 # INSTALL FOLDER
 install(TARGETS ${TEST_EXEC}

@@ -38,11 +38,14 @@ target_include_directories (${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/include/optim
     ${CMAKE_SOURCE_DIR}/include/player)
 
+#message(STATUS "armadillo lib path = " ${ARMADILLO_LIBRARY})
+#message(STATUS "boost program options lib path = " ${Boost_PROGRAM_OPTIONS_LIBRARY})
+
 # LINK EXTERNAL LIBRARIES HERE
 target_link_libraries(${PROJECT_NAME}
-  armadillo
+  ${ARMADILLO_LIBRARY}
   nlopt
-  boost_program_options
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
   ${ZMQPP})
 
 # INSTALL FOLDER
