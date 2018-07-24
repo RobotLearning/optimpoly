@@ -547,12 +547,13 @@ By providing options to boost_unit_test in command line with
 SL,OPT,KIN,KF,TT,SERVE or a comma separated combination of them we can
 run particular suites.
 
-***** IN-PROGRESS One cmake should build on the robot & mpi
+***** DONE One cmake should build on the robot & mpi
 cmake can now run as is in both mpi computer and also in my laptop.
 Of course this is true because we set the LD_LIBRARY_PATH and other
 paths correctly in the bashrc script.
 
-So far the cmake files for the robot computers are different...
+Using ${Boost_XXX} instead of boost_xxx in cmake when compiling
+library helped.
 **** IN-PROGRESS Build debug mode as well
 The install script does not 'make install' if called in debug mode: -d
 

@@ -3,7 +3,6 @@
 DEBUG=false
 TEST=false
 TEST_CMD="*" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
-BUILD="mpi/laptop"
 while true; do
     case "$1" in
 	-b | --build ) BUILD="$2"; shift 2 ;;
@@ -13,17 +12,6 @@ while true; do
 	* ) break ;;
     esac
 done
-
-if [ "$BUILD" = "robot" ]; then
-    echo "Loading robot cmake files..."
-    cp cmake_files/cmakelists_robot/CMakeLists.txt .
-    cp cmake_files/cmakelists_robot/src/CMakeLists.txt src/
-    cp cmake_files/cmakelists_robot/test/CMakeLists.txt test/
-else
-    cp cmake_files/cmakelists_mpi/CMakeLists.txt .
-    cp cmake_files/cmakelists_mpi/src/CMakeLists.txt src/
-    cp cmake_files/cmakelists_mpi/test/CMakeLists.txt test/
-fi
 
 run_test() {
     if $1; then
