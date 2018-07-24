@@ -1,7 +1,7 @@
 /*
  * Test cases for the SL/ZMQ interface.
  */
-#define BOOST_TEST_DYN_LINK
+
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include <thread>

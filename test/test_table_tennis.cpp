@@ -17,8 +17,6 @@
  *      Author: okoc
  */
 
-#define BOOST_TEST_MODULE test_table_tennis
-#define BOOST_TEST_DYN_LINK
 #include <boost/test/unit_test.hpp>
 #include <armadillo>
 #include "player.hpp"
