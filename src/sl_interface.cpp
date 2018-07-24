@@ -317,20 +317,14 @@ void save_ball_data(char* url_string, int debug_vision) {
     vec6 ball_vec;
 
     if (blobs[0].status || blobs[1].status) {
+        ball_vec << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
+                 << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
 
-        try {
-            ball_vec << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
-                      << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
-
-            if (stream_balls.is_open()) {
-                stream_balls << ball_vec;
-            }
+        if (stream_balls.is_open()) {
+            stream_balls << ball_vec;
         }
-        catch (const std::exception & not_init_error) {
-            // filter not yet initialized
-        }
-        //stream_balls.close();
     }
+    //stream_balls.close();
 }
 
 void save_ball_data(const blob_state blobs[NBLOBS],

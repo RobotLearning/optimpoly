@@ -117,7 +117,7 @@ static int run_grav_comp_task(void) {
 	//check_range( joint_des_state );
 
 	save_joint_data(joint_state,joint_des_state,0);
-	save_ball_data("tcp://helbe:7660",1); //0 = NO DEBUG
+	save_ball_data("tcp://helbe:7660",0); //0 = NO DEBUG
 
 	return TRUE;
 }
