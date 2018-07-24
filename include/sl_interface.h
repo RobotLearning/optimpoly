@@ -73,7 +73,7 @@ extern void save_joint_data(const SL_Jstate joint_state[],
                      const int save_qdes);
 
 /* \brief Called from SL, creates a Listener with given URL and saves data that it can fetch with it */
-extern void save_ball_data(char* url_string, bool debug_vision);
+extern void save_ball_data(char* url_string, int debug_vision);
 
 /* SERVE FUNCTIONS AND STRUCTS EXPOSED */
 

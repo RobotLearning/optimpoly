@@ -29,12 +29,22 @@ q = np.reshape(M, [N, ndof])
 dt = 0.002
 t = dt * np.linspace(1, N, N)
 
+if args.ball_file:
+    B = np.fromfile(ball_file, sep=" ")
+    N_balls = B.size/3
+    balls = np.reshape(B, [N_balls, 3])
+    t_balls = dt * np.linspace(1, N, N)
 
-def detect_movements(q, num_examples, dt):
+
+def detect_movements(x, num_examples, dt):
+    '''
+    Detect movements by checking for maximum velocity
+    x can be ball data or joint data
+    '''
 
     # Find the prominent fast moving segments
-    qd = np.diff(q, 1, 0)/dt
-    vels = np.sqrt(np.sum(qd*qd, -1))
+    xd = np.diff(x, 1, 0)/dt
+    vels = np.sqrt(np.sum(xd*xd, -1))
     sorted_vels = np.sort(vels)
     sorted_vels = sorted_vels[::-1]
     idx_vels = np.argsort(vels)
@@ -77,10 +87,6 @@ def detect_movements(q, num_examples, dt):
     return low_vel_idxs
 
 
-idx_movements = detect_movements(q, num_examples, dt)
-#print idx_movements
-
-
 def plot_examples(examples, t, q, idx_movements, plot_3d=False):
     import matplotlib.pyplot as plt
     from scipy.interpolate import UnivariateSpline
@@ -119,10 +125,18 @@ def plot_examples(examples, t, q, idx_movements, plot_3d=False):
 GOOD MOTIONS (21 TOTAL)
 [2,4,6,9,10,12,15,16,18,19,20,21]-1 (zero indexing)
 '''
+idx_joint_movements = detect_movements(q, num_examples, dt)
+idx_ball_movements = detect_movements(balls, num_examples, dt)
+#print idx_movements
+
+
 #examples = np.array([8])
 if args.plot_example:
     examples = np.array([args.plot_example])
     if args.plot_3d:
-        plot_examples(examples, t, q, idx_movements, plot_3d=True)
+        plot_examples(examples, t, q, idx_joint_movements, plot_3d=True)
+        if args.ball_file:
+            plot_examples(examples, t_balls, balls,
+                          idx_ball_movements, plot_3d=True)
     else:
-        plot_examples(examples, t, q, idx_movements)
+        plot_examples(examples, t, q, idx_joint_movements)

@@ -24,11 +24,6 @@ namespace serve {
 using dmps = Joint_DMPs;
 using vec_str = std::vector<std::string>;
 
-static void correct_with_optim(const joint & Q,
-                        const player::EKF & filter,
-                        Optim *opt,
-                        bool & ran_optim,
-                        bool & read_optim);
 static bool predict_ball_hit(const player::EKF & filter,
                       const vec7 & q_rest_des,
                       const dmps & multi_dmp,
@@ -49,8 +44,8 @@ dmps init_dmps() {
     return dmps(full_file);
 }
 
-ServeBall::ServeBall(const double & T_, dmps & multi_dmp) {
-    T = T_;
+ServeBall::ServeBall(dmps & multi_dmp_) : multi_dmp(multi_dmp_) {
+    T = 1.0;
     double Tmax = 2.0;
     double lb[2*NDOF+1], ub[2*NDOF+1];
     set_bounds(lb,ub,0.01,Tmax);
@@ -63,38 +58,71 @@ ServeBall::~ServeBall() {
     delete opt;
 }
 
+void ServeBall::set_flags(const serve_flags & sflags_) {
+    sflags = sflags_;
+}
+
 void ServeBall::serve(const EKF & filter,
-                       dmps & multi_dmp,
-                       joint & Q) {
+                      const joint & qact,
+                      joint & qdes) {
 
     const int N = T/DT;
-    static bool ran_optim = false;
-    static bool read_optim = false;
     static spline_params p;
     static int i = 0;
     static double t_poly = 0.0;
+    static wall_clock timer;
+    static bool firsttime = true;
 
-    if (ran_optim) {
-        if (!read_optim) {
-            opt->get_params(Q,p);
-            t_poly = 0.0;
-            read_optim = true;
-        }
-        update_next_state(p,q_rest_des,1.0,t_poly,Q);
+    if (firsttime) {
+        timer.tic();
+        firsttime = false;
+    }
+
+    if (opt->get_params(qact,p)) {
+        t_poly = 0.0;
+        ran_optim = true;
+        opt->set_moving(true);
+        update_next_state(p,q_rest_des,1.0,t_poly,qdes);
     }
     else {
-        multi_dmp.step(DT,Q);
+        multi_dmp.step(DT,qdes);
     }
 
-    if (!predict_ball_hit(filter,q_rest_des,multi_dmp,p,t_poly,N,i,ran_optim)) {
+    if (sflags.mpc && (timer.toc() > (1.0/sflags.freq_mpc)) &&
+            !predict_ball_hit(filter,q_rest_des,multi_dmp,p,t_poly,N,i,ran_optim)) {
         // launch optimizer
         cout << "Ball won't be hit! Launching optimization to correct traj...\n";
-        correct_with_optim(Q,filter,opt,ran_optim,read_optim);
+        correct_with_optim(qact,filter);
+        timer.tic();
     }
     else {
         //cout << "Predicting ball hit..." << endl;
     }
     i++;
+}
+
+void ServeBall::correct_with_optim(const joint & qact,
+                                    const EKF & filter) {
+
+    double Tpred = 2.0;
+    mat balls_pred = zeros<mat>(6,Tpred/DT);
+    predict_ball(Tpred,balls_pred,filter);
+
+    //lookup_soln(filter.get_mean(),1,qact);
+    double time_land_des = sflags.time_land_des;
+    vec2 ball_land_des;
+    ball_land_des(X) = sflags.ball_land_des_x_offset;
+    ball_land_des(Y) = sflags.ball_land_des_y_offset + dist_to_table - 1*table_length/4;
+    optim_des pred_params;
+    pred_params.Nmax = 1000;
+    calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
+    FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
+    fp->set_return_time(1.0);
+    fp->set_detach(sflags.detach);
+    fp->set_des_params(&pred_params);
+    fp->set_verbose(sflags.verbose);
+    fp->update_init_state(qact);
+    fp->run();
 }
 
 void estimate_ball_state(const vec3 & obs, EKF & filter) {
@@ -168,42 +196,6 @@ static bool predict_ball_hit(const EKF & filter,
     catch (const std::exception & not_init_error) {
         // filter not yet initialized
         return true;
-    }
-}
-
-/*
- * Correct movement by running an optimization.
- * The plan is to serve the ball to a desired position on robot court.
- */
-static void correct_with_optim(const joint & Q,
-                        const EKF & filter,
-                        Optim * opt,
-                        bool & ran_optim,
-                        bool & read_optim) {
-
-    double Tpred = 2.0;
-    mat balls_pred = zeros<mat>(6,Tpred/DT);
-    predict_ball(Tpred,balls_pred,filter);
-
-    //lookup_soln(filter.get_mean(),1,qact);
-    double time_land_des = 0.6;
-    vec2 ball_land_des;
-    ball_land_des(X) = 0.0;
-    ball_land_des(Y) = dist_to_table - 1*table_length/4;
-    optim_des pred_params;
-    pred_params.Nmax = 1000;
-    calc_racket_strategy(balls_pred,ball_land_des,time_land_des,pred_params);
-    FocusedOptim *fp = static_cast<FocusedOptim*>(opt);
-    fp->set_return_time(1.0);
-    fp->set_detach(false);
-    fp->set_des_params(&pred_params);
-    fp->set_verbose(false);
-    fp->update_init_state(Q);
-    fp->run();
-
-    if (fp->check_update()) {
-        ran_optim = true;
-        read_optim = false;
     }
 }
 

@@ -297,9 +297,9 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
     //stream_joints.close();
 }
 
-void save_ball_data(char* url_string, bool debug_vision) {
+void save_ball_data(char* url_string, int debug_vision) {
 
-    static Listener listener(url_string,debug_vision);
+    static Listener listener(url_string,(bool)debug_vision);
     static blob_state blobs[NBLOBS];
 
     // update blobs structure with new ball data
@@ -391,7 +391,21 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
         ("use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
         "Use computed-torque control if false")
         ("url", po::value<std::string>(&pflags.zmq_url), "TCP URL for ZMQ connection")
-        ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener");
+        ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener")
+        ("detach", po::value<bool>(&sflags.detach)->default_value(true),
+              "detach optimization if true")
+        ("mpc", po::value<bool>(&sflags.mpc)->default_value(false),
+             "run optimization to correct for mispredictions etc.")
+        ("freq_mpc", po::value<int>(&sflags.freq_mpc)->default_value(1),
+             "frequency of running optimization for corrections")
+        ("verbose", po::value<bool>(&sflags.verbose)->default_value(false),
+             "verbosity level")
+        ("ball_land_des_x_offset", po::value<double>(&pflags.ball_land_des_offset[0]),
+             "ball land x offset")
+        ("ball_land_des_y_offset", po::value<double>(&pflags.ball_land_des_offset[1]),
+             "ball land y offset")
+        ("time_land_des", po::value<double>(&pflags.time_land_des),
+             "time land des");
         po::variables_map vm;
         std::ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -422,6 +436,7 @@ void serve_ball(const SL_Jstate joint_state[],
                  SL_DJstate joint_des_state[],
                  serve_task_options * opt) {
 
+    static vec3 ball_obs;
     static Listener listener(pflags.zmq_url,pflags.debug_vision);
     static blob_state blobs[NBLOBS];
     using dmps = Joint_DMPs;
@@ -452,7 +467,8 @@ void serve_ball(const SL_Jstate joint_state[],
         }
         filter = init_ball_filter(0.3,0.001,false);
         delete robot;
-        robot = new ServeBall(1.0,multi_dmp);
+        robot = new ServeBall(multi_dmp);
+        robot->set_flags(sflags);
         sflags.reset = false;
     }
     else {
@@ -461,7 +477,9 @@ void serve_ball(const SL_Jstate joint_state[],
             qact.qd(i) = joint_state[i+1].thd;
             qact.qdd(i) = joint_state[i+1].thdd;
         }
-        robot->serve(filter,multi_dmp,qdes);
+        fuse_blobs(blobs,ball_obs);
+        estimate_ball_state(ball_obs,filter);
+        robot->serve(filter,qact,qdes);
         if (sflags.save_joint_act_data)
             save_joint_data(joint_state,joint_des_state,sflags.save_joint_des_data);
         if (sflags.save_ball_data)

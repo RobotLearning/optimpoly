@@ -32,19 +32,20 @@ void test_serve() {
     BOOST_TEST_MESSAGE("\nTesting OPTIMIZATION after DMP...");
     const double T = 1.0;
     dmps multi_dmp = init_dmps();
-    optim::joint Q;
+    optim::joint qdes, qact;
     TableTennis tt = TableTennis(false,true);
     vec6 init_ball_state = init_ball_vertical(T,multi_dmp);
     tt.set_ball_state(init_ball_state);
     racket racket_state;
     EKF filter = init_ball_filter(0.03,0.0001);
-    ServeBall server = ServeBall(T,multi_dmp);
+    ServeBall server = ServeBall(multi_dmp);
 
     // check interaction and make sure ball is served correctly
     while (!tt.touched_ground() && !tt.was_served()) {
 
-        server.serve(filter,multi_dmp,Q);
-        calc_racket_state(Q,racket_state);
+        server.serve(filter,qact,qdes);
+        qact = qdes;
+        calc_racket_state(qact,racket_state);
         tt.integrate_ball_state(racket_state,DT);
         vec3 obs = tt.get_ball_position();
         estimate_ball_state(obs,filter);
