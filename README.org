@@ -314,14 +314,8 @@ This seems to be happening when MPC is turned on.
 **** DONE predict_ball() doesn't need to predict for 2.0 secs long always
 Reduced the prediction time 0.2-0.3 ms with -O3 flag (release mode)
 **** TODO Check predict_ball() time with spinning ball model
+
 * Two robots playing Table Tennis 				:@conference:
-** IN-PROGRESS Test with simulated ball on both robots
-*** DONE Run code in PING
-When I tested the code with simulated ball, the code was printing
-legal lands.
-*** TODO Run code in PONG
-*** TODO Check for tracking errors
-Saving some of the movements to a file will help.
 ** IN-PROGRESS Test the new vision interface
 *** DONE Compile vision code in laptop
 This was a lot of work and took me one full day!
@@ -482,11 +476,16 @@ however, we start seeing some detection failures.
 I saved the python plot results due to different configurations
 (ballgun center/right, calibration values PING/PONG) in robot computer
 in okan_vision.
-*** TODO Simplify vision code
+*** WAITING Keep code in a new repository
+**** WAITING Simplify vision code
 Reduce the dependencies foremost!  At least, robcpp and rob_protos
 folders should not be required.
+
+Vision experiments and training should ideally be part of the repo.
+Python and C++ files should only be in the repo if they are actually
+needed.
 *** TODO Make sure to compile vision code in release mode
-*** IN-PROGRESS Adapt interface code for new vision
+*** DONE Adapt interface code for new vision
 **** DONE Write the new SL interface
 I'm using ZMQ interface with the SUBSCRIBE pattern to communicate to
 the vision server. A listener receives the json structure sent from 3d
@@ -500,40 +499,77 @@ Testing requires setting up also a publisher
 **** DONE Test simulated robot with real ball
 Tested on both ping and pong, of course with different ports 7660 and
 7661 respectively.
-**** IN-PROGRESS Test real robot with real ball
-***** DONE Test PING with vision
-Using port 7660
-***** IN-PROGRESS Test PONG with vision
-Using port 7661, the real robot for some reason was not working, even
-though simulation was working
-** TODO Calibrate the vision
-*** TODO Read computer vision book initial chapters
-The first chapters of the computer vision book covers the fundamentals
-as well as the camera stereo calibration.
-**** TODO Follow up with opencv tutorials
-*** TODO Record a video with the cameras and analyze
-Analysis should be possible with some of the example code in
-ball_tracking.
-*** TODO Is it possible to calibrate without ground truth?
-In a possible scenario, one would estimate the initial 3d ball
-positions velocities and spin along with a calibration matrix.  One
-needs a ball model to get the 3d ball positions in the video.
-**** TODO Is it possible to learn the ball model with the calibration?
-One needs a restricted neural network architecture I guess?
-*** TODO Estimate calibration matrix with LED data
-The plan is to extend Sebastian's calibration framework by using LED
-data from the two robots and make it robust to data from the different
-parts of the table.
+** DONE Retrain ball detection model 
+Using new data I retrained the parameters of a ball detection model.
+I don't see any advantages however, the previous parameters are just as robust.
+*** DONE Find/print saved model parameters after training
+The test script test_ball_segm.py prints the logistic regression
+parameters.
+*** DONE Run test script
+Running the test script allows us to evaluate the model on new
+images. To evaluate loss on test images with labels, consult the
+tensorflow loss usage in lin_log_reg.py.
+*** DONE Label new data
+I labeled the still ball data as well as one video where the ball is
+flying over the table.
+*** DONE Train with new labeled data
+I figured out how to train with new labeled data. I had to modify the
+script that loads the data with os.walk() in order to load the files
+recursively. 
+*** DONE Compare the parameters and performance in new data
+Testing on 1/3 of the labeled new data, the performance of the model
+trained in new data was not better than the performance of the model
+trained with the old data!
+*** DONE Learn where to copy the parameters
+Parameters should be copied in the nonzero entries given by
+cam_all_max_lin_srv_attached.json.
+*** DONE Check cpp code for logistic regression
+The logistic regression is implemented in tracker.cpp in the
+CB_log_reg class.
+*** DONE Test cpp code for ball detection
+I added a new test script in tests/ folder where I load an image,
+compute log likelihood, normalize, calculate probabilities and find
+the key points. Showing the images after each operation as well.
+*** DONE Compare performance 
+New training does not seem to improve the performance.
+**** DONE With new still data
+**** DONE With recorded robot video frames
+Since there are too many recorded images keeping the capacity to 100,
+then shuffling the 100 images and then showing the first 5 images with
+the detected ball.
+** IN-PROGRESS Calibrate the vision
+*** DONE Record a video with the cameras and analyze
+It is possible to save images by running the multi_capture script.
+One needs to specify the frequency of images to be saved (e.g. 1 means
+save every image).
+*** TODO Calibrate vision using robot data and images
+**** TODO Align saved joint positions with video frames
+**** TODO Compare the existing calibration predictions 
+with robot 3d data and still balls
+**** TODO Learn projection matrices with least squares
+Use also RANSAC
+**** TODO Make new predictions on robot data and still balls
+Using the new projection matrices (e.g. invert them?)
+**** TODO Record new robot data with PONG
+**** TODO Predict on new PONG data and compare with old calibration
+**** TODO Check for undistortion of images 
+Check PvAPI for c++ function to perform distortion correction
+**** TODO Learn projection matrices after distortion correction
+Compare with previous predictions.
 
-In the new approach we will test estimating the calibration matrix
-together with the homogenous transformation.
-**** TODO Estimate the homogenous transf. between the robots.
+** IN-PROGRESS Test with simulated ball on both robots
+*** DONE Run code in PING
+When I tested the code with simulated ball, the code was printing
+legal lands.
+*** TODO Run code in PONG
+*** TODO Check for tracking errors
+Saving some of the movements to a file will help.
 ** IN-PROGRESS Add unit tests for two robots playing
 *** TODO Add graphics
 **** TODO Copy graphics from SL
 **** TODO Add graphics for a second robot
 *** IN-PROGRESS Reorganize/refactor code
-**** IN-PROGRESS Add options to install script
+**** DONE Add options to install script
 Now the install script takes the test,debug and build flags.
 
 --test: make and install the tests and run them
@@ -585,15 +621,32 @@ Replacement should not slow down the optimizations
 Loading robot startup parameterization and table related constants
 from a file would simplify the unit test for two robots playing
 **** TODO Introduce boost log framework?
+*** TODO Add table constraint in the unit test
+The optimization should respect the table constraint always.
 ** TODO Test with two robots playing against each other
-We first need to estimate the calibration matrix + homogenous
-transformation between the robots.
+*** IN-PROGRESS Test real robot with real ball independently
+***** DONE Test PING with vision
+Using port 7660
+***** IN-PROGRESS Test PONG with vision
+Using port 7661, the real robot for some reason was not working, even
+though simulation was working
+*** TODO Add table constraint in the optimization
+
+*** TODO Can we start gameplay with a serve?
 * Learning To Serve 						   :@journal:
 ** DONE Hold the ball on the racket with an egg-holder
 Heiko 3d-print-ed an egg holder for me to try
 ** IN-PROGRESS Learning from Demonstrations
-Is it necessary to record ball positions as well during the
-recordings?
+I'm trying at the moment to record ball positions as well during the
+recordings.
+
+The demonstrations are now shown in the new BORIS SL
+(sebastian/sl_xeno/sl_wam)
+with mass = 0.375 and mcm = 0.0! 
+These are not optimal parameters at all! However after the racket
+holder change, this was the best setting without the PD control that I
+found. 
+
 *** DONE Can we teach the robot how to serve
 With the egg-hold it is possible to teach, but the shoulder is as
 suspected difficult to move, even with the PD turned off.  I was
@@ -656,33 +709,32 @@ intrinsically the value of a certain distance from the ball.
 Inverse Reinforcement Learning maybe?
 
 ** TODO Cast it as an optimal control problem
-*** WAITING Compare different SL versions
-After changing the racket check which one controls better for inverse
-dynamics and also for gravity compensation.
-**** TODO Check gravity compensation with both SL 
-Now that the heavier metal racket is attached, I need to
-***** TODO Test Boris SL (sebastian/sl_xeno) grav_comp
-with different weights and mcm
-***** TODO Test on usual SL (projects/sl_xeno) grav_comp
-Adjusting different weights did not work here!
-***** TODO Record with this racket in grav comp mode
-if the previous movements do not work well on the robot
+*** DONE Add unit test with optimization
+New serve() function in SL can perform an optimization whenever the
+movement is predicted to fail. The movement will then switch the
+optimization if a feasible solution is found.
 
-**** TODO Compare inverse dynamics
+- Added optim, detach flags
+- Input q_act is parameter to initialize the optimization
+- Rate of optim and other flags from player.cfg are replicated in
+  serve.cfg 
+- Desired land location flag also imported from player.cfg
 *** TODO Test ball information during serve
+**** TODO Test ZMQ interface during human demonstrations
+**** TODO Test ZMQ interface during robot serve
 **** TODO Plot ball and robot data during serve
-Check it in MATLAB and look for outliers.
-**** TODO How does the ball filtering look like?
-*** TODO Combine optimization with movement primitives
+Check it in python and look for outliers.
+***** TODO How does the ball filtering look like?
+*** TODO Test optimization with movement primitives
 Even if the ball-takeoff model is not known, one can use movement
 primitives for at least the first part of the movement.
-**** TODO When to optimize?
+**** DONE When to optimize?
 I think when it is clear that the racket will not return the separated
 ball one can 'fire' the optimization.
-*** TODO Can we learn a model of the ball takeoff?
+**** TODO Can we learn a model of the ball takeoff?
 Possibly from movement primitives and/or RL trajectories one could
 learn such a model.
-*** TODO Can it be solved with polynomials?
+**** TODO Can it be solved with polynomials?
 Is the full planning problem with the two ball takeoff and racket
 impact models included result in a continuous trajectory? hybrid?
 polynomials?
@@ -785,6 +837,7 @@ UCT algorithm comes to mind
 This would mean: how would observing the trajectories of the ball and
 the robot help in Bayesian Optimization where we want to do black-box
 optim on the reward.
+
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?
@@ -805,3 +858,29 @@ generation optimization process:
 The stochastic optimal control based trajectory generation approach
 should strike a balance between the two.
 *** Reduce variance of predictions as we update the models?
+
+* Towards end-to-end learning
+The plan is to give videos in an unsupervised manner and predict
+3d-positions.
+** Semi-supervised learning on images
+An autoencoder would try to generate the images with the latent space
+restricted to 3 dimensions. A limited supervised-set consisting of
+robot racket 3d-positions would act as constraints, pushing the 3d
+latent space to physically meaningful values.
+
+The first half of the auto-encoder trained this way would replace ball
+detection and calibration + possibly distortion correction.
+
+*** TODO How to enforce constraints during optimization
+Projected gradient descent?
+*** TODO Train autoencoder in keras with validation set
+Enable early stopping and compare without early stopping
+
+** Unsupervised learning on videos
+Given an unlabeled repository of ball flight videos, the task is to
+learn ball detection, calibration and ball model all at once.
+
+Given an initial 3d ball position velocity and spin, one can predict
+the future of the ball positions with a ball model. The calibration
+function and the inverse of the ball detection would then generate the
+entire video.
