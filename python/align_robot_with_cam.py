@@ -14,8 +14,9 @@ need to fix it?
 what is the predicted table length and width for instance?
 '''
 import sys
+import os
 sys.path.append("python/")
-sys.path.append("/home/okoc/vision/Vision_Experiments/sebastian/")
+sys.path.append(os.environ['HOME'] + "/vision/Vision_Experiments/sebastian/")
 import numpy as np
 from scipy import signal
 import matplotlib
@@ -72,12 +73,14 @@ t_move = t[idx_start-idx_slack:idx_end+idx_slack]
 q_move = qfilt[idx_start-idx_slack:idx_end+idx_slack, :]
 
 # plot the first joint with smoothened values
+'''
 f2, axs2 = plt.subplots(ndof, 1, sharex=False)
 for i in range(ndof):
     axs2[i].plot(t_move, q_move[:, i], 'b-', label='input')
     # axs[i].plot(t,qfilt[:,i],'r-',label='filt')
     plt.legend(loc='best')
 plt.show()
+'''
 
 # get ball positions
 # subtract 14 cm along racket slide and add 5 cm along racket normal
@@ -89,12 +92,15 @@ for idx, tval in enumerate(t_move):
     quat = racket.rot2Quat(R)
     orient = racket.calcRacketOrientation(quat)
     R = np.squeeze(racket.quat2Rot(orient))
-    x_ball[:, idx] = x_racket + 0.14 * R[:, 1] + 0.05 * R[:, 2]
+    x_ball[:, idx] = x_racket + 0.14 * R[:, 1] - 0.05 * R[:, 2]
 
 # load frames and detect centre of balls
-indices_ball = fball.find_balls(img_path="/home/okoc/Desktop/robot/ping/black/",
-                                ranges=[750, 7380],
-                                cams=[0, 1])
+frame_path = os.environ['HOME'] + \
+    "/Desktop/capture_okan_2907118/movies/robot/ping/black"
+ball_dict = fball.find_balls(img_path=frame_path,
+                             ranges=[1000, 1100],
+                             cams=[0, 1])
+'''
 moving_frames = np.arange(750, 7380)
 ball_locs = dict()
 # interpolate between 7380 and 750th frames to get 3d positions for that particular frame
@@ -103,7 +109,7 @@ for i in range(len(moving_frames)):
     x = t_move[0] + (i/len(moving_frames)) * (t_move[-1] - t_move[0])
     x_ball_img = []
     for j in range(3):
-        x_ball_img.append(np.interp(x, xp=t_move, yp=x_ball[j, :]))
+        x_ball_img.append(np.interp(x, xp=t_move, fp=x_ball[j, :]))
     idx_row = indices_ball[i, 0]
     idx_col = indices_ball[i, 1]
     ball_locs[(idx_row, idx_col)] = x_ball_img
@@ -112,3 +118,4 @@ pickle_file = "ball_locs.pickle"
 file_obj = open(pickle_file, 'wb')
 pickle.dump(ball_locs, file_obj)
 file_obj.close()
+'''

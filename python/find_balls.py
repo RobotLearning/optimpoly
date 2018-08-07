@@ -4,15 +4,16 @@ import os
 import scipy
 import numpy as np
 
-model_name = '/home/okoc/Dropbox/capture_train/trained/lin_lr'
+model_name = os.environ['HOME'] + \
+    '/vision/Vision_Experiments/sebastian/trained/lin_lr'
+#model_name = os.environ['HOME'] + '/Dropbox/capture_train/trained/lin_lr'
 
 
-def find_balls(img_path, ranges=None, cams='all'):
+def find_balls(img_path, ranges, cams='all'):
     '''
     Find the ball pixels for every image in the image path
-    that fall in the range given for given cameras
-
-    Returns the pixels as a Nx2 np array
+    that fall in the range given for given cameras (e.g. 100-200 for cams 0 and 1)
+    Returns the pixels as a dictionary from image number to pixels (at least 4D)
     '''
     fexp = re.compile(r'([\w]+)\.(jpg)')
     examples_list = filter(fexp.search, os.listdir(img_path))
@@ -22,20 +23,22 @@ def find_balls(img_path, ranges=None, cams='all'):
         s = str(cams[0])
         for i in range(len(cams)-1):
             s = s + r'|' + str(cams[i+1])
-        fexp2 = re.compile('c(' + s + ')*')
+        fexp2 = re.compile('c([' + s + '])')
         examples_list = filter(fexp2.search, examples_list)
 
-    ex_list = []
-    if ranges is not None:
-        for idx, ex in enumerate(examples_list):
-            s = ex.split('.')
-            ss = s[0].split('_')
-            num = int(ss[1])
-            if num >= ranges[0] and num <= ranges[1]:
-                ex_list.append(ex)
-    else:
-        ex_list = examples_list
+    ex_dict = dict()
+    for idx, ex in enumerate(examples_list):
+        s = ex.split('.')
+        ss = s[0].split('_')
+        num = int(ss[1])
+        if num >= ranges[0] and num <= ranges[1]:
+            try:
+                ex_dict[num].append(ex)
+            except KeyError:
+                ex_dict[num] = [ex]
 
+    print(ex_dict)
+    tf.reset_default_graph()
     with tf.Session() as sess:
         new_saver = tf.train.import_meta_graph(
             '{}.meta'.format(model_name))
@@ -45,17 +48,27 @@ def find_balls(img_path, ranges=None, cams='all'):
         print("log reg params: {}".format(conv_params[0, 0, :, 1]))
         print("bias: {}".format(bias_params))
 
-    pixels_ball = np.zeros((len(ex_list), 2))
-    for i, example in enumerate(ex_list):
-        img = scipy.ndimage.imread(os.path.join(img_path, example))
-        tf.reset_default_graph()
+        pixels_ball = dict()
+        for i, examples in ex_dict.iteritems():
+            if len(examples) >= 2:
+                idxs = []
+                for j, example in enumerate(examples):
+                    img = scipy.ndimage.imread(os.path.join(img_path, example))
+                    prob = tf.get_collection("probabilities")[0]
+                    x = tf.get_collection("input")[0]
+                    graph_input = img/255.0
+                    graph_input = graph_input[np.newaxis]  # one by one
+                    prob_img = prob.eval(feed_dict={x: graph_input})
+                    # print(prob_img.shape)
+                    prob_img = np.squeeze(prob_img[0, :, :, 0])
+                    idx_max = prob_img.argmax()
+                    print idx_max
+                    idx_row = idx_max / prob_img.shape[1]  # row
+                    idx_col = idx_max - (idx_row * prob_img.shape[1])  # col
+                    idxs.append(idx_row)
+                    idxs.append(idx_col)
+                pixels_ball[i] = np.array(idxs)
+            if i % 100 == 0:
+                print('Evaluated prob for image', i)
 
-        prob = tf.get_collection("probabilities")[0]
-        graph_input = img/255.0
-        prob_img = prob.eval(feed_dict={x: graph_input})
-        idx_max = prob_img.argmax()
-        idx_row = idx_max / prob_img.shape[0]
-        idx_col = idx_max - (idx_row * prob_img.shape[0])
-        pixels_ball[i, 0] = idx_row
-        pixels_ball[i, 1] = idx_col
     return pixels_ball
