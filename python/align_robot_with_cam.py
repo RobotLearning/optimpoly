@@ -1,17 +1,12 @@
 '''
-- Detect start and finish of movement in joint space
-- check alignment with camera data 
+1. Detect start and finish of movement in joint space
+2. check alignment with camera data
 camera 0: robot starts moving around 750 and stops around 7380
-frame rate is around 180
 for camera 1 it's the same
-- for every camera frame in between run kinematics to get 3d position of racket
+3. for every camera frame in between run kinematics to get 3d position of racket
 and also orientation
-- ball is x-cm behind robot centre (about 10cm?) along racket 
-and a few cm on top
-need to fix it?
-- run ransac to estimate one 3x4 matrix
-- predict positions for still balls and compare with old calibration
-what is the predicted table length and width for instance?
+ball is 14 cm behind racket and 5 cm on top
+for black racket side on top 5 cm should be subtracted
 '''
 import sys
 import os
@@ -43,8 +38,8 @@ idx_cut = np.logical_and(t >= 20, t <= 60)
 tcut = t[idx_cut]
 q = q[idx_cut]
 t = tcut
-#t = t[t>=10]
-#q = q[t>=10]
+# t = t[t>=10]
+# q = q[t>=10]
 
 # smoothen the signal
 b, a = signal.butter(2, 0.1)
@@ -97,25 +92,23 @@ for idx, tval in enumerate(t_move):
 # load frames and detect centre of balls
 frame_path = os.environ['HOME'] + \
     "/Desktop/capture_okan_2907118/movies/robot/ping/black"
+img_range = [750, 7380]
+cam_range = [0, 1]
 ball_dict = fball.find_balls(img_path=frame_path,
-                             ranges=[1000, 1100],
-                             cams=[0, 1])
-'''
-moving_frames = np.arange(750, 7380)
+                             ranges=img_range,
+                             cams=cam_range, debug=False)
+img_list = ball_dict.keys()
 ball_locs = dict()
 # interpolate between 7380 and 750th frames to get 3d positions for that particular frame
-# we assume that
-for i in range(len(moving_frames)):
-    x = t_move[0] + (i/len(moving_frames)) * (t_move[-1] - t_move[0])
+for img_num, pixels_ball in ball_dict.iteritems():
+    i = img_num - img_list[0]
+    t_img = t_move[0] + (i/len(ball_dict)) * (t_move[-1] - t_move[0])
     x_ball_img = []
     for j in range(3):
-        x_ball_img.append(np.interp(x, xp=t_move, fp=x_ball[j, :]))
-    idx_row = indices_ball[i, 0]
-    idx_col = indices_ball[i, 1]
-    ball_locs[(idx_row, idx_col)] = x_ball_img
+        x_ball_img.append(np.interp(t_img, xp=t_move, fp=x_ball[j, :]))
+    ball_locs[tuple(pixels_ball)] = x_ball_img
 
-pickle_file = "ball_locs.pickle"
+pickle_file = "ball_locs_" + str(img_range) + "_" + str(cam_range) + ".pickle"
 file_obj = open(pickle_file, 'wb')
 pickle.dump(ball_locs, file_obj)
 file_obj.close()
-'''
