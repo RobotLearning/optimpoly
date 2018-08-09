@@ -100,15 +100,18 @@ ball_dict = fball.find_balls(img_path=frame_path,
 img_list = ball_dict.keys()
 ball_locs = dict()
 # interpolate between 7380 and 750th frames to get 3d positions for that particular frame
+img_size = float(img_list[-1] - img_list[0])
 for img_num, pixels_ball in ball_dict.iteritems():
-    i = img_num - img_list[0]
-    t_img = t_move[0] + (i/len(ball_dict)) * (t_move[-1] - t_move[0])
+    i = float(img_num - img_list[0])
+    t_img = t_move[0] + (i/img_size) * (t_move[-1] - t_move[0])
     x_ball_img = []
     for j in range(3):
         x_ball_img.append(np.interp(t_img, xp=t_move, fp=x_ball[j, :]))
-    ball_locs[tuple(pixels_ball)] = x_ball_img
+    ball_locs[img_num] = (pixels_ball, x_ball_img)
+    #print(i, t_img, x_ball_img)
 
-pickle_file = "ball_locs_" + str(img_range) + "_" + str(cam_range) + ".pickle"
+pickle_file = "python/ball_locs_" + \
+    str(img_range) + "_" + str(cam_range) + ".pickle"
 file_obj = open(pickle_file, 'wb')
 pickle.dump(ball_locs, file_obj)
 file_obj.close()
