@@ -43,16 +43,13 @@ for i, tuples in enumerate(ball_locs.values()):
 #X = np.array(ball_locs.keys())
 Xbar = np.hstack((np.ones((X.shape[0], 1)), X))
 #y = np.array(ball_locs.values())
-sol = linalg.lstsq(X, y)
-sol_bar = linalg.lstsq(Xbar, y)
-beta_bar = sol_bar[0]
-res_bar = sol_bar[1]
+sol = linalg.lstsq(Xbar, y)
 beta = sol[0]
 res = sol[1]
 # regularized soln
-sol_reg = np.linalg.lstsq(Xbar.T.dot(Xbar) + 4e-2 *
-                          np.identity(Xbar.shape[1]), Xbar.T.dot(y))
-beta_reg = sol_reg[0]
+# sol_reg = np.linalg.lstsq(Xbar.T.dot(Xbar) + 4e-2 *
+#                          np.identity(Xbar.shape[1]), Xbar.T.dot(y))
+#beta_reg = sol_reg[0]
 
 # compare with RANSAC
 ransac = linear_model.RANSACRegressor()
@@ -73,9 +70,8 @@ X_pred = np.array(ball_dict.values())
 X_pred_bar = np.hstack((np.ones((X_pred.shape[0], 1)), X_pred))
 
 loc_pred_ran_still = np.dot(X_pred_bar, beta_ran)
-loc_pred_bar_still = np.dot(X_pred_bar, beta_bar)
-loc_pred_still = np.dot(X_pred, beta)
-loc_pred_still_reg = np.dot(X_pred_bar, beta_reg)
+loc_pred_still = np.dot(X_pred_bar, beta)
+#loc_pred_still_reg = np.dot(X_pred_bar, beta_reg)
 # compare with old calibration
 '''
 json_file = os.environ['HOME'] + \
