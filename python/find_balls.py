@@ -36,6 +36,7 @@ def find_balls(img_path, ranges, cams='all', debug=False, prefix='c'):
         if num >= ranges[0] and num <= ranges[1]:
             try:
                 ex_dict[num].append(ex)
+                ex_dict[num].sort()
             except KeyError:
                 ex_dict[num] = [ex]
 
