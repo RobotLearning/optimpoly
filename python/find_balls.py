@@ -5,9 +5,9 @@ import scipy
 import numpy as np
 from matplotlib import pyplot as plt
 
-model_name = os.environ['HOME'] + \
-    '/vision/Vision_Experiments/sebastian/trained/lin_lr'
-# model_name = os.environ['HOME'] + '/Dropbox/capture_train/trained/lin_lr'
+# model_name = os.environ['HOME'] + \
+#    '/vision/Vision_Experiments/sebastian/trained/lin_lr'
+model_name = os.environ['HOME'] + '/Dropbox/capture_train/trained/lin_lr'
 
 
 def find_balls(img_path, ranges, cams='all', debug=False, prefix='c'):
