@@ -542,21 +542,51 @@ the detected ball.
 It is possible to save images by running the multi_capture script.
 One needs to specify the frequency of images to be saved (e.g. 1 means
 save every image).
-*** TODO Calibrate vision using robot data and images
-**** TODO Align saved joint positions with video frames
-**** TODO Compare the existing calibration predictions 
-with robot 3d data and still balls
-**** TODO Learn projection matrices with least squares
-Use also RANSAC
-**** TODO Make new predictions on robot data and still balls
-Using the new projection matrices (e.g. invert them?)
-**** TODO Record new robot data with PONG
-**** TODO Predict on new PONG data and compare with old calibration
-**** TODO Check for undistortion of images 
-Check PvAPI for c++ function to perform distortion correction
-**** TODO Learn projection matrices after distortion correction
-Compare with previous predictions.
+*** IN-PROGRESS Calibrate vision using robot data and images
+**** DONE Align saved joint positions with video frames
+One needs to check manually so far for the alignment of frames
+which is easy since images are roughly 180 Hz and joint pos
+are 500 Hz.
+**** DONE Compare the existing calibration predictions 
+Old calibration is off since the robot was moved
+**** DONE Learn projection matrices with a linear method
+Using the SVD analysis of the A matrix and taking the rightmost
+singular vector corresponding to the smaller singular value
+**** DONE Make new predictions on robot data and still balls
+Using the new projection matrices I use a linear triangulation method
+I compared it with the opencv triangulatePoints function and the
+results are identical.
 
+I have two functions that evaluate reprojection error on pixels
+dataset and a custom error on the still balls.
+
+The custom error checks for sensible distances between predictions
+given the geometry of the table.
+
+***** DONE Test with the new trained logistic regression params
+Testing with the new trained parameters makes the method much more
+robust when the net is occluding the balls.
+**** WAITING Record new robot data with PONG
+**** WAITING Predict on new PONG data and compare with old calibration
+**** WAITING Check for undistortion of images 
+A quick look at the images with Mehdi convinced us that there is not
+much distortion (one should check the lines on the corners for
+straightness).  Check PvAPI for c++ function to perform distortion
+correction
+**** WAITING Learn projection matrices after distortion correction
+Compare with previous predictions.
+***** WAITING Test the solvePnP function from opencv
+So far it didn't improve the test/training accuracy of the calibration
+matrices.
+***** WAITING Test the custom nonlinear least squares code
+Estimates also the distortion parameters, trying to minimize the
+projection error.  Easily overfits to data.
+
+***** WAITING Improve calibration with chess board pattern
+Yasseen will work on this. 
+Opencv calibrateCamera function requires a chessboard pattern 
+but should produce superior results. Specifically, it should help
+improve the generalization.
 ** IN-PROGRESS Test with simulated ball on both robots
 *** DONE Run code in PING
 When I tested the code with simulated ball, the code was printing

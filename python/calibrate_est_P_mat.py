@@ -9,7 +9,7 @@ Predict on still balls on the table
 import pickle
 import numpy as np
 import scipy.linalg as linalg
-#import json
+import json
 import os
 import sys
 #from sklearn import linear_model
@@ -371,7 +371,7 @@ pixels_1_undistort = cv2.undistortPoints(pixels_1[:, np.newaxis, :].astype(
 '''
 print('Comparing with old calibration...')
 json_file = os.environ['HOME'] + \
-    "/table-tennis/python/server_3d_conf_ping.json"
+    "/table-tennis/json/server_3d_conf_ping.json"
 with open(json_file, 'r') as f:
     old_calib_file = json.load(f)
 

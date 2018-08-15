@@ -1,0 +1,94 @@
+{
+  "servers": {
+    "position_publisher": "tcp://*:7650"
+  },
+  "log": {
+    "auto_flush": true,
+    "file": "/tmp/ball_tracking.log",
+    "severity": "trace"
+  },
+  "cameras": {
+    "type": "pvapi",
+    "conf": [
+      {
+        "ID": 0,
+        "IP": "192.168.101.101",
+        "conf": {
+          "mtu": 8228,
+          "EnumSet": {
+            "FrameStartTriggerMode": "FixedRate",
+            "AcquisitionMode": "Continuous",
+            "SyncOut1Mode": "Exposing"
+          },
+          "Float32Set": {
+            "FrameRate": 180.0
+          },
+          "Uint32Set": {
+            "StreamBytesPerSecond": 123000000,
+            "ExposureValue": 1000
+          },
+          "Sleep": 500,
+          "FrameTimeOut": 2000,
+          "debayer": true
+        }
+      },
+      {
+        "ID": 1,
+        "IP": "192.168.102.102",
+        "conf": {
+          "mtu": 8228,
+          "EnumSet": {
+            "FrameStartTriggerMode": "SyncIn1",
+            "AcquisitionMode": "Continuous"
+          },
+          "Uint32Set": {
+            "StreamBytesPerSecond": 123000000,
+            "ExposureValue": 1000
+          },
+          "FrameTimeOut": 2000,
+          "debayer": true
+        }
+      },
+      {
+        "ID": 2,
+        "IP": "192.168.103.103",
+        "conf": {
+          "mtu": 8228,
+          "EnumSet": {
+            "FrameStartTriggerMode": "SyncIn1",
+            "AcquisitionMode": "Continuous"
+          },
+          "Uint32Set": {
+            "StreamBytesPerSecond": 123000000,
+            "ExposureValue": 1000
+          },
+          "FrameTimeOut": 2000,
+          "debayer": true
+        }
+      },
+      {
+        "ID": 3,
+        "IP": "192.168.104.104",
+        "conf": {
+          "mtu": 8228,
+          "EnumSet": {
+            "FrameStartTriggerMode": "SyncIn1",
+            "AcquisitionMode": "Continuous"
+          },
+          "Uint32Set": {
+            "StreamBytesPerSecond": 123000000,
+            "ExposureValue": 1000
+          },
+          "FrameTimeOut": 2000,
+          "debayer": true
+        }
+      }
+    ]
+  },
+  "trackers": [
+    {"ID": 0, "file": "cam_log_regr_params_okan.json"},
+    {"ID": 1, "file": "cam_log_regr_params_okan.json"},
+    {"ID": 2, "file": "cam_log_regr_params_okan.json"},
+    {"ID": 3, "file": "cam_log_regr_params_okan.json"}
+  ]
+}

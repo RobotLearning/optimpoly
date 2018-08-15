@@ -1,0 +1,60 @@
+{
+  "type": "gpu",
+  "conf": {
+    "subsample": 1,
+    "ball_log_lh": {
+      "conf": {
+        "gauss_smooth": {
+          "sigma": 0,
+          "size": 3
+        },
+        "weights": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            9.4464,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.7281,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -8.3591,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -3.2638
+        ]
+      },
+      "type": "cb_log_reg"
+    },
+    "binarizer": {
+      "p_thresh": 0.7
+    },
+    "blob_detection": {
+      "conf": {
+        "binarizer": {
+          "p_thresh": 0.5
+        },
+        "high_thresh": 0.5,
+        "low_thresh": 0.3,
+        "maxArea": 200,
+        "ignore_border_blob": true
+      },
+      "type": "max_blob_detect"
+    }
+  }
+}
