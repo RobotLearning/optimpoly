@@ -154,6 +154,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
     listener.fetch(blob);
 
 	if (pflags.reset) {
+		listener.stop();
 		listener = Listener(pflags.zmq_url,pflags.debug_vision);
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
@@ -270,6 +271,7 @@ void save_ball_data(const char* url_string, const int debug_vision, const int re
     static std::string ball_file = home + "/table-tennis/balls.txt";
 
     if (reset) {
+    	listener.stop();
     	listener = Listener(url_string,(bool)debug_vision);
     	stream_balls.close();
     	stream_balls.open(ball_file, std::ofstream::out);
@@ -368,6 +370,7 @@ void serve_ball(const SL_Jstate joint_state[],
     listener.fetch(blob);
 
     if (sflags.reset) {
+    	listener.stop();
     	listener = Listener(sflags.zmq_url,sflags.debug_vision);
         std::string home = std::getenv("HOME");
         std::string file = home + "/table-tennis/json/" + sflags.json_file;
