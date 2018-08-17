@@ -5,7 +5,8 @@
 #include <map>
 #include <armadillo>
 
-using ball_pos = std::array<double,3>;
+using ball_pos = arma::vec3;
+using mat34 = arma::mat::fixed<3,4>;
 
 struct pixels {
 	double time_stamp = 0.0; //!< time stamp of image
@@ -24,7 +25,7 @@ class Listener {
 
 private:
     const std::string url; //!< TCP connection to computer and port
-
+    std::map<unsigned, mat34> calib_mats; //!< Calibration matrices loaded from json file
     std::map<unsigned, std::vector<pixels>> obs2d; //!< map with frame as key and pixels as
     std::map<unsigned, ball_pos> obs3d; //!< frame id as key and 3d vec as obs
 
@@ -40,7 +41,7 @@ private:
     void listen2d();
 
     /** @brief Triangulate to 3d if at least 2 cameras have reported for a given frame */
-    void triangulate();
+    void convert_to_3d();
 
 public:
 
@@ -48,7 +49,9 @@ public:
      * TCP port is 7660 Helbe (vision computer) for 3d server
      *             7650 Helbe for 2d server
      *  */
-    Listener(const std::string & url = "tcp://helbe:7660", bool run_2d, bool debug_ = false);
+    Listener(const std::string & url = "tcp://helbe:7650",
+    		 bool run_2d = true,
+			 bool debug_ = false);
 
     /** @brief Stop listening. */
     void stop();
@@ -59,5 +62,6 @@ public:
     /** @brief Returns number of observations saved, prints in debug mode*/
     int give_info();
 };
+
 
 #endif //BALL_INTERF_H

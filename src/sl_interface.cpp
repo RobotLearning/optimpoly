@@ -114,7 +114,8 @@ void load_player_options() {
 		    ("t_reset_threshold", po::value<double>(&pflags.t_reset_thresh), "filter reset threshold time")
 		    ("VHPY", po::value<double>(&pflags.VHPY), "location of VHP")
 		    ("url", po::value<std::string>(&pflags.zmq_url), "TCP URL for ZMQ connection")
-		    ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener");
+		    ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener")
+			("listen_2d", po::value<bool>(&pflags.listen_2d), "listen to 2d server if true");
         po::variables_map vm;
         ifstream ifs(config_file.c_str());
         if (!ifs) {
@@ -141,7 +142,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
     // acquire ball info from ZMQ server
     // if new ball add status true else false
     // call play function
-    static Listener listener(pflags.zmq_url,pflags.debug_vision);
+    static Listener listener(pflags.zmq_url,pflags.listen_2d,pflags.debug_vision);
 
     // since old code support multiple blobs
     static ball_obs blob;
@@ -155,7 +156,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 	if (pflags.reset) {
 		listener.stop();
-		listener = Listener(pflags.zmq_url,pflags.debug_vision);
+		listener = Listener(pflags.zmq_url,pflags.listen_2d,pflags.debug_vision);
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
@@ -261,10 +262,10 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
     }
 }
 
-void save_ball_data(const char* url_string, const int debug_vision, const int reset) {
+void save_ball_data(const char* url_string, const int listen_2d, const int debug_vision, const int reset) {
 
 	using namespace std::chrono;
-    static Listener listener(url_string,(bool)debug_vision);
+    static Listener listener(url_string,listen_2d,(bool)debug_vision);
     static ball_obs obs;
     static std::ofstream stream_balls;
     static std::string home = std::getenv("HOME");
@@ -272,7 +273,7 @@ void save_ball_data(const char* url_string, const int debug_vision, const int re
 
     if (reset) {
     	listener.stop();
-    	listener = Listener(url_string,(bool)debug_vision);
+    	listener = Listener(url_string,listen_2d,(bool)debug_vision);
     	stream_balls.close();
     	stream_balls.open(ball_file, std::ofstream::out);
     }
@@ -315,6 +316,7 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
         "Use computed-torque control if false")
         ("url", po::value<std::string>(&sflags.zmq_url), "TCP URL for ZMQ connection")
         ("debug_vision", po::value<bool>(&sflags.debug_vision), "print ball in listener")
+		("listen_2d", po::value<bool>(&sflags.listen_2d), "listen to 2d server if true")
         ("detach", po::value<bool>(&sflags.detach)->default_value(true),
               "detach optimization if true")
         ("mpc", po::value<bool>(&sflags.mpc)->default_value(false),
@@ -358,7 +360,7 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
 void serve_ball(const SL_Jstate joint_state[],
                  SL_DJstate joint_des_state[]) {
 
-    static Listener listener(sflags.zmq_url,sflags.debug_vision);
+    static Listener listener(sflags.zmq_url,sflags.listen_2d,sflags.debug_vision);
     static ball_obs blob;
     using dmps = Joint_DMPs;
     static dmps multi_dmp;
@@ -371,7 +373,7 @@ void serve_ball(const SL_Jstate joint_state[],
 
     if (sflags.reset) {
     	listener.stop();
-    	listener = Listener(sflags.zmq_url,sflags.debug_vision);
+    	listener = Listener(sflags.zmq_url,sflags.listen_2d,sflags.debug_vision);
         std::string home = std::getenv("HOME");
         std::string file = home + "/table-tennis/json/" + sflags.json_file;
         multi_dmp = dmps(file);

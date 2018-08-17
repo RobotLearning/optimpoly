@@ -28,13 +28,14 @@ struct serve_flags {
     bool save_ball_data = false;
     bool start_dmp_from_act_state = false;
     bool use_inv_dyn_fb = false; //!< in SL apply inv. dyn. feedback
-    std::string json_file = "dmp4.json"; //!< json file to load dmp from
-    std::string zmq_url = "tcp://helbe:7660"; //!< URL for ZMQ connection
     bool debug_vision = false; //!< print received vision info
     int freq_mpc = 1.0; //!< how many times per minute to re-run optim
     double time_land_des = 0.6; //!< desired time to land on robot court first
     double ball_land_des_x_offset = 0.0;
     double ball_land_des_y_offset = 0.0;
+    bool listen_2d = true; //!< listen to 2d server or 3d server
+    std::string json_file = "dmp4.json"; //!< json file to load dmp from
+    std::string zmq_url = "tcp://helbe:7650"; //!< URL for ZMQ connection
 };
 
 class ServeBall {

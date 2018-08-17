@@ -7,6 +7,11 @@ using json = nlohmann::json;
 using std::cout;
 using std::endl;
 
+static arma::mat json2mat(const json & jobj);
+static std::map<unsigned, mat34> load_calib_mats(const std::string & json_file);
+static ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
+							const std::vector<pixels> & obs_2d);
+
 void Listener::listen3d() {
 
     // initialize the zmq
@@ -90,6 +95,10 @@ void Listener::listen2d() {
             		cout << "Num: " << num << ". Received pixels" << ball << " for cam: " << x.cam_id << endl;
             	}
             }
+            // keep size to a max
+            if (obs2d.size() > max_obs_saved) {
+                obs2d.erase(obs2d.begin());
+            }
         }
         catch (const std::exception & ex) {
             if (debug) {
@@ -101,7 +110,7 @@ void Listener::listen2d() {
         cout << "Finished listening..." << endl;
 }
 
-void Listener::triangulate() {
+void Listener::convert_to_3d() {
 
 	for (auto iter = obs2d.rbegin(); iter != obs2d.rend(); ++iter) {
 		if (iter->second.size() >= 2) {
@@ -110,8 +119,7 @@ void Listener::triangulate() {
 				cout << "Triangulating num: " << num<< endl;
 
 			// triangulate by solving svd
-			// TODO:
-            ball_pos obs_3d;
+            ball_pos obs_3d = triangulate(calib_mats, iter->second);
             obs3d[num] = obs_3d;
             new_data = true;
             if (debug) {
@@ -135,10 +143,11 @@ Listener::Listener(const std::string & url_,
     using std::thread;
     active = true;
     if (run_2d) {
+    	calib_mats = load_calib_mats("json/server_3d_conf_ping_okan.json");
         thread t = thread(&Listener::listen2d,this);
         t.detach();
-        thread t = thread(&Listener::triangulate,this);
-        t.detach();
+        thread t2 = thread(&Listener::convert_to_3d,this);
+        t2.detach();
     }
     else {
         thread t = thread(&Listener::listen3d,this);
@@ -159,10 +168,7 @@ void Listener::fetch(ball_obs & blob) { // fetch the latest data
     // if there is a latest new data that was unread
     if (new_data) {
         blob.status = true;
-        ball_pos latest_data = obs3d.rbegin()->second;
-        blob.pos[0] = latest_data[0];
-        blob.pos[1] = latest_data[1];
-        blob.pos[2] = latest_data[2];
+        blob.pos = obs3d.rbegin()->second;
         new_data = false;
     }
 }
@@ -177,10 +183,86 @@ int Listener::give_info() {
         cout << "Time \t obs[x] \t obs[y] \t obs[z]\n";
         for (std::pair<const double, std::vector<double>> element : obs3d) {
             cout << element.first << " \t"
-                    << element.second[0] << " \t"
-                    << element.second[1] << " \t"
-                    << element.second[2] << "\n";
+                 << element.second << endl;
         }
     }
     return obs3d.size();
+}
+
+/**
+ * @brief Load calibration matrices from json file
+ */
+static std::map<unsigned, mat34> load_calib_mats(const std::string & json_file =
+												"json/server_3d_conf_ping.json") {
+
+	using namespace arma;
+	std::map<unsigned,mat34> calib_mats;
+    std::ifstream stream(json_file);
+    json jobs;
+    stream >> jobs;
+    json jcalib = jobs["stereo"]["calib"];
+    for (auto elem : jcalib) {
+        unsigned int id = elem.at("ID");
+        mat34 val = json2mat( elem.at("val") );
+        calib_mats[id] = val;
+    }
+    return calib_mats;
+}
+
+static arma::mat json2mat(const json & jobj) {
+
+
+	int n = jobj.size();
+	int m = jobj[0].size();
+	arma::mat arma_mat(n,m,arma::fill::zeros);
+
+	for (int i=0; i<n; i++) {
+		for (int j=0; j<m; j++) {
+			arma_mat(i,j) = jobj[i][j];
+		}
+	}
+	return arma_mat;
+}
+
+/**
+ * Triangulate cameras 0 and 1
+ * TODO:
+ */
+static ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
+							const std::vector<pixels> & obs_2d) {
+
+	using namespace arma;
+	ball_pos pos3d;
+	mat34 P0, P1;
+	bool zero_found, one_found = false;
+	double pixels0[2], pixels1[2];
+	for (auto p : obs_2d) {
+		if (p.cam_id == 0) {
+			P0 = calib_mats[0];
+			pixels0[0] = p.vals[0];
+			pixels0[1] = p.vals[1];
+			zero_found = true;
+		}
+		else if (p.cam_id == 1) {
+			P1 = calib_mats[1];
+			pixels1[0] = p.vals[0];
+			pixels1[1] = p.vals[1];
+			one_found = true;
+		}
+	}
+	if (zero_found && one_found) {
+		mat44 A;
+		A.row(0) = pixels0[0]*P0.row(2) - P0.row(0);
+		A.row(1) = pixels0[1]*P0.row(2) - P0.row(1);
+		A.row(2) = pixels1[0]*P1.row(2) - P1.row(0);
+		A.row(3) = pixels1[1]*P1.row(2) - P1.row(1);
+		mat U;
+		vec s;
+		mat V;
+		svd(U,s,V,A);
+		vec4 pos4d = V.tail_cols(0);
+		pos3d = pos4d.head(3);
+		pos3d /= pos4d(3);
+	}
+	return pos3d;
 }

@@ -68,8 +68,9 @@ struct player_flags {
 	std::vector<double> weights = {0.0, 0.0, 0.0}; //!< hit,net,land weights for DP (lazy player)
 	std::vector<double> mult_vel = {0.9, 0.8, 0.83}; //!< vel. mult. for DP
 	std::vector<double> penalty_loc = {0.0, 0.23, 0.0, -3.22}; //!< penalty locations for DP
-	std::string zmq_url = "tcp://helbe:7660"; //!< URL for ZMQ connection
+	std::string zmq_url = "tcp://helbe:7650"; //!< URL for ZMQ connection
 	bool debug_vision = false; //!< print received vision info
+	bool listen_2d = true; //!< listen to 2d server or 3d server
 };
 
 /**
