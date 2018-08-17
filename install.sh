@@ -5,7 +5,6 @@ TEST=false
 TEST_CMD="*" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
 while true; do
     case "$1" in
-	-b | --build ) BUILD="$2"; shift 2 ;;
 	-d | --debug ) DEBUG=true; shift ;;
 	-t | --test  ) TEST=true; shift ;;
 	--run_test   ) TEST_CMD="$2"; shift ;;

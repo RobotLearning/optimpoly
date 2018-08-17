@@ -19,6 +19,7 @@ using vec_str = std::vector<std::string>;
 static void init_posture(vec7 & q0, int posture, bool verbose);
 
 vec6 init_ball_vertical(const double & T,
+						const double & std_noise,
                        const dmps & multi_dmp);
 
 void test_serve() {
@@ -34,36 +35,40 @@ void test_serve() {
     dmps multi_dmp = init_dmps();
     optim::joint qdes, qact;
     TableTennis tt = TableTennis(false,true);
-    vec6 init_ball_state = init_ball_vertical(T,multi_dmp);
+    double std_init_noise = 0.0;
+    vec6 init_ball_state = init_ball_vertical(T,std_init_noise,multi_dmp);
     tt.set_ball_state(init_ball_state);
     racket racket_state;
-    EKF filter = init_ball_filter(0.03,0.0001);
     ServeBall server = ServeBall(multi_dmp);
+    //sflags flags;
+    //server.set_flags(flags);
 
     // check interaction and make sure ball is served correctly
-    while (!tt.touched_ground() && !tt.was_served()) {
+    while (!tt.touched_ground() && !tt.was_legally_served()) {
 
-        server.serve(filter,qact,qdes);
+        tt.integrate_ball_state(racket_state,DT);
+        ball_obs obs;
+        obs.status = true;
+        obs.pos = tt.get_ball_position();
+        server.serve(obs,qact,qdes);
         qact = qdes;
         calc_racket_state(qact,racket_state);
-        tt.integrate_ball_state(racket_state,DT);
-        vec3 obs = tt.get_ball_position();
-        estimate_ball_state(obs,filter);
-        //double dist = norm(obs - racket_state.pos);
+        //double dist = norm(obs.pos - racket_state.pos);
         //BOOST_TEST_MESSAGE("Dist between racket and ball: " << dist);
 
     }
-    BOOST_TEST(tt.was_served());
+    BOOST_TEST(tt.was_legally_served());
 
 }
 
 /*
  * Initialize ball vertically such that assuming only gravity acts on the
- * ball (i.e. no airdrag) the ball will be in the DMP goal cartesian position
- * T seconds from the start.
+ * ball (i.e. no airdrag) the ball will be around the DMP goal cartesian position
+ * T seconds from the start. [around = some noise added]
  */
 vec6 init_ball_vertical(const double & T,
-                       const dmps & multi_dmp) {
+						const double & std_noise,
+                        const dmps & multi_dmp) {
     ball_params params;
     vec7 goal_state;
     optim::joint goal_joint_state;
@@ -71,8 +76,8 @@ vec6 init_ball_vertical(const double & T,
     goal_joint_state.q = goal_state;
     racket goal_racket_state;
     calc_racket_state(goal_joint_state,goal_racket_state);
-    vec3 init_ball_pos = goal_racket_state.pos;
-    init_ball_pos(Z) -= 0.85 * params.gravity * T*T/2.0; // 0.83 - dmp works!
+    vec3 init_ball_pos = goal_racket_state.pos + std_noise * randn(3,1);
+    init_ball_pos(Z) -= 0.83 * params.gravity * T*T/2.0; // 0.83 - dmp works!
     vec6 init_ball_state = zeros<vec>(6);
     init_ball_state.head(3) = init_ball_pos;
 
@@ -119,7 +124,7 @@ void test_dmp_acc() {
     // check max acc with goal/init pos adjusted
     const double MAX_ACC_ALLOWED = 50.0;
     const std::string home = std::getenv("HOME");
-    vec_str files = get_files(home + "/table-tennis/json/");
+    vec_str files = get_files(home + "/table-tennis/json/", "dmp");
     dmps multi_dmp;
 
     for (std::string & file : files) {

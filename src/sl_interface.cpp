@@ -16,6 +16,7 @@
 #include <iterator>
 #include <armadillo>
 #include <cmath>
+#include <chrono>
 #include <sys/time.h>
 #include "kalman.h"
 #include "player.hpp"
@@ -32,32 +33,6 @@ using namespace const_tt;
 
 player_flags pflags; //!< global structure for setting Player task options
 serve_flags sflags; //!< global structure for setting Serve task options
-
-/*
- *
- * Fusing the two blobs
- * If both blobs are valid last blob is preferred
- * Only updates if the blobs are valid, i.e. not obvious outliers
- *
- */
-static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs);
-
-/*
- * Checks for the validity of blob ball data using obvious table tennis checks.
- * Returns TRUE if valid.
- *
- * Only checks for obvious outliers. Does not use uncertainty estimates
- * to assess validity so do not rely on it as the sole source of outlier detection!
- *
- *
- * @param blob Blob structure. Contains a status boolean
- * variable and cartesian coordinates (indices zero-to-two).
- * @param verbose If verbose is TRUE, then detecting obvious outliers will
- * print to standard output.
- * @return valid If ball is valid (status is TRUE and not an obvious outlier)
- * return true.
- */
-static bool check_blob_validity(const blob_state & blob, bool verbose);
 
 /*
  *  Set algorithm to initialize Player with.
@@ -159,7 +134,7 @@ void load_player_options() {
 
 
 
-void play_new(const SL_Jstate joint_state[NDOF+1],
+void play(const SL_Jstate joint_state[NDOF+1],
           SL_DJstate joint_des_state[NDOF+1]) {
 
     // connect to ZMQ server
@@ -169,38 +144,24 @@ void play_new(const SL_Jstate joint_state[NDOF+1],
     static Listener listener(pflags.zmq_url,pflags.debug_vision);
 
     // since old code support multiple blobs
-    static blob_state blobs[NBLOBS];
-
-    // update ball info
-    listener.fetch(blobs[1]);
-
-    // interface that supports old setup
-    play(joint_state,blobs,joint_des_state);
-}
-
-
-void play(const SL_Jstate joint_state[NDOF+1],
-		  const blob_state blobs[NBLOBS],
-		  SL_DJstate joint_des_state[NDOF+1]) {
-
+    static ball_obs blob;
 	static vec7 q0;
-	static vec3 ball_obs;
 	static optim::joint qact;
 	static optim::joint qdes;
 	static Player *robot = nullptr;
-	static std::string home = std::getenv("HOME");
-	static std::string ball_file = home + "/table-tennis/balls.txt";
-	static EKF filter = init_ball_filter(0.3,0.001,pflags.spin);
+
+    // update ball info
+    listener.fetch(blob);
 
 	if (pflags.reset) {
+		listener = Listener(pflags.zmq_url,pflags.debug_vision);
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
-		filter = init_ball_filter(0.3,0.001,pflags.spin);
 		delete robot;
-		robot = new Player(q0,filter,pflags);
+		robot = new Player(q0,pflags);
 		pflags.reset = false;
 	}
 	else {
@@ -209,10 +170,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 			qact.qd(i) = joint_state[i+1].thd;
 			qact.qdd(i) = joint_state[i+1].thdd;
 		}
-		fuse_blobs(blobs,ball_obs);
-		robot->play(qact,ball_obs,qdes);
-		if (pflags.save)
-		    save_ball_data(blobs,filter);
+		robot->play(blob,qact,qdes);
 	}
 
 	// update desired joint state
@@ -231,8 +189,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
     static vec6 ball_state;
     static optim::joint qact;
     static optim::joint qdes;
-    static Player *cp; // centered player
-    static EKF filter = init_ball_filter();
+    static Player *cp = nullptr; // centered player
 
     if (pflags.reset) {
         for (int i = 0; i < NDOF; i++) {
@@ -240,7 +197,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        cp = new Player(q0,filter,pflags);
+        cp = new Player(q0,pflags);
         pflags.reset = false;
     }
     else {
@@ -265,98 +222,68 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 }
 
 void save_joint_data(const SL_Jstate joint_state[NDOF+1],
-                     const SL_DJstate joint_des_state[NDOF+1],
-                     const int save_qdes) {
+          	  	  const SL_DJstate joint_des_state[NDOF+1],
+				  const int save_qdes,
+				  const int reset) {
+
+	using namespace std::chrono;
+	const std::string home = std::getenv("HOME");
+    const std::string joint_file = home + "/table-tennis/joints.txt";
 
     static rowvec q = zeros<rowvec>(NDOF);
     static rowvec qdes = zeros<rowvec>(NDOF);
-    static bool firsttime = true;
     static std::ofstream stream_joints;
-    static std::string home = std::getenv("HOME");
-    static std::string joint_file = home + "/table-tennis/joints.txt";
-    if (firsttime) {
+
+    if (reset) {
+    	stream_joints.close();
         stream_joints.open(joint_file,std::ofstream::out);
-        firsttime = false;
     }
+    else {
+    	milliseconds ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    	double time = ms.count();
+		for (int i = 1; i <= NDOF; i++) {
+			q(i-1) = joint_state[i].th;
+			if (save_qdes) {
+				qdes(i-1) = joint_des_state[i].th;
+			}
+		}
 
-    for (int i = 1; i <= NDOF; i++) {
-        q(i-1) = joint_state[i].th;
-        if (save_qdes) {
-            qdes(i-1) = joint_des_state[i].th;
-        }
+		if (stream_joints.is_open()) {
+			if (save_qdes) {
+				stream_joints << std::fixed << time << join_horiz(q,qdes);
+			}
+			else {
+				stream_joints << std::fixed << time << q;
+			}
+		}
+		//stream_joints.close();
     }
-
-    if (stream_joints.is_open()) {
-        if (save_qdes) {
-            stream_joints << join_horiz(q,qdes);
-        }
-        else {
-            stream_joints << q;
-        }
-    }
-    //stream_joints.close();
 }
 
-void save_ball_data(char* url_string, int debug_vision) {
+void save_ball_data(const char* url_string, const int debug_vision, const int reset) {
 
+	using namespace std::chrono;
     static Listener listener(url_string,(bool)debug_vision);
-    static blob_state blobs[NBLOBS];
-
-    // update blobs structure with new ball data
-    listener.fetch(blobs[1]);
-
-    static bool firsttime = true;
+    static ball_obs obs;
     static std::ofstream stream_balls;
     static std::string home = std::getenv("HOME");
     static std::string ball_file = home + "/table-tennis/balls.txt";
 
-    if (firsttime) {
-        stream_balls.open(ball_file,std::ofstream::out);
-        firsttime = false;
+    if (reset) {
+    	listener = Listener(url_string,(bool)debug_vision);
+    	stream_balls.close();
+    	stream_balls.open(ball_file, std::ofstream::out);
     }
-    vec6 ball_vec;
-
-    if (blobs[0].status || blobs[1].status) {
-        ball_vec << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
-                 << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
-
-        if (stream_balls.is_open()) {
-            stream_balls << ball_vec;
-        }
-    }
-    //stream_balls.close();
-}
-
-void save_ball_data(const blob_state blobs[NBLOBS],
-                    const KF & filter) {
-
-    static rowvec ball_full;
-    static bool firsttime = true;
-    static std::ofstream stream_balls;
-    static std::string home = std::getenv("HOME");
-    static std::string ball_file = home + "/table-tennis/balls.txt";
-    if (firsttime) {
-        stream_balls.open(ball_file,std::ofstream::out);
-        firsttime = false;
-    }
-    vec6 ball_est = zeros<vec>(6);
-
-    if (blobs[0].status || blobs[1].status) {
-
-        try {
-            ball_est = filter.get_mean();
-            ball_full << 0 << blobs[0].status << blobs[0].pos[X] << blobs[0].pos[Y] << blobs[0].pos[Z]
-                      << 1 << blobs[1].status << blobs[1].pos[X] << blobs[1].pos[Y] << blobs[1].pos[Z] << endr;
-            //cout << ball_full << endl;
-            ball_full = join_horiz(ball_full,ball_est.t());
+    else {
+    	milliseconds ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
+    	double time = ms.count();
+        // update blobs structure with new ball data
+        listener.fetch(obs);
+        if (obs.status) {
             if (stream_balls.is_open()) {
-                stream_balls << ball_full;
+                stream_balls << std::fixed << time << obs.pos.t();
             }
         }
-        catch (const std::exception & not_init_error) {
-            // filter not yet initialized
-        }
-        //stream_balls.close();
     }
 }
 
@@ -384,8 +311,8 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
         "Save ball data acquired via Listener to txt file")
         ("use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
         "Use computed-torque control if false")
-        ("url", po::value<std::string>(&pflags.zmq_url), "TCP URL for ZMQ connection")
-        ("debug_vision", po::value<bool>(&pflags.debug_vision), "print ball in listener")
+        ("url", po::value<std::string>(&sflags.zmq_url), "TCP URL for ZMQ connection")
+        ("debug_vision", po::value<bool>(&sflags.debug_vision), "print ball in listener")
         ("detach", po::value<bool>(&sflags.detach)->default_value(true),
               "detach optimization if true")
         ("mpc", po::value<bool>(&sflags.mpc)->default_value(false),
@@ -394,11 +321,11 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
              "frequency of running optimization for corrections")
         ("verbose", po::value<bool>(&sflags.verbose)->default_value(false),
              "verbosity level")
-        ("ball_land_des_x_offset", po::value<double>(&pflags.ball_land_des_offset[0]),
+        ("ball_land_des_x_offset", po::value<double>(&sflags.ball_land_des_x_offset),
              "ball land x offset")
-        ("ball_land_des_y_offset", po::value<double>(&pflags.ball_land_des_offset[1]),
+        ("ball_land_des_y_offset", po::value<double>(&sflags.ball_land_des_y_offset),
              "ball land y offset")
-        ("time_land_des", po::value<double>(&pflags.time_land_des),
+        ("time_land_des", po::value<double>(&sflags.time_land_des),
              "time land des");
         po::variables_map vm;
         std::ifstream ifs(config_file.c_str());
@@ -427,23 +354,21 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
 }
 
 void serve_ball(const SL_Jstate joint_state[],
-                 SL_DJstate joint_des_state[],
-                 serve_task_options * opt) {
+                 SL_DJstate joint_des_state[]) {
 
-    static vec3 ball_obs;
-    static Listener listener(pflags.zmq_url,pflags.debug_vision);
-    static blob_state blobs[NBLOBS];
+    static Listener listener(sflags.zmq_url,sflags.debug_vision);
+    static ball_obs blob;
     using dmps = Joint_DMPs;
     static dmps multi_dmp;
     static optim::joint qact;
     static optim::joint qdes;
     static ServeBall *robot = nullptr; // class for serving ball
-    static EKF filter = init_ball_filter(0.3,0.001,false);
 
     // update blobs structure with new ball data
-    listener.fetch(blobs[1]);
+    listener.fetch(blob);
 
     if (sflags.reset) {
+    	listener = Listener(sflags.zmq_url,sflags.debug_vision);
         std::string home = std::getenv("HOME");
         std::string file = home + "/table-tennis/json/" + sflags.json_file;
         multi_dmp = dmps(file);
@@ -459,7 +384,6 @@ void serve_ball(const SL_Jstate joint_state[],
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        filter = init_ball_filter(0.3,0.001,false);
         delete robot;
         robot = new ServeBall(multi_dmp);
         robot->set_flags(sflags);
@@ -471,13 +395,7 @@ void serve_ball(const SL_Jstate joint_state[],
             qact.qd(i) = joint_state[i+1].thd;
             qact.qdd(i) = joint_state[i+1].thdd;
         }
-        fuse_blobs(blobs,ball_obs);
-        estimate_ball_state(ball_obs,filter);
-        robot->serve(filter,qact,qdes);
-        if (sflags.save_joint_act_data)
-            save_joint_data(joint_state,joint_des_state,sflags.save_joint_des_data);
-        if (sflags.save_ball_data)
-            save_ball_data(blobs,filter);
+        robot->serve(blob,qact,qdes);
     }
 
     // update desired joint state
@@ -486,72 +404,4 @@ void serve_ball(const SL_Jstate joint_state[],
         joint_des_state[i+1].thd = qdes.qd(i);
         joint_des_state[i+1].thdd = qdes.qdd(i);
     }
-}
-
-static bool check_blob_validity(const blob_state & blob, bool verbose) {
-
-    bool valid = true;
-    static double last_blob[NCART];
-    static double zMax = 0.5;
-    static double zMin = floor_level - table_height;
-    static double xMax = table_width/2.0;
-    static double yMax = 0.5;
-    static double yMin = dist_to_table - table_length - 1.0;
-    static double yCenter = dist_to_table - table_length/2.0;
-
-    // if both blobs are valid
-    // then check for both
-    // else check only one
-
-    if (blob.status == false) {
-        valid = false;
-    }
-    else if (blob.pos[Z] > zMax) {
-        if (verbose)
-            printf("BLOB NOT VALID! Ball is above zMax = 0.5!\n");
-        valid = false;
-    }
-    // on the table blob should not appear under the table
-    else if (fabs(blob.pos[X]) < xMax && fabs(blob.pos[Y] - yCenter) < table_length/2.0
-            && blob.pos[Z] < zMin) {
-        if (verbose)
-            printf("BLOB NOT VALID! Ball appears under the table!\n");
-        valid = false;
-    }
-    else if (last_blob[Y] < yCenter && blob.pos[Y] > dist_to_table) {
-        if (verbose)
-            printf("BLOB NOT VALID! Ball suddenly jumped in Y!\n");
-        valid = false;
-    }
-    else if (blob.pos[Y] < yMin || blob.pos[Y] > yMax) {
-        if (verbose)
-            printf("BLOB NOT VALID! Ball is outside y limits [%f,%f]!\n", yMin, yMax);
-        valid = false;
-    }
-
-    last_blob[X] = blob.pos[X];
-    last_blob[Y] = blob.pos[Y];
-    last_blob[Z] = blob.pos[Z];
-    return valid;
-}
-
-static bool fuse_blobs(const blob_state blobs[NBLOBS], vec3 & obs) {
-
-    bool status = false;
-
-    // if ball is detected reliably
-    // Here we hope to avoid outliers and prefer the blob3 over blob1
-    if (check_blob_validity(blobs[1],pflags.verbosity > 2) ||
-            check_blob_validity(blobs[0],pflags.verbosity > 2)) {
-        status = true;
-        if (blobs[1].status) { //cameras 3 and 4
-            for (int i = X; i <= Z; i++)
-                obs(i) = blobs[1].pos[i];
-        }
-        else { // cameras 1 and 2
-            for (int i = X; i <= Z; i++)
-                obs(i) = blobs[0].pos[i];
-        }
-    }
-    return status;
 }

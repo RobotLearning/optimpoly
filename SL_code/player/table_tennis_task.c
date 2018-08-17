@@ -126,7 +126,7 @@ static int run_table_tennis_task(void) {
 	// update blobs every 2ms (instead of every 20 ms)
 	update_ball_obs();
 
-	play_new(joint_state,joint_des_state);
+	play(joint_state,joint_des_state);
 	//play(joint_state,ball_obs,joint_des_state);
 	//cheat(joint_state,sim_ball_state,joint_des_state);
 

@@ -8,6 +8,8 @@
 #ifndef INCLUDE_SERVE_H_
 #define INCLUDE_SERVE_H_
 
+#include "ball_interface.h"
+
 namespace serve {
 
 using dmps = Joint_DMPs;
@@ -38,13 +40,35 @@ struct serve_flags {
 class ServeBall {
 
 private:
+
     bool ran_optim = false;
+    double t_clock = 0.0;
     serve_flags sflags;
+    arma::wall_clock timer;
+    optim::spline_params p;
     dmps multi_dmp;
     double T = 1.0;
     vec7 q_rest_des;
     vec7 q_hit_des;
+    int idx_balls_obs_filter = 0;
+    bool init_filter = false;
     optim::Optim *opt = nullptr; // optimizer
+    player::EKF filter = player::init_ball_filter(0.3,0.001,false);
+
+    /*
+     * \brief Correct movement by running an optimization.
+     * The plan is to serve the ball to a desired position on robot court.
+     */
+    void correct_with_optim(const joint & qact);
+
+    /*
+     * \brief If the filter was initialized then we have enough info to predict what will happen to the ball.
+     * If a hit is predicted then returns true.
+     */
+    bool predict_ball_hit(const double & t_pred);
+
+    /** \brief Estimate ball state using a few initial ball estimates.*/
+    void estimate_ball_state(const ball_obs & obs);
 
 public:
 
@@ -55,7 +79,7 @@ public:
      * with optimization whenever the predicted ball is not hit by the
      * predicted movement.
      */
-    void serve(const player::EKF & filter,
+    void serve(const ball_obs & obs,
                const joint & qact,
                joint & qdes);
 
@@ -64,23 +88,13 @@ public:
     ~ServeBall();
 
     void set_flags(const serve_flags & sflags_);
-
-    /*
-     * \brief Correct movement by running an optimization.
-     * The plan is to serve the ball to a desired position on robot court.
-     */
-    void correct_with_optim(const joint & qact,
-                            const player::EKF & filter);
 };
 
 /** \brief Initialize DMP from a random JSON file */
 dmps init_dmps();
 
-/** \brief Estimate ball state using a few initial ball estimates.*/
-void estimate_ball_state(const vec3 & obs, player::EKF & filter);
-
 /** \brief Utility function to return vector of JSON files from subfolder */
-vec_str get_files(std::string folder_name);
+vec_str get_files(std::string folder_name, std::string prefix);
 
 }
 

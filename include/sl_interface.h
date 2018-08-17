@@ -1,9 +1,10 @@
 /**
  * @file sl_interface.h
- * @brief Interface to SL. Exposes play() and cheat() modes.
+ * @brief Interface to SL for both play and serve tasks.
+ * Player Exposes play() and cheat() modes.
  *
  * Before starting play() mode, relevant options for the Player class
- * must be set by calling load_options().
+ * must be set by calling load_player_options().
  *
  */
 #ifndef SL_INTERF_H
@@ -13,10 +14,7 @@
 
 #include "sl_structs.h"
 #include "kalman.h"
-
-/* \brief Saves actual ball data and estimated ball state in one file */
-void save_ball_data(const blob_state blobs[],
-                    const player::KF & filter);
+// nothing here!
 
 #endif
 
@@ -24,25 +22,18 @@ void save_ball_data(const blob_state blobs[],
 extern "C" {
 #endif
 
-/** @brief New interface to PLAYER class. Uses ZMQ connection to fetch 3d ball info.*/
-extern void play_new(const SL_Jstate joint_state[],
-                 SL_DJstate joint_des_state[]);
-
-/**
- * @brief Old interface to the PLAYER class that generates desired hitting trajectories.
+/** @brief New interface to PLAYER class. Uses ZMQ connection to fetch 3d ball info.
+ *
+ * Generates desired hitting trajectories.
  *
  * First initializes the player according to the pre-set options
  * and then starts calling play() interface function. Must be called every DT ms.
  *
- * Old interface written for the OLD setup. Time stamp is not provided.
- *
  * @param joint_state Actual joint positions, velocities, accelerations.
- * @param blobs Two ball 3d-positions from 4-cameras are stored in blobs[1] and blobs[3]
- * @param joint_des_state Desired joint position, velocity and acceleration commands.
- */
+ * @param joint_des_state Desired joint position, velocity and acceleration commands. */
 extern void play(const SL_Jstate joint_state[],
-                 const blob_state blobs[],
                  SL_DJstate joint_des_state[]);
+
 
 /**
  * @brief CHEAT with exact knowledge of ball state.
@@ -67,13 +58,19 @@ extern void cheat(const SL_Jstate joint_state[],
  */
 extern void load_player_options();
 
-/** \brief Save joint data to a file. If save_qdes is true, then save also the desired joints. */
+/**
+ * @brief Called from SL, save joint data to a file. If save_qdes is true, then save also the desired joints.
+ * If reset is true, then close and open the stream.
+ * */
 extern void save_joint_data(const SL_Jstate joint_state[],
                      const SL_DJstate joint_des_state[],
-                     const int save_qdes);
+                     const int save_qdes,
+					 const int reset);
 
-/* \brief Called from SL, creates a Listener with given URL and saves data that it can fetch with it */
-extern void save_ball_data(char* url_string, int debug_vision);
+/** @brief Called from SL, creates a Listener with given URL and saves data that it can fetch with it */
+extern void save_ball_data(const char* url_string,
+							const int debug_vision,
+							const int reset);
 
 /* SERVE FUNCTIONS AND STRUCTS EXPOSED */
 

@@ -365,8 +365,8 @@ void TableTennis::check_ball_table_contact(const vec3 & ball_cand_pos,
 		// check if the ball hits the table coming from above
 		if ((ball_cand_pos(Z) <= contact_table_level) && (ball_cand_vel(Z) < 0.0)) {
 			//std::cout << "Bounce predicted!" << std::endl;
-			check_legal_bounce(ball_cand_pos,ball_cand_vel);
 			check_legal_land(ball_cand_pos,ball_cand_vel);
+			check_legal_bounce(ball_cand_pos,ball_cand_vel);
 			ball_cand_vel = table_contact_model(ball_cand_vel);
 		}
 	}
@@ -453,18 +453,18 @@ void TableTennis::check_legal_bounce(const vec3 & ball_cand_pos, const vec3 & ba
 	if (ball_cand_vel(Y) > 0) { // incoming ball
 		if (ball_cand_pos(Y) > net_y && !stats.has_bounced) {
 			stats.legal_bounce = true;
-			stats.has_bounced = true;
 		}
 		else {
 			stats.legal_bounce = false;
 		}
 	}
+	stats.has_bounced = true;
 }
 
 void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball_cand_vel) {
 
 	static const double net_y = dist_to_table - table_length/2.0;
-	if (ball_cand_vel(Y) < 0 && stats.hit && !stats.has_landed) { // outgoing ball
+	if (ball_cand_vel(Y) < 0 && stats.has_bounced && stats.hit && !stats.has_landed) { // outgoing ball
 		// checking for legal landing
 		if (ball_cand_pos(Y) < net_y) { // on the human side
 			stats.legal_land = true;
@@ -484,9 +484,9 @@ void TableTennis::check_legal_land(const vec3 & ball_cand_pos, const vec3 & ball
 	}
 }
 
-bool TableTennis::was_served() const {
+bool TableTennis::was_legally_served() const {
 
-    if (stats.hit)
+    if (stats.hit && stats.has_bounced && stats.legal_land)
         return true;
     else
         return false;

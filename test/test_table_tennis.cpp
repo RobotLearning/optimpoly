@@ -156,10 +156,8 @@ void count_land_mpc() {
         arma_rng::set_seed_random();
         //arma_rng::set_seed(0);
         double std_noise = 0.0001;
-        double std_model = 0.3;
         joint qact;
         vec3 obs;
-        EKF filter = init_ball_filter(std_model,std_noise);
         player_flags flags;
         flags.alg = algs[i];
         flags.mpc = true;
@@ -177,13 +175,16 @@ void count_land_mpc() {
             ball_launch_side = (randi(1,distr_param(0,2)).at(0));
             joint_init_pose = (randi(1,distr_param(0,2)).at(0));
             init_posture(qact.q,joint_init_pose,true);
-            robot = new Player(qact.q,filter,flags);
+            robot = new Player(qact.q,flags);
             tt.reset_stats();
             tt.set_ball_gun(0.05,ball_launch_side);
             //robot.reset_filter(std_model,std_noise);
             for (int i = 0; i < N; i++) { // one trial
                 obs = tt.get_ball_position() + std_noise * randn<vec>(3);
-                robot->play(qact, obs, qdes);
+                ball_obs obs_str;
+                obs_str.status = true;
+                obs_str.pos = obs;
+                robot->play(obs_str, qact, qdes);
                 //robot->cheat(qact, obs, qdes);
                 calc_racket_state(qdes,robot_racket);
                 tt.integrate_ball_state(robot_racket,DT);
@@ -230,12 +231,11 @@ void count_land() {
         joint qact;
         init_posture(qact.q,1,false);
         vec3 obs;
-        EKF filter = init_ball_filter(0.03,std_obs);
         player_flags flags;
         flags.verbosity = 0;
         flags.mpc = false;
         flags.alg = algs[n];
-        Player robot = Player(qact.q,filter,flags);
+        Player robot = Player(qact.q,flags);
         int N = 2000;
         joint qdes;
         qdes.q = qact.q;
@@ -243,7 +243,10 @@ void count_land() {
         mat Qdes = zeros<mat>(NDOF,N);
         for (int i = 0; i < N; i++) {
             obs = tt.get_ball_position() + std_obs * randn<vec>(3);
-            robot.play(qact, obs, qdes);
+            ball_obs obs_str;
+            obs_str.status = true;
+            obs_str.pos = obs;
+            robot.play(obs_str, qact, qdes);
             //robot.cheat(qact, tt.get_ball_state(), qdes);
             Qdes.col(i) = qdes.q;
             calc_racket_state(qdes,robot_racket);
@@ -345,11 +348,9 @@ void test_player_ekf_filter() {
 	vec3 obs;
 	vec err = zeros<vec>(N);
 	const double std_noise = 0.001;
-	const double std_model = 0.001;
 	TableTennis tt = TableTennis(false,true);
-	EKF filter = init_ball_filter(std_model,std_noise);
 	player_flags flags;
-	Player cp = Player(zeros<vec>(NDOF),filter,flags);
+	Player cp = Player(zeros<vec>(NDOF),flags);
 	tt.set_ball_gun(0.2);
 
 	for (int i = 0; i < N; i++) {

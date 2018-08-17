@@ -23,6 +23,7 @@
 #include "tabletennis.h"
 #include "optim.h"
 #include "lookup.h"
+#include "ball_interface.h"
 
 using namespace arma;
 using namespace optim;
@@ -38,14 +39,15 @@ Player::Player(const Player & player) : filter(player.filter),
     set_optim();
 }
 
-Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
-                   : filter(filter_), pflags(flags) {
+Player::Player(const vec7 & q0, player_flags & flags)
+                   : pflags(flags) {
 
 	ball_land_des(X) += pflags.ball_land_des_offset[X];
 	ball_land_des(Y) = dist_to_table - 3*table_length/4 + pflags.ball_land_des_offset[Y];
 	q_rest_des = q0;
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
+	filter = init_ball_filter(0.3,0.001,pflags.spin);
 	//load_lookup_table(lookup_table);
 	set_optim();
 
@@ -107,16 +109,18 @@ bool Player::filter_is_initialized() const {
 	return init_ball_state;
 }
 
-void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
+void Player::estimate_ball_state(const ball_obs & obs, const double & dt) {
 
 	using std::thread;
 	using std::ref;
 	int verb = pflags.verbosity;
-	bool newball = check_new_obs(obs,1e-3);
 	valid_obs = false;
 
-	if (check_reset_filter(newball,verb,pflags.t_reset_thresh)) {
-		filter = init_ball_filter(pflags.var_model,pflags.var_noise,pflags.spin,pflags.out_reject_mult);
+	if (check_reset_filter(obs.status,verb,pflags.t_reset_thresh)) {
+		filter = init_ball_filter(pflags.var_model,
+								  pflags.var_noise,
+								  pflags.spin,
+								  pflags.out_reject_mult);
 		num_obs = 0;
 		init_ball_state = false;
 		game_state = AWAITING;
@@ -124,15 +128,19 @@ void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
 		t_obs = 0.0; // t_cumulative
 	}
 
-	if (num_obs < pflags.min_obs && newball) {
+	if (num_obs < pflags.min_obs && obs.status) {
 		times(num_obs) = t_obs;
-		observations.col(num_obs) = obs;
+		observations.col(num_obs) = obs.pos;
 		num_obs++;
 		if (num_obs == pflags.min_obs) {
 			if (verb >= 1)
 				cout << "Estimating initial ball state\n";
-			thread t = thread(estimate_prior,ref(observations),ref(times),
-					          ref(pflags.verbosity),ref(init_ball_state),ref(filter));
+			thread t = thread(estimate_prior,
+							  ref(observations),
+							  ref(times),
+					          ref(pflags.verbosity),
+							  ref(init_ball_state),
+							  ref(filter));
 			if (pflags.detach)
 				t.detach();
 			else
@@ -144,13 +152,13 @@ void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
 	}
 	else if (init_ball_state) { // comes here if there are enough balls to start filter
 		filter.predict(dt,true); //true);
-		if (newball) {
+		if (obs.status) {
 			valid_obs = true;
 			if (pflags.outlier_detection)
-				valid_obs = !filter.check_outlier(obs,verb > 2);
+				valid_obs = !filter.check_outlier(obs.pos,verb > 2);
 		}
 		if (valid_obs) {
-			filter.update(obs);
+			filter.update(obs.pos);
 			//vec x = filter.get_mean();
 			//mat P = (filter.get_covar());
 			//cout << "OBS:" << obs.t() << "STATE:" << x.t() << "VAR:" << P.diag().t() << endl;
@@ -162,7 +170,10 @@ void Player::estimate_ball_state(const vec3 & obs, const double & dt) {
 
 vec6 Player::filt_ball_state(const vec3 & obs) {
 
-	estimate_ball_state(obs);
+	ball_obs obs_str;
+	obs_str.status = true;
+	obs_str.pos = obs;
+	estimate_ball_state(obs_str);
 	try {
 		return filter.get_mean();
 	}
@@ -171,11 +182,11 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 	}
 }
 
-void Player::play(const joint & qact,
-                  const vec3 & ball_obs,
+void Player::play(const ball_obs & obs,
+				  const joint & qact,
                   joint & qdes) {
 
-	estimate_ball_state(ball_obs,const_tt::DT);
+	estimate_ball_state(obs,const_tt::DT);
 
 	switch (pflags.alg) {
 		case FOCUS:
@@ -285,42 +296,34 @@ void Player::optim_dp_param(const joint & qact) {
 
 bool Player::check_update(const joint & qact) const {
 
-	static int firsttime = true;
-	static int counter;
-	static vec6 state_last = zeros<vec>(6);
 	static wall_clock timer;
 	vec6 state_est;
 	bool update = false;
 	racket robot_racket;
-	bool activate, passed_lim, incoming, feasible = false;
+	bool activate, passed_lim, feasible = false;
 
-	if (firsttime) {
+	if (!init_ball_state) {
 		timer.tic();
-		firsttime = false;
 	}
 
 	try {
 		state_est = filter.get_mean();
-		counter++;
 		feasible = (state_est(DY) > 0.5) &&
 				   (state_est(Y) > (dist_to_table - table_length + pflags.optim_offset));
 		update = !opt->check_update() && !opt->check_running();
+
 		// ball is incoming
 		if (pflags.mpc) {// && t_poly > 0.0) {
 			calc_racket_state(qact,robot_racket);
-			activate = (!pflags.detach) ? counter % 5 == 0 :
-					                        timer.toc() > (1.0/pflags.freq_mpc);
+			activate = timer.toc() > (1.0/pflags.freq_mpc);
 			passed_lim = state_est(Y) > robot_racket.pos(Y);
-			incoming = state_est(Y) > state_last(Y);
-			update = update && valid_obs && activate && feasible && !passed_lim && incoming;
+			update = update && valid_obs && activate && feasible && !passed_lim;
 		}
 		else {
 			update = update && (t_poly == 0.0) && feasible; // only once
 		}
-		state_last = state_est;
 		if (update) {
 			//cout << "Consider reacting to ball: " << state_est.t() << endl;
-			//cout << num_updates++ << endl;
 			timer.tic();
 		}
 	}

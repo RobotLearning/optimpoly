@@ -12,6 +12,8 @@
 
 #include "kalman.h"
 #include "optim.h"
+#include "ball_interface.h"
+#include <armadillo>
 
 using arma::vec;
 using arma::zeros;
@@ -81,7 +83,7 @@ class Player {
 private:
 
 	// data fields
-    EKF & filter; // filter for the ball estimation
+    EKF filter = init_ball_filter(0.3,0.001,false); // filter for the ball estimation
     player_flags pflags;
 	bool init_ball_state = false;
 	arma::vec2 ball_land_des = zeros<vec>(2); // desired landing position
@@ -113,7 +115,7 @@ private:
 	 * it is not an outlier!
 	 *
 	 */
-	void estimate_ball_state(const arma::vec3 & obs,
+	void estimate_ball_state(const ball_obs & obs,
 	                        const double & dt = const_tt::DT);
 
 	/**
@@ -175,7 +177,9 @@ private:
 	void calc_next_state(const optim::joint & qact, optim::joint & qdes);
 
 	/** @brief Start moving pre-optim based on lookup if lookup flag is turned ON. */
-	void lookup_soln(const arma::vec6 & ball_state, const int k, const optim::joint & qact);
+	void lookup_soln(const arma::vec6 & ball_state,
+					const int k,
+					const optim::joint & qact);
 
 public:
 
@@ -195,15 +199,12 @@ public:
 	 * @param flags Flags/options for player class, initialized with c++11 (see player.hpp)
 	 *              or through player.cfg file (see sl_interface)
 	 */
-	Player(const vec7 & q0, EKF & filter, player_flags & flags);
+	Player(const arma::vec7 & q0, player_flags & flags);
 
     /** @brief Assignment operator */
     Player & operator=(const Player & player);
 
-	/**
-	 * @brief Deconstructor for the Player class.
-	 * Frees the pointer to Optimization classes.
-	 */
+	/** @brief Deconstructor for Player. Frees pointer to Optimization classes. */
 	~Player();
 
 	/**
@@ -218,9 +219,7 @@ public:
 	 */
 	arma::vec6 filt_ball_state(const arma::vec3 & obs);
 
-	/**
-	 * @brief If filter is initialized returns true
-	 */
+	/** @brief If filter is initialized returns true */
 	bool filter_is_initialized() const ;
 
 	/**
@@ -242,12 +241,12 @@ public:
 	 * trajectory generation algorithms (depending on initialization) and
 	 * updates the desired joint states when the optimization threads have finished.
 	 *
+	 * @param ball_obs Ball observations (positions as 3-vector and update status).
 	 * @param qact Actual joint positions, velocities, accelerations.
-	 * @param ball_obs Ball observations (positions as 3-vector).
 	 * @param qdes Desired joint positions, velocities, accelerations.
 	 */
-	void play(const optim::joint & qact,
-	          const arma::vec3 & ball_obs,
+	void play(const ball_obs & obs,
+			  const optim::joint & qact,
 	          optim::joint & qdes);
 
 	/**

@@ -3,7 +3,13 @@
 
 #include <vector>
 #include <map>
-#include "sl_structs.h"
+#include <armadillo>
+
+/** @brief Vision ball info coming from SL (after calibration). */
+struct ball_obs {
+    bool status = false; //!< was ball detected reliably in cameras and is it new data?
+    arma::vec3 pos; //!< ball center cartesian positions from two cameras
+};
 
 /** @brief Listens continuously to ball info sent via ZMQ server. */
 class Listener {
@@ -28,7 +34,7 @@ public:
     void stop();
 
     /** @brief Fetch latest new ball data to blob structure */
-    void fetch(blob_state & blob);
+    void fetch(ball_obs & obs);
 
     /** @brief Returns number of observations saved, prints in debug mode*/
     int give_info();

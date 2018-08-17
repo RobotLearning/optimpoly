@@ -30,10 +30,4 @@ struct SL_Cstate {
     double xdd[const_tt::NCART+1];  /*!< Acceleration */
 };
 
-/** @brief Vision blob info coming from SL (after calibration). */
-struct blob_state {
-    int status = 0; //!< was ball detected reliably in cameras
-    double pos[const_tt::NCART] = {0.0,0.0,0.0}; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
-};
-
 #endif // SL_STRUCT_H

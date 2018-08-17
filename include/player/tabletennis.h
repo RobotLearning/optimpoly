@@ -34,7 +34,7 @@ struct racket {
 };
 
 /**
- * @brief Information about the status of the game
+ * @brief Information about the status of the game.
  *
  * This information is useful in SIMULATION. For instance
  * when we're running tests for performance of optimizers, these
@@ -45,6 +45,7 @@ struct status {
 	bool has_bounced = false; //!< the ball has bounced on robot court (without checking for legal bounce)
 	bool legal_bounce = false; //!< the ball has bounced only once on the robot court
 	bool has_landed = false; //!< the ball has landed on the other side (without checking for legal land)
+	bool legal_serve = false; //!< the ball was hit, landed first on robot court and then on opponent's court
 	bool legal_land = false; //!< ball has landed legally on the other side (bounced once only on robot court)
 	bool touched_ground = false; //!< the ball touched the ground level (vel. zeroed)
 };
@@ -89,10 +90,7 @@ private:
 	vec3 ball_vel = zeros<vec>(3);
 	vec3 ball_spin = zeros<vec>(3); // ball angular velocity = 0 if spin mode is turned OFF
 
-	/**
-	 * @brief Initialize constant angular velocity (a.k.a. spin)
-	 * for the spinning ball.
-	 */
+	/** @brief Initialize constant angular velocity (a.k.a. spin) for the spinning ball. */
 	void init_topspin(const double val = -50);
 
 	/**
@@ -286,7 +284,7 @@ public:
 	 *
 	 * TODO: should check for a bounce on robot court + bounce on opponent court
 	 */
-	bool was_served() const;
+	bool was_legally_served() const;
 
 	/** @brief Checks for contact with ground */
 	bool touched_ground() const;
@@ -300,7 +298,7 @@ public:
 
 	/**
 	 * @brief Load ball prediction and other SIM parameters from a CONFIG file
-	 * @param file_name_relative Relative file name (base is polyoptim)
+	 * @param file_name_relative Relative file name (base is table-tennis)
 	 *
 	 */
 	void load_params(const std::string & file_name_relative);

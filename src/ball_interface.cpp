@@ -67,16 +67,14 @@ void Listener::stop() {
     new_data = false;
 }
 
-void Listener::fetch(blob_state & blob) { // fetch the latest data
+void Listener::fetch(ball_obs & blob) { // fetch the latest data
 
     blob.status = false;
-    // if there is a latest data
+    // if there is a latest new data that was unread
     if (new_data) {
         blob.status = true;
-        std::vector<double> last_data = obs.rbegin()->second;
-        blob.pos[0] = last_data[0];
-        blob.pos[1] = last_data[1];
-        blob.pos[2] = last_data[2];
+        std::vector<double> latest_data = obs.rbegin()->second;
+        blob.pos = arma::conv_to<arma::colvec>::from(latest_data);
         new_data = false;
     }
 }

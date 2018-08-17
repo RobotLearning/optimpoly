@@ -80,6 +80,9 @@ static int init_grav_comp_task(void) {
 
 	get_int("Turn off PD? 0 = NO, 1 = YES.\n", 0, &turn_off_pd);
 
+	save_joint_data(joint_state,joint_des_state,0,1);
+	//save_ball_data("tcp://helbe:7660",0,1); //0 = NO DEBUG, 0 = NO RESET
+
 	/* ready to go */
 	ready = 999;
 	while (ready == 999) {
@@ -116,8 +119,8 @@ static int run_grav_comp_task(void) {
 	SL_InvDyn(joint_state, joint_des_state, endeff, &base_state, &base_orient );
 	//check_range( joint_des_state );
 
-	save_joint_data(joint_state,joint_des_state,0);
-	//save_ball_data("tcp://helbe:7660",0); //0 = NO DEBUG
+	save_joint_data(joint_state,joint_des_state,0,0);
+	//save_ball_data("tcp://helbe:7660",0,0); //0 = NO DEBUG, 0 = NO RESET
 
 	return TRUE;
 }

@@ -306,8 +306,7 @@ void test_outlier_detection() {
 	flags.var_model = 0.1;
 	flags.var_noise = 0.001;
 	flags.detach = true;
-	EKF filter = init_ball_filter(flags.var_model,flags.var_noise,predict_with_spin);
-	Player cp = Player(zeros<vec>(7),filter,flags);
+	Player cp = Player(zeros<vec>(7),flags);
 	for (unsigned i = 0; i < real_ball_data.n_rows; i++) {
 		status1 = real_ball_data(i,1);
 		blob1 = real_ball_data(i,span(2,4)).t();

@@ -212,7 +212,7 @@ void test_new_interface() {
         mes << jobs.dump();
         position_pub.send(mes);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
-        play_new(joint_state, joint_des_state);
+        play(joint_state, joint_des_state);
         for (int i = 0; i < NDOF; i++) {
             qdes.q(i) = joint_des_state[i+1].th;
             qdes.qd(i) = joint_des_state[i+1].thd;

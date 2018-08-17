@@ -594,6 +594,8 @@ legal lands.
 *** TODO Run code in PONG
 *** TODO Check for tracking errors
 Saving some of the movements to a file will help.
+*** TODO Test with cheat function
+This way we can check for the effect ball estimation is having
 ** IN-PROGRESS Add unit tests for two robots playing
 *** TODO Add graphics
 **** TODO Copy graphics from SL
@@ -604,7 +606,6 @@ Now the install script takes the test,debug and build flags.
 
 --test: make and install the tests and run them
 --debug: make but not install in debug mode
---build: if equal to robot copy the robot cmake scripts
 
 If make does not pass, tests are not run.
 ***** DONE Add argument for testing
@@ -620,6 +621,8 @@ paths correctly in the bashrc script.
 
 Using ${Boost_XXX} instead of boost_xxx in cmake when compiling
 library helped.
+
+No need from now on for the --build flag.
 **** IN-PROGRESS Build debug mode as well
 The install script does not 'make install' if called in debug mode: -d
 

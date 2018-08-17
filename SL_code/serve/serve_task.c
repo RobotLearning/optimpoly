@@ -91,7 +91,7 @@ static int init_serve_task(void) {
 static int run_serve_task(void) {
 
     // serve ball with a feed-forward DMP policy
-	serve_ball(joint_state,joint_des_state,&opt);
+	serve_ball(joint_state,joint_des_state);
 
 	// compute torques based on inverse dynamics
 	compute_torques();
