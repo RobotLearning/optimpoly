@@ -4,13 +4,9 @@
 #include <thread>
 
 using json = nlohmann::json;
-using std::cout;
 using std::endl;
 
 static arma::mat json2mat(const json & jobj);
-static std::map<unsigned, mat34> load_calib_mats(const std::string & json_file);
-static ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
-							const std::vector<pixels> & obs_2d);
 
 void Listener::listen3d() {
 
@@ -22,7 +18,7 @@ void Listener::listen3d() {
     socket.connect(url);
 
     if (debug)
-        cout << "Starting listening to 3D ball pos..." << endl;
+        stream_balls << "Starting listening to 3D ball pos..." << endl;
 
     while (active) {
         zmqpp::message msg;
@@ -42,7 +38,7 @@ void Listener::listen3d() {
                         std::to_string(obs_3d[0]) + " " +
                         std::to_string(obs_3d[1]) + " " +
                         std::to_string(obs_3d[2]) + "]";
-                cout << "Received item " << ball << " at time: " << time << endl;
+                stream_balls << "Received item " << ball << " at time: " << time << endl;
             }
             // keep size to a max
             if (obs3d.size() > max_obs_saved) {
@@ -51,12 +47,12 @@ void Listener::listen3d() {
         }
         catch (const std::exception & ex) {
             if (debug) {
-                cout << "No ball detected..." << ex.what() << endl;
+                stream_balls << "No ball detected..." << ex.what() << endl;
             }
         }
     }
     if (debug)
-        cout << "Finished listening..." << endl;
+        stream_balls << "Finished listening..." << endl;
 }
 
 void Listener::listen2d() {
@@ -69,7 +65,7 @@ void Listener::listen2d() {
     socket.connect(url);
 
     if (debug)
-        cout << "Starting listening to 2D pixel data..." << endl;
+        stream_balls << "Starting listening to 2D pixel data..." << endl;
 
     while (active) {
         zmqpp::message msg;
@@ -83,6 +79,7 @@ void Listener::listen2d() {
 
             if (!jobs.at("obs").is_null()) {
             	pixels x;
+            	x.time_stamp = time;
             	x.cam_id = jobs.at("cam_id");
             	json jx = jobs.at("obs");
             	x.vals[0] = jx[0];
@@ -92,7 +89,9 @@ void Listener::listen2d() {
             		std::string ball = "[" +
             				std::to_string(x.vals[0]) + " " +
 							std::to_string(x.vals[1]) + "]";
-            		cout << "Num: " << num << ". Received pixels" << ball << " for cam: " << x.cam_id << endl;
+            		stream_balls << "Num: " << num <<
+            				". Received pixels" << ball <<
+							" for cam: " << x.cam_id << endl;
             	}
             }
             // keep size to a max
@@ -102,64 +101,83 @@ void Listener::listen2d() {
         }
         catch (const std::exception & ex) {
             if (debug) {
-                cout << "No pixels received..." << ex.what() << endl;
+                stream_balls << "No pixels received..." << ex.what() << endl;
             }
         }
     }
     if (debug)
-        cout << "Finished listening..." << endl;
+        stream_balls << "Finished listening..." << endl;
 }
 
 void Listener::convert_to_3d() {
 
-	for (auto iter = obs2d.rbegin(); iter != obs2d.rend(); ++iter) {
-		if (iter->second.size() >= 2) {
-			unsigned num = iter->first;
-			if (debug)
-				cout << "Triangulating num: " << num<< endl;
+    if (debug)
+        stream_balls << "Starting triangulating from 2D pixels to 3D pos..." << endl;
 
-			// triangulate by solving svd
-            ball_pos obs_3d = triangulate(calib_mats, iter->second);
-            obs3d[num] = obs_3d;
-            new_data = true;
-            if (debug) {
-                std::string ball = "[" +
-                        std::to_string(obs_3d[0]) + " " +
-                        std::to_string(obs_3d[1]) + " " +
-                        std::to_string(obs_3d[2]) + "]";
-                cout << "Received item " << ball << " at time: " << time << endl;
-            }
-            // keep size to a max
-            if (obs3d.size() > max_obs_saved) {
-                obs3d.erase(obs3d.begin());
-            }
+    while (active) {
+		for (auto iter = obs2d.cbegin(); iter != obs2d.cend(); /* no increment */) {
+			if (iter->second.size() >= 2) {
+				unsigned num = iter->first;
+				if (debug)
+					stream_balls << "Triangulating num: " << num << endl;
+
+				// triangulate by solving svd
+				ball_pos obs_3d = triangulate(calib_mats, iter->second);
+				obs2d.erase(iter++);
+				obs3d[num] = obs_3d;
+				new_data = true;
+				if (debug) {
+					std::string ball = "[" +
+							std::to_string(obs_3d[0]) + " " +
+							std::to_string(obs_3d[1]) + " " +
+							std::to_string(obs_3d[2]) + "]";
+					stream_balls << "Received item " << ball << " at num: " << num << endl;
+				}
+				// keep size to a max
+				if (obs3d.size() > max_obs_saved) {
+					obs3d.erase(obs3d.begin());
+				}
+			}
+			else {
+				++iter;
+			}
 		}
-	}
+    }
 }
 
 Listener::Listener(const std::string & url_,
 					const bool run_2d,
 					const bool debug_) : url(url_), debug(debug_) {
     using std::thread;
+    std::string home = std::getenv("HOME");
+    std::string debug_file = home + "/table-tennis/debug_listener.txt";
+    stream_balls.open(debug_file, std::ofstream::out);
     active = true;
     if (run_2d) {
-    	calib_mats = load_calib_mats("json/server_3d_conf_ping_okan.json");
+    	//stream_balls << "Launching 2D listener...\n";
+    	calib_mats = load_proj_mats("server_3d_conf_ping_okan.json");
         thread t = thread(&Listener::listen2d,this);
         t.detach();
         thread t2 = thread(&Listener::convert_to_3d,this);
         t2.detach();
     }
     else {
+    	//stream_balls << "Launching 3D listener...\n";
         thread t = thread(&Listener::listen3d,this);
         t.detach();
     }
+}
 
-    //t.join();
+Listener::~Listener() {
+	stream_balls.close();
 }
 
 void Listener::stop() {
     active = false;
     new_data = false;
+    stream_balls.close();
+    obs2d.clear();
+    obs3d.clear();
 }
 
 void Listener::fetch(ball_obs & blob) { // fetch the latest data
@@ -175,29 +193,29 @@ void Listener::fetch(ball_obs & blob) { // fetch the latest data
 
 int Listener::give_info() {
 
-    using std::cout;
-
     if (debug) {
-        cout << "Printing data...\n";
-        cout << "==================================\n";
-        cout << "Time \t obs[x] \t obs[y] \t obs[z]\n";
-        for (std::pair<const double, std::vector<double>> element : obs3d) {
-            cout << element.first << " \t"
-                 << element.second << endl;
+        stream_balls << "Printing data...\n";
+        stream_balls << "==================================\n";
+        stream_balls << "Time \t obs[x] \t obs[y] \t obs[z]\n";
+        for (std::pair<const double, ball_pos> element : obs3d) {
+            stream_balls << element.first << " \t"
+            			 << element.second.t();
         }
     }
     return obs3d.size();
 }
 
 /**
- * @brief Load calibration matrices from json file
+ * @brief Load projection matrices from json file
  */
-static std::map<unsigned, mat34> load_calib_mats(const std::string & json_file =
-												"json/server_3d_conf_ping.json") {
+std::map<unsigned, mat34> load_proj_mats(const std::string & json_file =
+												"server_3d_conf_ping.json") {
 
 	using namespace arma;
 	std::map<unsigned,mat34> calib_mats;
-    std::ifstream stream(json_file);
+    std::string home = std::getenv("HOME");
+    std::string file_path = home + "/table-tennis/json/" + json_file;
+    std::ifstream stream(file_path);
     json jobs;
     stream >> jobs;
     json jcalib = jobs["stereo"]["calib"];
@@ -225,44 +243,59 @@ static arma::mat json2mat(const json & jobj) {
 }
 
 /**
- * Triangulate cameras 0 and 1
- * TODO:
+ * Triangulate cameras 0 and 1, or cameras 2 and 3
  */
-static ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
+ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 							const std::vector<pixels> & obs_2d) {
 
+	int NUM_CAMS = calib_mats.size();
+	int NUM_PAIRS = NUM_CAMS/2;
 	using namespace arma;
-	ball_pos pos3d;
-	mat34 P0, P1;
-	bool zero_found, one_found = false;
-	double pixels0[2], pixels1[2];
+	ball_pos pos3d = zeros<vec>(3);
+	double pixels[NUM_CAMS][2];
+	bool found[NUM_CAMS] = {false};
+
 	for (auto p : obs_2d) {
-		if (p.cam_id == 0) {
-			P0 = calib_mats[0];
-			pixels0[0] = p.vals[0];
-			pixels0[1] = p.vals[1];
-			zero_found = true;
-		}
-		else if (p.cam_id == 1) {
-			P1 = calib_mats[1];
-			pixels1[0] = p.vals[0];
-			pixels1[1] = p.vals[1];
-			one_found = true;
-		}
+		unsigned int idx = p.cam_id;
+		pixels[idx][0] = p.vals[0];
+		pixels[idx][1] = p.vals[1];
+		found[idx] = true;
 	}
-	if (zero_found && one_found) {
-		mat44 A;
-		A.row(0) = pixels0[0]*P0.row(2) - P0.row(0);
-		A.row(1) = pixels0[1]*P0.row(2) - P0.row(1);
-		A.row(2) = pixels1[0]*P1.row(2) - P1.row(0);
-		A.row(3) = pixels1[1]*P1.row(2) - P1.row(1);
-		mat U;
-		vec s;
-		mat V;
-		svd(U,s,V,A);
-		vec4 pos4d = V.tail_cols(0);
-		pos3d = pos4d.head(3);
-		pos3d /= pos4d(3);
+
+	for (int i = 0; i < NUM_PAIRS; i++) {
+		if (found[2*i] && found[2*i+1]) {
+			mat P1 = calib_mats.at(2*i);
+			mat P2 = calib_mats.at(2*i+1);
+
+			// METHOD ONE: Ax = 0
+			/*
+			mat44 A = zeros<mat>(4,4);
+			A.row(0) = pixels[2*i][0]*P1.row(2) - P1.row(0);
+			A.row(1) = pixels[2*i][1]*P1.row(2) - P1.row(1);
+			A.row(2) = pixels[2*i+1][0]*P2.row(2) - P2.row(0);
+			A.row(3) = pixels[2*i+1][1]*P2.row(2) - P2.row(1);
+
+			mat44 U = zeros<mat>(4,4);
+			vec4 s = zeros<vec>(4);
+			mat44 V = zeros<mat>(4,4);
+			svd(U,s,V,A);
+			vec4 pos4d = V.tail_cols(1);
+			pos3d = pos4d.head(3);
+			pos3d /= pos4d(3);
+			*/
+
+			// METHOD TWO: invert P1 and P2
+			mat44 P = join_vert(P1.rows(0,1),P2.rows(0,1));
+			vec4 v_pixels = zeros<vec>(4);
+			v_pixels(0) = pixels[2*i][0];
+			v_pixels(1) = pixels[2*i][1];
+			v_pixels(2) = pixels[2*i+1][0];
+			v_pixels(3) = pixels[2*i+1][1];
+			vec4 pos4d = solve(P,v_pixels);
+			pos3d = pos4d.head(3);
+
+			break;
+		}
 	}
 	return pos3d;
 }

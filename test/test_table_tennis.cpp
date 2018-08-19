@@ -66,7 +66,9 @@ void count_land_mpc();
 // interface tests
 void test_zmqpp();
 void test_zmq_listener();
-void test_new_interface();
+void test_3D_interface();
+void test_triangulate();
+void test_2D_interface();
 
 // serve tests
 void test_evolve_dmp();
@@ -113,9 +115,11 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts_tt->add(BOOST_TEST_CASE(&count_land_mpc));
 
     test_suite* ts_sl = BOOST_TEST_SUITE("SL");
-    ts_sl->add(BOOST_TEST_CASE(&test_zmqpp));
+    /*ts_sl->add(BOOST_TEST_CASE(&test_zmqpp));
     ts_sl->add(BOOST_TEST_CASE(&test_zmq_listener));
-    ts_sl->add(BOOST_TEST_CASE(&test_new_interface));
+    ts_sl->add(BOOST_TEST_CASE(&test_3D_interface));*/
+    ts_sl->add(BOOST_TEST_CASE(&test_2D_interface));
+    ts_sl->add(BOOST_TEST_CASE(&test_triangulate));
 
     test_suite* ts_serve = BOOST_TEST_SUITE("SERVE");
     ts_serve->add(BOOST_TEST_CASE(&test_evolve_dmp));

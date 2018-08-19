@@ -9,6 +9,7 @@
 #define INCLUDE_SERVE_H_
 
 #include "ball_interface.h"
+#include "dmp.h"
 
 namespace serve {
 

@@ -60,7 +60,7 @@ void set_player_algorithm(const int alg_num) {
 	}
 }
 
-void load_player_options() {
+void* load_player_options() {
 
 	namespace po = boost::program_options;
 	using namespace std;
@@ -131,6 +131,7 @@ void load_player_options() {
     }
     set_player_algorithm(alg_num);
     pflags.detach = true; // always detached in SL/REAL ROBOT!
+    return reinterpret_cast<void*>(&pflags);
 }
 
 
@@ -142,7 +143,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
     // acquire ball info from ZMQ server
     // if new ball add status true else false
     // call play function
-    static Listener listener(pflags.zmq_url,pflags.listen_2d,pflags.debug_vision);
+    static Listener* listener;
 
     // since old code support multiple blobs
     static ball_obs blob;
@@ -151,12 +152,11 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static optim::joint qdes;
 	static Player *robot = nullptr;
 
-    // update ball info
-    listener.fetch(blob);
-
 	if (pflags.reset) {
-		listener.stop();
-		listener = Listener(pflags.zmq_url,pflags.listen_2d,pflags.debug_vision);
+		delete listener;
+		listener = new Listener(pflags.zmq_url,
+								pflags.listen_2d,
+								pflags.debug_vision);
 		for (int i = 0; i < NDOF; i++) {
 			qdes.q(i) = q0(i) = joint_state[i+1].th;
 			qdes.qd(i) = 0.0;
@@ -167,6 +167,9 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		pflags.reset = false;
 	}
 	else {
+	    // update ball info
+	    listener->fetch(blob);
+
 		for (int i = 0; i < NDOF; i++) {
 			qact.q(i) = joint_state[i+1].th;
 			qact.qd(i) = joint_state[i+1].thd;
@@ -265,15 +268,15 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 void save_ball_data(const char* url_string, const int listen_2d, const int debug_vision, const int reset) {
 
 	using namespace std::chrono;
-    static Listener listener(url_string,listen_2d,(bool)debug_vision);
+    static Listener* listener;
     static ball_obs obs;
     static std::ofstream stream_balls;
     static std::string home = std::getenv("HOME");
     static std::string ball_file = home + "/table-tennis/balls.txt";
 
     if (reset) {
-    	listener.stop();
-    	listener = Listener(url_string,listen_2d,(bool)debug_vision);
+    	delete listener;
+    	listener = new Listener(url_string,listen_2d,(bool)debug_vision);
     	stream_balls.close();
     	stream_balls.open(ball_file, std::ofstream::out);
     }
@@ -281,7 +284,7 @@ void save_ball_data(const char* url_string, const int listen_2d, const int debug
     	milliseconds ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
     	double time = ms.count();
         // update blobs structure with new ball data
-        listener.fetch(obs);
+        listener->fetch(obs);
         if (obs.status) {
             if (stream_balls.is_open()) {
                 stream_balls << std::fixed << time << obs.pos.t();
@@ -290,7 +293,7 @@ void save_ball_data(const char* url_string, const int listen_2d, const int debug
     }
 }
 
-void load_serve_options(double custom_pose[], serve_task_options *options) {
+void* load_serve_options(double custom_pose[], serve_task_options *options) {
 
     namespace po = boost::program_options;
     using std::string;
@@ -354,13 +357,13 @@ void load_serve_options(double custom_pose[], serve_task_options *options) {
         custom_pose[i] = pose(i);
     }
     sflags.reset = true;
-
+    return reinterpret_cast<void*>(&sflags);
 }
 
 void serve_ball(const SL_Jstate joint_state[],
                  SL_DJstate joint_des_state[]) {
 
-    static Listener listener(sflags.zmq_url,sflags.listen_2d,sflags.debug_vision);
+    static Listener* listener;
     static ball_obs blob;
     using dmps = Joint_DMPs;
     static dmps multi_dmp;
@@ -368,12 +371,11 @@ void serve_ball(const SL_Jstate joint_state[],
     static optim::joint qdes;
     static ServeBall *robot = nullptr; // class for serving ball
 
-    // update blobs structure with new ball data
-    listener.fetch(blob);
-
     if (sflags.reset) {
-    	listener.stop();
-    	listener = Listener(sflags.zmq_url,sflags.listen_2d,sflags.debug_vision);
+    	delete listener;
+    	listener = new Listener(sflags.zmq_url,
+    							sflags.listen_2d,
+								sflags.debug_vision);
         std::string home = std::getenv("HOME");
         std::string file = home + "/table-tennis/json/" + sflags.json_file;
         multi_dmp = dmps(file);
@@ -395,6 +397,8 @@ void serve_ball(const SL_Jstate joint_state[],
         sflags.reset = false;
     }
     else {
+        // update blobs structure with new ball data
+        listener->fetch(blob);
         for (int i = 0; i < NDOF; i++) {
             qact.q(i) = joint_state[i+1].th;
             qact.qd(i) = joint_state[i+1].thd;

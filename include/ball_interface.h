@@ -24,9 +24,10 @@ struct ball_obs {
 class Listener {
 
 private:
-    const std::string url; //!< TCP connection to computer and port
+	std::ofstream stream_balls; //!< stream for outputting debug info
+    std::string url; //!< TCP connection to computer and port
     std::map<unsigned, mat34> calib_mats; //!< Calibration matrices loaded from json file
-    std::map<unsigned, std::vector<pixels>> obs2d; //!< map with frame as key and pixels as
+    std::map<unsigned, std::vector<pixels>, std::greater<unsigned>> obs2d; //!< map with frame as key and pixels as
     std::map<unsigned, ball_pos> obs3d; //!< frame id as key and 3d vec as obs
 
     unsigned int max_obs_saved = 1000; //!< limit of observation map
@@ -52,6 +53,7 @@ public:
     Listener(const std::string & url = "tcp://helbe:7650",
     		 bool run_2d = true,
 			 bool debug_ = false);
+    ~Listener();
 
     /** @brief Stop listening. */
     void stop();
@@ -63,5 +65,9 @@ public:
     int give_info();
 };
 
+std::map<unsigned, mat34> load_proj_mats(const std::string & json_file);
 
+/** @brief Triangulate from two 2d pixels to one 3d ball position. */
+ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
+							const std::vector<pixels> & obs_2d);
 #endif //BALL_INTERF_H

@@ -13,8 +13,7 @@
 #ifdef __cplusplus
 
 #include "sl_structs.h"
-#include "kalman.h"
-// nothing here!
+// nothing here
 
 #endif
 
@@ -56,7 +55,7 @@ extern void cheat(const SL_Jstate joint_state[],
  * the play() function will use it to initialize the Player class.
  *
  */
-extern void load_player_options();
+extern void* load_player_options();
 
 /**
  * @brief Called from SL, save joint data to a file. If save_qdes is true, then save also the desired joints.
@@ -80,7 +79,7 @@ typedef struct {
 } serve_task_options;
 
 /** \brief Set options for the serve, i.e. ServeBall class */
-extern void load_serve_options(double custom_pose[], serve_task_options *opt);
+extern void* load_serve_options(double custom_pose[], serve_task_options *opt);
 
 /** \brief Serve with learned DMPs */
 extern void serve_ball(const SL_Jstate joint_state[],

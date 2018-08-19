@@ -1,3 +1,11 @@
+/*
+ * DMP phase and discrete DMP for one degree of freedom are included here.
+ * Joint_DMPs is a class that contains multiple DMPs.
+ */
+
+#ifndef INCLUDE_DMP_H_
+#define INCLUDE_DMP_H_
+
 #include <armadillo>
 #include "constants.h"
 #include "optim.h"
@@ -133,3 +141,5 @@ public:
 };
 
 }
+
+#endif // INCLUDE_DMP_H_
