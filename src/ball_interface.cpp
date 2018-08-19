@@ -248,8 +248,8 @@ static arma::mat json2mat(const json & jobj) {
 ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 							const std::vector<pixels> & obs_2d) {
 
-	int NUM_CAMS = calib_mats.size();
-	int NUM_PAIRS = NUM_CAMS/2;
+	const int NUM_CAMS = 4; //calib_mats.size();
+	const int NUM_PAIRS = NUM_CAMS/2;
 	using namespace arma;
 	ball_pos pos3d = zeros<vec>(3);
 	double pixels[NUM_CAMS][2];
@@ -267,8 +267,12 @@ ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 			mat P1 = calib_mats.at(2*i);
 			mat P2 = calib_mats.at(2*i+1);
 
+			// make sure mats are normalized
+			/*P1 /= P1(2,3);
+			P2 /= P2(2,3);*/
+
 			// METHOD ONE: Ax = 0
-			/*
+
 			mat44 A = zeros<mat>(4,4);
 			A.row(0) = pixels[2*i][0]*P1.row(2) - P1.row(0);
 			A.row(1) = pixels[2*i][1]*P1.row(2) - P1.row(1);
@@ -282,9 +286,10 @@ ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 			vec4 pos4d = V.tail_cols(1);
 			pos3d = pos4d.head(3);
 			pos3d /= pos4d(3);
-			*/
+
 
 			// METHOD TWO: invert P1 and P2
+			/*
 			mat44 P = join_vert(P1.rows(0,1),P2.rows(0,1));
 			vec4 v_pixels = zeros<vec>(4);
 			v_pixels(0) = pixels[2*i][0];
@@ -293,7 +298,8 @@ ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 			v_pixels(3) = pixels[2*i+1][1];
 			vec4 pos4d = solve(P,v_pixels);
 			pos3d = pos4d.head(3);
-
+			pos3d /= pos4d(3); // normalize
+            */
 			break;
 		}
 	}

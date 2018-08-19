@@ -21,6 +21,9 @@ static void turn_off_fb();
 static void turn_on_fb();
 
 SL_DJstate init_joint_state[N_DOFS+1];
+int listen_2D = 0;
+int listen_debug = 0;
+char* listen_url = "tcp://helbe:7660";
 
 /*
  * Adds the task to the task menu
@@ -79,9 +82,14 @@ static int init_grav_comp_task(void) {
 		return FALSE;
 
 	get_int("Turn off PD? 0 = NO, 1 = YES.\n", 0, &turn_off_pd);
+	get_int("Listen in 2D mode? 0 = NO, 1= YES.\n", 0, &listen_2D);
+	get_int("Listen in debug mode? 0 = NO, 1 = YES.\n", 0, &listen_debug);
+
+	if (listen_2D)
+	    listen_url = "tcp://helbe:7650";
 
 	save_joint_data(joint_state,joint_des_state,0,1);
-	//save_ball_data("tcp://helbe:7660",0,1,1); //0 = NO DEBUG, 0 = NO RESET
+	save_ball_data(listen_url,listen_2D,listen_debug,1); //0 = NO DEBUG, 0 = NO RESET
 
 	/* ready to go */
 	ready = 999;
@@ -119,8 +127,8 @@ static int run_grav_comp_task(void) {
 	SL_InvDyn(joint_state, joint_des_state, endeff, &base_state, &base_orient );
 	//check_range( joint_des_state );
 
-	save_joint_data(joint_state,joint_des_state,0,0);
-	//save_ball_data("tcp://helbe:7660",0,1,0); //0 = NO DEBUG, 0 = NO RESET
+	save_joint_data(joint_state,joint_des_state,0,0); // last 0 = NO RESET
+	save_ball_data(listen_url,listen_2D,listen_debug,0); //0 = NO RESET
 
 	return TRUE;
 }

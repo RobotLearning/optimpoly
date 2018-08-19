@@ -265,7 +265,10 @@ void save_joint_data(const SL_Jstate joint_state[NDOF+1],
     }
 }
 
-void save_ball_data(const char* url_string, const int listen_2d, const int debug_vision, const int reset) {
+void save_ball_data(const char* url_string,
+                     const int listen_2d,
+                     const int debug_vision,
+                     const int reset) {
 
 	using namespace std::chrono;
     static Listener* listener;

@@ -330,6 +330,7 @@ void test_2D_interface() {
         }
     }
     BOOST_TEST(tt.has_legally_landed());
+    // to pass requires the second triangulation method, i.e. inv. of P1 and P2 1-2 columns stacked
 }
 
 void test_triangulate() {
@@ -369,4 +370,5 @@ void test_triangulate() {
     /*cout << "balls: \n" << balls;
     cout << "pred balls: \n" << balls_pred;*/
     BOOST_TEST(approx_equal(balls, balls_pred,"absdiff", 0.001));
+    // to pass requires the second triangulation method, i.e. inv. of P1 and P2 1-2 columns stacked
 }

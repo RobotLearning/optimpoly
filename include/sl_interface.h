@@ -83,8 +83,7 @@ extern void* load_serve_options(double custom_pose[], serve_task_options *opt);
 
 /** \brief Serve with learned DMPs */
 extern void serve_ball(const SL_Jstate joint_state[],
-                     SL_DJstate joint_des_state[],
-                     serve_task_options *opt);
+                     SL_DJstate joint_des_state[]);
 
 
 #ifdef __cplusplus
