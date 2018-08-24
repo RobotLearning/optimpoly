@@ -14,7 +14,7 @@ sys.path.append("python/")
 import barrett_wam_kinematics as wam
 import racket_calc as racket
 
-read_arguments = False
+read_arguments = True
 
 if read_arguments:
 
