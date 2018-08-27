@@ -14,65 +14,35 @@ sys.path.append("python/")
 import barrett_wam_kinematics as wam
 import racket_calc as racket
 
-read_arguments = True
 
-if read_arguments:
+def load_files(args):
 
-    parser = argparse.ArgumentParser(
-        description='Load saved joint and ball data from demonstrations. Process it and plot.')
-    parser.add_argument('--joint_file', help='joint file')
-    parser.add_argument('--ball_file', help='ball file')
-    parser.add_argument(
-        '--num_examples', help='number of demonstrations', type=int)
-    parser.add_argument(
-        '--plot_example', help='plot a specific example', type=int)
-    parser.add_argument(
-        '--smooth', help='smoothing factor of splines while plotting')
-    parser.add_argument(
-        '--align_with_ball', help='align racket with ball by a transformation')
+    joint_file = args.joint_file  # './data/10.6.18/joints.txt'
+    ball_file = args.ball_file
+    M = np.fromfile(joint_file, sep=" ")
+    ndof = 7
+    N = M.size/(ndof+1)
+    M = np.reshape(M, [N, ndof+1])
+    q = M[:, 1:]
+    t_joints = M[:, 0]
+    t_joints = 0.001 * t_joints  # in miliseconds
 
-    args = parser.parse_args()
-    assert (args.plot_example <
-            args.num_examples), "example to plot must be less than num of examples"
-else:
-    class MyArgs:
-        joint_file = os.environ['HOME'] + \
-            '/table-tennis/data/19.8.18/joints.txt'
-        ball_file = os.environ['HOME'] + \
-            '/table-tennis/data/19.8.18/balls.txt'
-        num_examples = 4
-        plot_example = 1
-        smooth = 0.01
-        align_with_ball = False
+    t_min = t_joints[0]
+    if args.ball_file:
+        B = np.fromfile(ball_file, sep=" ")
+        N_balls = B.size/4
+        B = np.reshape(B, [N_balls, 4])
+        balls = B[:, 1:]
+        # remove the zeros
+        idx_nonzero = np.where(np.sum(balls, axis=1))[0]
+        balls = balls[idx_nonzero, :]
+        t_balls = B[idx_nonzero, 0]
+        t_balls = 0.001 * t_balls
+        t_min = min(t_min, t_balls[0])
+        t_balls = t_balls - t_min
+        t_joints = t_joints - t_min
+    return t_joints, t_balls, q, balls
 
-    args = MyArgs()
-
-joint_file = args.joint_file  # './data/10.6.18/joints.txt'
-ball_file = args.ball_file
-num_examples = args.num_examples  # 21  # first dataset = 20, second = 21
-M = np.fromfile(joint_file, sep=" ")
-ndof = 7
-dt = 0.002
-N = M.size/(ndof+1)
-M = np.reshape(M, [N, ndof+1])
-q = M[:, 1:]
-t_joints = M[:, 0]
-t_joints = 0.001 * t_joints  # in miliseconds
-
-t_min = t_joints[0]
-if args.ball_file:
-    B = np.fromfile(ball_file, sep=" ")
-    N_balls = B.size/4
-    B = np.reshape(B, [N_balls, 4])
-    balls = B[:, 1:]
-    # remove the zeros
-    idx_nonzero = np.where(np.sum(balls, axis=1))[0]
-    balls = balls[idx_nonzero, :]
-    t_balls = B[idx_nonzero, 0]
-    t_balls = 0.001 * t_balls
-    t_min = min(t_min, t_balls[0])
-    t_balls = t_balls - t_min
-    t_joints = t_joints - t_min
 
 '''
 # quick plotting for ball
@@ -138,7 +108,7 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
 
     idx_movements = joint_dict['idx_move']
     q = joint_dict['x']
-    t = joint_dict['t']
+    t_joints = joint_dict['t']
     num_examples = examples.size
     for i in range(num_examples):
         f, axs = plt.subplots(7, 1, sharex=False)
@@ -148,7 +118,7 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
             stop=idx_movements[1, examples[i]]+1, step=1, dtype=np.int32)
         # print idx_plot
         q_plot = q[idx_plot, :]
-        t_plot = t[idx_plot]
+        t_plot = t_joints[idx_plot]
         for j in range(7):
             spl = UnivariateSpline(
                 t_plot, q_plot[:, j], w=None, k=3, s=smooth_fact)
@@ -211,33 +181,90 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
         plt.show()
 
 
-idx_joint_move = detect_movements(q, num_examples, dt)
-joint_dict = {'t': t_joints, 'x': q, 'idx_move': idx_joint_move}
+def run_serve_demo(args):
+    ''' Process one serve demonstration. Main entrance point to plot_movement.
 
-# remove last
-idx_joint_move = idx_joint_move[:, :-1]
-num_examples = num_examples-1
+    Also plots the data if there is a demand.
+    '''
 
-# for each movement
-# get the balls between t_joints
-if args.ball_file:
-    idx_ball_move = np.zeros((2, num_examples))
-    for i in range(num_examples):
-        idx_ball_move[0, i] = np.where(
-            t_balls > t_joints[idx_joint_move[0, i]])[0][0]
-        idx_ball_move[1, i] = np.where(
-            t_balls < t_joints[idx_joint_move[1, i]])[0][-1]
-    ball_dict = {'t': t_balls, 'x': balls, 'idx_move': idx_ball_move}
-else:
-    ball_dict = None
+    t_joints, t_balls, q, balls = load_files(args)
+    idx_joint_move = detect_movements(q, args.num_examples, dt=0.002)
+    num_examples = idx_joint_move.shape[1]
+    joint_dict = {'t': t_joints, 'x': q, 'idx_move': idx_joint_move}
 
-if args.smooth:
-    smooth = args.smooth
-else:
-    smooth = 0.01
+    idx_joint_move = idx_joint_move[:, :-args.remove_last]
+    num_examples = num_examples-args.remove_last
 
-# examples = np.array([8])
-if args.plot_example is not None:
-    examples = np.array([args.plot_example])
-    plot_examples(examples, joint_dict, ball_dict,
-                  smooth_fact=smooth, align=args.align_with_ball)
+    # for each movement
+    # get the balls between t_joints
+    if args.ball_file:
+        idx_ball_move = np.zeros((2, num_examples))
+        for i in range(num_examples):
+            idx_ball_move[0, i] = np.where(
+                t_balls > t_joints[idx_joint_move[0, i]])[0][0]
+            idx_ball_move[1, i] = np.where(
+                t_balls < t_joints[idx_joint_move[1, i]])[0][-1]
+        ball_dict = {'t': t_balls, 'x': balls, 'idx_move': idx_ball_move}
+    else:
+        ball_dict = None
+
+    if args.smooth:
+        smooth = args.smooth
+    else:
+        smooth = 0.01
+
+    # examples = np.array([8])
+    if args.plot_example is not None:
+        examples = np.array([args.plot_example])
+        plot_examples(examples, joint_dict, ball_dict,
+                      smooth_fact=smooth, align=args.align_with_ball)
+
+
+def process_args(read_arguments):
+    ''' 
+    Process input arguments if read_arguments = True
+    else create default args
+    '''
+
+    if read_arguments:
+
+        parser = argparse.ArgumentParser(
+            description='Load saved joint and ball data from demonstrations. Process it and plot.')
+        parser.add_argument('--joint_file', help='joint file')
+        parser.add_argument('--ball_file', help='ball file')
+        parser.add_argument(
+            '--num_examples', help='number of demonstrations', type=int)
+        parser.add_argument(
+            '--plot_example', help='plot a specific example', type=int)
+        parser.add_argument(
+            '--smooth', help='smoothing factor of splines while plotting')
+        parser.add_argument(
+            '--align_with_ball', help='align racket with ball by a transformation')
+        parser.add_argument(
+            '--remove_last', help='remove the last detected movements. This is kind of hacky for now.')
+        args = parser.parse_args()
+        assert (args.plot_example <
+                args.num_examples), "example to plot must be less than num of examples"
+    else:
+        class MyArgs:
+            date = '24.8.18'
+            joint_file = os.environ['HOME'] + \
+                '/table-tennis/data/' + date + '/joints.txt'
+            ball_file = os.environ['HOME'] + \
+                '/table-tennis/data/' + date + '/balls.txt'
+            num_examples = 4
+            plot_example = 0
+            smooth = 0.01
+            align_with_ball = False
+            remove_last = 2
+        args = MyArgs()
+    return args
+
+
+if __name__ == '__main__':
+    import __main__ as main  # check for interactive interpreter
+    read_arguments = False
+    if hasattr(main, '__file__'):
+        read_arguments = True
+    args = process_args(read_arguments)
+    run_serve_demo(args)

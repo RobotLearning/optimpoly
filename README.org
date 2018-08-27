@@ -741,7 +741,7 @@ intrinsically the value of a certain distance from the ball.
 **** WAITING Learn a policy that understands the intention of the teacher
 Inverse Reinforcement Learning maybe?
 
-** TODO Cast it as an optimal control problem
+** IN-PROGRESS Cast it as an optimal control problem
 *** DONE Add unit test with optimization
 New serve() function in SL can perform an optimization whenever the
 movement is predicted to fail. The movement will then switch the
@@ -752,12 +752,46 @@ optimization if a feasible solution is found.
 - Rate of optim and other flags from player.cfg are replicated in
   serve.cfg 
 - Desired land location flag also imported from player.cfg
-*** TODO Test ball information during serve
-**** TODO Test ZMQ interface during human demonstrations
+*** IN-PROGRESS Test ball information
+**** DONE Test ZMQ interface during human demonstrations
+***** DONE Copy new trained vision parameters to json files
+The new logistic regression parameters must all be negative.
+I saved the projection matrices also in a serve_3d_ping_okan file. The
+matrices are not normalized (i.e., P[3,4] is not 1) but triangulation
+in c++ does not cause a problem.
+***** DONE Add 2d interface to listener
+Instead of running an extern triangulation server, I can do the
+triangulation in a detached thread inside the table tennis library.
+****** DONE Add triangulation method
+In Python I use SVD to solve for the rightmost singular vector, this
+is a linear triangulation method.
+***** DONE Test online with demonstrations 
+It is easy to debug the interface, I can stream the received 2d pixels
+and the triangulated 3d positions to a debug file online
+**** WAITING Questions about ball interface
+***** TODO How to use time stamp?
+I use now the num variable received from the vision server
+***** TODO Why so many files depend on ball_interface?
+If the header changes almost all the library recompiles
+***** TODO Should saved proj. matrices be normalized?
+So far triangulation did not pose a problem
+***** TODO How to invert projection matrices in test
+The linear triangulation method with SVD does not work in test.
+Instead least squares with P0[1:2,:] and P1[1:2,:] rows concatenated
+matrix gives the exact inverse in test.
+***** TODO No need to send zeros if ball is not detected
+This will obviously pose a problem online 
 **** TODO Test ZMQ interface during robot serve
-**** TODO Plot ball and robot data during serve
-Check it in python and look for outliers.
+**** IN-PROGRESS Plot ball and robot data during serve
+Checking the ball data in python, we observe that the balls disappear
+during the motion if the movement starts in the back, should be closer
+to the cameras.
+
+The zeros received in the ball positions are removed and the balls are 
+plotted via the timing with the joints. [We get absolute time both
+from joint positions and ball positions saved]
 ***** TODO How does the ball filtering look like?
+***** TODO Does serving closer to the table help detection?
 *** TODO Test optimization with movement primitives
 Even if the ball-takeoff model is not known, one can use movement
 primitives for at least the first part of the movement.
@@ -796,6 +830,12 @@ The Desiderata for RL in robotics:
 - relation to ILC as a result of optim.
 
 *** TODO Policy Search review
+We have rl-experiments/ repository where I include
+the REINFORCE algorithm that I emplemented
+
+The MIPS MATLAB Policy Search and iLQG MATLAB code is also 
+included.
+
 **** TODO Check RL in MATLAB
 ***** TODO Test Power in MATLAB
 using Jens Kober's implementation
@@ -811,13 +851,11 @@ e.g. a Barrett WAM forward dynamics
 As we use ILC and update the models, the models can also be used to
 update the reference trajectories progressively.
 ******** TODO Relation to DDP?
-**** TODO Checkout Policy Search on Latent Space
-Dimensionality Reduction on the parameters of policy search Check out
-Jan's suggested paper
 **** TODO Check reinforce on higher dimensions for convergence
+REINFORCE is not converging!
 **** TODO Implement adaptive learning rates for reinforce
 **** TODO Extend library with other policy search algorithms
-**** TODO Add interface to MUJOCO
+**** WAITING Add interface to MUJOCO
 **** TODO Read up on deep reinforcement learning blog post
 **** TODO Check out new papers on deep RL for robotics 
 Sergey Levine and Pieter Abbeel's new papers come to mind.
@@ -889,7 +927,7 @@ generation optimization process:
 2. we can hit with less accelerations if we start earlier
 
 The stochastic optimal control based trajectory generation approach
-should strike a balance between the two.
+could strike a balance between the two.
 *** Reduce variance of predictions as we update the models?
 
 * Towards end-to-end learning
