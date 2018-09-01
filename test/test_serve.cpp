@@ -84,7 +84,7 @@ void test_serve_with_rbf() {
     tt.set_ball_state(init_ball_state);
     racket racket_state;
     serve_flags flags;
-    flags.ball_land_des_y_offset -= 0.5;
+    flags.ball_land_des_y_offset -= 0.2;
     flags.json_file = rbf_file;
     ServeBall<RBF> server = ServeBall<RBF>(flags);
 

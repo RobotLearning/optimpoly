@@ -66,11 +66,11 @@ def basis_fnc_gauss_der2(t, c, w):
     return (-(2.0/w) + ((4.0/(w*w))*(t-c)**2))*basis_fnc_gauss(t, c, w)
 
 
-def train_sparse_weights(plot_regr_results=False):
+def train_sparse_weights(plot_regr_results=False, ex=0):
 
     args = serve.create_default_args()  # load default options
     args.plot = False
-    args.proces_example = 0  # change example
+    args.process_example = ex # change example
     '''
     args.smooth.factor = 0.01
     args.smooth.degree = 3
@@ -79,7 +79,7 @@ def train_sparse_weights(plot_regr_results=False):
     joint_dict, ball_dict = serve.run_serve_demo(args)
 
     # train multi task elastic net
-    example = 0
+    example = args.process_example
     idx_move = joint_dict['idx_move']
     idx = np.arange(idx_move[0, example], idx_move[1, example])
     q = joint_dict['x'][idx, :]
@@ -93,23 +93,30 @@ def train_sparse_weights(plot_regr_results=False):
     # clf = lm.Lasso(alpha=0.001, fit_intercept=False)
     # clf = lm.MultiTaskLasso(alpha=0.0024, fit_intercept=False)
     # running multi task laso with cross-validation gives 0.002
-    # clf = lm.MultiTaskLassoCV(eps=1e-3, n_alphas=100, alphas=None,
-    #                                    fit_intercept=False, cv=10, verbose=True, n_jobs=-1)
+    '''
+    clf = lm.MultiTaskLassoCV(eps=1e-3, n_alphas=100, alphas=None,
+                                       fit_intercept=False, cv=10, verbose=True, n_jobs=-1)
+    clf.fit(X,q)
+    '''
 
-    # l1_ratio_list = np.linspace(0.1, 1.0, 10)
-    # l1_ratio_list = 1-np.exp(-np.arange(1, 10)/2.0)
-    # clf = lm.MultiTaskElasticNetCV(l1_ratio=l1_ratio_list, eps=1e-3, n_alphas=100, alphas=None,
-    #                               fit_intercept=False, cv=3, verbose=True, n_jobs=-1)
-
+    '''
+    l1_ratio_list = np.linspace(0.1, 1.0, 10)
+    l1_ratio_list = 1-np.exp(-np.arange(1, 10)/2.0)
+    clf = lm.MultiTaskElasticNetCV(l1_ratio=l1_ratio_list, eps=1e-3, n_alphas=100, alphas=None,
+                                  fit_intercept=False, cv=3, verbose=True, n_jobs=-1)
+    clf.fit(X,q)
+    '''
     # running cross-val gives alpha = 0.0038, l1_ratio = 0.632
-    # clf = lm.MultiTaskElasticNet(
-    #     alpha=0.0038, l1_ratio=0.632, fit_intercept=False)
-    # clf.fit(X, q)
-
+    '''
+    clf = lm.MultiTaskElasticNet(
+        alpha=0.0038, l1_ratio=0.632, fit_intercept=False)
+    clf.fit(X, q)
+    theta = clf.coef_.T
+    '''
     # transform multitask elastic net to multitask lasso
-
+    '''
     alpha = 0.002
-    rho = 0.99
+    rho = 0.95
     N = q.shape[0]
     d = q.shape[1]  # 7
     lamb1 = 2*N*alpha*rho
@@ -124,7 +131,7 @@ def train_sparse_weights(plot_regr_results=False):
     clf = lm.MultiTaskLasso(alpha=alpha, fit_intercept=False)
     clf.fit(X_bar, q_bar)
     theta = clf.coef_.T * mult
-    # theta = clf.coef_.T
+    '''
 
     if plot_regr_results:
         plot_regression(X, theta, q)
@@ -132,11 +139,12 @@ def train_sparse_weights(plot_regr_results=False):
     idx_non = np.nonzero(theta[:, 0])[0]  # only nonzero entries
     theta = theta[idx_non, :]
     # last one params are the intercepts!
-    dump_json_regression_obj(c[idx_non[:-1]], w[idx_non[:-1]], theta)
+    filename = "rbf_" + str(example) + ".json"
+    dump_json_regression_obj(c[idx_non[:-1]], w[idx_non[:-1]], theta, file_name=filename)
     # return X[:, idx_non], theta[idx_non, :]
 
 
-def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp"):
+def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp", file_name="rbf.json"):
     '''
     Create a dictionary and dump it as json object.
     '''
@@ -152,6 +160,7 @@ def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp"):
         params['params'] = theta[:-1, i].tolist()
         joint_params.append(params)
     json_regr['joints'] = joint_params
-    file_name = 'json/rbf.json'
+    file_name = 'json/' + file_name
+    print 'Saving to ', file_name
     with open(file_name, "w") as write_file:
         json.dump(json_regr, write_file)

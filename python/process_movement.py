@@ -147,9 +147,8 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_opts=None, align=
                 w = smooth_opts.weights
                 s = smooth_opts.factor
                 k = smooth_opts.degree
-                extrap = smooth_opts.extrap
                 spl = UnivariateSpline(
-                    t_plot, q_plot[:, j], w=w, k=k, s=s, ext=extrap)
+                    t_plot, q_plot[:, j], w=w, k=k, s=s)
                 q_smooth = spl(t_plot)
                 axs[j].plot(t_plot, q_smooth)
         # KINEMATICS PLOT
@@ -271,7 +270,6 @@ def create_default_args():
             factor = 0.01
             weights = None
             degree = 3
-            extrap = 3  # 0 = extrap, 1 = zeros, 2 = error, 3 = const extrap.
         smooth = Smooth()
         align_with_ball = False
         remove_last = 2

@@ -301,7 +301,7 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
 
     namespace po = boost::program_options;
     using std::string;
-    const std::string home = std::getenv("HOME");
+    const string home = std::getenv("HOME");
     string config_file = home + "/table-tennis/config/serve.cfg";
 
     try {
@@ -400,12 +400,14 @@ void serve_ball(const SL_Jstate joint_state[],
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        delete robot_starts_with_dmp;
-        delete robot_starts_with_rbf;
-        if (sflags.use_rbf)
+        if (sflags.use_rbf) {
+            delete robot_starts_with_rbf;
         	robot_starts_with_rbf = new ServeBall<RBF>(sflags,qinit);
-        else
+        }
+        else {
+            delete robot_starts_with_dmp;
         	robot_starts_with_dmp = new ServeBall<dmps>(sflags,qinit);
+        }
         sflags.reset = false;
     }
     else {
@@ -416,10 +418,12 @@ void serve_ball(const SL_Jstate joint_state[],
             qact.qd(i) = joint_state[i+1].thd;
             qact.qdd(i) = joint_state[i+1].thdd;
         }
-        if (sflags.use_rbf)
+        if (sflags.use_rbf) {
         	robot_starts_with_rbf->serve(blob,qact,qdes);
-        else
+        }
+        else {
         	robot_starts_with_dmp->serve(blob,qact,qdes);
+        }
     }
 
     // update desired joint state
