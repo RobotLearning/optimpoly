@@ -7,6 +7,7 @@
 #include "optim.h"
 #include "constants.h"
 #include "dmp.h"
+#include "rbf.h"
 #include "serve.h"
 
 using namespace arma;
@@ -20,9 +21,9 @@ static void init_posture(vec7 & q0, int posture, bool verbose);
 
 vec6 init_ball_vertical(const double & T,
 						const double & std_noise,
-                       const dmps & multi_dmp);
+                       const vec7 & goal_state);
 
-void test_serve() {
+void test_serve_with_dmp() {
 
     // start evolving dmp
     // have a ball coming down to goal state
@@ -32,14 +33,19 @@ void test_serve() {
 
     BOOST_TEST_MESSAGE("\nTesting OPTIMIZATION after DMP...");
     const double T = 1.0;
-    dmps multi_dmp = init_dmps();
+    std::string dmp_file;
+    dmps multi_dmp = init_dmps(dmp_file);
     optim::joint qdes, qact;
     TableTennis tt = TableTennis(false,true);
     double std_init_noise = 0.0;
-    vec6 init_ball_state = init_ball_vertical(T,std_init_noise,multi_dmp);
+    vec7 goal_state;
+    multi_dmp.get_goal_pos(goal_state);
+    vec6 init_ball_state = init_ball_vertical(T,std_init_noise,goal_state);
     tt.set_ball_state(init_ball_state);
     racket racket_state;
-    ServeBall server = ServeBall(multi_dmp);
+    serve_flags flags;
+    flags.json_file = dmp_file;
+    ServeBall<dmps> server = ServeBall<dmps>(flags);
     //sflags flags;
     //server.set_flags(flags);
 
@@ -61,18 +67,51 @@ void test_serve() {
 
 }
 
+void test_serve_with_rbf() {
+
+    BOOST_TEST_MESSAGE("\nTesting OPTIMIZATION after RBF...");
+    const double T = 1.0;
+    optim::joint qdes, qact;
+    TableTennis tt = TableTennis(false,true);
+    double std_init_noise = 0.0;
+    vec7 goal_state;
+    const std::string home = std::getenv("HOME");
+    std::string rbf_file = "rbf.json";
+    std::string file_path = home + "/table-tennis/json/" + rbf_file;
+    RBF rbf = RBF(file_path);
+    rbf.get_goal_pos(goal_state);
+    vec6 init_ball_state = init_ball_vertical(T,std_init_noise,goal_state);
+    tt.set_ball_state(init_ball_state);
+    racket racket_state;
+    serve_flags flags;
+    flags.ball_land_des_y_offset -= 0.5;
+    flags.json_file = rbf_file;
+    ServeBall<RBF> server = ServeBall<RBF>(flags);
+
+    // check interaction and make sure ball is served correctly
+    while (!tt.touched_ground() && !tt.was_legally_served()) {
+
+        tt.integrate_ball_state(racket_state,DT);
+        ball_obs obs;
+        obs.status = true;
+        obs.pos = tt.get_ball_position();
+        server.serve(obs,qact,qdes);
+        qact = qdes;
+        calc_racket_state(qact,racket_state);
+    }
+    BOOST_TEST(tt.was_legally_served());
+}
+
 /*
  * Initialize ball vertically such that assuming only gravity acts on the
- * ball (i.e. no airdrag) the ball will be around the DMP goal cartesian position
+ * ball (i.e. no airdrag) the ball will be around the MP goal cartesian position
  * T seconds from the start. [around = some noise added]
  */
 vec6 init_ball_vertical(const double & T,
 						const double & std_noise,
-                        const dmps & multi_dmp) {
+                        const vec7 & goal_state) {
     ball_params params;
-    vec7 goal_state;
     optim::joint goal_joint_state;
-    multi_dmp.get_goal_pos(goal_state);
     goal_joint_state.q = goal_state;
     racket goal_racket_state;
     calc_racket_state(goal_joint_state,goal_racket_state);

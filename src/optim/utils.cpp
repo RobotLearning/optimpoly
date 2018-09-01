@@ -5,15 +5,46 @@
  *      Author: okoc
  */
 
+
+#include <armadillo>
+#include "json.hpp"
 #include "constants.h"
-#include "utils.h"
 #include "stdlib.h"
 #include "stdio.h"
 #include "string.h"
 #include "sys/time.h"
 #include "math.h"
+#include "utils.h"
 
 using namespace const_tt;
+using json = nlohmann::json;
+
+arma::mat json2mat(const json & jobj) {
+
+
+	int n = jobj.size();
+	int m = jobj[0].size();
+	arma::mat arma_mat(n,m,arma::fill::zeros);
+
+	for (int i=0; i<n; i++) {
+		for (int j=0; j<m; j++) {
+			arma_mat(i,j) = jobj[i][j];
+		}
+	}
+	return arma_mat;
+}
+
+arma::vec json2vec(const json & jobj) {
+
+
+	int n = jobj.size();
+	arma::vec arma_vec(n,arma::fill::zeros);
+
+	for (int i=0; i<n; i++) {
+		arma_vec(i) = jobj[i];
+	}
+	return arma_vec;
+}
 
 /*
  * Prints the 2*DOF + 1 dimensional solution in user-friendly format

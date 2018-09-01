@@ -68,6 +68,7 @@ public:
 std::map<unsigned, mat34> load_proj_mats(const std::string & json_file);
 
 /** @brief Triangulate from two 2d pixels to one 3d ball position. */
-ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
-							const std::vector<pixels> & obs_2d);
+bool triangulate(const std::map<unsigned, mat34> & calib_mats,
+	  			 const std::vector<pixels> & obs_2d,
+				 ball_pos & obs_3d);
 #endif //BALL_INTERF_H

@@ -104,7 +104,29 @@ def detect_movements(x, num_examples, dt):
     return low_vel_idxs.astype(int)
 
 
-def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=False):
+def compute_kinematics(idx, q, align):
+    '''
+    Compute kinematics (x positions) of racket center positions
+    Align racket center with ball by transforming 14 cm back (y) and 5 cm in z-dir
+    '''
+
+    x_plot = np.zeros((3, idx.size))
+    for idx, val in enumerate(idx):
+        As = wam.barrett_wam_kinematics(np.transpose(q[idx, :]))
+        R = As[-1, 0:3, 0:3]
+        x_racket = As[-1, 0:3, -1]
+        x_plot[:, idx] = x_racket
+
+        if align:
+            quat = racket.rot2Quat(R)
+            orient = racket.calcRacketOrientation(quat)
+            R = np.squeeze(racket.quat2Rot(orient))
+            x_plot[:, idx] = x_plot[:, idx] + \
+                0.14 * R[:, 1] + 0.05 * R[:, 2]
+    return x_plot
+
+
+def plot_examples(examples, joint_dict, ball_dict=None, smooth_opts=None, align=False):
 
     idx_movements = joint_dict['idx_move']
     q = joint_dict['x']
@@ -120,27 +142,19 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
         q_plot = q[idx_plot, :]
         t_plot = t_joints[idx_plot]
         for j in range(7):
-            spl = UnivariateSpline(
-                t_plot, q_plot[:, j], w=None, k=3, s=smooth_fact)
-            q_smooth = spl(t_plot)
             axs[j].plot(t_plot, q_plot[:, j])
-            axs[j].plot(t_plot, q_smooth)
+            if smooth_opts is not None:
+                w = smooth_opts.weights
+                s = smooth_opts.factor
+                k = smooth_opts.degree
+                extrap = smooth_opts.extrap
+                spl = UnivariateSpline(
+                    t_plot, q_plot[:, j], w=w, k=k, s=s, ext=extrap)
+                q_smooth = spl(t_plot)
+                axs[j].plot(t_plot, q_smooth)
         # KINEMATICS PLOT
         if ball_dict is not None:
-            x_plot = np.zeros((3, idx_plot.size))
-            for idx, val in enumerate(idx_plot):
-                As = wam.barrett_wam_kinematics(np.transpose(q_plot[idx, :]))
-                R = As[-1, 0:3, 0:3]
-                x_racket = As[-1, 0:3, -1]
-                x_plot[:, idx] = x_racket
-
-                if align:
-                    quat = racket.rot2Quat(R)
-                    orient = racket.calcRacketOrientation(quat)
-                    R = np.squeeze(racket.quat2Rot(orient))
-                    x_plot[:, idx] = x_plot[:, idx] + \
-                        0.14 * R[:, 1] + 0.05 * R[:, 2]
-
+            x_plot = compute_kinematics(idx_plot, q_plot, align)
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="r")
@@ -158,12 +172,12 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
             balls = ball_dict['x']
             idx_move_ball = ball_dict['idx_move']
             t_balls = ball_dict['t']
-            #t_balls = ball_dict['t']
+            # t_balls = ball_dict['t']
             idx_plot = np.arange(
                 idx_move_ball[0, examples[i]], idx_move_ball[1, examples[i]]+1, step=1, dtype=np.int32)
             balls_plot = balls[idx_plot, :]
             t_plot_ball = t_balls[idx_plot]
-            #print balls_plot
+            # print balls_plot
             ax.scatter(balls_plot[:, 0], balls_plot[:, 1],
                        balls_plot[:, 2], c="b")
             ax.set_xlabel('x')
@@ -171,7 +185,7 @@ def plot_examples(examples, joint_dict, ball_dict=None, smooth_fact=0.01, align=
             ax.set_zlabel('z')
             idx_label_ball = np.arange(
                 0, len(idx_plot), step=10, dtype=np.int32)
-            #print balls_plot[idx_label,:]
+            # print balls_plot[idx_label,:]
 
             for i, ball in enumerate(balls_plot[idx_label_ball, :]):
                 label = str(t_plot_ball[idx_label_ball[i]])
@@ -208,63 +222,63 @@ def run_serve_demo(args):
     else:
         ball_dict = None
 
-    if args.smooth:
-        smooth = args.smooth
-    else:
-        smooth = 0.01
-
     # examples = np.array([8])
-    if args.plot_example is not None:
-        examples = np.array([args.plot_example])
+    if args.plot:
+        examples = np.array([args.process_example])
         plot_examples(examples, joint_dict, ball_dict,
-                      smooth_fact=smooth, align=args.align_with_ball)
+                      smooth_opts=args.smooth, align=args.align_with_ball)
+    return joint_dict, ball_dict
 
 
-def process_args(read_arguments):
+def process_args():
     ''' 
-    Process input arguments if read_arguments = True
-    else create default args
+    @deprecated! Process input arguments
     '''
 
-    if read_arguments:
-
-        parser = argparse.ArgumentParser(
-            description='Load saved joint and ball data from demonstrations. Process it and plot.')
-        parser.add_argument('--joint_file', help='joint file')
-        parser.add_argument('--ball_file', help='ball file')
-        parser.add_argument(
-            '--num_examples', help='number of demonstrations', type=int)
-        parser.add_argument(
-            '--plot_example', help='plot a specific example', type=int)
-        parser.add_argument(
-            '--smooth', help='smoothing factor of splines while plotting')
-        parser.add_argument(
-            '--align_with_ball', help='align racket with ball by a transformation')
-        parser.add_argument(
-            '--remove_last', help='remove the last detected movements. This is kind of hacky for now.')
-        args = parser.parse_args()
-        assert (args.plot_example <
-                args.num_examples), "example to plot must be less than num of examples"
-    else:
-        class MyArgs:
-            date = '24.8.18'
-            joint_file = os.environ['HOME'] + \
-                '/table-tennis/data/' + date + '/joints.txt'
-            ball_file = os.environ['HOME'] + \
-                '/table-tennis/data/' + date + '/balls.txt'
-            num_examples = 4
-            plot_example = 0
-            smooth = 0.01
-            align_with_ball = False
-            remove_last = 2
-        args = MyArgs()
+    parser = argparse.ArgumentParser(
+        description='Load saved joint and ball data from demonstrations. Process it and plot.')
+    parser.add_argument('--joint_file', help='joint file')
+    parser.add_argument('--ball_file', help='ball file')
+    parser.add_argument(
+        '--num_examples', help='number of demonstrations', type=int)
+    parser.add_argument(
+        '--plot_example', help='plot a specific example', type=int)
+    parser.add_argument(
+        '--smooth', help='smoothing factor of splines while plotting')
+    parser.add_argument(
+        '--align_with_ball', help='align racket with ball by a transformation')
+    parser.add_argument(
+        '--remove_last', help='remove the last detected movements. This is kind of hacky for now.')
+    args = parser.parse_args()
+    assert (args.plot_example <
+            args.num_examples), "example to plot must be less than num of examples"
     return args
 
 
+def create_default_args():
+
+    class MyArgs:
+        date = '24.8.18'
+        joint_file = os.environ['HOME'] + \
+            '/table-tennis/data/' + date + '/joints.txt'
+        ball_file = os.environ['HOME'] + \
+            '/table-tennis/data/' + date + '/balls.txt'
+        num_examples = 4
+        process_example = 0
+        plot = True
+
+        class Smooth:
+            factor = 0.01
+            weights = None
+            degree = 3
+            extrap = 3  # 0 = extrap, 1 = zeros, 2 = error, 3 = const extrap.
+        smooth = Smooth()
+        align_with_ball = False
+        remove_last = 2
+    return MyArgs()
+
+
 if __name__ == '__main__':
-    import __main__ as main  # check for interactive interpreter
-    read_arguments = False
-    if hasattr(main, '__file__'):
-        read_arguments = True
-    args = process_args(read_arguments)
+    #args = process_movement()
+    args = create_default_args()
     run_serve_demo(args)

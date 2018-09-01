@@ -365,7 +365,10 @@ void test_triangulate() {
     	p2.vals[0] = proj_balls_3(0,i);
     	p2.vals[1] = proj_balls_3(1,i);
     	v_proj_balls.push_back(p2);
-    	balls_pred.col(i) = triangulate(proj_mats,v_proj_balls);
+    	vec3 obs3d;
+    	bool success = triangulate(proj_mats,v_proj_balls,obs3d);
+    	if (success)
+    		balls_pred.col(i) = obs3d;
     }
     /*cout << "balls: \n" << balls;
     cout << "pred balls: \n" << balls_pred;*/

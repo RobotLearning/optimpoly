@@ -8,6 +8,9 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include <armadillo>
+#include "json.hpp"
+
 #define N_MAT_INFO 3
 #define NR       0
 #define NC       1
@@ -20,6 +23,7 @@
 typedef double* Vector;
 typedef double** Matrix;
 
+// old functions imported from SL: TODO: cleanup needed!
 long get_time();
 double vec_mult_inner(Vector a, Vector b);
 void vec_mult_scalar(Vector a, double scalar, Vector c);

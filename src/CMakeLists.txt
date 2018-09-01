@@ -21,6 +21,7 @@ set(SOURCES
     optim/vhp_optim.cpp
     serve/dmp.cpp
     serve/serve.cpp
+    serve/rbf.cpp
     sl_interface.cpp
     ball_interface.cpp
 )

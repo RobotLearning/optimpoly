@@ -21,6 +21,7 @@
 #include "kalman.h"
 #include "player.hpp"
 #include "dmp.h"
+#include "rbf.h"
 #include "serve.h"
 #include "tabletennis.h"
 #include "sl_interface.h"
@@ -308,10 +309,12 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
         // allowed in config file
         po::options_description config("Configuration");
         config.add_options()
+        ("use_rbf", po::value<bool>(&sflags.use_rbf),
+        "Use Radial Basis Functions (RBF) instead of DMPs")
         ("json_file", po::value<string>(&sflags.json_file),
-        "JSON File to load DMP values from")
-        ("start_dmp_from_act_state", po::value<bool>(&sflags.start_dmp_from_act_state)->default_value(false),
-        "Evolve DMP from actual sensor state vs. desired state")
+        "JSON File to load movement from")
+        ("start_from_act_state", po::value<bool>(&sflags.start_from_act_state)->default_value(false),
+        "Evolve from actual sensor state vs. desired state")
         ("save_act_joint", po::value<bool>(&sflags.save_joint_act_data),
         "Save act joint data during movement to txt file")
         ("save_des_joint", po::value<bool>(&sflags.save_joint_des_data),
@@ -351,11 +354,19 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
         cout << e.what() << "\n";
     }
     options->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
-    using dmps = Joint_DMPs;
+
     string json_file = home + "/table-tennis/json/" + sflags.json_file;
-    dmps multi_dmp = dmps(json_file);
     vec7 pose;
-    multi_dmp.get_init_pos(pose);
+    if (sflags.use_rbf) {
+    	RBF rbfs = RBF(json_file);
+    	rbfs.get_init_pos(pose);
+    }
+    else {
+    	using dmps = Joint_DMPs;
+        dmps multi_dmp = dmps(json_file);
+        multi_dmp.get_init_pos(pose);
+    }
+
     for (int i = 0; i < NDOF; i++) {
         custom_pose[i] = pose(i);
     }
@@ -368,35 +379,33 @@ void serve_ball(const SL_Jstate joint_state[],
 
     static Listener* listener;
     static ball_obs blob;
-    using dmps = Joint_DMPs;
-    static dmps multi_dmp;
     static optim::joint qact;
     static optim::joint qdes;
-    static ServeBall *robot = nullptr; // class for serving ball
+    static ServeBall<dmps> *robot_starts_with_dmp = nullptr; // class for serving ball
+    static ServeBall<RBF> *robot_starts_with_rbf = nullptr;
 
     if (sflags.reset) {
     	delete listener;
     	listener = new Listener(sflags.zmq_url,
     							sflags.listen_2d,
 								sflags.debug_vision);
-        std::string home = std::getenv("HOME");
-        std::string file = home + "/table-tennis/json/" + sflags.json_file;
-        multi_dmp = dmps(file);
-        if (sflags.start_dmp_from_act_state) {
-            vec7 qinit;
+        vec7 qinit;
+        if (sflags.start_from_act_state) {
             for (int i = 0; i < NDOF; i++) {
                 qinit(i) = joint_state[i+1].th;
             }
-            multi_dmp.set_init_pos(qinit);
         }
         for (int i = 0; i < NDOF; i++) {
             qdes.q(i) = joint_state[i+1].th;
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        delete robot;
-        robot = new ServeBall(multi_dmp);
-        robot->set_flags(sflags);
+        delete robot_starts_with_dmp;
+        delete robot_starts_with_rbf;
+        if (sflags.use_rbf)
+        	robot_starts_with_rbf = new ServeBall<RBF>(sflags,qinit);
+        else
+        	robot_starts_with_dmp = new ServeBall<dmps>(sflags,qinit);
         sflags.reset = false;
     }
     else {
@@ -407,7 +416,10 @@ void serve_ball(const SL_Jstate joint_state[],
             qact.qd(i) = joint_state[i+1].thd;
             qact.qdd(i) = joint_state[i+1].thdd;
         }
-        robot->serve(blob,qact,qdes);
+        if (sflags.use_rbf)
+        	robot_starts_with_rbf->serve(blob,qact,qdes);
+        else
+        	robot_starts_with_dmp->serve(blob,qact,qdes);
     }
 
     // update desired joint state

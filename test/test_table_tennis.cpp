@@ -74,7 +74,8 @@ void test_2D_interface();
 void test_evolve_dmp();
 void test_speedup_dmp();
 void test_dmp_acc();
-void test_serve();
+void test_serve_with_dmp();
+void test_serve_with_rbf();
 
 /*
  * Main function for boost unit testing.
@@ -115,9 +116,9 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts_tt->add(BOOST_TEST_CASE(&count_land_mpc));
 
     test_suite* ts_sl = BOOST_TEST_SUITE("SL");
-    /*ts_sl->add(BOOST_TEST_CASE(&test_zmqpp));
+    ts_sl->add(BOOST_TEST_CASE(&test_zmqpp));
     ts_sl->add(BOOST_TEST_CASE(&test_zmq_listener));
-    ts_sl->add(BOOST_TEST_CASE(&test_3D_interface));*/
+    ts_sl->add(BOOST_TEST_CASE(&test_3D_interface));
     ts_sl->add(BOOST_TEST_CASE(&test_2D_interface));
     ts_sl->add(BOOST_TEST_CASE(&test_triangulate));
 
@@ -125,9 +126,10 @@ test_suite* init_unit_test_suite(int /*argc*/, char* /*argv*/[]) {
     ts_serve->add(BOOST_TEST_CASE(&test_evolve_dmp));
     //ts_serve->add(BOOST_TEST_CASE(&test_dmp_acc)); // TOO MANY ERRORS!
     ts_serve->add(BOOST_TEST_CASE(&test_speedup_dmp));
-    ts_serve->add(BOOST_TEST_CASE(&test_serve));
+    ts_serve->add(BOOST_TEST_CASE(&test_serve_with_dmp));
+    ts_serve->add(BOOST_TEST_CASE(&test_serve_with_rbf));
 
-    framework::master_test_suite().add( ts_kin, 1 ); //expected failure is 1
+    framework::master_test_suite().add( ts_kin); //expected failure is 1 here
     framework::master_test_suite().add( ts_kf );
     framework::master_test_suite().add( ts_opt );
     framework::master_test_suite().add( ts_tt );

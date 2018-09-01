@@ -11,6 +11,9 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include <armadillo>
+#include "json.hpp"
+
 // utility methods, zero indexed
 long get_time();
 void vec_minus(const int n, const double *a2, double *a1);
@@ -25,5 +28,9 @@ void print_optim_vec(const double *x);
 double max_abs_array(const double *x, const int length);
 double max_array(const double *x, const int length);
 double sign(double expr);
+
+// new functions
+arma::mat json2mat(const nlohmann::json & jobj);
+arma::vec json2vec(const nlohmann::json & jobj);
 
 #endif /* UTILS_H_ */

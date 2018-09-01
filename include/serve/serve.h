@@ -20,14 +20,15 @@ using vec_str = std::vector<std::string>;
  * \brief Flags used in the SERVE class and also in the SERVE task in SL.
  */
 struct serve_flags {
+	bool use_rbf = true; //!< use RBF rather than DMPs
     bool detach = false; //!< detach optimization
-    bool mpc = true; //!< run optimization if DMP is predicted to miss target
+    bool mpc = true; //!< run optimization if MP is predicted to miss target
     bool verbose = false; //!< print optim info if true
     bool reset = false; //!< reset the serve class
     bool save_joint_act_data = false;
     bool save_joint_des_data = false;
     bool save_ball_data = false;
-    bool start_dmp_from_act_state = false;
+    bool start_from_act_state = false;
     bool use_inv_dyn_fb = false; //!< in SL apply inv. dyn. feedback
     bool debug_vision = false; //!< print received vision info
     int freq_mpc = 1.0; //!< how many times per minute to re-run optim
@@ -39,6 +40,7 @@ struct serve_flags {
     std::string zmq_url = "tcp://helbe:7650"; //!< URL for ZMQ connection
 };
 
+template<typename T>
 class ServeBall {
 
 private:
@@ -48,8 +50,8 @@ private:
     serve_flags sflags;
     arma::wall_clock timer;
     optim::spline_params p;
-    dmps multi_dmp;
-    double T = 1.0;
+    T mp = T(); //!< movement pattern
+    double Tmax = 1.0;
     vec7 q_rest_des;
     vec7 q_hit_des;
     int idx_balls_obs_filter = 0;
@@ -85,15 +87,15 @@ public:
                const joint & qact,
                joint & qdes);
 
-    /**\brief Initialize serve class with a DMP and setup optimization for corrections later. */
-    ServeBall(dmps & multi_dmp_);
+    /**\brief Initialize serve class with a learned movement and setup optimization for corrections later. */
+    ServeBall(const serve_flags & sflags, const vec7 & qinit = zeros<vec>(7));
     ~ServeBall();
 
-    void set_flags(const serve_flags & sflags_);
+    void set_flags(const serve_flags & sflags);
 };
 
 /** \brief Initialize DMP from a random JSON file */
-dmps init_dmps();
+dmps init_dmps(std::string & file);
 
 /** \brief Utility function to return vector of JSON files from subfolder */
 vec_str get_files(std::string folder_name, std::string prefix);

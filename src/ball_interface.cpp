@@ -2,11 +2,10 @@
 #include "json.hpp"
 #include "zmqpp/zmqpp.hpp"
 #include <thread>
+#include "utils.h"
 
 using json = nlohmann::json;
 using std::endl;
-
-static arma::mat json2mat(const json & jobj);
 
 void Listener::listen3d() {
 
@@ -122,10 +121,13 @@ void Listener::convert_to_3d() {
 					stream_balls << "Triangulating num: " << num << endl;
 
 				// triangulate by solving svd
-				ball_pos obs_3d = triangulate(calib_mats, iter->second);
-				obs2d.erase(iter++);
-				obs3d[num] = obs_3d;
-				new_data = true;
+				ball_pos obs_3d;
+				bool success = triangulate(calib_mats, iter->second, obs_3d);
+				if (success) {
+					obs2d.erase(iter++);
+					obs3d[num] = obs_3d;
+					new_data = true;
+				}
 				if (debug) {
 					std::string ball = "[" +
 							std::to_string(obs_3d[0]) + " " +
@@ -227,31 +229,16 @@ std::map<unsigned, mat34> load_proj_mats(const std::string & json_file =
     return calib_mats;
 }
 
-static arma::mat json2mat(const json & jobj) {
-
-
-	int n = jobj.size();
-	int m = jobj[0].size();
-	arma::mat arma_mat(n,m,arma::fill::zeros);
-
-	for (int i=0; i<n; i++) {
-		for (int j=0; j<m; j++) {
-			arma_mat(i,j) = jobj[i][j];
-		}
-	}
-	return arma_mat;
-}
-
 /**
  * Triangulate cameras 0 and 1, or cameras 2 and 3
  */
-ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
-							const std::vector<pixels> & obs_2d) {
+bool triangulate(const std::map<unsigned, mat34> & calib_mats,
+					 const std::vector<pixels> & obs_2d,
+					 ball_pos & pos3d) {
 
 	const int NUM_CAMS = 4; //calib_mats.size();
 	const int NUM_PAIRS = NUM_CAMS/2;
 	using namespace arma;
-	ball_pos pos3d = zeros<vec>(3);
 	double pixels[NUM_CAMS][2];
 	bool found[NUM_CAMS] = {false};
 
@@ -300,8 +287,8 @@ ball_pos triangulate(const std::map<unsigned, mat34> & calib_mats,
 			pos3d = pos4d.head(3);
 			pos3d /= pos4d(3); // normalize
             */
-			break;
+			return true;
 		}
 	}
-	return pos3d;
+	return false;
 }

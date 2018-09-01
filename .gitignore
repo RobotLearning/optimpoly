@@ -38,6 +38,10 @@
 Debug/
 *.*~
 
+# Python files
+.pyc
+.py~
+
 # journal tex extra files
 *.gz
 *.log
