@@ -70,7 +70,7 @@ def train_sparse_weights(plot_regr_results=False, ex=0):
 
     args = serve.create_default_args()  # load default options
     args.plot = False
-    args.process_example = ex # change example
+    args.process_example = ex  # change example
     '''
     args.smooth.factor = 0.01
     args.smooth.degree = 3
@@ -114,9 +114,9 @@ def train_sparse_weights(plot_regr_results=False, ex=0):
     theta = clf.coef_.T
     '''
     # transform multitask elastic net to multitask lasso
-    '''
+
     alpha = 0.002
-    rho = 0.95
+    rho = 0.99
     N = q.shape[0]
     d = q.shape[1]  # 7
     lamb1 = 2*N*alpha*rho
@@ -131,7 +131,6 @@ def train_sparse_weights(plot_regr_results=False, ex=0):
     clf = lm.MultiTaskLasso(alpha=alpha, fit_intercept=False)
     clf.fit(X_bar, q_bar)
     theta = clf.coef_.T * mult
-    '''
 
     if plot_regr_results:
         plot_regression(X, theta, q)
@@ -140,7 +139,8 @@ def train_sparse_weights(plot_regr_results=False, ex=0):
     theta = theta[idx_non, :]
     # last one params are the intercepts!
     filename = "rbf_" + str(example) + ".json"
-    dump_json_regression_obj(c[idx_non[:-1]], w[idx_non[:-1]], theta, file_name=filename)
+    dump_json_regression_obj(
+        c[idx_non[:-1]], w[idx_non[:-1]], theta, file_name=filename)
     # return X[:, idx_non], theta[idx_non, :]
 
 
@@ -164,3 +164,7 @@ def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp", f
     print 'Saving to ', file_name
     with open(file_name, "w") as write_file:
         json.dump(json_regr, write_file)
+
+
+if __name__ == '__main__':
+    train_sparse_weights(True, ex=0)
