@@ -700,7 +700,7 @@ limits.
 After teaching for the second time with the eggholder on the red side
 of the racket, the movement could be executed on the robot.
 
-*** IN-PROGRESS Tune the movement primitives
+*** DONE Tune the movement primitives
 We should have a json file with additional settings that we can
 adjust.
 **** DONE Pretty format the JSON file
@@ -716,11 +716,14 @@ Having multiple json files could easily solve this problem.
 **** DONE Start on different initial conditions
 Testing different postures, different DMPs and different starting
 positions we see that the I.C changes the accelerations like crazy!
-**** IN-PROGRESS Resolve the problem of high initial accelerations
-Jens suggestion to reduce the initial accelerations does not work
-unfortunately.
-***** IN-PROGRESS Penalize the accelerations throughout
-This actually generates smoothing splines. 
+**** DONE Resolve the problem of high initial accelerations
+Jens idea to reduce the initial accelerations does not work
+unfortunately. Instead we can penalize the accelerations using Radial
+Basis Functions.
+***** DONE Penalize the accelerations throughout
+This actually generates smoothing splines in the nonparametric case
+and in the parametric case when we also put an l1 penalty on the
+parameters we get a (multitask) Elastic Net!
 
 *** WAITING Learn invariants of motion/policy from demonstrations
 The idea is to learn invariants of motion / parameterize the relative
@@ -768,7 +771,7 @@ is a linear triangulation method.
 ***** DONE Test online with demonstrations 
 It is easy to debug the interface, I can stream the received 2d pixels
 and the triangulated 3d positions to a debug file online
-**** WAITING Questions about ball interface
+**** IN-PROGRESS Questions about ball interface
 ***** TODO How to use time stamp?
 I use now the num variable received from the vision server
 ***** TODO Why so many files depend on ball_interface?
@@ -779,8 +782,9 @@ So far triangulation did not pose a problem
 The linear triangulation method with SVD does not work in test.
 Instead least squares with P0[1:2,:] and P1[1:2,:] rows concatenated
 matrix gives the exact inverse in test.
-***** TODO No need to send zeros if ball is not detected
-This will obviously pose a problem online 
+***** DONE No need to send zeros if ball is not detected
+This will obviously pose a problem online. Instead now I update the
+ball positions only if triangulation succeeds.
 **** TODO Test ZMQ interface during robot serve
 **** IN-PROGRESS Plot ball and robot data during serve
 Checking the ball data in python, we observe that the balls disappear
@@ -791,7 +795,8 @@ The zeros received in the ball positions are removed and the balls are
 plotted via the timing with the joints. [We get absolute time both
 from joint positions and ball positions saved]
 ***** TODO How does the ball filtering look like?
-***** TODO Does serving closer to the table help detection?
+***** DONE Does serving closer to the table help detection?
+Yes it does!
 *** TODO Test optimization with movement primitives
 Even if the ball-takeoff model is not known, one can use movement
 primitives for at least the first part of the movement.
@@ -864,7 +869,10 @@ Especially: TRPO, Guided Policy Search, ...
 Kevin Down et al. Compare with Bayes Opt approaches.
 ***** TODO Read Massive Uninformed Search vs RL
 Benjamin Recht et al.
-*** TODO What is the reward function?
+*** IN-PROGRESS Learning approach
+The options are model-free, hybrid, model-based RL and Bayesian
+Optimization (BO).
+**** TODO What is the reward function to use?
 The possibilities are:
 
 1. Minimum distance between the ball and the racket during movement
@@ -872,13 +880,10 @@ The possibilities are:
 3. Maximum y-velocity of the ball
 
 or possible a combination of the above.
-**** TODO Can we adapt the reward function?
+***** TODO Can we adapt the reward function?
 Reward shaping comes to mind here.
-**** TODO Can an algorithm suggest trajectories?
-***** TODO Relation to relaxation learning control?
-*** IN-PROGRESS Which algorithm to use? 
-The options are model-based RL and Bayesian Optimization (BO).
-**** IN-PROGRESS Which type of model?
+**** TODO How to apply model-free RL
+**** TODO How to apply model-based RL
 The approach must clearly be model-based as I do not want to have 'N'
 rollouts for each policy $\theta_k$.
 
@@ -890,7 +895,7 @@ all three? Couple the ball as part of the state as well?
 ***** TODO Is the ball or the robot rest posture a context?
 We have to make sure that local policy generalizes to different ball
 positions and robot rest postures.
-**** TODO How to apply BO for Barrett WAM
+**** WAITING How to apply BO
 In high dimensional cases it seems important to do dimensionality
 reduction.
 
@@ -904,11 +909,6 @@ The recent BO survey should be of help.
 ***** TODO Read the recent gradient based BO paper in NIPS last year
 ***** TODO Investigate hierarchical approaches to Bayes Optimization
 UCT algorithm comes to mind
-**** TODO How to merge the two?
-This would mean: how would observing the trajectories of the ball and
-the robot help in Bayesian Optimization where we want to do black-box
-optim on the reward.
-
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?

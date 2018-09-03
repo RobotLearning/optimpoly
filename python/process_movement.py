@@ -126,111 +126,120 @@ def compute_kinematics(idx, q, align):
     return x_plot
 
 
-def plot_examples(examples, joint_dict, ball_dict=None, smooth_opts=None, align=False):
+def plot_examples(example, joint_dict, ball_dict=None, smooth_opts=None, align=False):
 
     idx_movements = joint_dict['idx_move']
     q = joint_dict['x']
     t_joints = joint_dict['t']
-    num_examples = examples.size
-    for i in range(num_examples):
-        f, axs = plt.subplots(7, 1, sharex=False)
-        # print examples[i]
-        idx_plot = np.arange(
-            start=idx_movements[0, examples[i]],
-            stop=idx_movements[1, examples[i]]+1, step=1, dtype=np.int32)
-        # print idx_plot
-        q_plot = q[idx_plot, :]
-        t_plot = t_joints[idx_plot]
-        for j in range(7):
-            axs[j].plot(t_plot, q_plot[:, j])
-            if smooth_opts is not None:
-                w = smooth_opts.weights
-                s = smooth_opts.factor
-                k = smooth_opts.degree
-                spl = UnivariateSpline(
-                    t_plot, q_plot[:, j], w=w, k=k, s=s)
-                q_smooth = spl(t_plot)
-                axs[j].plot(t_plot, q_smooth)
-        # KINEMATICS PLOT
-        if ball_dict is not None:
-            x_plot = compute_kinematics(idx_plot, q_plot, align)
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="r")
+    f, axs = plt.subplots(7, 1, sharex=False)
+    # print examples[i]
+    idx_plot = np.arange(
+        start=idx_movements[0, example],
+        stop=idx_movements[1, example]+1, step=1, dtype=np.int32)
+    # print idx_plot
+    q_plot = q[idx_plot, :]
+    t_plot = t_joints[idx_plot]
+    for j in range(7):
+        axs[j].plot(t_plot, q_plot[:, j])
+        if smooth_opts is not None:
+            w = smooth_opts.weights
+            s = smooth_opts.factor
+            k = smooth_opts.degree
+            spl = UnivariateSpline(
+                t_plot, q_plot[:, j], w=w, k=k, s=s)
+            q_smooth = spl(t_plot)
+            axs[j].plot(t_plot, q_smooth)
+    # KINEMATICS PLOT
+    if ball_dict is not None:
+        x_plot = compute_kinematics(idx_plot, q_plot, align)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="r")
 
-            t_plot_robot = t_joints[idx_plot]
-            idx_label_robot = np.arange(
-                0, len(idx_plot), step=100, dtype=np.int32)
-            for idx, x_robot in enumerate(x_plot[:, idx_label_robot]):
-                label = str(t_plot_robot[idx_label_robot[idx]])
-                ax.text(x_plot[0, idx_label_robot[idx]],
-                        x_plot[1, idx_label_robot[idx]],
-                        x_plot[2, idx_label_robot[idx]], label[:5])
+        t_plot_robot = t_joints[idx_plot]
+        idx_label_robot = np.arange(
+            0, len(idx_plot), step=100, dtype=np.int32)
+        for idx, x_robot in enumerate(x_plot[:, idx_label_robot]):
+            label = str(t_plot_robot[idx_label_robot[idx]])
+            ax.text(x_plot[0, idx_label_robot[idx]],
+                    x_plot[1, idx_label_robot[idx]],
+                    x_plot[2, idx_label_robot[idx]], label[:5])
 
-            # extract ball
-            balls = ball_dict['x']
-            idx_move_ball = ball_dict['idx_move']
-            t_balls = ball_dict['t']
-            # t_balls = ball_dict['t']
-            idx_plot = np.arange(
-                idx_move_ball[0, examples[i]], idx_move_ball[1, examples[i]]+1, step=1, dtype=np.int32)
-            balls_plot = balls[idx_plot, :]
-            t_plot_ball = t_balls[idx_plot]
-            # print balls_plot
-            ax.scatter(balls_plot[:, 0], balls_plot[:, 1],
-                       balls_plot[:, 2], c="b")
-            ax.set_xlabel('x')
-            ax.set_ylabel('y')
-            ax.set_zlabel('z')
-            idx_label_ball = np.arange(
-                0, len(idx_plot), step=10, dtype=np.int32)
-            # print balls_plot[idx_label,:]
+        # extract ball
+        balls = ball_dict['x']
+        t_balls = ball_dict['t']
+        # print balls_plot
+        ax.scatter(balls[:, 0], balls[:, 1], balls[:, 2], c="b")
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+        idx_label_ball = np.arange(
+            0, balls.shape[0], step=10, dtype=np.int32)
+        # print balls_plot[idx_label,:]
 
-            for i, ball in enumerate(balls_plot[idx_label_ball, :]):
-                label = str(t_plot_ball[idx_label_ball[i]])
-                ax.text(balls_plot[idx_label_ball[i], 0],
-                        balls_plot[idx_label_ball[i], 1],
-                        balls_plot[idx_label_ball[i], 2], label[:5])
-        plt.show()
+        for i, ball in enumerate(balls[idx_label_ball, :]):
+            label = str(t_balls[idx_label_ball[i]])
+            ax.text(balls[idx_label_ball[i], 0],
+                    balls[idx_label_ball[i], 1],
+                    balls[idx_label_ball[i], 2], label[:5])
+    plt.show()
+
+
+def get_ball_obs_for_movement(t_balls, balls, t_joints, idx_joint_move, remove_outlier=True):
+
+    idx_ball_move = np.zeros((2,), dtype=np.int64)
+    idx_ball_move[0] = int(np.where(
+        t_balls > t_joints[idx_joint_move[0]])[0][0])
+    idx_ball_move[1] = int(np.where(
+        t_balls < t_joints[idx_joint_move[1]])[0][-1])
+
+    ''' if remove_outlier is turned on, then removes balls that jump'''
+    # print idx_ball_move
+
+    balls = balls[idx_ball_move[0]:idx_ball_move[1], :]
+    if remove_outlier:
+        len_idx = idx_ball_move[1]-idx_ball_move[0]
+        idx_robust = np.zeros((len_idx,), dtype=np.int64)
+        idx_robust[0] = 0
+        thresh = 0.1  # 10 cm diff.
+        k = 1
+        for i in range(len_idx-1):
+            if np.linalg.norm(balls[i+1, :]-balls[i, :]) < thresh:
+                idx_robust[k] = i+1
+                k += 1
+        balls = balls[idx_robust, :]
+
+    ball_dict = {'t': t_balls, 'x': balls, 'idx_move': idx_ball_move}
+    return ball_dict
 
 
 def run_serve_demo(args):
-    ''' Process one serve demonstration. Main entrance point to plot_movement.
+    ''' Process one serve demonstration. Main entrance point to process_movement.
 
     Also plots the data if there is a demand.
     '''
 
     t_joints, t_balls, q, balls = load_files(args)
     idx_joint_move = detect_movements(q, args.num_examples, dt=0.002)
-    num_examples = idx_joint_move.shape[1]
     joint_dict = {'t': t_joints, 'x': q, 'idx_move': idx_joint_move}
-
-    idx_joint_move = idx_joint_move[:, :-args.remove_last]
-    num_examples = num_examples-args.remove_last
 
     # for each movement
     # get the balls between t_joints
     if args.ball_file:
-        idx_ball_move = np.zeros((2, num_examples))
-        for i in range(num_examples):
-            idx_ball_move[0, i] = np.where(
-                t_balls > t_joints[idx_joint_move[0, i]])[0][0]
-            idx_ball_move[1, i] = np.where(
-                t_balls < t_joints[idx_joint_move[1, i]])[0][-1]
-        ball_dict = {'t': t_balls, 'x': balls, 'idx_move': idx_ball_move}
+        ball_dict = get_ball_obs_for_movement(
+            t_balls, balls, t_joints, idx_joint_move[:, args.process_example])
     else:
         ball_dict = None
 
     # examples = np.array([8])
     if args.plot:
-        examples = np.array([args.process_example])
-        plot_examples(examples, joint_dict, ball_dict,
+        plot_examples(args.process_example, joint_dict, ball_dict,
                       smooth_opts=args.smooth, align=args.align_with_ball)
     return joint_dict, ball_dict
 
 
 def process_args():
-    ''' 
+    '''
     @deprecated! Process input arguments
     '''
 
@@ -246,8 +255,6 @@ def process_args():
         '--smooth', help='smoothing factor of splines while plotting')
     parser.add_argument(
         '--align_with_ball', help='align racket with ball by a transformation')
-    parser.add_argument(
-        '--remove_last', help='remove the last detected movements. This is kind of hacky for now.')
     args = parser.parse_args()
     assert (args.plot_example <
             args.num_examples), "example to plot must be less than num of examples"
@@ -263,7 +270,7 @@ def create_default_args():
         ball_file = os.environ['HOME'] + \
             '/table-tennis/data/' + date + '/balls.txt'
         num_examples = 4
-        process_example = 0
+        process_example = 1
         plot = True
 
         class Smooth:
@@ -272,11 +279,10 @@ def create_default_args():
             degree = 3
         smooth = Smooth()
         align_with_ball = False
-        remove_last = 2
     return MyArgs()
 
 
 if __name__ == '__main__':
-    #args = process_movement()
+    # args = process_movement()
     args = create_default_args()
     run_serve_demo(args)

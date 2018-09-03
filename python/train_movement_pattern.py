@@ -205,7 +205,10 @@ def train_sparse_weights(plot_regr_results=False, ex=0, save=False):
 
 
 def iter_lasso(t, q):
-
+    '''
+    Iterative MultiTaskElasticNet with nonlinear optimization (BFGS) to update BOTH the RBF
+    parameters as well as the regression parameters.
+    '''
     # initialize the iteration
     p = 400
     c = np.linspace(t[0], t[-1], p) + 0.01 * np.random.randn(p)
