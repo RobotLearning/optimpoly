@@ -13,6 +13,7 @@ from mpl_toolkits.mplot3d import Axes3D
 sys.path.append("python/")
 import barrett_wam_kinematics as wam
 import racket_calc as racket
+from matplotlib2tikz import save as tikz_save
 
 
 def load_files(args):
@@ -27,7 +28,6 @@ def load_files(args):
     t_joints = M[:, 0]
     t_joints = 0.001 * t_joints  # in miliseconds
 
-    t_min = t_joints[0]
     if args.ball_file:
         B = np.fromfile(ball_file, sep=" ")
         N_balls = B.size/4
@@ -38,7 +38,7 @@ def load_files(args):
         balls = balls[idx_nonzero, :]
         t_balls = B[idx_nonzero, 0]
         t_balls = 0.001 * t_balls
-        t_min = min(t_min, t_balls[0])
+        t_min = min(t_joints[0], t_balls[0])
         t_balls = t_balls - t_min
         t_joints = t_joints - t_min
     return t_joints, t_balls, q, balls
@@ -126,19 +126,8 @@ def compute_kinematics(idx, q, align):
     return x_plot
 
 
-def plot_examples(example, joint_dict, ball_dict=None, smooth_opts=None, align=False):
-
-    idx_movements = joint_dict['idx_move']
-    q = joint_dict['x']
-    t_joints = joint_dict['t']
+def plot_joints(t_plot, q_plot, smooth_opts=None):
     f, axs = plt.subplots(7, 1, sharex=False)
-    # print examples[i]
-    idx_plot = np.arange(
-        start=idx_movements[0, example],
-        stop=idx_movements[1, example]+1, step=1, dtype=np.int32)
-    # print idx_plot
-    q_plot = q[idx_plot, :]
-    t_plot = t_joints[idx_plot]
     for j in range(7):
         axs[j].plot(t_plot, q_plot[:, j])
         if smooth_opts is not None:
@@ -149,40 +138,72 @@ def plot_examples(example, joint_dict, ball_dict=None, smooth_opts=None, align=F
                 t_plot, q_plot[:, j], w=w, k=k, s=s)
             q_smooth = spl(t_plot)
             axs[j].plot(t_plot, q_smooth)
+
+
+def plot_3d_with_ball(idx_plot, q_plot, t_joints, ball_dict, align=False):
+    x_plot = compute_kinematics(idx_plot, q_plot, align)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="r")
+
+    t_plot_robot = t_joints[idx_plot]
+    idx_label_robot = np.arange(
+        0, len(idx_plot), step=100, dtype=np.int32)
+    for idx, x_robot in enumerate(x_plot[:, idx_label_robot]):
+        label = str(t_plot_robot[idx_label_robot[idx]])
+        ax.text(x_plot[0, idx_label_robot[idx]],
+                x_plot[1, idx_label_robot[idx]],
+                x_plot[2, idx_label_robot[idx]], label[:5])
+
+    # extract ball
+    balls = ball_dict['x']
+    t_balls = ball_dict['t']
+    # print balls_plot
+    ax.scatter(balls[:, 0], balls[:, 1], balls[:, 2], c="b")
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    idx_label_ball = np.arange(
+        0, balls.shape[0], step=10, dtype=np.int32)
+    # print balls_plot[idx_label,:]
+
+    for i, ball in enumerate(balls[idx_label_ball, :]):
+        label = str(t_balls[idx_label_ball[i]])
+        ax.text(balls[idx_label_ball[i], 0],
+                balls[idx_label_ball[i], 1],
+                balls[idx_label_ball[i], 2], label[:5])
+    return x_plot
+
+
+def plot_example(example, joint_dict, ball_dict=None, smooth_opts=None, align=False, dump=True):
+    ''' Plots an example demonstration in joint space and in task space '''
+
+    idx_movements = joint_dict['idx_move']
+    q = joint_dict['x']
+    t_joints = joint_dict['t']
+    # print examples[i]
+    idx_plot = np.arange(
+        start=idx_movements[0, example],
+        stop=idx_movements[1, example]+1, step=1, dtype=np.int32)
+    # print idx_plot
+    q_plot = q[idx_plot, :]
+    t_plot = t_joints[idx_plot]
+    plot_joints(t_plot, q_plot, smooth_opts)
     # KINEMATICS PLOT
     if ball_dict is not None:
-        x_plot = compute_kinematics(idx_plot, q_plot, align)
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(x_plot[0, :], x_plot[1, :], x_plot[2, :], c="r")
+        x_plot = plot_3d_with_ball(
+            idx_plot, q_plot, t_joints, ball_dict, align=align)
+    plt.show(block=False)
 
-        t_plot_robot = t_joints[idx_plot]
-        idx_label_robot = np.arange(
-            0, len(idx_plot), step=100, dtype=np.int32)
-        for idx, x_robot in enumerate(x_plot[:, idx_label_robot]):
-            label = str(t_plot_robot[idx_label_robot[idx]])
-            ax.text(x_plot[0, idx_label_robot[idx]],
-                    x_plot[1, idx_label_robot[idx]],
-                    x_plot[2, idx_label_robot[idx]], label[:5])
-
-        # extract ball
-        balls = ball_dict['x']
-        t_balls = ball_dict['t']
-        # print balls_plot
-        ax.scatter(balls[:, 0], balls[:, 1], balls[:, 2], c="b")
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        ax.set_zlabel('z')
-        idx_label_ball = np.arange(
-            0, balls.shape[0], step=10, dtype=np.int32)
-        # print balls_plot[idx_label,:]
-
-        for i, ball in enumerate(balls[idx_label_ball, :]):
-            label = str(t_balls[idx_label_ball[i]])
-            ax.text(balls[idx_label_ball[i], 0],
-                    balls[idx_label_ball[i], 1],
-                    balls[idx_label_ball[i], 2], label[:5])
-    plt.show()
+    if dump:
+        # dump to a text file
+        robot_mat = np.hstack((t_plot[:, np.newaxis], q_plot))
+        robot_mat = np.hstack((robot_mat, x_plot.T))
+        ball_mat = np.hstack((ball_dict['t'][:, np.newaxis], ball_dict['x']))
+        np.savetxt('python/move_robot_' + str(example) + '.txt',
+                   X=robot_mat, fmt='%.4e', delimiter='\t')
+        np.savetxt('python/move_ball_' + str(example) + '.txt',
+                   X=ball_mat, fmt='%.4e', delimiter='\t')
 
 
 def get_ball_obs_for_movement(t_balls, balls, t_joints, idx_joint_move, remove_outlier=True):
@@ -208,6 +229,7 @@ def get_ball_obs_for_movement(t_balls, balls, t_joints, idx_joint_move, remove_o
                 idx_robust[k] = i+1
                 k += 1
         balls = balls[idx_robust, :]
+        t_balls = t_balls[idx_robust]
 
     ball_dict = {'t': t_balls, 'x': balls, 'idx_move': idx_ball_move}
     return ball_dict
@@ -233,8 +255,8 @@ def run_serve_demo(args):
 
     # examples = np.array([8])
     if args.plot:
-        plot_examples(args.process_example, joint_dict, ball_dict,
-                      smooth_opts=args.smooth, align=args.align_with_ball)
+        plot_example(args.process_example, joint_dict, ball_dict,
+                     smooth_opts=args.smooth, align=args.align_with_ball, dump=args.dump_plot_data)
     return joint_dict, ball_dict
 
 
@@ -270,8 +292,9 @@ def create_default_args():
         ball_file = os.environ['HOME'] + \
             '/table-tennis/data/' + date + '/balls.txt'
         num_examples = 4
-        process_example = 1
+        process_example = 0
         plot = True
+        dump_plot_data = False
 
         class Smooth:
             factor = 0.01
@@ -282,7 +305,15 @@ def create_default_args():
     return MyArgs()
 
 
+def save_to_tikz(path='../learning-to-serve/Pictures/', name='demo_kin.tex'):
+    # axis_opts = {'xlabel_near_ticks', 'ylabel_near_ticks', 'scale_only_axis'}
+    tikz_save(path+name, figureheight='\\figureheight',
+              figurewidth='\\figurewidth')  # extra_axis_parameters=axis_opts)
+
+
 if __name__ == '__main__':
     # args = process_movement()
     args = create_default_args()
+    args.smooth = None  # dont draw smoothened version
+    args.dump_plot_data = True  # set to true to dump plot data
     run_serve_demo(args)

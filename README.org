@@ -882,7 +882,7 @@ The possibilities are:
 or possible a combination of the above.
 ***** TODO Can we adapt the reward function?
 Reward shaping comes to mind here.
-**** TODO How to apply model-free RL
+**** WAITING How to apply model-free RL
 **** TODO How to apply model-based RL
 The approach must clearly be model-based as I do not want to have 'N'
 rollouts for each policy $\theta_k$.
