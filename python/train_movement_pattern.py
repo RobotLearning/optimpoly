@@ -6,6 +6,7 @@ import sys
 sys.path.append('python/')
 import numpy as np
 import process_movement as serve
+import basis_fnc as basis
 from sklearn import linear_model as lm
 import matplotlib.pyplot as plt
 import json
@@ -20,51 +21,6 @@ def plot_regression(X, theta, q):
         axs[i].plot(t, q[:, i])
         axs[i].plot(t, q_smooth[:, i])
     plt.show()
-
-
-def create_acc_weight_mat(centers, widths, time, include_intercept=True):
-    '''
-    Create weighting matrix that penalizes the accelerations
-    '''
-    num_bumps = len(centers)
-    N = len(time)
-    if include_intercept:
-        Xdot2 = np.zeros((N, num_bumps+1))  # also include intercept
-    else:
-        Xdot2 = np.zeros((N, num_bumps))  # also include intercept
-    for i in range(num_bumps):
-        Xdot2[:, i] = basis_fnc_gauss_der2(time, centers[i], widths[i])
-
-    return np.dot(Xdot2.T, Xdot2), Xdot2
-
-
-def create_gauss_regressor(centers, widths, time, include_intercept=True):
-    '''
-    Create Gaussian basis functions num_bumps many times along
-    '''
-    num_bumps = len(centers)
-    N = len(time)
-    if include_intercept:
-        X = np.zeros((N, num_bumps+1))  # also include intercept
-    else:
-        X = np.zeros((N, num_bumps))
-
-    for i in range(num_bumps):
-        X[:, i] = basis_fnc_gauss(time, centers[i], widths[i])
-
-    if include_intercept:
-        X[:, -1] = 1.0
-    return X
-
-
-def basis_fnc_gauss(t, c, w):
-
-    return np.exp(-((t-c)**2)/w)
-
-
-def basis_fnc_gauss_der2(t, c, w):
-
-    return (-(2.0/w) + ((4.0/(w*w))*(t-c)**2))*basis_fnc_gauss(t, c, w)
 
 
 def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp", file_name="rbf.json"):
@@ -160,37 +116,44 @@ def multi_task_weighted_elastic_net(X, q, L, alpha=0.001, rho=0.99999):
     return theta, res
 
 
-def train_sparse_weights(plot_regr_results=False, ex=0, save=False):
+def train_multi_sparse_weights(args, plot_regr=False, examples=None, save=False):
+    ''' Here we have multiple demonstrations '''
+    joint_dict, ball_dict = serve.run_serve_demo(args)
+    idx_move = joint_dict['idx_move']
+    # hacky, assuming they are all 1 sec long
+    Q = np.zeros((500*7, len(examples)))
 
-    args = serve.create_default_args()  # load default options
-    args.plot = False
-    args.process_example = ex  # change example
-    '''
-    args.smooth.factor = 0.01
-    args.smooth.degree = 3
-    args.smooth.extrap = 3  # doesnt seem to change anything
-    '''
+    for i, ex in enumerate(examples):
+        idx = np.arange(idx_move[0, ex], idx_move[1, ex])
+        q = joint_dict['x'][idx, :]
+        Q[:, i] = q.T.flatten()
+        t = joint_dict['t'][idx]  # assumed the same for each ex
+    X, theta, c, w = iter_multi_demo_lasso(t, Q)
+    return
+
+
+def train_sparse_weights(args, plot_regr=False, ex=0, save=False):
+    ''' Train for only one demonstration '''
     joint_dict, ball_dict = serve.run_serve_demo(args)
 
     # train multi task elastic net
-    example = args.process_example
     idx_move = joint_dict['idx_move']
-    idx = np.arange(idx_move[0, example], idx_move[1, example])
+    idx = np.arange(idx_move[0, ex], idx_move[1, ex])
     q = joint_dict['x'][idx, :]
     t = joint_dict['t'][idx]
     t -= t[0]
     p = 100  # number of features in total
     c = np.linspace(t[0], t[-1], p)  # centers
     w = 0.1 * np.ones((p,))  # widths
-    X = create_gauss_regressor(c, w, time=t)
-    C, Xdot2 = create_acc_weight_mat(c, w, t, include_intercept=True)  #
+    X = basis.create_gauss_regressor(c, w, time=t)
+    C, Xdot2 = basis.create_acc_weight_mat(c, w, t, include_intercept=True)  #
 
     # theta, res = l2_pen_regr(X, q, C)
     # theta, res = multi_task_lasso(X, q)
     # theta, res = multi_task_elastic_net(X, q)
     # theta, res = multi_task_weighted_elastic_net(X, q, Xdot2)
-    X, theta, c, w = iter_lasso(t, q)
-    if plot_regr_results:
+    X, theta, c, w = iter_multi_dof_lasso(t, q)
+    if plot_regr:
         plot_regression(X, theta, q)
 
     idx_non = np.nonzero(theta[:, 0])[0]  # only nonzero entries
@@ -198,14 +161,15 @@ def train_sparse_weights(plot_regr_results=False, ex=0, save=False):
     theta = theta[idx_non, :]
     # last one params are the intercepts!
     if save:
-        filename = "rbf_" + str(example) + ".json"
+        filename = "rbf_" + str(ex) + ".json"
         dump_json_regression_obj(
             c[idx_non[:-1]], w[idx_non[:-1]], theta, file_name=filename)
     # return X[:, idx_non], theta[idx_non, :]
 
 
-def iter_lasso(t, q):
+def iter_multi_dof_lasso(t, q):
     '''
+    Multi-Task grouping is performed across degrees of freedom (joints).
     Iterative MultiTaskElasticNet with nonlinear optimization (BFGS) to update BOTH the RBF
     parameters as well as the regression parameters.
     '''
@@ -213,8 +177,8 @@ def iter_lasso(t, q):
     p = 400
     c = np.linspace(t[0], t[-1], p) + 0.01 * np.random.randn(p)
     w = 0.1 * np.ones((p,)) + 0.01 * np.random.rand(p)
-    X = create_gauss_regressor(c, w, t)
-    _, Xdot2 = create_acc_weight_mat(c, w, t)
+    X = basis.create_gauss_regressor(c, w, t)
+    _, Xdot2 = basis.create_acc_weight_mat(c, w, t)
     iter_max = 3
     a = 0.001  # alpha
     r = 0.99999  # rho
@@ -225,12 +189,13 @@ def iter_lasso(t, q):
     def f_opt(x):
         c_opt = x[:p]
         w_opt = x[p:]
-        X_new = create_gauss_regressor(c_opt, w_opt, t)
-        C, _ = create_acc_weight_mat(c_opt, w_opt, t)
+        X_new = basis.create_gauss_regressor(c_opt, w_opt, t)
+        C, _ = basis.create_acc_weight_mat(c_opt, w_opt, t)
         res = q - np.dot(X_new, theta)
-        cost = np.linalg.norm(res, 'fro')
+        cost = np.linalg.norm(res, 'fro')**2
         theta_21_norm = np.sum(np.linalg.norm(theta, axis=1))
-        l2_acc_pen = np.linalg.norm(np.dot(theta.T, np.dot(C, theta)), 'fro')
+        l2_acc_pen = np.linalg.norm(
+            np.dot(theta.T, np.dot(C, theta)), 'fro')**2
         cost += lamb1 * theta_21_norm
         cost += lamb2 * l2_acc_pen
         return cost
@@ -260,7 +225,109 @@ def iter_lasso(t, q):
         _, Xdot2 = create_acc_weight_mat(c, w, t)
         # perform lasso
         res_last = residual
-        theta, residual = multi_task_weighted_elastic_net(X, q, Xdot2)
+        theta, residual = multi_task_weighted_elastic_net(
+            X, q, Xdot2, alpha=a, rho=r)
+        # shrink the regularizers
+        # to scale lasso throughout iterations
+        a /= np.linalg.norm(res_last)/np.linalg.norm(residual)
+        lamb1 = 2*N*a*r
+        lamb2 = N*a*(1-r)
+
+    return X, theta, c, w
+
+
+def iter_multi_demo_lasso(t, Q):
+    '''
+    Multi-Task grouping is performed across multiple demonstrations!
+    Iterative MultiTaskElasticNet with nonlinear optimization (BFGS) to update BOTH the RBF
+    parameters as well as the regression parameters.
+    In the case of Barrett WAM there are 7x more RBF parameters than iter_multi_dof_lasso!
+
+    Q is a IxJxK 3d-array
+    T is a IxK matrix
+    where I = # of time points
+          J = # of dofs
+          K = # of demos
+    '''
+    # initialize the iteration
+    p = 50  # number of params. max
+    n_dofs = 7  # degrees of freedom
+    n_tp = Q.shape[0]/n_dofs  # number of time points
+    n_demos = Q.shape[1]
+    X = np.zeros((n_dofs * n_tp, p+1))
+    Xdot2 = np.zeros((n_dofs * n_tp, p+1))
+
+    # initialize big X
+    c = np.linspace(t[0], t[-1], p) + 0.01 * np.random.randn(p)
+    w = 0.1 * np.ones((p,)) + 0.01 * np.random.rand(p)
+    for j in range(n_dofs):
+        v = j*n_tp + np.arange(0, n_tp, 1)
+        X[v, :] = basis.create_gauss_regressor(c, w, t)
+        _, M = basis.create_acc_weight_mat(c, w, t)
+        Xdot2[v, :] = M
+    c = np.tile(c, (n_dofs,))
+    w = np.tile(w, (n_dofs,))
+    iter_max = 3
+    a = 0.0001  # alpha
+    r = 0.99999  # rho
+    N = n_tp * n_dofs
+    lamb1 = 2*N*a*r
+    lamb2 = N*a*(1-r)
+
+    def f_opt(x):
+        X_new = np.zeros((n_dofs * n_tp, p+1))
+        C = np.zeros((p+1, p+1))
+        for j in range(n_dofs):
+            v_opt = j*n_tp + np.arange(0, n_tp, 1)
+            c_opt = x[j*p:(j+1)*p]
+            w_opt = x[(n_dofs+j)*p:(n_dofs+j+1)*p]
+            X_new[v_opt, :] = basis.create_gauss_regressor(c_opt, w_opt, t)
+            C += basis.create_acc_weight_mat(c_opt, w_opt, t)[0]
+        res = Q - np.dot(X_new, theta)
+        cost = np.linalg.norm(res, 'fro')**2
+        theta_21_norm = np.sum(np.linalg.norm(theta, axis=1))
+        l2_acc_pen = np.linalg.norm(
+            np.dot(theta.T, np.dot(C, theta)), 'fro')**2
+        cost += lamb1 * theta_21_norm
+        cost += lamb2 * l2_acc_pen
+        return cost
+
+    def prune_params(params):  # acts globally in the function
+        idx_non = np.nonzero(params[:, 0])[0]  # only nonzero entries
+        p_new = len(idx_non)-1
+        print 'Lasso kept', p_new, 'solutions!'  # intercept is static
+        theta_new = params[idx_non, :]
+        c_new = np.zeros((p_new*n_dofs,))
+        w_new = np.zeros((p_new*n_dofs,))
+        for j in range(n_dofs):
+            v_opt = c[j*p:(j+1)*p]
+            c_new[j*p_new:(j+1)*p_new] = v_opt[idx_non[:-1]]
+            v_opt = w[j*p:(j+1)*p]
+            w_new[j*p_new:(j+1)*p_new] = v_opt[idx_non[:-1]]
+        return theta_new, c_new, w_new, p_new
+
+    xopt = np.vstack((c, w))
+    theta, residual = multi_task_weighted_elastic_net(
+        X, Q, Xdot2, alpha=a, rho=r)
+
+    for i in range(iter_max):
+        theta, c, w, p = prune_params(theta)
+        # update RBF weights
+        result = opt.minimize(f_opt, xopt, method="BFGS")
+        xopt = result.x
+
+        for j in range(n_dofs):
+            v = j*n_tp + np.arange(0, n_tp, 1)
+            cj = xopt[j*p:(j+1)*p]
+            wj = xopt[(n_dofs+j)*p:(n_dofs+j+1)*p]
+            X[v, :] = basis.create_gauss_regressor(cj, wj, t)
+            _, M = basis.create_acc_weight_mat(cj, wj, t)
+            Xdot2[v, :] = M
+
+        # perform lasso
+        res_last = residual
+        theta, residual = multi_task_weighted_elastic_net(
+            X, Q, Xdot2, alpha=a, rho=r)
         # shrink the regularizers
         # to scale lasso throughout iterations
         a /= np.linalg.norm(res_last)/np.linalg.norm(residual)
@@ -271,4 +338,12 @@ def iter_lasso(t, q):
 
 
 if __name__ == '__main__':
-    train_sparse_weights(True, ex=2, save=True)
+    date = '10.6.18'
+    args = serve.create_default_args(date)
+    args.ball_file = None
+    args.num_examples = 22
+    args.plot = False
+    args.date = '10.6.18'
+    examples = [14, 15, 16, 17, 18]
+    # train_sparse_weights(args, plot_regr=True, ex=0, save=True)
+    train_multi_sparse_weights(args, False, examples=examples, save=False)

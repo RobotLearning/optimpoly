@@ -20,15 +20,22 @@ def load_files(args):
 
     joint_file = args.joint_file  # './data/10.6.18/joints.txt'
     ball_file = args.ball_file
-    M = np.fromfile(joint_file, sep=" ")
+    M = np.loadtxt(joint_file)
     ndof = 7
-    N = M.size/(ndof+1)
-    M = np.reshape(M, [N, ndof+1])
-    q = M[:, 1:]
-    t_joints = M[:, 0]
-    t_joints = 0.001 * t_joints  # in miliseconds
+    if M.shape[1] == (ndof + 1):
+        q = M[:, 1:]
+        t_joints = M[:, 0]
+        t_joints = 0.001 * t_joints  # in miliseconds
+    elif M.shape[1] == ndof:  # older dataset
+        N = M.shape[0]
+        q = M  # np.reshape(M, [N, ndof])
+        t_joints = 0.002 * np.linspace(0, N, N)
+    else:
+        raise Exception('File doesnt have right size!')
 
-    if args.ball_file:
+    t_balls = []
+    balls = []
+    if args.ball_file is not None:
         B = np.fromfile(ball_file, sep=" ")
         N_balls = B.size/4
         B = np.reshape(B, [N_balls, 4])
@@ -41,6 +48,7 @@ def load_files(args):
         t_min = min(t_joints[0], t_balls[0])
         t_balls = t_balls - t_min
         t_joints = t_joints - t_min
+
     return t_joints, t_balls, q, balls
 
 
@@ -198,12 +206,14 @@ def plot_example(example, joint_dict, ball_dict=None, smooth_opts=None, align=Fa
     if dump:
         # dump to a text file
         robot_mat = np.hstack((t_plot[:, np.newaxis], q_plot))
-        robot_mat = np.hstack((robot_mat, x_plot.T))
-        ball_mat = np.hstack((ball_dict['t'][:, np.newaxis], ball_dict['x']))
         np.savetxt('python/move_robot_' + str(example) + '.txt',
                    X=robot_mat, fmt='%.4e', delimiter='\t')
-        np.savetxt('python/move_ball_' + str(example) + '.txt',
-                   X=ball_mat, fmt='%.4e', delimiter='\t')
+        if ball_dict is not None:
+            robot_mat = np.hstack((robot_mat, x_plot.T))
+            ball_mat = np.hstack(
+                (ball_dict['t'][:, np.newaxis], ball_dict['x']))
+            np.savetxt('python/move_ball_' + str(example) + '.txt',
+                       X=ball_mat, fmt='%.4e', delimiter='\t')
 
 
 def get_ball_obs_for_movement(t_balls, balls, t_joints, idx_joint_move, remove_outlier=True):
@@ -249,13 +259,13 @@ def run_serve_demo(args):
     # get the balls between t_joints
     if args.ball_file:
         ball_dict = get_ball_obs_for_movement(
-            t_balls, balls, t_joints, idx_joint_move[:, args.process_example])
+            t_balls, balls, t_joints, idx_joint_move[:, args.plot_example])
     else:
         ball_dict = None
 
     # examples = np.array([8])
     if args.plot:
-        plot_example(args.process_example, joint_dict, ball_dict,
+        plot_example(args.plot_example, joint_dict, ball_dict,
                      smooth_opts=args.smooth, align=args.align_with_ball, dump=args.dump_plot_data)
     return joint_dict, ball_dict
 
@@ -283,16 +293,15 @@ def process_args():
     return args
 
 
-def create_default_args():
+def create_default_args(date='24.8.18'):
 
     class MyArgs:
-        date = '24.8.18'
         joint_file = os.environ['HOME'] + \
             '/table-tennis/data/' + date + '/joints.txt'
         ball_file = os.environ['HOME'] + \
             '/table-tennis/data/' + date + '/balls.txt'
         num_examples = 4
-        process_example = 0
+        plot_example = 0  # TODO: ball_dict returns only plot_example I think
         plot = True
         dump_plot_data = False
 
@@ -313,7 +322,11 @@ def save_to_tikz(path='../learning-to-serve/Pictures/', name='demo_kin.tex'):
 
 if __name__ == '__main__':
     # args = process_movement()
-    args = create_default_args()
+    date = '10.6.18'
+    args = create_default_args(date)
+    args.num_examples = 22
+    args.plot_example = 20
+    args.ball_file = None
     args.smooth = None  # dont draw smoothened version
     args.dump_plot_data = True  # set to true to dump plot data
     run_serve_demo(args)
