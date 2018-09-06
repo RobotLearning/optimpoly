@@ -62,72 +62,34 @@ def test_basis_fnc_gradient():
     Test the gradient of the basis functions with respect to
     centers and widths (i.e. parameters) by comparing to num. derivative
     '''
+    import train_movement_pattern as train
     N = 10
     p = 4
+    d = 5  # number of columns of q
     t = np.linspace(0, 1, N)
     c = np.linspace(t[0], t[-1], p) + 0.01*np.random.randn(p)
     w = 0.1 * np.ones((p,)) + 0.01 * np.random.rand(p)
     h = 1e-4
     num_der = np.zeros((2*p,))
-    theta = np.random.randn(p+1)
-    q = np.random.randn(N)
+    theta = np.random.randn(p+1, d)
+    q = np.random.randn(N, d)
     lamb1 = 1e-3
     lamb2 = 1e-3
     for i in range(p):
         c[i] += h
-        f_plus = lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_plus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
         c[i] -= 2*h
-        f_minus = lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_minus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
         num_der[i] = (f_plus - f_minus)/(2*h)
         c[i] += h
         w[i] += h
-        f_plus = lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_plus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
         w[i] -= 2*h
-        f_minus = lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_minus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
         num_der[p+i] = (f_plus - f_minus)/(2*h)
         w[i] += h
-    exact_der = lasso_cost_der(c, w, t, q, theta, lamb2)
+    exact_der = train.lasso_cost_der(c, w, t, q, theta, lamb2)
     assert np.allclose(num_der, exact_der, atol=1e-3)
-
-
-def lasso_cost_der(c, w, t, q, theta, lamb2):
-    import basis_fnc as basis
-    X = basis.create_gauss_regressor(c, w, t)
-    _, Xdot2 = basis.create_acc_weight_mat(c, w, t)
-    res = q - np.dot(X, theta)
-    M = basis.create_gauss_regressor_der(
-        c, w, t, include_intercept=True, der='c')
-    Mdot2 = basis.create_acc_weight_mat_der(
-        c, w, t, include_intercept=True, der='c')
-    grad_c = -2 * np.dot(res, M) * theta
-    grad_c += lamb2 * 2 * np.dot(np.dot(Xdot2, theta), Mdot2) * theta
-
-    M = basis.create_gauss_regressor_der(
-        c, w, t, include_intercept=True, der='w')
-    Mdot2 = basis.create_acc_weight_mat_der(
-        c, w, t, include_intercept=True, der='w')
-    grad_w = -2 * np.dot(res, M) * theta
-    grad_w += lamb2 * 2 * np.dot(np.dot(Xdot2, theta), Mdot2) * theta
-    return np.hstack((grad_c[:-1], grad_w[:-1]))
-    '''
-    grad = np.zeros((len(c),))
-    for i in range(len(c)):
-        grad[i] = -2 * theta[i] * np.sum(res * M[:, i])
-    '''
-
-
-def lasso_cost(c, w, t, q, theta, lamb1, lamb2):
-
-    import basis_fnc as basis
-    X = basis.create_gauss_regressor(c, w, t)
-    C, _ = basis.create_acc_weight_mat(c, w, t)
-    res = q - np.dot(X, theta)
-    cost = np.linalg.norm(res)**2  # , 'fro')
-    theta_1_norm = np.linalg.norm(theta)
-    l2_acc_pen = np.dot(theta, np.dot(C, theta))
-    cost += lamb1 * theta_1_norm
-    cost += lamb2 * l2_acc_pen
-    return cost
 
 
 def test_elastic_net_to_lasso_transform():

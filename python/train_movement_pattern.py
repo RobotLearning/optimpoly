@@ -3,6 +3,7 @@ Train movement pattern from examples
 
 '''
 import sys
+import time
 sys.path.append('python/')
 import numpy as np
 import process_movement as serve
@@ -132,7 +133,7 @@ def train_multi_sparse_weights(args, plot_regr=False, examples=None, save=False)
     return
 
 
-def train_sparse_weights(args, plot_regr=False, ex=0, save=False):
+def train_sparse_weights(args, plot_regr=False, ex=0, p=10, save=False):
     ''' Train for only one demonstration '''
     joint_dict, ball_dict = serve.run_serve_demo(args)
 
@@ -142,7 +143,6 @@ def train_sparse_weights(args, plot_regr=False, ex=0, save=False):
     q = joint_dict['x'][idx, :]
     t = joint_dict['t'][idx]
     t -= t[0]
-    p = 100  # number of features in total
     c = np.linspace(t[0], t[-1], p)  # centers
     w = 0.1 * np.ones((p,))  # widths
     X = basis.create_gauss_regressor(c, w, time=t)
@@ -152,29 +152,72 @@ def train_sparse_weights(args, plot_regr=False, ex=0, save=False):
     # theta, res = multi_task_lasso(X, q)
     # theta, res = multi_task_elastic_net(X, q)
     # theta, res = multi_task_weighted_elastic_net(X, q, Xdot2)
-    X, theta, c, w = iter_multi_dof_lasso(t, q)
+    X, theta, c, w = iter_multi_dof_lasso(t, q, p)
     if plot_regr:
         plot_regression(X, theta, q)
 
-    idx_non = np.nonzero(theta[:, 0])[0]  # only nonzero entries
-    print 'Lasso kept', len(idx_non), 'solutions!'
-    theta = theta[idx_non, :]
+    theta, c, w, _ = prune_params(theta, c, w)
     # last one params are the intercepts!
     if save:
         filename = "rbf_" + str(ex) + ".json"
-        dump_json_regression_obj(
-            c[idx_non[:-1]], w[idx_non[:-1]], theta, file_name=filename)
-    # return X[:, idx_non], theta[idx_non, :]
+        dump_json_regression_obj(c, w, theta, file_name=filename)
 
 
-def iter_multi_dof_lasso(t, q):
+def lasso_cost(c, w, t, q, theta, lamb1, lamb2):
+
+    import basis_fnc as basis
+    X = basis.create_gauss_regressor(c, w, t)
+    C, Xdot2 = basis.create_acc_weight_mat(c, w, t)
+    res = q - np.dot(X, theta)
+    cost = np.linalg.norm(res, 'fro')**2
+
+    theta_21_norm = np.sum(np.sqrt(np.sum(theta*theta, axis=1)))
+    l2_acc_pen = np.linalg.norm(np.dot(Xdot2, theta), 'fro')**2
+    cost += lamb1 * theta_21_norm
+    cost += lamb2 * l2_acc_pen
+
+    return cost
+
+
+def lasso_cost_der(c, w, t, q, theta, lamb2):
+    import basis_fnc as basis
+    X = basis.create_gauss_regressor(c, w, t)
+    _, Xdot2 = basis.create_acc_weight_mat(c, w, t)
+    res = q - np.dot(X, theta)
+    M = basis.create_gauss_regressor_der(
+        c, w, t, include_intercept=True, der='c')
+    Mdot2 = basis.create_acc_weight_mat_der(
+        c, w, t, include_intercept=True, der='c')
+    grad_c = -2 * np.diag(np.dot(np.dot(theta, res.T), M))
+    grad_c += 2*lamb2 * \
+        np.sum(np.dot(np.dot(Xdot2, theta), theta.T)*Mdot2, axis=0)
+    M = basis.create_gauss_regressor_der(
+        c, w, t, include_intercept=True, der='w')
+    Mdot2 = basis.create_acc_weight_mat_der(
+        c, w, t, include_intercept=True, der='w')
+    grad_w = -2 * np.diag(np.dot(np.dot(theta, res.T), M))
+    grad_w += 2*lamb2 * \
+        np.sum(np.dot(np.dot(Xdot2, theta), theta.T)*Mdot2, axis=0)
+    return np.hstack((grad_c[:-1], grad_w[:-1]))
+
+
+def prune_params(theta, c, w):  # acts globally in the function
+    idx_non = np.nonzero(theta[:, 0])[0]  # only nonzero entries
+    p_new = len(idx_non)-1
+    print 'Lasso kept', p_new, 'solutions!'  # intercept is static
+    theta_new = theta[idx_non, :]
+    c_new = c[idx_non[:-1]]
+    w_new = w[idx_non[:-1]]
+    return theta_new, c_new, w_new, p_new
+
+
+def iter_multi_dof_lasso(t, q, p):
     '''
     Multi-Task grouping is performed across degrees of freedom (joints).
     Iterative MultiTaskElasticNet with nonlinear optimization (BFGS) to update BOTH the RBF
     parameters as well as the regression parameters.
     '''
     # initialize the iteration
-    p = 400
     c = np.linspace(t[0], t[-1], p) + 0.01 * np.random.randn(p)
     w = 0.1 * np.ones((p,)) + 0.01 * np.random.rand(p)
     X = basis.create_gauss_regressor(c, w, t)
@@ -189,47 +232,33 @@ def iter_multi_dof_lasso(t, q):
     def f_opt(x):
         c_opt = x[:p]
         w_opt = x[p:]
-        X_new = basis.create_gauss_regressor(c_opt, w_opt, t)
-        C, _ = basis.create_acc_weight_mat(c_opt, w_opt, t)
-        res = q - np.dot(X_new, theta)
-        cost = np.linalg.norm(res, 'fro')**2
-        theta_21_norm = np.sum(np.linalg.norm(theta, axis=1))
-        l2_acc_pen = np.linalg.norm(
-            np.dot(theta.T, np.dot(C, theta)), 'fro')**2
-        cost += lamb1 * theta_21_norm
-        cost += lamb2 * l2_acc_pen
-        return cost
+        f = lasso_cost(c_opt, w_opt, t, q, theta, lamb1, lamb2)
+        df = lasso_cost_der(c_opt, w_opt, t, q, theta, lamb2)
+        return f, df
 
-    def prune_params(params):  # acts globally in the function
-        idx_non = np.nonzero(params[:, 0])[0]  # only nonzero entries
-        p_new = len(idx_non)-1
-        print 'Lasso kept', p_new, 'solutions!'  # intercept is static
-        theta_new = params[idx_non, :]
-        c_new = c[idx_non[:-1]]
-        w_new = w[idx_non[:-1]]
-        return theta_new, c_new, w_new, p_new
-
-    xopt = np.vstack((c, w))
+    xopt = np.hstack((c, w))
     theta, residual = multi_task_weighted_elastic_net(
         X, q, Xdot2, alpha=a, rho=r)
 
     for i in range(iter_max):
-        theta, c, w, p = prune_params(theta)
+        theta, c, w, p = prune_params(theta, c, w)
+        xopt = np.hstack((c, w))
         # update RBF weights
-        result = opt.minimize(f_opt, xopt, method="BFGS")
+        result = opt.minimize(f_opt, xopt, jac=True, method="BFGS")
         xopt = result.x
         c = xopt[:p]
         w = xopt[p:]
         # print c, w
-        X = create_gauss_regressor(c, w, t)
-        _, Xdot2 = create_acc_weight_mat(c, w, t)
+        X = basis.create_gauss_regressor(c, w, t)
+        _, Xdot2 = basis.create_acc_weight_mat(c, w, t)
         # perform lasso
         res_last = residual
         theta, residual = multi_task_weighted_elastic_net(
             X, q, Xdot2, alpha=a, rho=r)
         # shrink the regularizers
         # to scale lasso throughout iterations
-        a /= np.linalg.norm(res_last)/np.linalg.norm(residual)
+        a /= (np.linalg.norm(res_last, 'fro') /
+              np.linalg.norm(residual, 'fro'))**2
         lamb1 = 2*N*a*r
         lamb2 = N*a*(1-r)
 
@@ -268,7 +297,7 @@ def iter_multi_demo_lasso(t, Q):
     c = np.tile(c, (n_dofs,))
     w = np.tile(w, (n_dofs,))
     iter_max = 3
-    a = 0.0001  # alpha
+    a = 0.001  # alpha
     r = 0.99999  # rho
     N = n_tp * n_dofs
     lamb1 = 2*N*a*r
@@ -330,7 +359,7 @@ def iter_multi_demo_lasso(t, Q):
             X, Q, Xdot2, alpha=a, rho=r)
         # shrink the regularizers
         # to scale lasso throughout iterations
-        a /= np.linalg.norm(res_last)/np.linalg.norm(residual)
+        a /= (np.linalg.norm(res_last)/np.linalg.norm(residual))**2
         lamb1 = 2*N*a*r
         lamb2 = N*a*(1-r)
 
@@ -344,6 +373,8 @@ if __name__ == '__main__':
     args.num_examples = 22
     args.plot = False
     args.date = '10.6.18'
-    examples = [14, 15, 16, 17, 18]
-    # train_sparse_weights(args, plot_regr=True, ex=0, save=True)
-    train_multi_sparse_weights(args, False, examples=examples, save=False)
+    #examples = [14, 15, 16, 17, 18]
+    time_init = time.time()
+    train_sparse_weights(args, plot_regr=True, ex=14, save=True, p=50)
+    print 'Elapsed time:', time.time() - time_init
+    #train_multi_sparse_weights(args, False, examples=examples, save=False)
