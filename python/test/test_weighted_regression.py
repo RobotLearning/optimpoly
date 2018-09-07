@@ -57,12 +57,13 @@ def test_basis_fnc_second_time_der():
     assert np.allclose(num_der2, der2, atol=1e-3)
 
 
-def test_basis_fnc_gradient():
+def test_elastic_net_multi_dof_gradient():
     '''
-    Test the gradient of the basis functions with respect to
+    Test the gradient of the multi_dof (only one demo!) version of the 
+    Elastic Net cost with respect to
     centers and widths (i.e. parameters) by comparing to num. derivative
     '''
-    import train_movement_pattern as train
+    import multi_dof_lasso as lasso
     N = 10
     p = 4
     d = 5  # number of columns of q
@@ -77,18 +78,64 @@ def test_basis_fnc_gradient():
     lamb2 = 1e-3
     for i in range(p):
         c[i] += h
-        f_plus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_plus = lasso.elastic_net_cost(c, w, t, q, theta, lamb1, lamb2)
         c[i] -= 2*h
-        f_minus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_minus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2)
         num_der[i] = (f_plus - f_minus)/(2*h)
         c[i] += h
         w[i] += h
-        f_plus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_plus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2)
         w[i] -= 2*h
-        f_minus = train.lasso_cost(c, w, t, q, theta, lamb1, lamb2)
+        f_minus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2)
         num_der[p+i] = (f_plus - f_minus)/(2*h)
         w[i] += h
-    exact_der = train.lasso_cost_der(c, w, t, q, theta, lamb2)
+    exact_der = lasso.elastic_net_cost_der(c, w, t, q, theta, lamb2)
+    assert np.allclose(num_der, exact_der, atol=1e-3)
+
+
+def test_elastic_net_multi_demo_gradient():
+    '''
+    Test the gradient of the multi_demo (stacked dofs horizontally!) version of the 
+    Elastic Net cost with respect to
+    centers and widths (i.e. parameters) of different joints by comparing to num. derivative
+    '''
+    import multi_demo_lasso as lasso
+    n_tps = 6  # number of timxe points
+    p = 5  # number of parameters (except for intercept)
+    n_dofs = 3
+    n_demos = 4  # number of demonstrations
+    t = np.linspace(0, 1, n_tps)
+    c = np.linspace(t[0], t[-1], p) + 0.01*np.random.randn(p)
+    w = 0.1 * np.ones((p,)) + 0.01 * np.random.rand(p)
+    c = np.tile(c, (n_dofs,))
+    w = np.tile(w, (n_dofs,))
+    h = 1e-4
+    num_der = np.zeros((2*p*n_dofs,))
+    theta = np.random.randn(p+1, n_demos)
+    q = np.random.randn(n_tps*n_dofs, n_demos)
+    lamb1 = 1e-3
+    lamb2 = 1e-3
+    for i in range(p*n_dofs):
+        c[i] += h
+        f_plus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2, n_dofs)
+        c[i] -= 2*h
+        f_minus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2, n_dofs)
+        num_der[i] = (f_plus - f_minus)/(2*h)
+        c[i] += h
+        w[i] += h
+        f_plus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2, n_dofs)
+        w[i] -= 2*h
+        f_minus = lasso.elastic_net_cost(
+            c, w, t, q, theta, lamb1, lamb2, n_dofs)
+        num_der[p*n_dofs+i] = (f_plus - f_minus)/(2*h)
+        w[i] += h
+    exact_der = lasso.elastic_net_cost_der(c, w, t, q, theta, lamb2, n_dofs)
     assert np.allclose(num_der, exact_der, atol=1e-3)
 
 
