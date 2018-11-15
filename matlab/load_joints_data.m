@@ -70,7 +70,7 @@ end
 
 %% Plot the motions
 
-examples = 9; 
+examples = 19; 
 %SECOND = [2,4,6,9,10,12,15,16,18,19,20,21]; 
 % FIRST: [1;7;10;5;9];
 num_examples = length(examples);

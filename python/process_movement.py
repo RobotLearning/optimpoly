@@ -117,7 +117,6 @@ def compute_kinematics(idx, q, align):
     Compute kinematics (x positions) of racket center positions
     Align racket center with ball by transforming 14 cm back (y) and 5 cm in z-dir
     '''
-
     x_plot = np.zeros((3, idx.size))
     for idx, val in enumerate(idx):
         As = wam.barrett_wam_kinematics(np.transpose(q[idx, :]))
@@ -206,13 +205,13 @@ def plot_example(example, joint_dict, ball_dict=None, smooth_opts=None, align=Fa
     if dump:
         # dump to a text file
         robot_mat = np.hstack((t_plot[:, np.newaxis], q_plot))
-        np.savetxt('python/move_robot_' + str(example) + '.txt',
+        np.savetxt('python/dumps/move_robot_' + str(example) + '.txt',
                    X=robot_mat, fmt='%.4e', delimiter='\t')
         if ball_dict is not None:
             robot_mat = np.hstack((robot_mat, x_plot.T))
             ball_mat = np.hstack(
                 (ball_dict['t'][:, np.newaxis], ball_dict['x']))
-            np.savetxt('python/move_ball_' + str(example) + '.txt',
+            np.savetxt('python/dumps/move_ball_' + str(example) + '.txt',
                        X=ball_mat, fmt='%.4e', delimiter='\t')
 
 

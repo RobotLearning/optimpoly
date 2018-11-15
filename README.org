@@ -667,9 +667,150 @@ though simulation was working
 
 *** TODO Can we start gameplay with a serve?
 * Learning To Serve 						   :@journal:
-** DONE Hold the ball on the racket with an egg-holder
+** Reading/Writing
+*** Reading
+**** TODO Check out new papers on deep RL for robotics 
+Sergey Levine and Pieter Abbeel's new papers come to mind.
+Especially: TRPO, Guided Policy Search, ...
+***** TODO Read Latent Space Policy Search
+Kevin Down et al. Compare with Bayes Opt approaches.
+***** TODO Read Massive Uninformed Search vs RL
+Benjamin Recht et al.
+
+*** Writing
+**** TODO Better plot for the Elastic Net path
+Include in the paper an Elastic Net path using LARS that makes more sense.
+
+**** TODO Add an example of a learned ranking
+with basis function parameters that illustrate the importance of the learned
+movement primitive.
+**** TODO More discussion of Alg2 optimization procedure
+The algorithm selects very different parameters (even the number!) depending
+on the initial starting widths, heights, etc.
+**** TODO Plot sample pruning path
+Include plot of how the algorithms remove some of the variables, i.e.
+87-80-70-70-... on average
+** Theory
+*** WAITING Learn invariants of motion/policy from demonstrations
+The idea is to learn invariants of motion / parameterize the relative
+motion between the joints using a graph (graphical model?).
+
+The improvement for RL is to find a reduced dim. latent space on which
+we can perform policy search/BO.
+
+**** WAITING Learn a policy that depends on joint state and ball state
+The policy that the graph generates is relative, i.e. it can be
+grounded by specifying an initial joint state and possibly also ball
+state.
+
+Ideally the policy should also have low accelerations and ideally it
+should involve some sort of planning, e.g. it should know
+intrinsically the value of a certain distance from the ball.
+
+**** WAITING Learn a policy that understands the intention of the teacher
+Inverse Reinforcement Learning maybe? To learn the Value Function
+of the teacher?
+
+*** TODO Can we learn a model of the ball takeoff?
+Possibly from movement primitives and/or RL trajectories one could
+learn such a model.
+*** TODO Can the traj generation be solved with polynomials?
+Does the full planning problem with the two ball takeoff and racket
+impact models included result in a continuous trajectory? hybrid?
+polynomials?
+*** TODO Check local perturbative feedback solutions
+If we can additionally solve for local feedback, then one does not
+need to optimize repeatedly 3rd/5th order 
+*** TODO Reinforcement Learning
+**** WAITING How to apply model-free RL
+**** TODO How to apply model-based RL
+The approach must clearly be model-based as I do not want to have 'N'
+rollouts for each policy $\theta_k$.
+
+As opposed to GPs or neural networks, we could first try local linear
+models as an extension of DMPs.
+***** TODO Learn model of what?
+Model for the ball take-off, ball-racket impact or robot dynamics? Or
+all three? Couple the ball as part of the state as well?
+***** TODO Is the ball or the robot rest posture a context?
+We have to make sure that local policy generalizes to different ball
+positions and robot rest postures.
+
+**** IN-PROGRESS How to apply BO
+In high dimensional cases it seems important to do dimensionality
+reduction.
+
+The initial posture of the robot corresponds to the 'context' of the
+problem and contextual bandits would learn a GP over the contexts as
+well.
+***** DONE How to do dimensionality reduction on policy params
+Jan suggested performing PCA analysis first but in the end 
+I proposed (Lasso-like) multi-task Elastic Net coupled with feature
+adaptation.
+***** TODO Check out latent space approaches to BO
+The recent BO survey should be of help.
+***** TODO Read the recent gradient based BO paper in NIPS last year
+***** TODO Investigate hierarchical approaches to Bayes Optimization
+UCT algorithm comes to mind
+
+** Simulations
+*** DONE Add unit test with optimization
+New serve() function in SL can perform an optimization whenever the
+movement is predicted to fail. The movement will then switch the
+optimization if a feasible solution is found.
+
+- Added optim, detach flags
+- Input q_act is parameter to initialize the optimization
+- Rate of optim and other flags from player.cfg are replicated in
+  serve.cfg 
+- Desired land location flag also imported from player.cfg
+
+*** DONE Calculate derivatives of movement primitive cost function
+Check the python code for the derivatives
+**** DONE Test derivatives
+Added pytest in Python to check for derivatives
+**** DONE Add Elastic Net path after LSDP 
+Generated Elastic Net path after training (coupled) LSDP parameters
+*** TODO Policy Search review
+We have rl-experiments/ repository where I include
+the REINFORCE algorithm that I emplemented
+
+The MIPS MATLAB Policy Search and iLQG MATLAB code is also 
+included.
+
+**** IN-PROGRESS Check RL in MATLAB
+***** TODO Test Power in MATLAB
+using Jens Kober's implementation
+****** TODO Adapt to my own DMP implementation
+****** TODO Add an internal system
+e.g. a Barrett WAM forward dynamics
+****** TODO Increase dimensions of the state
+***** TODO Add Reps in MATLAB
+***** IN-PROGRESS Check Simone's RL toolbox (mips)
+***** TODO Test against a realistic mismatch scenario
+****** TODO Compare against ILC?
+******* TODO Extend ILC with improved trajectories
+As we use ILC and update the models, the models can also be used to
+update the reference trajectories progressively.
+******** TODO Relation to DDP?
+**** TODO Check reinforce for convergence
+REINFORCE is not converging!
+***** TODO Test gradients
+***** TODO Test calc_log_der 
+Calculates the log derivatives 
+***** TODO Test baseline subtraction
+***** TODO Test against LQR solution (as baseline?)
+***** TODO What are the effects of the hyperparameters?
+Learning rate, policy structure, number of basis functions,
+obs. noise, etc.
+***** TODO Implement adaptive learning rates for reinforce
+**** TODO Extend library with other policy search algorithms
+**** WAITING Add interface to MUJOCO
+**** TODO Read up on deep reinforcement learning blog post
+** Experiments
+*** DONE Hold the ball on the racket with an egg-holder
 Heiko 3d-print-ed an egg holder for me to try
-** IN-PROGRESS Learning from Demonstrations
+*** DONE Learning from Demonstrations
 I'm trying at the moment to record ball positions as well during the
 recordings.
 
@@ -680,18 +821,18 @@ These are not optimal parameters at all! However after the racket
 holder change, this was the best setting without the PD control that I
 found. 
 
-*** DONE Can we teach the robot how to serve
-With the egg-hold it is possible to teach, but the shoulder is as
+**** DONE Can we teach the robot how to serve
+With the egg-holder it is possible to teach, but the shoulder is as
 suspected difficult to move, even with the PD turned off.  I was
 moving more the elbow so far.
-*** DONE Can we learn/extract movement primitives?
-**** DONE Record movement in gravity compensation mode
+**** DONE Can we learn/extract movement primitives?
+***** DONE Record movement in gravity compensation mode
 PD should be switched off.
-**** DONE Extract movement primitives
+***** DONE Extract movement primitives
 Extracting movement primitives with 5 examples so far.  One can
 remove/add more examples and also basis functions to test on the
 robot.
-**** DONE Test on robot
+***** DONE Test on robot
 Testing on the robot was tricky, as we need to make sure that during
 the kinesthetic teachin, the joint limits are never exceeded.  It
 seems that the hardware limits are not the same as the software
@@ -700,7 +841,8 @@ limits.
 After teaching for the second time with the eggholder on the red side
 of the racket, the movement could be executed on the robot.
 
-*** DONE Tune the movement primitives
+**** DONE Get ball positions during the teaching
+*** DONE Tune the DMPs
 We should have a json file with additional settings that we can
 adjust.
 **** DONE Pretty format the JSON file
@@ -725,36 +867,8 @@ This actually generates smoothing splines in the nonparametric case
 and in the parametric case when we also put an l1 penalty on the
 parameters we get a (multitask) Elastic Net!
 
-*** WAITING Learn invariants of motion/policy from demonstrations
-The idea is to learn invariants of motion / parameterize the relative
-motion between the joints using a graph (graphical model?).
-
-The improvement for RL is to find a reduced dim. latent space on which
-we can perform policy search/BO.
-
-**** WAITING Learn a policy that depends on joint state and ball state
-The policy that the graph generates is relative, i.e. it can be
-grounded by specifying an initial joint state and possibly also ball
-state.
-
-Ideally the policy should also have low accelerations and ideally it
-should involve some sort of planning, e.g. it should know
-intrinsically the value of a certain distance from the ball.
-
-**** WAITING Learn a policy that understands the intention of the teacher
-Inverse Reinforcement Learning maybe?
-
-** IN-PROGRESS Cast it as an optimal control problem
-*** DONE Add unit test with optimization
-New serve() function in SL can perform an optimization whenever the
-movement is predicted to fail. The movement will then switch the
-optimization if a feasible solution is found.
-
-- Added optim, detach flags
-- Input q_act is parameter to initialize the optimization
-- Rate of optim and other flags from player.cfg are replicated in
-  serve.cfg 
-- Desired land location flag also imported from player.cfg
+*** TODO Test the sparse RBFs on real robot
+Testing the learned sparse RBFs on real robot is next.
 *** IN-PROGRESS Test ball information
 **** DONE Test ZMQ interface during human demonstrations
 ***** DONE Copy new trained vision parameters to json files
@@ -763,7 +877,7 @@ I saved the projection matrices also in a serve_3d_ping_okan file. The
 matrices are not normalized (i.e., P[3,4] is not 1) but triangulation
 in c++ does not cause a problem.
 ***** DONE Add 2d interface to listener
-Instead of running an extern triangulation server, I can do the
+Instead of running an external triangulation server, I can do the
 triangulation in a detached thread inside the table tennis library.
 ****** DONE Add triangulation method
 In Python I use SVD to solve for the rightmost singular vector, this
@@ -797,28 +911,18 @@ from joint positions and ball positions saved]
 ***** TODO How does the ball filtering look like?
 ***** DONE Does serving closer to the table help detection?
 Yes it does!
+**** TODO Listen2D flag is buggy after resetting (pressing 'f')
 *** TODO Test optimization with movement primitives
 Even if the ball-takeoff model is not known, one can use movement
 primitives for at least the first part of the movement.
 **** DONE When to optimize?
 I think when it is clear that the racket will not return the separated
 ball one can 'fire' the optimization.
-**** TODO Can we learn a model of the ball takeoff?
-Possibly from movement primitives and/or RL trajectories one could
-learn such a model.
-**** TODO Can it be solved with polynomials?
-Is the full planning problem with the two ball takeoff and racket
-impact models included result in a continuous trajectory? hybrid?
-polynomials?
 **** TODO Compare third order to fifth order on robot
 Third order or fifth order (minimum jerk)? Which is better?
 ***** TODO Is it necessary to do MPC?
 I would guess fifth order should be better in this case
-****** TODO Check local perturbative feedback solutions
-If we can additionally solve for local feedback, then one does not
-need to optimize repeatedly 5th order polynomials.
-
-** IN-PROGRESS Use Reinforcement Learning to improve execution
+*** IN-PROGRESS Use Reinforcement Learning to improve execution
 The Desiderata for RL in robotics:
 1. Data efficiency
 - no rollouts
@@ -834,44 +938,6 @@ The Desiderata for RL in robotics:
 - starting overparameterized or underparam.
 - relation to ILC as a result of optim.
 
-*** TODO Policy Search review
-We have rl-experiments/ repository where I include
-the REINFORCE algorithm that I emplemented
-
-The MIPS MATLAB Policy Search and iLQG MATLAB code is also 
-included.
-
-**** TODO Check RL in MATLAB
-***** TODO Test Power in MATLAB
-using Jens Kober's implementation
-****** TODO Adapt to my own DMP implementation
-****** TODO Add an internal system
-e.g. a Barrett WAM forward dynamics
-****** TODO Increase dimensions of the state
-***** TODO Add Reps in MATLAB
-***** TODO Check Simone's RL toolbox (mips)
-***** TODO Test against a realistic mismatch scenario
-****** TODO Compare against ILC?
-******* TODO Extend ILC with improved trajectories
-As we use ILC and update the models, the models can also be used to
-update the reference trajectories progressively.
-******** TODO Relation to DDP?
-**** TODO Check reinforce on higher dimensions for convergence
-REINFORCE is not converging!
-**** TODO Implement adaptive learning rates for reinforce
-**** TODO Extend library with other policy search algorithms
-**** WAITING Add interface to MUJOCO
-**** TODO Read up on deep reinforcement learning blog post
-**** TODO Check out new papers on deep RL for robotics 
-Sergey Levine and Pieter Abbeel's new papers come to mind.
-Especially: TRPO, Guided Policy Search, ...
-***** TODO Read Latent Space Policy Search
-Kevin Down et al. Compare with Bayes Opt approaches.
-***** TODO Read Massive Uninformed Search vs RL
-Benjamin Recht et al.
-*** IN-PROGRESS Learning approach
-The options are model-free, hybrid, model-based RL and Bayesian
-Optimization (BO).
 **** TODO What is the reward function to use?
 The possibilities are:
 
@@ -879,36 +945,9 @@ The possibilities are:
 2. Minimum distance between the ball and the robot court center
 3. Maximum y-velocity of the ball
 
-or possible a combination of the above.
+or possibly a combination of the above.
 ***** TODO Can we adapt the reward function?
 Reward shaping comes to mind here.
-**** WAITING How to apply model-free RL
-**** TODO How to apply model-based RL
-The approach must clearly be model-based as I do not want to have 'N'
-rollouts for each policy $\theta_k$.
-
-As opposed to GPs or neural networks, we could first try local linear
-models as an extension of DMPs.
-***** TODO Learn model of what?
-Model for the ball take-off, ball-racket impact or robot dynamics? Or
-all three? Couple the ball as part of the state as well?
-***** TODO Is the ball or the robot rest posture a context?
-We have to make sure that local policy generalizes to different ball
-positions and robot rest postures.
-**** WAITING How to apply BO
-In high dimensional cases it seems important to do dimensionality
-reduction.
-
-The initial posture of the robot corresponds to the 'context' of the
-problem and contextual bandits would learn a GP over the contexts as
-well.
-***** TODO How to do dimensionality reduction on policy params
-Jan suggested performing PCA analysis.
-***** TODO Check out latent space approaches to BO
-The recent BO survey should be of help.
-***** TODO Read the recent gradient based BO paper in NIPS last year
-***** TODO Investigate hierarchical approaches to Bayes Optimization
-UCT algorithm comes to mind
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 
 *** Which framework is suitable for solving it?
@@ -930,28 +969,3 @@ The stochastic optimal control based trajectory generation approach
 could strike a balance between the two.
 *** Reduce variance of predictions as we update the models?
 
-* Towards end-to-end learning
-The plan is to give videos in an unsupervised manner and predict
-3d-positions.
-** Semi-supervised learning on images
-An autoencoder would try to generate the images with the latent space
-restricted to 3 dimensions. A limited supervised-set consisting of
-robot racket 3d-positions would act as constraints, pushing the 3d
-latent space to physically meaningful values.
-
-The first half of the auto-encoder trained this way would replace ball
-detection and calibration + possibly distortion correction.
-
-*** TODO How to enforce constraints during optimization
-Projected gradient descent?
-*** TODO Train autoencoder in keras with validation set
-Enable early stopping and compare without early stopping
-
-** Unsupervised learning on videos
-Given an unlabeled repository of ball flight videos, the task is to
-learn ball detection, calibration and ball model all at once.
-
-Given an initial 3d ball position velocity and spin, one can predict
-the future of the ball positions with a ball model. The calibration
-function and the inverse of the ball detection would then generate the
-entire video.

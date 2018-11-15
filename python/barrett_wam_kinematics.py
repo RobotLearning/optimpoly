@@ -1,7 +1,7 @@
 # Barrett WAM forward kinematics
 # used to show trajectories in cartesian space
 #
-# Function taken from SL: 
+# Function taken from SL:
 # shared/barrett/math/LInfo_declare.h
 # shared/barrett/math/LInfo_math.h
 #
@@ -16,26 +16,28 @@
 import numpy as np
 import collections as col
 
-def power(a,n):
+
+def power(a, n):
     return a**n
+
 
 def barrett_wam_kinematics(q):
 
     NDOF = 7
 
     # definitions
-    ZSFE = 0.346              #!< z height of SAA axis above ground
-    ZHR = 0.505              #!< length of upper arm until 4.5cm before elbow link
-    YEB = 0.045              #!< elbow y offset
-    ZEB = 0.045              #!< elbow z offset
-    YWR = -0.045              #!< elbow y offset (back to forewarm)
-    ZWR = 0.045              #!< elbow z offset (back to forearm)
-    ZWFE = 0.255              #!< forearm length (minus 4.5cm)
+    ZSFE = 0.346  # !< z height of SAA axis above ground
+    ZHR = 0.505  # !< length of upper arm until 4.5cm before elbow link
+    YEB = 0.045  # !< elbow y offset
+    ZEB = 0.045  # !< elbow z offset
+    YWR = -0.045  # !< elbow y offset (back to forewarm)
+    ZWR = 0.045  # !< elbow z offset (back to forearm)
+    ZWFE = 0.255  # !< forearm length (minus 4.5cm)
 
     # extract parameters
-    eff = col.namedtuple('struct','m mcm x a')
-    basec = col.namedtuple('struct','x xd xdd')
-    baseo = col.namedtuple('struct','q qd qdd ad add')
+    eff = col.namedtuple('struct', 'm mcm x a')
+    basec = col.namedtuple('struct', 'x xd xdd')
+    baseo = col.namedtuple('struct', 'q qd qdd ad add')
     eff.m = 0.0
     eff.mcm = np.zeros(3)
     eff.mcm[0] = 0.0
@@ -49,16 +51,16 @@ def barrett_wam_kinematics(q):
     eff.a[0] = 0.0
     eff.a[1] = 0.0
     eff.a[2] = 0.0
-    basec.x = np.zeros((3,1))
-    basec.xd = np.zeros((3,1))
-    basec.xdd = np.zeros((3,1))
-    baseo.q = np.array([0,1.0,0,0])
-    baseo.qd = np.zeros((4,1))
-    baseo.qdd = np.zeros((4,1))
-    baseo.ad = np.zeros((3,1))
-    baseo.add = np.zeros((3,1))
+    basec.x = np.zeros((3, 1))
+    basec.xd = np.zeros((3, 1))
+    basec.xdd = np.zeros((3, 1))
+    baseo.q = np.array([0, 1.0, 0, 0])
+    baseo.qd = np.zeros((4, 1))
+    baseo.qdd = np.zeros((4, 1))
+    baseo.ad = np.zeros((3, 1))
+    baseo.add = np.zeros((3, 1))
 
-    # np.sine and conp.sine precomputation 
+    # np.sine and conp.sine precomputation
     ss1th = np.sin(q[0])
     cs1th = np.cos(q[0])
     ss2th = np.sin(q[1])
@@ -83,46 +85,46 @@ def barrett_wam_kinematics(q):
     rseff1a3 = np.sin(eff.a[2])
     rceff1a3 = np.cos(eff.a[2])
 
-    ## Calculations are done here
+    # Calculations are done here
 
-    Hi00 = np.zeros((4,4))
-    Hi00[3][3] = 1 
-    Hi01 = np.zeros((4,4))
-    Hi01[3][3] = 1 
+    Hi00 = np.zeros((4, 4))
+    Hi00[3][3] = 1
+    Hi01 = np.zeros((4, 4))
+    Hi01[3][3] = 1
     Hi01[2][2] = 1
-    Hi12 = np.zeros((4,4)) 
-    Hi12[3][3] = 1 
+    Hi12 = np.zeros((4, 4))
+    Hi12[3][3] = 1
     Hi12[0][2] = -1
-    Hi23 = np.zeros((4,4)) 
-    Hi23[3][3] = 1 
+    Hi23 = np.zeros((4, 4))
+    Hi23[3][3] = 1
     Hi23[0][2] = 1
-    Hi34 = np.zeros((4,4)) 
-    Hi34[3][3] = 1 
+    Hi34 = np.zeros((4, 4))
+    Hi34[3][3] = 1
     Hi34[0][2] = -1
-    Hi45 = np.zeros((4,4)) 
-    Hi45[3][3] = 1 
+    Hi45 = np.zeros((4, 4))
+    Hi45[3][3] = 1
     Hi45[0][2] = 1
-    Hi56 = np.zeros((4,4)) 
-    Hi56[3][3] = 1 
+    Hi56 = np.zeros((4, 4))
+    Hi56[3][3] = 1
     Hi56[0][2] = -1
-    Hi67 = np.zeros((4,4)) 
-    Hi67[3][3] = 1 
+    Hi67 = np.zeros((4, 4))
+    Hi67[3][3] = 1
     Hi67[0][2] = 1
-    Hi78 = np.zeros((4,4)) 
+    Hi78 = np.zeros((4, 4))
     Hi78[3][3] = 1
 
-    # inverse homogeneous rotation matrices 
-    Hi00[0][0] = -1 + 2*power(baseo.q[0],2) + 2*power(baseo.q[1],2)
+    # inverse homogeneous rotation matrices
+    Hi00[0][0] = -1 + 2*power(baseo.q[0], 2) + 2*power(baseo.q[1], 2)
     Hi00[0][1] = 2*(baseo.q[1]*baseo.q[2] - baseo.q[0]*baseo.q[3])
     Hi00[0][2] = 2*(baseo.q[0]*baseo.q[2] + baseo.q[1]*baseo.q[3])
     Hi00[0][3] = basec.x[0]
     Hi00[1][0] = 2*(baseo.q[1]*baseo.q[2] + baseo.q[0]*baseo.q[3])
-    Hi00[1][1] = -1 + 2*power(baseo.q[0],2) + 2*power(baseo.q[2],2)
+    Hi00[1][1] = -1 + 2*power(baseo.q[0], 2) + 2*power(baseo.q[2], 2)
     Hi00[1][2] = 2*(-(baseo.q[0]*baseo.q[1]) + baseo.q[2]*baseo.q[3])
     Hi00[1][3] = basec.x[1]
     Hi00[2][0] = 2*(-(baseo.q[0]*baseo.q[2]) + baseo.q[1]*baseo.q[3])
     Hi00[2][1] = 2*(baseo.q[0]*baseo.q[1] + baseo.q[2]*baseo.q[3])
-    Hi00[2][2] = -1 + 2*power(baseo.q[0],2) + 2*power(baseo.q[3],2)
+    Hi00[2][2] = -1 + 2*power(baseo.q[0], 2) + 2*power(baseo.q[3], 2)
     Hi00[2][3] = basec.x[2]
     Hi01[0][0] = cs1th
     Hi01[0][1] = -ss1th
@@ -172,22 +174,21 @@ def barrett_wam_kinematics(q):
     Hi78[2][2] = rceff1a1*rceff1a2
     Hi78[2][3] = eff.x[2]
 
-    Ai01 = np.dot(Hi00,Hi01)
-    Ai02 = np.dot(Ai01,Hi12)
-    Ai03 = np.dot(Ai02,Hi23)
-    Ai04 = np.dot(Ai03,Hi34)
-    Ai05 = np.dot(Ai04,Hi45)
-    Ai06 = np.dot(Ai05,Hi56)
-    Ai07 = np.dot(Ai06,Hi67)
-    Ai08 = np.dot(Ai07,Hi78)
+    Ai01 = np.dot(Hi00, Hi01)
+    Ai02 = np.dot(Ai01, Hi12)
+    Ai03 = np.dot(Ai02, Hi23)
+    Ai04 = np.dot(Ai03, Hi34)
+    Ai05 = np.dot(Ai04, Hi45)
+    Ai06 = np.dot(Ai05, Hi56)
+    Ai07 = np.dot(Ai06, Hi67)
+    Ai08 = np.dot(Ai07, Hi78)
 
-    Ahmat = np.zeros((6,4,4))
-    Ahmat[0,:,:] = Ai02
-    Ahmat[1,:,:] = Ai03
-    Ahmat[2,:,:] = Ai04
-    Ahmat[3,:,:] = Ai05
-    Ahmat[4,:,:] = Ai07
-    Ahmat[5,:,:] = Ai08
+    Ahmat = np.zeros((6, 4, 4))
+    Ahmat[0, :, :] = Ai02
+    Ahmat[1, :, :] = Ai03
+    Ahmat[2, :, :] = Ai04
+    Ahmat[3, :, :] = Ai05
+    Ahmat[4, :, :] = Ai07
+    Ahmat[5, :, :] = Ai08
 
     return Ahmat
-
