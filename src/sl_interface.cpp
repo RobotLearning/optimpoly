@@ -309,8 +309,8 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
         // allowed in config file
         po::options_description config("Configuration");
         config.add_options()
-        ("use_rbf", po::value<bool>(&sflags.use_rbf),
-        "Use Radial Basis Functions (RBF) instead of DMPs")
+        ("alg", po::value<int>(&sflags.alg),
+        "Algorithm to use for serving")
         ("json_file", po::value<string>(&sflags.json_file),
         "JSON File to load movement from")
         ("start_from_act_state", po::value<bool>(&sflags.start_from_act_state)->default_value(false),
@@ -357,9 +357,13 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
 
     string json_file = home + "/table-tennis/json/" + sflags.json_file;
     vec7 pose;
-    if (sflags.use_rbf) {
+    if (sflags.alg == 1) {
     	RBF rbfs = RBF(json_file);
     	rbfs.get_init_pos(pose);
+    }
+    else if (sflags.alg == 2) {
+        CRBF crbfs = CRBF(json_file);
+        crbfs.get_init_pos(pose);
     }
     else {
     	using dmps = Joint_DMPs;
@@ -381,8 +385,9 @@ void serve_ball(const SL_Jstate joint_state[],
     static ball_obs blob;
     static optim::joint qact;
     static optim::joint qdes;
-    static ServeBall<dmps> *robot_starts_with_dmp = nullptr; // class for serving ball
-    static ServeBall<RBF> *robot_starts_with_rbf = nullptr;
+    static ServeBall<dmps> *robot_dmp = nullptr; // class for serving ball
+    static ServeBall<RBF> *robot_rbf = nullptr;
+    static ServeBall<CRBF> *robot_crbf = nullptr;
 
     if (sflags.reset) {
     	delete listener;
@@ -400,13 +405,15 @@ void serve_ball(const SL_Jstate joint_state[],
             qdes.qd(i) = 0.0;
             qdes.qdd(i) = 0.0;
         }
-        if (sflags.use_rbf) {
-            delete robot_starts_with_rbf;
-        	robot_starts_with_rbf = new ServeBall<RBF>(sflags,qinit);
+        if (sflags.alg == 1) {
+        	robot_rbf = new ServeBall<RBF>(sflags,qinit);
+        }
+        else if (sflags.alg == 2) {
+            robot_crbf = new ServeBall<CRBF>(sflags,qinit);
         }
         else {
-            delete robot_starts_with_dmp;
-        	robot_starts_with_dmp = new ServeBall<dmps>(sflags,qinit);
+            delete robot_dmp;
+        	robot_dmp = new ServeBall<dmps>(sflags,qinit);
         }
         sflags.reset = false;
     }
@@ -418,11 +425,14 @@ void serve_ball(const SL_Jstate joint_state[],
             qact.qd(i) = joint_state[i+1].thd;
             qact.qdd(i) = joint_state[i+1].thdd;
         }
-        if (sflags.use_rbf) {
-        	robot_starts_with_rbf->serve(blob,qact,qdes);
+        if (sflags.alg == 1) {
+        	robot_rbf->serve(blob,qact,qdes);
+        }
+        else if (sflags.alg == 2) {
+            robot_crbf->serve(blob,qact,qdes);
         }
         else {
-        	robot_starts_with_dmp->serve(blob,qact,qdes);
+        	robot_dmp->serve(blob,qact,qdes);
         }
     }
 

@@ -20,8 +20,7 @@ using vec_str = std::vector<std::string>;
  * \brief Flags used in the SERVE class and also in the SERVE task in SL.
  */
 struct serve_flags {
-	bool use_rbf = true; //!< use RBF rather than DMPs
-    bool detach = false; //!< detach optimization
+	bool detach = false; //!< detach optimization
     bool mpc = true; //!< run optimization if MP is predicted to miss target
     bool verbose = false; //!< print optim info if true
     bool reset = false; //!< reset the serve class
@@ -31,6 +30,7 @@ struct serve_flags {
     bool start_from_act_state = false;
     bool use_inv_dyn_fb = false; //!< in SL apply inv. dyn. feedback
     bool debug_vision = false; //!< print received vision info
+    int alg = 0; //!< 0 = DMP, 1 = RBF, 2 = CRBF
     int freq_mpc = 1.0; //!< how many times per minute to re-run optim
     double time_land_des = 0.6; //!< desired time to land on robot court first
     double ball_land_des_x_offset = 0.0;

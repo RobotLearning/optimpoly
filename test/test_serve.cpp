@@ -76,9 +76,10 @@ void test_serve_with_rbf() {
     double std_init_noise = 0.0;
     vec7 goal_state;
     const std::string home = std::getenv("HOME");
-    std::string rbf_file = "rbf.json";
+    const std::string date = "15.11.18";
+    std::string rbf_file = "rbf_3_" + date + ".json";
     std::string file_path = home + "/table-tennis/json/" + rbf_file;
-    RBF rbf = RBF(file_path);
+    CRBF rbf = CRBF(file_path);
     rbf.get_goal_pos(goal_state);
     vec6 init_ball_state = init_ball_vertical(T,std_init_noise,goal_state);
     tt.set_ball_state(init_ball_state);
@@ -86,7 +87,7 @@ void test_serve_with_rbf() {
     serve_flags flags;
     flags.ball_land_des_y_offset -= 0.2;
     flags.json_file = rbf_file;
-    ServeBall<RBF> server = ServeBall<RBF>(flags);
+    ServeBall<CRBF> server = ServeBall<CRBF>(flags);
 
     // check interaction and make sure ball is served correctly
     while (!tt.touched_ground() && !tt.was_legally_served()) {
@@ -128,7 +129,9 @@ void test_evolve_dmp() {
     // create a dmp
     const double T = 1.0;
     const std::string home = std::getenv("HOME");
-    const std::string file = home + "/table-tennis/json/dmp2.json";
+    const std::string date = "16-Nov-2018";
+    const std::string file = home + "/table-tennis/json/dmp_1_" + date + ".json";
+
     dmps multi_dmp = dmps(file);
     mat M = multi_dmp.evolve(T);
     BOOST_TEST_MESSAGE("\nEvolving DMP to goal: " << M.tail_cols(1).t());
@@ -220,7 +223,8 @@ void test_speedup_dmp() {
 
     const double T = 1.0;
     const std::string home = std::getenv("HOME");
-    const std::string file = home + "/table-tennis/json/dmp4.json";
+    const std::string date = "16-Nov-2018";
+    const std::string file = home + "/table-tennis/json/dmp_1_" + date + ".json";
     dmps multi_dmp = dmps(file);
     double tau = 2.0;
     multi_dmp.set_time_constant(tau);

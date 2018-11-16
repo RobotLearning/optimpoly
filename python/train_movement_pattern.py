@@ -64,11 +64,12 @@ def dump_json_regression_obj(centers, widths, theta, basis_type="squared exp", f
         json.dump(json_regr, write_file)
 
 
-def dump_json_multi_demo_regression_obj(centers, widths, theta, examples, intercepts, basis_type="squared exp", order=None):
+def dump_json_multi_demo_regression_obj(centers, widths, theta, intercepts, examples, args, basis_type="squared exp", order=None):
     '''
     Create a dictionary and dump it as json object.
     '''
     ndof = 7
+    date = args.date
     num_basis_per_joint = len(centers)/ndof
     for j in range(len(examples)):
         json_regr = dict()
@@ -87,7 +88,7 @@ def dump_json_multi_demo_regression_obj(centers, widths, theta, examples, interc
         json_regr['joints'] = joint_params
         if order is not None:
             json_regr['order'] = order
-        file_name = 'json/rbf' + str(examples[j]) + '.json'
+        file_name = 'json/rbf_' + str(examples[j]) + '_' + date + '.json'
         print 'Saving to ', file_name
         with open(file_name, "w") as write_file:
             json.dump(json_regr, write_file)
@@ -309,7 +310,7 @@ def train_multi_demo_sparse_weights(args, p=10, plot_regr=False, path=False, exa
     # last one params are the intercepts!
     if save:
         dump_json_multi_demo_regression_obj(
-            c, w, theta[:-1], intercepts, examples=examples, order=order)
+            c, w, theta, intercepts, examples=examples, order=order, args=args)
 
     return
 
@@ -387,18 +388,18 @@ def find_ordering_from_path(theta_path, plot):
 
 
 if __name__ == '__main__':
-    date = '10.6.18'
+    date = '15.11.18'
     args = serve.create_default_args(date)
     args.ball_file = None
-    args.num_examples = 22
+    args.num_examples = 15
     args.plot = False
-    args.date = '10.6.18'
-    examples = [14, 15, 16, 17, 18]
+    args.date = date
+    examples = [0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 12, 13]
     time_init = time.time()
     # train_multi_dof_sparse_weights(
     #     args, plot_regr=True, ex=18, save=False, p=500, path=False, verbose=True)
     # train_l2_reg_regr(args, plot_regr=False, ex=18,
     #                  save=False, p=10, verbose=True)
     train_multi_demo_sparse_weights(
-        args, p=100, plot_regr=True, examples=examples, save=False, path=True, verbose=True)
+        args, p=100, plot_regr=True, examples=examples, save=True, path=False, verbose=True)
     print 'Elapsed time:', time.time() - time_init

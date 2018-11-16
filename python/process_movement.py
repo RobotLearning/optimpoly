@@ -13,7 +13,7 @@ from mpl_toolkits.mplot3d import Axes3D
 sys.path.append("python/")
 import barrett_wam_kinematics as wam
 import racket_calc as racket
-from matplotlib2tikz import save as tikz_save
+#from matplotlib2tikz import save as tikz_save
 
 
 def load_files(args):
@@ -321,11 +321,11 @@ def save_to_tikz(path='../learning-to-serve/Pictures/', name='demo_kin.tex'):
 
 if __name__ == '__main__':
     # args = process_movement()
-    date = '10.6.18'
+    date = '15.11.18'
     args = create_default_args(date)
-    args.num_examples = 22
-    args.plot_example = 20
+    args.num_examples = 15
+    args.plot_example = 5
     args.ball_file = None
     args.smooth = None  # dont draw smoothened version
-    args.dump_plot_data = True  # set to true to dump plot data
+    args.dump_plot_data = False  # set to true to dump plot data
     run_serve_demo(args)

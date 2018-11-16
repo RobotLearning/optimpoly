@@ -219,5 +219,6 @@ vec_str get_files(std::string folder_name, std::string prefix) {
 
 template class ServeBall<dmps>;
 template class ServeBall<RBF>;
+template class ServeBall<CRBF>;
 
 }
