@@ -9,11 +9,16 @@
 
 clc; clear; close all;
 
-file = '../data/10.6.18/joints.txt';
-q = dlmread(file);
-N = size(q,1);
+file = '../data/15.11.18/joints.txt';
+ts = dlmread(file);
+q = ts(:,2:end);
+t = ts(:,1);
+t = t - t(1);
+t = 0.001 * t;
 dt = 0.002;
-t = dt * (1:N);
+% N = size(q,1);
+% dt = 0.002;
+% t = dt * (1:N);
 % figure;
 % for i = 1:7
 %     subplot(7,1,i);
@@ -26,12 +31,12 @@ qd = diff(q)./dt;
 vels = sqrt(sum(qd.*qd,2));
 [sorted_vels,idx_vels] = sort(vels,'descend');
 
-size_clusters = 21; % FIRST DATASET: 20; SECOND: 21
+num_movements = 15; 
 idx_clusters = [idx_vels(1)];
 
 idx = 2;
 thresh = 1000; % 2 seconds difference minimum betw. demonstr.
-while length(idx_clusters) < size_clusters
+while length(idx_clusters) < num_movements
    
     diff_max = min(abs(idx_vels(idx) - idx_clusters));
     if diff_max > thresh
@@ -43,11 +48,11 @@ end
 
 % sort the points and find points of low velocity around them
 clusters = sort(idx_clusters);
-low_vel_idxs = zeros(2,size_clusters);
+low_vel_idxs = zeros(2,num_movements);
 low_vel_thresh = 1e-3;
 max_duration_movement = 1.0; % seconds
 idx_max_move = max_duration_movement/dt;
-for i = 1:size_clusters
+for i = 1:num_movements
     % find the first index below cluster high vel idx
     % where the vel drops below thresh
     idx_low_pt = clusters(i);
@@ -70,20 +75,18 @@ end
 
 %% Plot the motions
 
-examples = 19; 
-%SECOND = [2,4,6,9,10,12,15,16,18,19,20,21]; 
-% FIRST: [1;7;10;5;9];
-num_examples = length(examples);
+plot_examples = 1:15; 
+num_examples = length(plot_examples);
 q_train = cell(1,num_examples);
 t_train = cell(1,num_examples);
-for j = 1:length(examples)
-    idx_plot = low_vel_idxs(1,examples(j)):low_vel_idxs(2,examples(j));
+for j = 1:length(plot_examples)
+    idx_plot = low_vel_idxs(1,plot_examples(j)):low_vel_idxs(2,plot_examples(j));
     q_plot = q(idx_plot,:);
     q_train{j} = q_plot;
     t_plot = t(idx_plot)';
     t_train{j} = t_plot;
     %%{
-    figure('Name',['Movement #', num2str(examples(j))]);
+    figure('Name',['Movement #', num2str(plot_examples(j))]);
     for i = 1:7
         subplot(7,1,i);
         plot(t_plot,q_plot(:,i));
@@ -97,12 +100,6 @@ for i = 1:7
     plot(t_train{1},q_train{1}(:,i));
 end
 %}
-
-wam = init_wam();
-qd_plot = diff(q_plot)/dt;
-qd_plot = [qd_plot; qd_plot(end,:)];
-ref_plot = [q_plot'; qd_plot'];
-train_cart = wam.kinematics(ref_plot);
 % draw Cartesian output
 %{
 figure('Name','Training cartesian data');
@@ -127,31 +124,34 @@ hold off;
 %}
 
 %% Test learning with basis functions
-%%{
-[W,phi,q_reg,qd_reg,qdd_reg] = regress_basis_fncs(5,t_train{1},q_train{1},10);
+%{
+example = 1;
+[W,phi,q_reg,qd_reg,qdd_reg] = regress_basis_fncs(5,...
+                                t_train{example},q_train{example},10);
 figure('Name','Regressing on basis functs');
 for i = 1:7
     subplot(7,3,3*(i-1)+1);
-    plot(t_plot,q_reg(:,i));
+    plot(t_train{example},q_reg(:,i));
     hold on;
-    plot(t_plot,q_plot(:,i));
+    plot(t_train{example},q_train{1}(:,i));
     subplot(7,3,3*(i-1)+2);
-    plot(t_plot,qd_reg(:,i));
+    plot(t_train{example},qd_reg(:,i));
     subplot(7,3,3*(i-1)+3);
-    plot(t_plot,qdd_reg(:,i));
+    plot(t_train{example},qdd_reg(:,i));
 end
 % report maximum acc
-loss_basis = norm(q_train{1} - q_reg,'fro')
+loss_basis = norm(q_train{example} - q_reg,'fro')
 max_acc_basis = max(max(abs(qdd_reg)))
 %}
 
 %% Train DMPs and evolve one
 
+example = 15;
 n_bf = 10;
 tau = 1.0; % speed up/slow down movement
 safe = false; %Jens' modification for safe-acc at the start of movement
 cutoff = 10; % cutoff frequency
-dmps = trainMultiDMPs(safe,cutoff,t_train,q_train,'d',n_bf);
+dmps = trainMultiDMPs(safe,cutoff,t_train{example},q_train{example},'d',n_bf);
 dmps(1).can.tau = tau;
 t_evolve = 1.0/tau;
 N_evolve = t_evolve/dt;
@@ -160,7 +160,7 @@ qd_dmp = zeros(7,N_evolve);
 qdd_dmp = zeros(7,N_evolve);
 ref = zeros(2*7,N_evolve);
 for i = 1:7
-    dmps(i).y0 = [q_train{1}(1,i);0;0];
+    dmps(i).y0 = [q_train{example}(1,i);0;0];
     [x,y] = dmps(i).evolve(N_evolve);
     dmps(i).resetStates();
     q_dmp(i,:) = y(1,:);
@@ -178,7 +178,8 @@ for i = 1:7
     plot(t_dmp,q_dmp(i,:));
     %%{
     hold on;
-    plot(t_dmp(1:end-1),q_plot(:,i));
+    len = size(q_train{example},1);
+    plot(t_dmp(1:len),q_train{example}(:,i));
     %legend('dmp','training');
     hold off;
     %}
@@ -189,6 +190,12 @@ for i = 1:7
 end
 
 %% Visualize DMP in Cartesian space
+
+wam = init_wam();
+qd_plot = diff(q_train{example})/dt;
+qd_plot = [qd_plot; qd_plot(end,:)];
+ref_plot = [q_train{example}'; qd_plot'];
+train_cart = wam.kinematics(ref_plot);
 
 % draw Cartesian output
 dmp_cart = wam.kinematics(ref);
@@ -261,7 +268,7 @@ hold off;
 %}
 
 %% Save DMPs in JSON format
-%{
+%%{
 dmp_save = struct();
 dmp_save.tau = 1.0;
 dmp_save.ndofs = 7;
@@ -276,7 +283,7 @@ for i = 1:7
     dmp_save.joints(i).goal = dmps(i).goal;
 end
 json_txt = jsonencode(dmp_save);
-fid = fopen('../json/dmp_15_18_19_20_21.json','wt');
+fid = fopen(['../json/dmp_', int2str(example), '_', date, '.json'],'wt');
 fwrite(fid, json_txt, 'char');
 fclose(fid);
 %}

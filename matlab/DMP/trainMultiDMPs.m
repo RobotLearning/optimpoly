@@ -6,9 +6,19 @@ fc = filt_freq;
 fs = 500; % Hz recording
 
 % number of demonstrations
-D = length(q);
-dof = size(q{1},2);
-tf = t{end};
+if iscell(q)
+    D = length(qs);
+    dof = size(qs{1},2);
+    ts = t;
+    qs = q;
+else
+    D = 1;
+    dof = size(q,2);
+    ts{1} = t;
+    qs{1} = q;
+end
+    
+tf = ts{end};
 
 dt = tf(2) - tf(1);
 t_common = linspace(dt,tf(end)-tf(1),length(tf)); 
@@ -19,13 +29,13 @@ inits = zeros(D,dof);
 %[b,a] = butter(filt_order,fc/(fs/2));
 
 for i = 1:D
-    q{i} = filtfilt(b,a,q{i});
-    qd{i} = diff(q{i})/dt;
-    t{i} = t{i} - t{i}(1);
-    td = t{i}(1:end-1);
+    qs{i} = filtfilt(b,a,qs{i});
+    qd{i} = diff(qs{i})/dt;
+    ts{i} = ts{i} - ts{i}(1);
+    td = ts{i}(1:end-1);
     qdd{i} = diff(qd{i})/dt;
     tdd = td(1:end-1);
-    q{i} = interp1(t{i},q{i},t_common,'linear','extrap');
+    qs{i} = interp1(ts{i},qs{i},t_common,'linear','extrap');
     qd{i} = interp1(td,qd{i},t_common,'linear','extrap');
     qdd{i} = interp1(tdd,qdd{i},t_common,'linear','extrap');
 end
@@ -34,13 +44,13 @@ end
 for i = 1:D
     
     if strcmp(pat,'d')
-        goals(i,:) = q{i}(end,:);
+        goals(i,:) = qs{i}(end,:);
         vels(i,:) = qd{i}(end,:);
         accs(i,:) = qdd{i}(end,:);
     else
-        goals(i,:) = (min(q{i}) + max(q{i})) / 2;
+        goals(i,:) = (min(qs{i}) + max(qs{i})) / 2;
     end
-    inits(i,:) = q{i}(1,:);
+    inits(i,:) = qs{i}(1,:);
 end
 
 % canonical system
@@ -58,7 +68,7 @@ q_reg = [];
 qd_reg = [];
 qdd_reg = [];
 for i = 1:D
-    q_reg = [q_reg; q{i}];
+    q_reg = [q_reg; qs{i}];
     qd_reg = [qd_reg; qd{i}];
     qdd_reg = [qdd_reg; qdd{i}];
 end
