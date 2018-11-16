@@ -388,18 +388,18 @@ def find_ordering_from_path(theta_path, plot):
 
 
 if __name__ == '__main__':
-    date = '15.11.18'
+    date = '16.11.18'
     args = serve.create_default_args(date)
     args.ball_file = None
     args.num_examples = 15
     args.plot = False
     args.date = date
-    examples = [0, 1, 2, 3, 4, 5, 7, 9, 10, 11, 12, 13]
+    examples = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     time_init = time.time()
     # train_multi_dof_sparse_weights(
     #     args, plot_regr=True, ex=18, save=False, p=500, path=False, verbose=True)
     # train_l2_reg_regr(args, plot_regr=False, ex=18,
     #                  save=False, p=10, verbose=True)
     train_multi_demo_sparse_weights(
-        args, p=100, plot_regr=True, examples=examples, save=True, path=False, verbose=True)
+        args, p=200, plot_regr=True, examples=examples, save=True, path=False, verbose=True)
     print 'Elapsed time:', time.time() - time_init
