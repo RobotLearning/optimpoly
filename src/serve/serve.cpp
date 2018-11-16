@@ -84,8 +84,9 @@ void ServeBall<T>::serve(const ball_obs & obs,
         update_next_state(p,q_rest_des,1.0,t_clock,qdes);
     }
     else {
-        mp.step(DT,qdes);
-        t_clock += DT;
+        double dt = sflags.speedup * DT;
+        mp.step(dt,qdes);
+        t_clock += dt;
     }
 
     if (sflags.mpc && (!ran_optim || timer.toc() > (1.0/sflags.freq_mpc))) {

@@ -35,6 +35,7 @@ struct serve_flags {
     double time_land_des = 0.6; //!< desired time to land on robot court first
     double ball_land_des_x_offset = 0.0;
     double ball_land_des_y_offset = 0.0;
+    double speedup = 1; //!< for the DMP speed up
     bool listen_2d = true; //!< listen to 2d server or 3d server
     std::string json_file = "dmp4.json"; //!< json file to load dmp from
     std::string zmq_url = "tcp://helbe:7650"; //!< URL for ZMQ connection

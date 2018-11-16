@@ -303,6 +303,7 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
     using std::string;
     const string home = std::getenv("HOME");
     string config_file = home + "/table-tennis/config/serve.cfg";
+    double perturb_init = 0.0;
 
     try {
         // Declare a group of options that will be
@@ -311,6 +312,10 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
         config.add_options()
         ("alg", po::value<int>(&sflags.alg),
         "Algorithm to use for serving")
+        ("perturb_init", po::value<double>(&perturb_init),
+        "Standard deviation for perturbing init conditions")
+        ("speedup",po::value<double>(&sflags.speedup),
+        "Speedup the movement")
         ("json_file", po::value<string>(&sflags.json_file),
         "JSON File to load movement from")
         ("start_from_act_state", po::value<bool>(&sflags.start_from_act_state)->default_value(false),
@@ -370,6 +375,7 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
         dmps multi_dmp = dmps(json_file);
         multi_dmp.get_init_pos(pose);
     }
+    pose += perturb_init * randn(7,1);
 
     for (int i = 0; i < NDOF; i++) {
         custom_pose[i] = pose(i);
@@ -412,7 +418,6 @@ void serve_ball(const SL_Jstate joint_state[],
             robot_crbf = new ServeBall<CRBF>(sflags,qinit);
         }
         else {
-            delete robot_dmp;
         	robot_dmp = new ServeBall<dmps>(sflags,qinit);
         }
         sflags.reset = false;
