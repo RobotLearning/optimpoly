@@ -394,7 +394,7 @@ if __name__ == '__main__':
     args.num_examples = 15
     args.plot = False
     args.date = date
-    examples = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    examples = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]
     time_init = time.time()
     # train_multi_dof_sparse_weights(
     #     args, plot_regr=True, ex=18, save=False, p=500, path=False, verbose=True)
