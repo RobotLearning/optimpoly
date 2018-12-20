@@ -158,7 +158,9 @@ def iter_multi_dof_lasso(t, q, p):
         theta, c, w, p = lasso.prune_params(theta, c, w)
         xopt = np.hstack((c, w))
         # update RBF weights
+        time_init = time.time()
         result = opt.minimize(f_opt, xopt, jac=True, method="BFGS")
+        print 'Elapsed BFGS time:', time.time() - time_init
         xopt = result.x
         c = xopt[:p]
         w = xopt[p:]
@@ -167,8 +169,10 @@ def iter_multi_dof_lasso(t, q, p):
         _, Xdot2 = basis.create_acc_weight_mat(c, w, t)
         # perform lasso
         res_last = residual
+        time_init = time.time()
         theta, residual, _ = lasso.multi_task_weighted_elastic_net(
             X, q, Xdot2, alpha=a, rho=r)
+        print 'Elapsed LASSO time:', time.time() - time_init
         # shrink the regularizers
         # to scale lasso throughout iterations
         a /= (np.linalg.norm(res_last, 'fro') /
@@ -239,8 +243,11 @@ def iter_multi_demo_lasso(t, Q, p, include_intercept=False):
         xopt = np.vstack((c, w))
         bfgs_options = {'maxiter': 100*p}
         # update RBF weights
+        time_init = time.time()
         result = opt.minimize(f_opt, xopt, jac=True,
                               method="BFGS", options=bfgs_options)
+        print 'Elapsed BFGS time:', time.time() - time_init
+
         xopt = result.x
         c = xopt[:n_dofs*p]
         w = xopt[n_dofs*p:]
@@ -249,8 +256,10 @@ def iter_multi_demo_lasso(t, Q, p, include_intercept=False):
 
         # perform lasso
         res_last = residual
+        time_init = time.time()
         theta, residual, _ = lasso.multi_task_weighted_elastic_net(
             X, Q, Xdot2, alpha=a, rho=r)
+        print 'Elapsed LASSO time:', time.time() - time_init
         # shrink the regularizers
         # to scale lasso throughout iterations
         a /= (np.linalg.norm(res_last, 'fro') /
@@ -394,12 +403,12 @@ if __name__ == '__main__':
     args.num_examples = 15
     args.plot = False
     args.date = date
-    examples = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]
+    examples = [2, 3, 4, 5, 6]  # , 7, 8, 9, 10, 12, 13, 14]
     time_init = time.time()
-    # train_multi_dof_sparse_weights(
-    #     args, plot_regr=True, ex=18, save=False, p=500, path=False, verbose=True)
+    train_multi_dof_sparse_weights(
+        args, plot_regr=False, ex=3, save=False, p=500, path=False, verbose=True)
     # train_l2_reg_regr(args, plot_regr=False, ex=18,
     #                  save=False, p=10, verbose=True)
-    train_multi_demo_sparse_weights(
-        args, p=200, plot_regr=True, examples=examples, save=True, path=False, verbose=True)
+    # train_multi_demo_sparse_weights(
+    #     args, p=100, plot_regr=True, examples=examples, save=False, path=False, verbose=True)
     print 'Elapsed time:', time.time() - time_init

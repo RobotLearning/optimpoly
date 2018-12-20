@@ -678,18 +678,82 @@ Kevin Down et al. Compare with Bayes Opt approaches.
 Benjamin Recht et al.
 
 *** Writing
-**** TODO Better plot for the Elastic Net path
+**** DONE Better plot for the Elastic Net path
 Include in the paper an Elastic Net path using LARS that makes more sense.
 
 **** TODO Add an example of a learned ranking
 with basis function parameters that illustrate the importance of the learned
 movement primitive.
-**** TODO More discussion of Alg2 optimization procedure
+**** DONE More discussion of Alg2 optimization procedure
 The algorithm selects very different parameters (even the number!) depending
 on the initial starting widths, heights, etc.
 **** TODO Plot sample pruning path
 Include plot of how the algorithms remove some of the variables, i.e.
 87-80-70-70-... on average
+**** WAITING Third journal draft
+***** DONE Read all reviewers comments
+***** DONE Prepare rebuttal
+Added responses to all the reviewers' comments
+Added a summary of the major points as bullet points
+***** IN-PROGRESS Revise the paper
+****** DONE Revise the intro section
+******* DONE Why don't we learn in Cartesian/task space?
+I argue that inverse kinematics would be an artifically introduced
+burden on top of the original (difficult) problem
+******* DONE Clarify that demonstrations are using kinesthetic teach-in
+******* DONE Modify Figure 1 and add cuts of demonstrations
+Figure 1 should have a clear background, also including cuts from
+demonstrations is a good idea.
+****** DONE Revise the related work section 
+******* DONE Revise Lasso and Elastic Net motivation
+******* DONE Motivate/compare more to previous MP methods
+e.g. DMPs, ProMPs
+****** IN-PROGRESS Revise method section
+******* DONE Remake Figure 2
+I zoomed in on a new training plot with 20 demonstrations
+Here the emergence of the new parameters was more visible
+******* IN-PROGRESS Clarify the use of ranking the parameters (subsection C)
+******** TODO Add maybe plots of the ranked features?
+******* IN-PROGRESS Discuss computational complexity 
+******** TODO Check python code for derivatives
+Complexity of grad. eval + residuals (as function eval.)
+Include in appendix?
+******** IN-PROGRESS Check python code for speed
+BFGS seems to be taking longer than the multi-Task elastic Net?
+********* IN-PROGRESS Experiments based on parameter size would be enlightening
+Averaging would let me guess the comp. time
+******** IN-PROGRESS Investigate Multi-task case
+In the normal Lasso, time-complexity is O(N*p^2). I suspect 
+it should be multiplied by $d$, the degree
+******* DONE Compare the proposed methods LSDP and cLSDP
+in terms of computational complexity, compare also to DMPs
+****** IN-PROGRESS Revise experiments section with new robot experiments
+******* DONE Discuss the joints in Figure 3
+In caption as well as in the script
+******* TODO Include smoothened ball positions in Figure 4
+******* IN-PROGRESS Discuss table in more detail
+******** DONE Explain the columns
+******** TODO Demonstrate why sparsity is important
+******** TODO Explain cLSDP fitting with more/less demonstrations
+In particular, how does having higher residuals relate to the
+quality of the solution? 
+******* DONE Discuss the 'quality' of the demonstrations, 
+Are they important for the actual execution also?
+******* DONE Discuss the generalization abilities of the method
+What are the limitations of the approach?
+The number of demonstrations would I think be the main bottleneck.
+***** IN-PROGRESS Run the python code again
+***** DONE Look into C++ serve code
+***** DONE Remake the videos
+****** DONE Check all the previous recordings
+****** DONE Clean the cluttered background
+****** DONE Add the demonstration recordings
+****** DONE Reshoot the robot video from different postures
+****** DONE Compare with DMPs
+****** DONE Cut the videos and create one video
+****** WAITING RL experiments to illustrate effects of sparsity?
+***** TODO Read paper one more time before submitting
+***** DONE Add this to the table tennis serve branch
 ** Theory
 *** WAITING Learn invariants of motion/policy from demonstrations
 The idea is to learn invariants of motion / parameterize the relative
