@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 2.8)
 project(${PROJECT_NAME})
 find_library(ZMQ zmq)
-# Using BOOST UNIT TEST FRAMEWORK for testing
+find_package(GTest REQUIRED)
+include_directories(${GTEST_INCLUDE_DIRS})
 
 # CREATE SHARED LIBRARY
 set(TEST_EXEC unit_tests)
@@ -16,7 +17,7 @@ set(TEST_SRC
 add_executable (${TEST_EXEC} ${TEST_SRC})
 
 # SET PROJECT VERSION
-set_target_properties(${TEST_EXEC} PROPERTIES 
+set_target_properties(${TEST_EXEC} PROPERTIES
     VERSION ${PROJECT_VERSION})
 
 # INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)
@@ -27,35 +28,15 @@ target_include_directories (${TEST_EXEC} PRIVATE
     ${CMAKE_SOURCE_DIR}/include/optim
     ${CMAKE_SOURCE_DIR}/include/player)
 
-#message(STATUS "unit test lib path = " ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
-find_library(UNIT_TEST NAMES libboost_unit_test_framework.a)
-MESSAGE(STATUS "BOOST UNIT TEST LOCATION: " ${UNIT_TEST})
-
-# indicates the shared library variant
-#target_compile_definitions(${TEST_EXEC} PRIVATE "BOOST_TEST_DYN_LINK=1")
-
 target_link_libraries(${TEST_EXEC}
-    ${UNIT_TEST}
+    ${GTEST_LIBRARY}
     ${ZMQPP}
     ${ZMQ}
     ${PROJECT_NAME}
     ${ARMADILLO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
 )
-#    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
-
-# declares a test with our executable
-#add_test(NAME test_table_tennis COMMAND ${TEST_EXEC})
 
 # INSTALL FOLDER
 install(TARGETS ${TEST_EXEC}
     DESTINATION ${CMAKE_SOURCE_DIR})
-
-# OPTIMIZATION OPTIONS
-#target_compile_options(${TEST_EXEC} PRIVATE
-#                -O3 -Wall -DNDEBUG -std=c++11 -pthread)
-
-# DEBUG OPTIONS
-#target_compile_options(example PUBLIC 
-#        -g -DDEBUG -Wall -Wextra -pedantic 
-#        -std=c++11 -pthread)

@@ -152,7 +152,7 @@ Listener::Listener(const std::string & url_,
 					const bool debug_) : url(url_), debug(debug_) {
     using std::thread;
     std::string home = std::getenv("HOME");
-    std::string debug_file = home + "/table-tennis/debug_listener.txt";
+    std::string debug_file = home + "/projects/table-tennis/debug_listener.txt";
     stream_balls.open(debug_file, std::ofstream::out);
     active = true;
     if (run_2d) {
@@ -216,7 +216,7 @@ std::map<unsigned, mat34> load_proj_mats(const std::string & json_file =
 	using namespace arma;
 	std::map<unsigned,mat34> calib_mats;
     std::string home = std::getenv("HOME");
-    std::string file_path = home + "/table-tennis/json/" + json_file;
+    std::string file_path = home + "/projects/table-tennis/json/" + json_file;
     std::ifstream stream(file_path);
     json jobs;
     stream >> jobs;

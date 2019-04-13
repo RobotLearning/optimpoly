@@ -124,7 +124,6 @@ void Player::estimate_ball_state(const ball_obs & obs, const double & dt) {
 		num_obs = 0;
 		init_ball_state = false;
 		game_state = AWAITING;
-		//cout << obs << endl;
 		t_obs = 0.0; // t_cumulative
 	}
 
@@ -145,8 +144,6 @@ void Player::estimate_ball_state(const ball_obs & obs, const double & dt) {
 				t.detach();
 			else
 				t.join();
-			//estimate_prior(observations,times,pflags.verbosity > 2,filter);
-			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
 
 	}
@@ -159,9 +156,6 @@ void Player::estimate_ball_state(const ball_obs & obs, const double & dt) {
 		}
 		if (valid_obs) {
 			filter.update(obs.pos);
-			//vec x = filter.get_mean();
-			//mat P = (filter.get_covar());
-			//cout << "OBS:" << obs.t() << "STATE:" << x.t() << "VAR:" << P.diag().t() << endl;
 		}
 
 	}

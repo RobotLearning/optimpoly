@@ -28,12 +28,12 @@ using vec_str = std::vector<std::string>;
 
 dmps init_dmps(std::string & file) {
     const std::string home = std::getenv("HOME");
-    vec_str files = get_files(home + "/table-tennis/json/", "dmp");
+    vec_str files = get_files(home + "/projects/table-tennis/json/", "dmp");
     arma_rng::set_seed_random();
     int val = (randi(1,distr_param(0,files.size()-1)).at(0));
     file = files[val];
     std::cout << "Loading DMP " << file << std::endl;
-    std::string full_file = home + "/table-tennis/json/" + file;
+    std::string full_file = home + "/projects/table-tennis/json/" + file;
     return dmps(full_file);
 }
 
@@ -42,7 +42,7 @@ ServeBall<T>::ServeBall(const serve_flags & sflags_,
 		                const vec7 & qinit) : sflags(sflags_) {
 
     std::string home = std::getenv("HOME");
-    std::string file = home + "/table-tennis/json/" + sflags.json_file;
+    std::string file = home + "/projects/table-tennis/json/" + sflags.json_file;
     mp = T(file);
 
     if (sflags.start_from_act_state) {

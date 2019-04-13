@@ -55,25 +55,12 @@ FocusedOptim::FocusedOptim(const vec7 & qrest_,
                             double lb_[2*NDOF+1],
                             double ub_[2*NDOF+1]) {
 
-	//lookup = true;
-	//load_lookup_table(lookup_table);
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	// set tolerances equal to second argument
 
-	//for (int i = 0; i < 2*NDOF+1; i++)
-	//	printf("ub[%d] = %d, lb[%d] = %d\n", ub_[i], i, lb_[i], i);
-
-	// LN = does not require gradients //
-	/*opt = nlopt_create(NLOPT_AUGLAG_EQ, 2*NDOF+1);
-	nlopt_opt local_opt = nlopt_create(NLOPT_LD_MMA, 2*NDOF+1);
-	nlopt_set_xtol_rel(local_opt, 1e-2);
-	nlopt_set_lower_bounds(local_opt, lb_);
-	nlopt_set_upper_bounds(local_opt, ub_);
-	nlopt_add_inequality_mconstraint(local_opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
-	nlopt_set_local_optimizer(opt, local_opt);*/
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb_);
@@ -448,7 +435,7 @@ void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
 
     using namespace std;
     string env = getenv("HOME");
-    string filename = env + "/table-tennis/config/Limits.cfg";
+    string filename = env + "/projects/table-tennis/config/Limits.cfg";
     mat joint_limits;
     joint_limits.load(filename);
     vec7 lb_ = joint_limits.col(0);

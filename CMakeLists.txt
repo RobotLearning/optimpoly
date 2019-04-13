@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -Wall -std=c++11 -pthread")
 set(BUILD_TEST FALSE CACHE BOOL "Build tests if ON")
 
 set(PROJECT_NAME table-tennis)
-set(PROJECT_VERSION 1.2)
+set(PROJECT_VERSION 1.3)
 project(${PROJECT_NAME})
 
 set(BOOST_VERSION_REQUIRED 1.64)
@@ -18,7 +18,7 @@ set(ARMADILLO_VERSION_REQUIRED 7.0)
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_files/cmake_findpkg")
 find_package(Armadillo ${ARMADILLO_VERSION_REQUIRED} REQUIRED)
-find_package (Boost ${BOOST_VERSION_REQUIRED} REQUIRED COMPONENTS program_options unit_test_framework) 
+find_package (Boost ${BOOST_VERSION_REQUIRED} REQUIRED COMPONENTS program_options unit_test_framework)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package (NLOPT REQUIRED)
 include_directories(${NLOPT_INCLUDE_DIRS})
@@ -29,6 +29,3 @@ add_subdirectory(src)
 if (BUILD_TEST)
   add_subdirectory(test)
 endif()
-
-
-
