@@ -1,26 +1,26 @@
 #!/bin/bash
 
 DEBUG=false
-TEST=false
-TEST_CMD="*" #--run_test={KIN,KF,OPT,TT,SL,SERVE}
+INSTALL_TESTS=false
+RUN_TESTS=false
 while true; do
     case "$1" in
 	-d | --debug ) DEBUG=true; shift ;;
-	-t | --test  ) TEST=true; shift ;;
-	--run_test   ) TEST_CMD="$2"; shift ;;
+	-t | --test  ) INSTALL_TESTS=true; shift ;;
+	--run_test   ) RUN_TESTS=true; shift ;;
 	* ) break ;;
     esac
 done
 
 run_test() {
     if $1; then
-	../../unit_tests --log_level=message --show_progress=yes --run_test="$2" --color_output=yes
+	../../unit_tests --log_level=message --show_progress=yes --color_output=yes
     fi
 }
 
 run_debug_test() {
     if $1; then
-	test/unit_tests --log_level=message --show_progress=yes --run_test="$2" --color_output=yes
+	test/unit_tests --log_level=message --show_progress=yes --color_output=yes
     fi
 }
 
@@ -28,37 +28,22 @@ if $DEBUG; then
     echo "Building in debug mode..."
     mkdir -p build/debug/
     cd build/debug
-    if $TEST; then
+    if $INSTALL_TESTS; then
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=True ../..
     else
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Debug -DBUILD_TEST=False ../..
     fi
-    make && run_debug_test $TEST $TEST_CMD
-#    if $TEST; then
-#	test/unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
-#    fi
+    make && run_debug_test $RUN_TESTS
     cd ../..
 else
     echo "Building in release mode..."
     mkdir -p build/release
     cd build/release
-    if $TEST; then
+    if $INSTALL_TESTS; then
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=True ../..
     else
 	cmake -Wno-dev -UCMAKE_BUILD_TYPE -DCMAKE_BUILD_TYPE=Release -DBUILD_TEST=False ../..
     fi
-    make && make install && run_test $TEST $TEST_CMD #only run tests if make passes
+    make && make install && run_test $RUN_TESTS #only run tests if make passes
     cd ../..
-#    if $TEST; then
-#	./unit_tests --log_level=message --show_progress=yes --run_test="$TEST_CMD" --color_output=yes
-#    fi
 fi
-
-# FOR OLD SL
-#cp SL_code/ilc_task.c ~/robolab/barrett/src/ilc_task.c
-
-# FOR NEW SL COPY EVERYTHING INCLUDING CMAKELIST AND README
-#cp SL_code/*.c ~/sl_xeno/barrett/src/learning_control/*.c
-#cp SL_code/*.h ~/sl_xeno/barrett/include/*.h
-#cp CMakeLists.txt ~/sl_xeno/barrett/src/learning_control/CMakeLists.txt
-#cp readme.txt ~/sl_xeno/barrett/src/learning_control/readme.txt

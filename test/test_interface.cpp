@@ -1,8 +1,4 @@
-/*
- * Test cases for the SL/ZMQ interface.
- */
-
-#include <boost/test/unit_test.hpp>
+#include "gtest/gtest.h"
 #include <armadillo>
 #include <thread>
 #include <chrono>
@@ -36,14 +32,14 @@ static void pub_zmq(const int & num_sent) {
     zmqpp::socket socket (context, type);
 
     // open the connection
-    BOOST_TEST_MESSAGE("Binding to " << sendpoint << "...");
+    std::cout << "Binding to " << sendpoint << "...\n";
     socket.bind(sendpoint);
 
     // pause to connect
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // send a message
-    BOOST_TEST_MESSAGE("Sending increasing numbers...");
+    std::cout << "Sending increasing numbers...\n";
 
     for (int i = 0; i < num_sent; i++) {
         zmqpp::message message;
@@ -53,7 +49,7 @@ static void pub_zmq(const int & num_sent) {
         std::this_thread::sleep_for(std::chrono::microseconds(1000));
     }
 
-    BOOST_TEST_MESSAGE("Sent all messages.");
+    std::cout << "Sent all messages.";
     //socket.disconnect(sendpoint);
 }
 
@@ -69,11 +65,11 @@ static void sub_zmq(const int & num_max, int & num_received) {
     socket.subscribe(""); // subscribe to the default channel
 
     // connect to the socket
-    BOOST_TEST_MESSAGE("Connecting to " << url << "...");
+    std::cout << "Connecting to " << url << "...\n";
     socket.connect(url);
 
     // receive the message
-    BOOST_TEST_MESSAGE("Receiving messages...");
+    std::cout << "Receiving messages...\n";
 
     while (num_received < num_max) {
         zmqpp::message message;
@@ -81,10 +77,9 @@ static void sub_zmq(const int & num_max, int & num_received) {
         socket.receive(message);
         int number;
         message >> number;
-        //BOOST_TEST_MESSAGE("Received " << number);
         num_received++;
     }
-    BOOST_TEST_MESSAGE("Received all messages...");
+    std::cout << "Received all messages...\n";
     //socket.disconnect(url);
 }
 
@@ -125,10 +120,10 @@ static mat create_ball_path(const unsigned & num_balls) {
     return filter.predict_path(0.002,num_balls);
 }
 
-void test_zmqpp() {
+TEST(TestZMQ, TestZMQPPInSubPubMode) {
 
     using std::thread;
-    BOOST_TEST_MESSAGE("\nTesting ZMQPP in sub/pub mode...");
+    std::cout << "\nTesting ZMQPP in sub/pub mode...\n";
 
     const int num_sent = 1000;
     int num_received = 0;
@@ -136,35 +131,28 @@ void test_zmqpp() {
     t_sub.detach();
     thread t_pub(pub_zmq,std::ref(num_sent));
     t_pub.join();
-    BOOST_TEST_MESSAGE("Finished.");
-    BOOST_TEST(num_sent == num_received);
+    std::cout << "Finished.\n";
+    EXPECT_EQ(num_sent, num_received);
 }
 
-void test_zmq_listener() {
-
-    BOOST_TEST_MESSAGE("\nTesting ZMQ connection for ball position info...");
+TEST(TestZMQ, TestZMQPForEqualityOfSentAndReceivedBalls) {
 
     //start listener server
     Listener listener("tcp://localhost:4242",false);
-    int num_balls = 500;
-    pub_ball(num_balls);
+    int num_sent_balls = 500;
+    pub_ball(num_sent_balls);
     // stop listener
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     //print data
-    int num_received = listener.give_info();
+    int num_received_balls = listener.give_info();
     listener.stop();
-    //check length of data
-    BOOST_TEST_MESSAGE("Checking equality of num. sent balls and received balls...");
-    BOOST_TEST(num_received == num_balls);
+    EXPECT_EQ(num_received_balls, num_sent_balls);
 }
 
-void test_3D_interface() {
-
-    BOOST_TEST_MESSAGE("\nTesting 3D SL interface...");
+TEST(TestBallListener, Test3DInterfaceForBallListener) {
 
     // create zmq server
-    BOOST_TEST_MESSAGE("Creating ZMQ server...");
     zmqpp::context ctx;
     auto socket_type = zmqpp::socket_type::pub;
     zmqpp::socket position_pub = zmqpp::socket(ctx, socket_type);
@@ -175,7 +163,6 @@ void test_3D_interface() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // create table tennis ball
-    BOOST_TEST_MESSAGE("Setting up table tennis setup...");
     TableTennis tt = TableTennis(false,true);
     tt.set_ball_gun(0.001);
     int N = 2000;
@@ -200,8 +187,7 @@ void test_3D_interface() {
     qdes.q = qinit.tail(NDOF).t();
     racket robot_racket;
 
-    BOOST_TEST_MESSAGE("Loading settings from config file...");
-    void* vflags = load_player_options();
+    void* vflags = load_player_options(); // load settings from config file
     player_flags* pflags = reinterpret_cast<player_flags*>(vflags);
     // 3d ball info sent and received
     pflags->listen_2d = false;
@@ -235,16 +221,13 @@ void test_3D_interface() {
             joint_state[i+1].thdd = qdes.qdd(i);
         }
     }
-    BOOST_TEST(tt.has_legally_landed());
+    EXPECT_TRUE(tt.has_legally_landed());
 }
 
-void test_2D_interface() {
+TEST(TestBallListener, Test2DInterfaceForBallListener) {
 
-    BOOST_TEST_MESSAGE("\nTesting 2D SL interface...");
     const int NUM_CAM = 2;
-
     // create zmq server
-    BOOST_TEST_MESSAGE("Creating ZMQ server...");
     zmqpp::context ctx;
     auto socket_type = zmqpp::socket_type::pub;
     zmqpp::socket position_pub = zmqpp::socket(ctx, socket_type);
@@ -255,7 +238,6 @@ void test_2D_interface() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     // create table tennis ball
-    BOOST_TEST_MESSAGE("Setting up table tennis setup...");
     TableTennis tt = TableTennis(false,true);
     tt.set_ball_gun(0.001);
     int N = 2000;
@@ -280,7 +262,6 @@ void test_2D_interface() {
     qdes.q = qinit.tail(NDOF).t();
     racket robot_racket;
 
-    BOOST_TEST_MESSAGE("Loading settings from config file...");
     void* vflags = load_player_options();
     player_flags* pflags = reinterpret_cast<player_flags*>(vflags);
     // 3d ball info sent and received
@@ -290,7 +271,6 @@ void test_2D_interface() {
     pflags->time_land_des += 0.1;
     pflags->ball_land_des_offset[Y] -= 0.5;
 
-    BOOST_TEST_MESSAGE("Loading projection matrices for " << NUM_CAM << " cams...");
     std::map<unsigned, mat34> proj_mats; // Calibration matrices
     proj_mats = load_proj_mats("server_3d_conf_ping_okan.json");
 
@@ -329,13 +309,10 @@ void test_2D_interface() {
             joint_state[i+1].thdd = qdes.qdd(i);
         }
     }
-    BOOST_TEST(tt.has_legally_landed());
-    // to pass requires the second triangulation method, i.e. inv. of P1 and P2 1-2 columns stacked
+    EXPECT_TRUE(tt.has_legally_landed());
 }
 
-void test_triangulate() {
-
-	BOOST_TEST_MESSAGE("\nTesting triangulation...");
+TEST(TestBallListener, TestTriangulationFor3DEstimateFrom2DBallObservations) {
 
 	// create a ball motion
 	// pick some balls and project
@@ -370,8 +347,6 @@ void test_triangulate() {
     	if (success)
     		balls_pred.col(i) = obs3d;
     }
-    /*cout << "balls: \n" << balls;
-    cout << "pred balls: \n" << balls_pred;*/
-    BOOST_TEST(approx_equal(balls, balls_pred,"absdiff", 0.001));
+    EXPECT_TRUE(approx_equal(balls, balls_pred,"absdiff", 0.001));
     // to pass requires the second triangulation method, i.e. inv. of P1 and P2 1-2 columns stacked
 }

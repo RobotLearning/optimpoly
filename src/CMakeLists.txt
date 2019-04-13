@@ -17,7 +17,7 @@ set(SOURCES
     optim/optim.cpp
     optim/racket_optim.cpp
     optim/rest_optim.cpp
-    optim/utils.cpp   
+    optim/utils.cpp
     optim/vhp_optim.cpp
     serve/dmp.cpp
     serve/serve.cpp
@@ -28,7 +28,7 @@ set(SOURCES
 add_library (${PROJECT_NAME} SHARED ${SOURCES})
 
 # SET PROJECT VERSION
-set_target_properties(${PROJECT_NAME} PROPERTIES 
+set_target_properties(${PROJECT_NAME} PROPERTIES
     VERSION ${PROJECT_VERSION})
 
 # INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)

@@ -68,7 +68,7 @@ void* load_player_options() {
 
 	pflags.reset = true;
 	string home = std::getenv("HOME");
-	string config_file = home + "/table-tennis/config/" + "player.cfg";
+	string config_file = home + "/projects/table-tennis/config/" + "player.cfg";
 	int alg_num;
 
     try {
@@ -276,7 +276,7 @@ void save_ball_data(const char* url_string,
     static ball_obs obs;
     static std::ofstream stream_balls;
     static std::string home = std::getenv("HOME");
-    static std::string ball_file = home + "/table-tennis/balls.txt";
+    static std::string ball_file = home + "/projects/table-tennis/balls.txt";
 
     if (reset) {
     	delete listener;
@@ -302,7 +302,7 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
     namespace po = boost::program_options;
     using std::string;
     const string home = std::getenv("HOME");
-    string config_file = home + "/table-tennis/config/serve.cfg";
+    string config_file = home + "/projects/table-tennis/config/serve.cfg";
     double perturb_init = 0.0;
 
     try {
@@ -360,7 +360,7 @@ void* load_serve_options(double custom_pose[], serve_task_options *options) {
     }
     options->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
 
-    string json_file = home + "/table-tennis/json/" + sflags.json_file;
+    string json_file = home + "/projects/table-tennis/json/" + sflags.json_file;
     vec7 pose;
     if (sflags.alg == 1) {
     	RBF rbfs = RBF(json_file);
