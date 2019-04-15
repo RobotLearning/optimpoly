@@ -1,6 +1,4 @@
-#ifndef BALL_INTERF_H
-#define BALL_INTERF_H
-
+#pragma once
 #include <vector>
 #include <map>
 #include <armadillo>
@@ -70,5 +68,4 @@ std::map<unsigned, mat34> load_proj_mats(const std::string & json_file);
 /** @brief Triangulate from two 2d pixels to one 3d ball position. */
 bool triangulate(const std::map<unsigned, mat34> & calib_mats,
 	  			 const std::vector<pixels> & obs_2d,
-				 ball_pos & obs_3d);
-#endif //BALL_INTERF_H
+				 ball_pos & obs_3d, bool svd_method = true);

@@ -6,15 +6,14 @@
  *  Created on: Feb 22, 2017
  *      Author: okoc
  */
-
-#ifndef PLAYER_INCLUDE_LOOKUP_H_
-#define PLAYER_INCLUDE_LOOKUP_H_
-
+#pragma once
 #include "constants.h"
+#include <string>
+#include <armadillo>
 
-using namespace const_tt;
-
-const int LOOKUP_COLUMN_SIZE = 2*const_tt::NDOF + 1 + 2*const_tt::NCART; // ball state and optimization parameters (6 + 15)
+const int LOOKUP_COLUMN_SIZE =
+    2 * const_tt::NDOF + 1 +
+    2 * const_tt::NCART; // ball state and optimization parameters (6 + 15)
 
 static const std::string LOOKUP_TABLE_NAME = "lookup_March_2016";
 
@@ -30,19 +29,21 @@ namespace player {
  *
  * @param lookup Matrix used to load lookup table
  */
-void load_lookup_table(mat & lookup);
+void load_lookup_table(mat &lookup);
 
 /**
- * @brief Lookup a random entry with optimization coparameters (b0,v0) and optimization
- * main parameters (qf,qfdot,T).
+ * @brief Lookup a random entry with optimization coparameters (b0,v0) and
+ * optimization main parameters (qf,qfdot,T).
  *
  * Random entry is uniformly distributed between 1 and lookup table size.
  * Coparameters are 6-dimensional and main parameters are 15-dimensional.
  *
- * @param coparams 6-dimensional vector with stored ball positions and velocities.
- * @param params 15-dimensional vector with (qf,qfdot,T) store optimization params.
+ * @param coparams 6-dimensional vector with stored ball positions and
+ * velocities.
+ * @param params 15-dimensional vector with (qf,qfdot,T) store optimization
+ * params.
  */
-void lookup_random_entry(vec & coparams, vec & params);
+void lookup_random_entry(vec &coparams, vec &params);
 
 /**
  * @brief K-nearest-neighbours method for looking up optimization values.
@@ -59,11 +60,6 @@ void lookup_random_entry(vec & coparams, vec & params);
  * TODO: hasnt been checked for correctness for k > 1!
  *
  */
-void knn(const mat & lookupt,
-         const vec & ballstate,
-         const int k,
-         vec & params);
+void knn(const mat &lookupt, const vec &ballstate, const int k, vec &params);
 
-}
-
-#endif /* PLAYER_INCLUDE_LOOKUP_H_ */
+} // namespace player

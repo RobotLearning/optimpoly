@@ -7,9 +7,7 @@
  * must be set by calling load_player_options().
  *
  */
-#ifndef SL_INTERF_H
-#define SL_INTERF_H
-
+#pragma once
 #ifdef __cplusplus
 
 #include "sl_structs.h"
@@ -89,5 +87,3 @@ extern void serve_ball(const SL_Jstate joint_state[],
 #ifdef __cplusplus
 } // extern "C"
 #endif
-
-#endif /* SL_INTERF_H */

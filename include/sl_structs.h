@@ -1,6 +1,4 @@
-#ifndef SL_STRUCT_H
-#define SL_STRUCT_H
-
+#pragma once
 #include "constants.h"
 
 /* The data structures from SL */
@@ -29,5 +27,3 @@ struct SL_Cstate {
     double xd[const_tt::NCART+1];   /*!< Velocity */
     double xdd[const_tt::NCART+1];  /*!< Acceleration */
 };
-
-#endif // SL_STRUCT_H

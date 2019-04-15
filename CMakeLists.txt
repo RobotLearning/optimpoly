@@ -18,7 +18,7 @@ set(ARMADILLO_VERSION_REQUIRED 7.0)
 # INCLUDE ARMADILLO AS REQUIRED LIBRARY
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake_files/cmake_findpkg")
 find_package(Armadillo ${ARMADILLO_VERSION_REQUIRED} REQUIRED)
-find_package (Boost ${BOOST_VERSION_REQUIRED} REQUIRED COMPONENTS program_options unit_test_framework)
+find_package (Boost ${BOOST_VERSION_REQUIRED} REQUIRED COMPONENTS program_options)
 include_directories(${ARMADILLO_INCLUDE_DIRS})
 find_package (NLOPT REQUIRED)
 include_directories(${NLOPT_INCLUDE_DIRS})

@@ -7,11 +7,9 @@
  *      Author: okoc
  */
 
-#ifndef KINEMATICS_H_
-#define KINEMATICS_H_
-
-#include "math.h"
+#pragma once
 #include "constants.h"
+#include "math.h"
 
 using namespace const_tt;
 
@@ -28,11 +26,9 @@ using namespace const_tt;
  * @param vel Racket velocities.
  * @param normal Racket normals.
  */
-void calc_racket_state(const double q[NDOF],
-		               const double qdot[NDOF],
-					   double pos[NCART],
-					   double vel[NCART],
-					   double normal[NCART]);
+void calc_racket_state(const double q[NDOF], const double qdot[NDOF],
+                       double pos[NCART], double vel[NCART],
+                       double normal[NCART]);
 
 /**
  * @brief Return racket positions, normal and the jacobian
@@ -42,12 +38,8 @@ void calc_racket_state(const double q[NDOF],
  *
  * Useful to test derivatives of kinematics
  */
-void calc_racket_state(const double q[NDOF],
-                        double pos[NCART],
-                        double normal[NCART],
-                        double jacobi[2*NCART][NDOF]);
+void calc_racket_state(const double q[NDOF], double pos[NCART],
+                       double normal[NCART], double jacobi[2 * NCART][NDOF]);
 
 /** @brief Returns the cartesian racket positions */
 void get_position(double q[NDOF]);
-
-#endif /* KINEMATICS_H_ */

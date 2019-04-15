@@ -8,10 +8,7 @@
  *  Created on: Feb 12, 2017
  *      Author: okoc
  */
-
-#ifndef _KINEMATICS_HPP_
-#define _KINEMATICS_HPP_
-
+#pragma once
 #include "player.hpp"
 #include "tabletennis.h"
 
@@ -21,16 +18,16 @@ namespace player {
  * @brief Endeffector positions and normal.
  */
 struct eff {
-	arma::vec3 x; //! pos
-	arma::vec3 o; //! orientation
+  arma::vec3 x; //! pos
+  arma::vec3 o; //! orientation
 };
 
 /**
  * @brief Pose used for base pose of the robot
  */
 struct pose {
-	arma::vec3 x; //! positions
-	arma::vec4 q; //! orientations
+  arma::vec3 x; //! positions
+  arma::vec4 q; //! orientations
 };
 
 /**
@@ -44,8 +41,7 @@ struct pose {
  * @param robot_joint Robot joint positions, velocities and accelerations.
  * @param robot_racket Robot racket positions, velocities and normal.
  */
-void calc_racket_state(const optim::joint & robot_joint,
-		               racket & robot_racket);
+void calc_racket_state(const optim::joint &robot_joint, racket &robot_racket);
 
 /**
  * @brief Rotate racket by 90 degrees to get
@@ -53,7 +49,7 @@ void calc_racket_state(const optim::joint & robot_joint,
  *
  * @param quat Endeffector orientation as a quaternion.
  */
-void calc_racket_orient(arma::vec4 & quat);
+void calc_racket_orient(arma::vec4 &quat);
 
 /**
  * @brief Return the Jacobian (linear) matrix at joint values q
@@ -62,8 +58,6 @@ void calc_racket_orient(arma::vec4 & quat);
  * @param q joint values q
  * @param jac Jacobian matrix to be updated
  */
-vec3 get_jacobian(const arma::vec7 & q, arma::mat::fixed<6,7> & jac);
+vec3 get_jacobian(const arma::vec7 &q, arma::mat::fixed<6, 7> &jac);
 
-}
-
-#endif /* _KINEMATICS_HPP_ */
+} // namespace player

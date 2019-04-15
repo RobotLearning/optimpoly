@@ -5,249 +5,215 @@
  * @update Fri, Jun 8, 2018
  */
 
-#include <armadillo>
 #include "dmp.h"
-#include "json.hpp"
 #include "constants.h"
+#include "json.hpp"
+#include <armadillo>
 
 using namespace arma;
 using json = nlohmann::json;
 
 namespace serve {
 
-void Canonical::reset() {
-    phase = 1.0;
+void Canonical::reset() { phase = 1.0; }
+
+void Canonical::step(const double &dt) { phase -= dt * a * tau * phase; }
+
+DMP::DMP(std::vector<double> weights_, std::vector<double> centers_,
+         std::vector<double> heights_, double alpha_, double beta_,
+         double goal_, double init_pos) {
+
+  set_weights(weights_, centers_, heights_);
+  set_goal_state(goal_);
+  alpha = alpha_;
+  beta = beta_;
+  set_init_state(init_pos);
+  reset();
 }
 
-void Canonical::step(const double & dt) {
-    phase -= dt * a * tau * phase;
+void DMP::reset() { x = x0; }
+
+void DMP::set_weights(const std::vector<double> &w_stdvec,
+                      const std::vector<double> &c_stdvec,
+                      const std::vector<double> &h_stdvec) {
+  w = conv_to<vec>::from(w_stdvec);
+  c = conv_to<vec>::from(c_stdvec);
+  h = conv_to<vec>::from(h_stdvec);
 }
 
-DMP::DMP(std::vector<double> weights_,
-        std::vector<double> centers_,
-        std::vector<double> heights_,
-        double alpha_,
-        double beta_,
-        double goal_,
-        double init_pos) {
+void DMP::set_goal_state(const double &goal) { g = goal; }
 
-    set_weights(weights_,centers_,heights_);
-    set_goal_state(goal_);
-    alpha = alpha_;
-    beta = beta_;
-    set_init_state(init_pos);
-    reset();
+void DMP::set_init_state(const double &init_pos) {
+  x0(0) = init_pos;
+  x0(1) = 0.0;
+  x0(2) = 0.0;
 }
 
-void DMP::reset() {
-    x = x0;
+void DMP::get_goal_state(double &goal) const { goal = g; }
+
+void DMP::get_init_state(double &init_pos) const { init_pos = x0(0); }
+
+vec3 DMP::step(const Canonical &can, const double &dt) {
+
+  const double amp = 1.0;
+  double f = forcing(can.phase);
+
+  // OLD VERSION written as a multivar. system
+  /*mat22 A = {{0,1}, {-alpha*beta*can.tau*can.tau, -alpha*can.tau}};
+  vec2 b = {0,can.tau*can.tau*(alpha*beta*g + amp*f)};
+  vec2 xdot = A * x.head(2) + b;
+  x(0) += dt * xdot(0);
+  x(1) += dt * xdot(1);
+  x(2) = xdot(1);*/
+
+  // compute accelerations
+  x(2) = can.tau * can.tau * alpha * beta * (g - x(0)) - can.tau * alpha * x(1);
+  if (SAFE_ACC)
+    x(2) *= (1 - can.phase);
+  x(2) += can.tau * can.tau * amp * f;
+  x(0) += dt * x(1);
+  x(1) += dt * x(2);
+
+  return x;
 }
 
-void DMP::set_weights(const std::vector<double> & w_stdvec,
-                     const std::vector<double> & c_stdvec,
-                     const std::vector<double> & h_stdvec) {
-    w = conv_to<vec>::from(w_stdvec);
-    c = conv_to<vec>::from(c_stdvec);
-    h = conv_to<vec>::from(h_stdvec);
-}
+vec DMP::basis(const double &x) const { return exp(-h % ((x - c) % (x - c))); }
 
-void DMP::set_goal_state(const double & goal) {
-    g = goal;
-}
+double DMP::forcing(const double &phase) const {
 
-void DMP::set_init_state(const double & init_pos) {
-    x0(0) = init_pos;
-    x0(1) = 0.0;
-    x0(2) = 0.0;
-}
-
-void DMP::get_goal_state(double & goal) const {
-    goal = g;
-}
-
-void DMP::get_init_state(double & init_pos) const {
-    init_pos = x0(0);
-}
-
-vec3 DMP::step(const Canonical & can, const double & dt) {
-
-    const double amp = 1.0;
-    double f = forcing(can.phase);
-
-    // OLD VERSION written as a multivar. system
-    /*mat22 A = {{0,1}, {-alpha*beta*can.tau*can.tau, -alpha*can.tau}};
-    vec2 b = {0,can.tau*can.tau*(alpha*beta*g + amp*f)};
-    vec2 xdot = A * x.head(2) + b;
-    x(0) += dt * xdot(0);
-    x(1) += dt * xdot(1);
-    x(2) = xdot(1);*/
-
-    // compute accelerations
-    x(2) = can.tau*can.tau*alpha*beta*(g-x(0)) - can.tau*alpha*x(1);
-    if (SAFE_ACC)
-        x(2) *= (1-can.phase);
-    x(2) += can.tau*can.tau*amp*f;
-    x(0) += dt * x(1);
-    x(1) += dt * x(2);
-
-    return x;
-}
-
-
-vec DMP::basis(const double & x) const {
-    return exp(-h % ((x-c) % (x-c)));
-}
-
-double DMP::forcing(const double & phase) const {
-
-    //double f = 0.0;
-    vec psi = basis(phase);
-    /*for (unsigned int i = 0; i < w.n_elem; i++) {
-        f += psi(i) * w(i) * phase;
-    }*/
-    double f = phase * sum(psi % w);
-    double scale = sum(psi);
-    f /= scale + w.n_elem * 1e-10;
-    return f;
+  // double f = 0.0;
+  vec psi = basis(phase);
+  /*for (unsigned int i = 0; i < w.n_elem; i++) {
+      f += psi(i) * w(i) * phase;
+  }*/
+  double f = phase * sum(psi % w);
+  double scale = sum(psi);
+  f /= scale + w.n_elem * 1e-10;
+  return f;
 }
 
 void Joint_DMPs::reset() {
-    can.reset();
+  can.reset();
+  for (unsigned int i = 0; i < dmps.size(); i++) {
+    dmps[i].reset();
+  }
+}
+
+Joint_DMPs::Joint_DMPs(const std::string &param_file) {
+
+  // load from json file
+  // cout << param_file << endl;
+  std::ifstream stream(param_file);
+  json jobs;
+  stream >> jobs;
+  can.tau = jobs.at("tau");
+  for (auto elem : jobs.at("joints")) {
+    DMP dmp = DMP(elem.at("weights"), elem.at("centers"), elem.at("heights"),
+                  jobs.at("alpha"), jobs.at("beta"), elem.at("goal"),
+                  elem.at("init_pos"));
+    dmps.push_back(dmp);
+  }
+}
+
+void Joint_DMPs::step(const double &dt, joint &Q) {
+
+  for (unsigned int i = 0; i < dmps.size(); i++) {
+    vec x = dmps[i].step(can, dt);
+    Q.q(i) = x(0);
+    Q.qd(i) = x(1);
+    Q.qdd(i) = x(2);
+  }
+  can.step(dt);
+}
+
+mat Joint_DMPs::evolve(const double &T) {
+
+  using namespace const_tt;
+  unsigned int N = T / DT;
+  reset();
+  mat q_evolve = zeros<mat>(NDOF, N);
+  joint Q;
+  for (unsigned int i = 0; i < N; i++) {
+    step(DT, Q);
+    q_evolve.col(i) = Q.q;
+  }
+  reset();
+  return q_evolve;
+}
+
+void Joint_DMPs::evolve(const double &T, mat &Q, mat &Qd, mat &Qdd) {
+  using namespace const_tt;
+  unsigned N = T / DT;
+  reset();
+  Q = zeros<mat>(NDOF, N);
+  Qd = zeros<mat>(NDOF, N);
+  Qdd = zeros<mat>(NDOF, N);
+  joint J;
+  for (unsigned i = 0; i < N; i++) {
+    step(DT, J);
+    Q.col(i) = J.q;
+    Qd.col(i) = J.qd;
+    Qdd.col(i) = J.qdd;
+  }
+  reset();
+}
+
+void Joint_DMPs::get_init_pos(vec &pos) const {
+
+  using namespace std;
+  try {
     for (unsigned int i = 0; i < dmps.size(); i++) {
-        dmps[i].reset();
+      dmps[i].get_init_state(pos(i));
     }
+  } catch (std::exception &ex) {
+    cerr << "Array length incorrect: " << ex.what() << endl;
+  }
 }
 
-Joint_DMPs::Joint_DMPs(const std::string & param_file) {
+void Joint_DMPs::set_init_pos(const vec &pos) {
 
-    // load from json file
-    //cout << param_file << endl;
-    std::ifstream stream(param_file);
-    json jobs;
-    stream >> jobs;
-    can.tau = jobs.at("tau");
-    for (auto elem : jobs.at("joints")) {
-        DMP dmp = DMP(elem.at("weights"),
-                    elem.at("centers"),
-                    elem.at("heights"),
-                    jobs.at("alpha"),
-                    jobs.at("beta"),
-                    elem.at("goal"),
-                    elem.at("init_pos"));
-        dmps.push_back(dmp);
-    }
-}
-
-void Joint_DMPs::step(const double & dt,
-                      joint & Q) {
-
+  using namespace std;
+  try {
     for (unsigned int i = 0; i < dmps.size(); i++) {
-        vec x = dmps[i].step(can,dt);
-        Q.q(i) = x(0);
-        Q.qd(i) = x(1);
-        Q.qdd(i) = x(2);
+      dmps[i].set_init_state(pos(i));
     }
-    can.step(dt);
+  } catch (std::exception &ex) {
+    cerr << "Array length incorrect: " << ex.what() << endl;
+  }
 }
 
-mat Joint_DMPs::evolve(const double & T) {
+void Joint_DMPs::set_goal_pos(const vec &pos) {
 
-    using namespace const_tt;
-    unsigned int N = T/DT;
-    reset();
-    mat q_evolve = zeros<mat>(NDOF,N);
-    joint Q;
-    for (unsigned int i = 0; i < N; i++) {
-        step(DT,Q);
-        q_evolve.col(i) = Q.q;
+  using namespace std;
+  try {
+    for (unsigned int i = 0; i < dmps.size(); i++) {
+      dmps[i].set_goal_state(pos(i));
     }
-    reset();
-    return q_evolve;
-
+  } catch (std::exception &ex) {
+    cerr << "Array length incorrect: " << ex.what() << endl;
+  }
 }
 
-void Joint_DMPs::evolve(const double & T, mat & Q, mat & Qd, mat & Qdd) {
-    using namespace const_tt;
-    unsigned N = T/DT;
-    reset();
-    Q = zeros<mat>(NDOF,N);
-    Qd = zeros<mat>(NDOF,N);
-    Qdd = zeros<mat>(NDOF,N);
-    joint J;
-    for (unsigned i = 0; i < N; i++) {
-        step(DT,J);
-        Q.col(i) = J.q;
-        Qd.col(i) = J.qd;
-        Qdd.col(i) = J.qdd;
-    }
-    reset();
+void Joint_DMPs::get_goal_pos(vec &pos) const {
 
+  using namespace std;
+  try {
+    for (unsigned int i = 0; i < dmps.size(); i++) {
+      dmps[i].get_goal_state(pos(i));
+    }
+  } catch (std::exception &ex) {
+    cerr << "Array length incorrect: " << ex.what() << endl;
+  }
 }
 
-void Joint_DMPs::get_init_pos(vec & pos) const {
+double Joint_DMPs::get_time_constant() const { return can.tau; }
 
-    using namespace std;
-    try {
-        for (unsigned int i = 0; i < dmps.size(); i++) {
-            dmps[i].get_init_state(pos(i));
-        }
-    }
-    catch (std::exception & ex) {
-        cerr << "Array length incorrect: " << ex.what() << endl;
-    }
-}
-
-void Joint_DMPs::set_init_pos(const vec & pos) {
-
-    using namespace std;
-    try {
-        for (unsigned int i = 0; i < dmps.size(); i++) {
-            dmps[i].set_init_state(pos(i));
-        }
-    }
-    catch (std::exception & ex) {
-        cerr << "Array length incorrect: " << ex.what() << endl;
-    }
-}
-
-void Joint_DMPs::set_goal_pos(const vec & pos) {
-
-    using namespace std;
-    try {
-        for (unsigned int i = 0; i < dmps.size(); i++) {
-            dmps[i].set_goal_state(pos(i));
-        }
-    }
-    catch (std::exception & ex) {
-        cerr << "Array length incorrect: " << ex.what() << endl;
-    }
-}
-
-void Joint_DMPs::get_goal_pos(vec & pos) const {
-
-    using namespace std;
-    try {
-        for (unsigned int i = 0; i < dmps.size(); i++) {
-            dmps[i].get_goal_state(pos(i));
-        }
-    }
-    catch (std::exception & ex) {
-        cerr << "Array length incorrect: " << ex.what() << endl;
-    }
-}
-
-double Joint_DMPs::get_time_constant() const {
-    return can.tau;
-}
-
-void Joint_DMPs::set_time_constant(const double & tau) {
-    can.tau = tau;
-}
+void Joint_DMPs::set_time_constant(const double &tau) { can.tau = tau; }
 
 void Joint_DMPs::turn_on_safe_acc() {
-    for (unsigned int i = 0; i < dmps.size(); i++) {
-        dmps[i].SAFE_ACC = true;
-    }
+  for (unsigned int i = 0; i < dmps.size(); i++) {
+    dmps[i].SAFE_ACC = true;
+  }
 }
 
-}
+} // namespace serve

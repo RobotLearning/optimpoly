@@ -5,45 +5,42 @@
  *      Author: okoc
  */
 
-
-#include <armadillo>
-#include "json.hpp"
+#include "utils.h"
 #include "constants.h"
-#include "stdlib.h"
+#include "json.hpp"
+#include "math.h"
 #include "stdio.h"
+#include "stdlib.h"
 #include "string.h"
 #include "sys/time.h"
-#include "math.h"
-#include "utils.h"
+#include <armadillo>
 
 using namespace const_tt;
 using json = nlohmann::json;
 
-arma::mat json2mat(const json & jobj) {
+arma::mat json2mat(const json &jobj) {
 
+  int n = jobj.size();
+  int m = jobj[0].size();
+  arma::mat arma_mat(n, m, arma::fill::zeros);
 
-	int n = jobj.size();
-	int m = jobj[0].size();
-	arma::mat arma_mat(n,m,arma::fill::zeros);
-
-	for (int i=0; i<n; i++) {
-		for (int j=0; j<m; j++) {
-			arma_mat(i,j) = jobj[i][j];
-		}
-	}
-	return arma_mat;
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < m; j++) {
+      arma_mat(i, j) = jobj[i][j];
+    }
+  }
+  return arma_mat;
 }
 
-arma::vec json2vec(const json & jobj) {
+arma::vec json2vec(const json &jobj) {
 
+  int n = jobj.size();
+  arma::vec arma_vec(n, arma::fill::zeros);
 
-	int n = jobj.size();
-	arma::vec arma_vec(n,arma::fill::zeros);
-
-	for (int i=0; i<n; i++) {
-		arma_vec(i) = jobj[i];
-	}
-	return arma_vec;
+  for (int i = 0; i < n; i++) {
+    arma_vec(i) = jobj[i];
+  }
+  return arma_vec;
 }
 
 /*
@@ -51,18 +48,18 @@ arma::vec json2vec(const json & jobj) {
  */
 void print_optim_vec(const double *x) {
 
-	int i;
-	printf("qf = [");
-	for (i = 0; i < NDOF; i++) {
-		printf("%.2f  ", x[i]);
-	}
-	printf("]\n");
-	printf("qfdot = [");
-	for (i = 0; i < NDOF; i++) {
-		printf("%.2f  ", x[i+NDOF]);
-	}
-	printf("]\n");
-	printf("T = %.2f\n", x[2*NDOF]);
+  int i;
+  printf("qf = [");
+  for (i = 0; i < NDOF; i++) {
+    printf("%.2f  ", x[i]);
+  }
+  printf("]\n");
+  printf("qfdot = [");
+  for (i = 0; i < NDOF; i++) {
+    printf("%.2f  ", x[i + NDOF]);
+  }
+  printf("]\n");
+  printf("T = %.2f\n", x[2 * NDOF]);
 }
 
 /*
@@ -70,13 +67,13 @@ void print_optim_vec(const double *x) {
  */
 double max_abs_array(const double *x, const int length) {
 
-	double val = x[0];
-	for (int i = 1; i < length; i++) {
-		if (fabs(x[i]) > val) {
-			val = fabs(x[i]);
-		}
-	}
-	return val;
+  double val = x[0];
+  for (int i = 1; i < length; i++) {
+    if (fabs(x[i]) > val) {
+      val = fabs(x[i]);
+    }
+  }
+  return val;
 }
 
 /*
@@ -84,13 +81,13 @@ double max_abs_array(const double *x, const int length) {
  */
 double max_array(const double *x, const int length) {
 
-	double val = x[0];
-	for (int i = 1; i < length; i++) {
-		if (x[i] > val) {
-			val = x[i];
-		}
-	}
-	return val;
+  double val = x[0];
+  for (int i = 1; i < length; i++) {
+    if (x[i] > val) {
+      val = x[i];
+    }
+  }
+  return val;
 }
 
 /*
@@ -99,23 +96,23 @@ double max_array(const double *x, const int length) {
  */
 bool vec_is_equal(const int n, const double *x1, const double *x2) {
 
-	for (int i = 0; i < n; i++) {
-		if (x1[i] != x2[i]) {
-			return false;
-		}
-	}
-	return true;
+  for (int i = 0; i < n; i++) {
+    if (x1[i] != x2[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /*
  * Returns constant vector of val value from 1 to n
  */
-void const_vec(const int n, const double val, double * vec) {
+void const_vec(const int n, const double val, double *vec) {
 
-	int i;
-	for (i = 0; i < n; i++) {
-		vec[i] = val;
-	}
+  int i;
+  for (i = 0; i < n; i++) {
+    vec[i] = val;
+  }
 }
 
 /*
@@ -123,39 +120,43 @@ void const_vec(const int n, const double val, double * vec) {
  */
 double inner_prod(const int n, const double *a1, const double *a2) {
 
-	int i;
-	double val = 0.0;
-	for (i = 0; i < n; i++) {
-		val += a1[i]*a2[i];
-	}
+  int i;
+  double val = 0.0;
+  for (i = 0; i < n; i++) {
+    val += a1[i] * a2[i];
+  }
 
-	return val;
+  return val;
 }
 
 /*
- * Returns the weighted inner product between two vectors of size given in last argument
+ * Returns the weighted inner product between two vectors of size given in last
+ * argument
  */
-double inner_w_prod(const int size, const double *w, const double *a1, const double *a2) {
+double inner_w_prod(const int size, const double *w, const double *a1,
+                    const double *a2) {
 
-	int i;
-	double val = 0.0;
-	for (i = 0; i < size; i++) {
-		val += a1[i]*w[i]*a2[i];
-	}
-	return val;
+  int i;
+  double val = 0.0;
+  for (i = 0; i < size; i++) {
+    val += a1[i] * w[i] * a2[i];
+  }
+  return val;
 }
 
 /*
- * Returns the inverse weighted inner product between two vectors of size given in last argument
+ * Returns the inverse weighted inner product between two vectors of size given
+ * in last argument
  */
-double inner_winv_prod(const int size, const double *w, const double *a1, const double *a2) {
+double inner_winv_prod(const int size, const double *w, const double *a1,
+                       const double *a2) {
 
-	int i;
-	double val = 0.0;
-	for (i = 0; i < size; i++) {
-		val += a1[i]*a2[i]/w[i];
-	}
-	return val;
+  int i;
+  double val = 0.0;
+  for (i = 0; i < size; i++) {
+    val += a1[i] * a2[i] / w[i];
+  }
+  return val;
 }
 
 /*
@@ -164,8 +165,8 @@ double inner_winv_prod(const int size, const double *w, const double *a1, const 
  */
 void make_equal(const int n, const double *a1, double *a2) {
 
-	for (int i = 0; i < n; i++)
-		a2[i] = a1[i];
+  for (int i = 0; i < n; i++)
+    a2[i] = a1[i];
 }
 
 /*
@@ -173,9 +174,9 @@ void make_equal(const int n, const double *a1, double *a2) {
  */
 void vec_plus(const int n, const double *a2, double *a1) {
 
-	for (int i = 0; i < n; i++) {
-		a1[i] += a2[i];
-	}
+  for (int i = 0; i < n; i++) {
+    a1[i] += a2[i];
+  }
 }
 
 /*
@@ -183,20 +184,20 @@ void vec_plus(const int n, const double *a2, double *a1) {
  */
 void vec_minus(const int n, const double *a2, double *a1) {
 
-	for (int i = 0; i < n; i++) {
-		a1[i] -= a2[i];
-	}
+  for (int i = 0; i < n; i++) {
+    a1[i] -= a2[i];
+  }
 }
 
 /*
  * Return time of day as micro seconds
  */
 long get_time() {
-	struct timeval tv;
-	if (gettimeofday(&tv, (struct timezone *)0) == 0)
-		return (tv.tv_sec*1000*1000 + tv.tv_usec);  //us
+  struct timeval tv;
+  if (gettimeofday(&tv, (struct timezone *)0) == 0)
+    return (tv.tv_sec * 1000 * 1000 + tv.tv_usec); // us
 
-	return 0.;
+  return 0.;
 }
 
 /*!*****************************************************************************
@@ -216,11 +217,10 @@ long get_time() {
 
  ******************************************************************************/
 double sign(double expr) {
-	if (expr > 0)
-		return (1.0);
-	else
-		if (expr < 0)
-			return (-1.0);
-		else
-			return (0.0);
+  if (expr > 0)
+    return (1.0);
+  else if (expr < 0)
+    return (-1.0);
+  else
+    return (0.0);
 }
