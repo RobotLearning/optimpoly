@@ -1,0 +1,38 @@
+# RBFS: 2,3,4,5,6,7,8,9,10,12,13,14
+# DMPS: 1,3,4,5,6,8,10,11,12,13,14,15
+# 1,5,12 are working best in dmps
+# 1 serves 100%!!!
+# 9 caused shotdown in rbfs, 1 was the only good one
+# save data
+
+---
+perturb_init: 0.0
+use_inv_dyn_fb: false #if false uses computed torque
+
+serve:
+  algorithm: 0 # 0 = DMPs, 1 = RBFs, 2 = coupled RBFs (CRBF)
+  speed_up: 0.9
+  start_from_act_state: true # if false starts from desired
+  json_file: dmp_12_16-Nov-2018.json
+  save:
+    act_joint: false
+    des_joint: false
+    ball_data: false
+
+network: #zmq interface settings
+  url: tcp//localhost:7660
+  vision:
+    debug: false #prints ball info received by listener if true
+    listen_2d: false #if false listen to 3d server
+    triangulation: 'invert' # as opposed to 'DLT'
+
+optim:
+  detach: true
+  mpc:
+    enable: true
+    frequency: 1
+  verbose: false #enable for optim info printout
+  time_land_des: 0.6 #desired time to land on robot court
+  ball_land_des_offset: [0.0, 0.0] 
+
+

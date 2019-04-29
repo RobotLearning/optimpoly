@@ -134,7 +134,7 @@ TEST(TestZMQ, TestZMQPPInSubPubMode) {
 TEST(TestZMQ, TestZMQPForEqualityOfSentAndReceivedBalls) {
 
   // start listener server
-  Listener listener("tcp://localhost:4242", false);
+  Listener listener("tcp://localhost:4242", false, false, "DLT");
   int num_sent_balls = 500;
   pub_ball(num_sent_balls);
   // stop listener
@@ -262,8 +262,8 @@ TEST(TestBallListener, Test2DInterfaceForBallListener) {
   pflags->listen_2d = true;
   pflags->zmq_url = "tcp://localhost:4244";
   pflags->debug_vision = false;
-  // pflags->time_land_des += 0.1;
-  // pflags->ball_land_des_offset[Y] -= 0.5;
+  pflags->time_land_des += 0.1;
+  pflags->ball_land_des_offset[Y] -= 0.5;
 
   std::map<unsigned, mat34> proj_mats; // Calibration matrices
   proj_mats = load_proj_mats("server_3d_conf_ping_okan.json");
@@ -333,7 +333,8 @@ TEST(TestBallListener, TestTriangulationFor3DEstimateFrom2DBallObservations) {
     p2.vals[1] = proj_balls_3(1, i);
     v_proj_balls.push_back(p2);
     vec3 obs3d;
-    bool success = triangulate(proj_mats, v_proj_balls, obs3d, false);
+    bool success = triangulate(proj_mats, v_proj_balls, "invert", obs3d);
+    // TODO: DLT method won't work for triangulation here!
     if (success)
       balls_pred.col(i) = obs3d;
   }

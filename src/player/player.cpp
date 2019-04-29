@@ -46,7 +46,7 @@ Player::Player(const vec7 &q0, player_flags &flags) : pflags(flags) {
   q_rest_des = q0;
   observations = zeros<mat>(3, pflags.min_obs); // for initializing filter
   times = zeros<vec>(pflags.min_obs);           // for initializing filter
-  filter = init_ball_filter(0.3, 0.001, pflags.spin);
+  filter = init_ball_filter(0.3, 0.001, pflags.spin_based_pred);
   // load_lookup_table(lookup_table);
   set_optim();
 }
@@ -112,7 +112,7 @@ void Player::estimate_ball_state(const ball_obs &obs, const double &dt) {
   valid_obs = false;
 
   if (check_reset_filter(obs.status, verb, pflags.t_reset_thresh)) {
-    filter = init_ball_filter(pflags.var_model, pflags.var_noise, pflags.spin,
+    filter = init_ball_filter(pflags.var_model, pflags.var_noise, pflags.spin_based_pred,
                               pflags.out_reject_mult);
     num_obs = 0;
     init_ball_state = false;
@@ -342,7 +342,7 @@ void Player::calc_next_state(const joint &qact, joint &qdes) {
 
 void Player::reset_filter(double var_model, double var_noise) {
 
-  filter = init_ball_filter(var_model, var_noise, pflags.spin,
+  filter = init_ball_filter(var_model, var_noise, pflags.spin_based_pred,
                             pflags.out_reject_mult);
   init_ball_state = false;
   num_obs = 0;

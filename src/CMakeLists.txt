@@ -33,21 +33,21 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # INCLUDE HEADERS (top folder, as opposed to CMAKE_CURRENT_SOURCE_DIR)
 target_include_directories (${PROJECT_NAME} PRIVATE
-    ${ZMQPP_INCLUDES}
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/serve
-    ${CMAKE_SOURCE_DIR}/include/optim
-    ${CMAKE_SOURCE_DIR}/include/player)
+  ${ZMQPP_INCLUDES}
+  ${YAML_INCLUDES}
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_SOURCE_DIR}/include/serve
+  ${CMAKE_SOURCE_DIR}/include/optim
+  ${CMAKE_SOURCE_DIR}/include/player)
 
 #message(STATUS "armadillo lib path = " ${ARMADILLO_LIBRARY})
-#message(STATUS "boost program options lib path = " ${Boost_PROGRAM_OPTIONS_LIBRARY})
 
 # LINK EXTERNAL LIBRARIES HERE
 target_link_libraries(${PROJECT_NAME}
   ${ARMADILLO_LIBRARY}
   nlopt
-  ${Boost_PROGRAM_OPTIONS_LIBRARY}
-  ${ZMQPP})
+  ${ZMQPP}
+  yaml-cpp)
 
 # INSTALL FOLDER
 install(TARGETS ${PROJECT_NAME}

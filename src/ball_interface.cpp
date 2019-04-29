@@ -119,7 +119,7 @@ void Listener::convert_to_3d() {
 
         // triangulate by solving svd
         ball_pos obs_3d;
-        bool success = triangulate(calib_mats, iter->second, obs_3d);
+        bool success = triangulate(calib_mats, iter->second, triangulation, obs_3d);
         if (success) {
           obs2d.erase(iter++);
           obs3d[num] = obs_3d;
@@ -144,8 +144,8 @@ void Listener::convert_to_3d() {
 }
 
 Listener::Listener(const std::string &url_, const bool run_2d,
-                   const bool debug_)
-    : url(url_), debug(debug_) {
+                   const bool debug_, const std::string triangulation_method)
+    : url(url_), debug(debug_), triangulation(triangulation_method) {
   using std::thread;
   std::string home = std::getenv("HOME");
   std::string debug_file = home + "/projects/table-tennis/debug_listener.txt";
@@ -225,8 +225,9 @@ load_proj_mats(const std::string &json_file = "server_3d_conf_ping.json") {
  * Triangulate cameras 0 and 1, or cameras 2 and 3
  */
 bool triangulate(const std::map<unsigned, mat34> &calib_mats,
-                 const std::vector<pixels> &obs_2d, ball_pos &pos3d,
-                 bool svd_method) {
+                 const std::vector<pixels> &obs_2d,
+                 const std::string triangulation_method,
+                 ball_pos &pos3d) {
 
   const int NUM_CAMS = 4; // calib_mats.size();
   const int NUM_PAIRS = NUM_CAMS / 2;
@@ -252,7 +253,7 @@ bool triangulate(const std::map<unsigned, mat34> &calib_mats,
 
       vec4 pos4d;
       // METHOD ONE: Ax = 0
-      if (svd_method) {
+      if (triangulation_method.compare("DLT") == 0) {
         mat44 A = zeros<mat>(4, 4);
         A.row(0) = pixels[2 * i][0] * P1.row(2) - P1.row(0);
         A.row(1) = pixels[2 * i][1] * P1.row(2) - P1.row(1);

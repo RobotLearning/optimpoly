@@ -48,7 +48,7 @@ struct player_flags {
   bool mpc = false;               //!< turn on/off corrections
   bool reset = true;              //!< reinitializing player class
   bool save = false;              //!< saving ball/robot data
-  bool spin = false; //!< turn on and off spin-based prediction models
+  bool spin_based_pred = false; //!< turn on and off spin-based prediction models
   bool optim_rest_posture = false; //!< turn on rest posture optimization
   algo alg = FOCUS;                //!< algorithm for trajectory generation
   int verbosity = 0;               //!< OFF, LOW, HIGH, ALL
@@ -56,7 +56,8 @@ struct player_flags {
   int min_obs = 5; //!< number of observations to initialize filter
   double out_reject_mult =
       2.0; //!< multiplier of variance for outlier detection
-  double ball_land_des_offset[2] = {
+  std::vector<double> ball_land_des_offset = {
+      0.0,
       0.0}; //!< desired ball landing offsets (w.r.t center of opponent court)
   double time_land_des = 0.8; //!< desired ball landing time
   double optim_offset =
@@ -75,6 +76,7 @@ struct player_flags {
   std::string zmq_url = "tcp://helbe:7650";  //!< URL for ZMQ connection
   bool debug_vision = false;                 //!< print received vision info
   bool listen_2d = true; //!< listen to 2d server or 3d server
+  std::string triangulation = "DLT"; //!< triangulation method used for 2d
 };
 
 /**

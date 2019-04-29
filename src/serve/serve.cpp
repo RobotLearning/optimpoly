@@ -5,6 +5,11 @@
  *      Author: okoc
  */
 #include "serve.h"
+
+#include <algorithm>
+#include <armadillo>
+#include <string>
+
 #include "ball_interface.h"
 #include "dmp.h"
 #include "kalman.h"
@@ -12,9 +17,6 @@
 #include "player.hpp"
 #include "rbf.h"
 #include "tabletennis.h"
-#include <algorithm>
-#include <armadillo>
-#include <string>
 
 using namespace arma;
 using namespace const_tt;
@@ -104,9 +106,9 @@ template <typename T> void ServeBall<T>::correct_with_optim(const joint &qact) {
   // lookup_soln(filter.get_mean(),1,qact);
   double time_land_des = sflags.time_land_des;
   vec2 ball_land_des;
-  ball_land_des(X) = sflags.ball_land_des_x_offset;
+  ball_land_des(X) = sflags.ball_land_des_offset[0];
   ball_land_des(Y) =
-      sflags.ball_land_des_y_offset + dist_to_table - 1 * table_length / 4;
+      sflags.ball_land_des_offset[1] + dist_to_table - 1 * table_length / 4;
   optim_des pred_params;
   pred_params.Nmax = 1000;
   calc_racket_strategy(balls_pred, ball_land_des, time_land_des, pred_params);

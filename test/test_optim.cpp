@@ -49,7 +49,6 @@ TEST(OptimTests, TestVirtualHittingPlaneOptim) {
   spline_params poly;
 
   // update initial parameters from lookup table
-  arma_rng::set_seed(1); // looking for a random ball entry
   // arma_rng::set_seed_random();
   vec strike_params = zeros<vec>(15);
   vec ball_state = zeros<vec>(6);
@@ -73,8 +72,8 @@ TEST(OptimTests, TestVirtualHittingPlaneOptim) {
   optim_des racket_params;
   calc_racket_strategy(ball_pred, ball_land_des, time_land_des, racket_params);
 
-  vec3 normal_example = racket_params.racket_normal(span(X, Z), 0);
-  EXPECT_EQ(arma::norm(normal_example), 1.0); // tol = 0.01
+  vec3 normal = racket_params.racket_normal(span(X, Z), 0);
+  EXPECT_NEAR(arma::norm(normal), 1.0, 0.0001);
 
   HittingPlane opt = HittingPlane(qact.q.memptr(), lb, ub);
   opt.set_des_params(&racket_params);
@@ -95,7 +94,6 @@ TEST(OptimTests, TestFocusedPlayerOptim) {
   spline_params poly;
 
   // update initial parameters from lookup table
-  arma_rng::set_seed(1); // looking up a random ball entry
   // arma_rng::set_seed_random();
   vec::fixed<15> strike_params;
   vec6 ball_state;
@@ -136,7 +134,6 @@ TEST(OptimTests, TestDefensivePlayerOptim) {
   spline_params poly;
 
   // update initial parameters from lookup table
-  arma_rng::set_seed(1); // looking up a random ball entry
   vec::fixed<15> strike_params;
   vec6 ball_state;
   lookup_random_entry(ball_state, strike_params);
@@ -176,7 +173,6 @@ TEST(OptimTests, CheckRestingPostureOptim) {
   vec7 q_rest_des = zeros<vec>(7);
   joint qact;
   // update initial parameters from lookup table
-  arma_rng::set_seed_random(); // looking up a random ball entry
   vec::fixed<15> strike_params;
   vec6 ball_state;
   lookup_random_entry(ball_state, strike_params);
@@ -210,7 +206,6 @@ TEST(OptimTests, CheckAccuracyOfRacketCalculationsBVPUsingSpinBallModel) {
   // Solving BVP for one particular ball...
   // Solving for desired outgoing velocity using a spin model");
   // Optimization should produce accurate inversion...
-  arma_rng::set_seed_random();
   double topspin = -50.0;
   TableTennis tt = TableTennis(true, false);
   tt.set_topspin(topspin);

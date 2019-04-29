@@ -34,7 +34,7 @@ target_link_libraries(${TEST_EXEC}
     ${ZMQ}
     ${PROJECT_NAME}
     ${ARMADILLO_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    pthread
 )
 
 # INSTALL FOLDER

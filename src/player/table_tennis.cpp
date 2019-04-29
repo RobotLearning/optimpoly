@@ -16,8 +16,8 @@
  *
  */
 #include "tabletennis.h"
+
 #include <armadillo>
-#include <boost/program_options.hpp>
 
 using namespace arma;
 using namespace const_tt;
@@ -52,7 +52,6 @@ TableTennis::TableTennis(const vec6 &ball_state, bool spin_flag, bool verbosity)
   ball_vel = ball_state(span(DX, DZ));
   ball_spin = zeros<vec>(3);
   init_topspin(params.init_topspin);
-  // load_params("ball.cfg");
   // init_topspin(params.init_topspin);
 }
 
@@ -64,7 +63,6 @@ TableTennis::TableTennis(bool spin_flag, bool verbosity, bool check_contacts)
   ball_spin = zeros<vec>(3);
   init_topspin(params.init_topspin);
   CHECK_CONTACTS = check_contacts;
-  // load_params("ball.cfg");
   // init_topspin(params.init_topspin);
 }
 
@@ -94,45 +92,45 @@ void TableTennis::reset_stats() {
   stats.legal_bounce = false;
 }
 
-void TableTennis::load_params(const std::string &file_name_relative) {
+// void TableTennis::load_params(const std::string &file_name_relative) {
 
-  namespace po = boost::program_options;
-  using namespace std;
-  string home = std::getenv("HOME");
-  string config_file = home + "/polyoptim/" + file_name_relative;
+//   namespace po = boost::program_options;
+//   using namespace std;
+//   string home = std::getenv("HOME");
+//   string config_file = home + "/polyoptim/" + file_name_relative;
 
-  try {
-    // Declare a group of options that will be
-    // allowed in config file
-    po::options_description config("Configuration");
-    config.add_options()("ball_params.CFTX", po::value<double>(&params.CFTX),
-                         "coefficient of table contact model on X-direction")(
-        "ball_params.CFTY", po::value<double>(&params.CFTY),
-        "coefficient of table contact model on Y-direction")(
-        "ball_params.CRT", po::value<double>(&params.CRT),
-        "coefficient of restitution for the table")(
-        "ball_params.CRR", po::value<double>(&params.CRR),
-        "coefficent of restitution for racket")(
-        "ball_params.drag", po::value<double>(&params.Cdrag),
-        "Air drag coefficient")("ball_params.gravity",
-                                po::value<double>(&params.gravity),
-                                "for simulating different gravities")(
-        "ball_params.lift", po::value<double>(&params.Clift),
-        "coefficient of lift for the magnus force")(
-        "ball_params.init_topspin", po::value<double>(&params.init_topspin),
-        "initial topspin");
-    po::variables_map vm;
-    ifstream ifs(config_file.c_str());
-    if (!ifs) {
-      cout << "can not open config file: " << config_file << "\n";
-    } else {
-      po::store(parse_config_file(ifs, config), vm);
-      notify(vm);
-    }
-  } catch (exception &e) {
-    cout << e.what() << "\n";
-  }
-}
+//   try {
+//     // Declare a group of options that will be
+//     // allowed in config file
+//     po::options_description config("Configuration");
+//     config.add_options()("ball_params.CFTX", po::value<double>(&params.CFTX),
+//                          "coefficient of table contact model on X-direction")(
+//         "ball_params.CFTY", po::value<double>(&params.CFTY),
+//         "coefficient of table contact model on Y-direction")(
+//         "ball_params.CRT", po::value<double>(&params.CRT),
+//         "coefficient of restitution for the table")(
+//         "ball_params.CRR", po::value<double>(&params.CRR),
+//         "coefficent of restitution for racket")(
+//         "ball_params.drag", po::value<double>(&params.Cdrag),
+//         "Air drag coefficient")("ball_params.gravity",
+//                                 po::value<double>(&params.gravity),
+//                                 "for simulating different gravities")(
+//         "ball_params.lift", po::value<double>(&params.Clift),
+//         "coefficient of lift for the magnus force")(
+//         "ball_params.init_topspin", po::value<double>(&params.init_topspin),
+//         "initial topspin");
+//     po::variables_map vm;
+//     ifstream ifs(config_file.c_str());
+//     if (!ifs) {
+//       cout << "can not open config file: " << config_file << "\n";
+//     } else {
+//       po::store(parse_config_file(ifs, config), vm);
+//       notify(vm);
+//     }
+//   } catch (exception &e) {
+//     cout << e.what() << "\n";
+//   }
+// }
 
 void TableTennis::set_ball_gun(double std, int ballgun_side) {
 

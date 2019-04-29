@@ -78,7 +78,7 @@ TEST(ServeTests,
   tt.set_ball_state(init_ball_state);
   racket racket_state;
   serve_flags flags;
-  flags.ball_land_des_y_offset -= 0.2;
+  flags.ball_land_des_offset[1] -= 0.2;
   flags.json_file = rbf_file;
   ServeBall<CRBF> server = ServeBall<CRBF>(flags);
 

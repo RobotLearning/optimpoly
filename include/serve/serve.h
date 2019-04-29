@@ -24,12 +24,12 @@ struct serve_flags {
   int alg = 0;                 //!< 0 = DMP, 1 = RBF, 2 = CRBF
   int freq_mpc = 1.0;          //!< how many times per minute to re-run optim
   double time_land_des = 0.6;  //!< desired time to land on robot court first
-  double ball_land_des_x_offset = 0.0;
-  double ball_land_des_y_offset = 0.0;
+    std::vector<double> ball_land_des_offset = {0.0, 0.0}; //!<
   double speedup = 1;                  //!< for the DMP speed up
   bool listen_2d = true;               //!< listen to 2d server or 3d server
   std::string json_file = "dmp4.json"; //!< json file to load dmp from
-  std::string zmq_url = "tcp://helbe:7650"; //!< URL for ZMQ connection
+  std::string zmq_url = "tcp://localhost:7650"; //!< URL for ZMQ connection
+  std::string triangulation = "DLT";
 };
 
 template <typename T> class ServeBall {

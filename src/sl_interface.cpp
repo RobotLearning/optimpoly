@@ -8,16 +8,8 @@
  */
 
 #include "sl_interface.h"
-#include "ball_interface.h"
-#include "dmp.h"
-#include "json.hpp"
-#include "kalman.h"
-#include "player.hpp"
-#include "rbf.h"
-#include "serve.h"
-#include "tabletennis.h"
+
 #include <armadillo>
-#include <boost/program_options.hpp>
 #include <chrono>
 #include <cmath>
 #include <fstream>
@@ -26,6 +18,16 @@
 #include <map>
 #include <string>
 #include <sys/time.h>
+
+#include "ball_interface.h"
+#include "dmp.h"
+#include "json.hpp"
+#include "kalman.h"
+#include "player.hpp"
+#include "rbf.h"
+#include "serve.h"
+#include "tabletennis.h"
+#include "yaml-cpp/yaml.h"
 
 using namespace arma;
 using namespace player;
@@ -39,9 +41,7 @@ serve_flags sflags;  //!< global structure for setting Serve task options
  *  Set algorithm to initialize Player with.
  *  alg_num selects between three algorithms: VHP/FOCUSED/DEFENSIVE.
  */
-static void set_player_algorithm(const int alg_num);
-
-void set_player_algorithm(const int alg_num) {
+static void set_player_algorithm(const int alg_num) {
 
   switch (alg_num) {
   case 0:
@@ -63,91 +63,50 @@ void set_player_algorithm(const int alg_num) {
 
 void *load_player_options() {
 
-  namespace po = boost::program_options;
-  using namespace std;
+  std::string home = std::getenv("HOME");
+  std::string config_file = home + "/projects/table-tennis/config/" + "player.yaml";
 
-  pflags.reset = true;
-  string home = std::getenv("HOME");
-  string config_file = home + "/projects/table-tennis/config/" + "player.cfg";
-  int alg_num;
+  YAML::Node config = YAML::LoadFile(config_file);
+  YAML::Node player_conf = config["player"];
+  set_player_algorithm(player_conf["algorithm"].as<int>());
+  pflags.mpc = player_conf["mpc"]["enable"].as<bool>();
+  pflags.freq_mpc = player_conf["mpc"]["frequency"].as<int>();
+  pflags.verbosity = player_conf["verbose"].as<int>();
+  pflags.save = player_conf["save_data"].as<bool>();
+  pflags.check_bounce = player_conf["check_bounce"].as<bool>();
+  pflags.optim_rest_posture = player_conf["optim_rest_posture"].as<bool>();
+  YAML::Node filter_conf = config["filter"];
+  pflags.spin_based_pred = filter_conf["model"]["spin_based_pred"].as<bool>();
+  pflags.var_noise = filter_conf["model"]["var_obs_noise"].as<double>();
+  pflags.var_model = filter_conf["model"]["var_process_noise"].as<double>();
+  pflags.min_obs = filter_conf["reset"]["min_obs"].as<int>();
+  pflags.t_reset_thresh = filter_conf["reset"]["time_to_reset"].as<double>();
+  pflags.outlier_detection =
+      filter_conf["outlier_detection"]["enable"].as<bool>();
+  pflags.out_reject_mult =
+      filter_conf["outlier_detection"]["multiplier"].as<double>();
+  YAML::Node optim_conf = config["optim"];
+  pflags.optim_offset = optim_conf["start_optim_offset"].as<double>();
+  pflags.time2return = optim_conf["time_to_return"].as<double>();
+  pflags.ball_land_des_offset =
+      optim_conf["ball_land_des_offset"].as<std::vector<double>>();
+  pflags.time_land_des = optim_conf["time_land_des"].as<double>();
+  // defensive player options are extra
+  pflags.weights =
+      optim_conf["defensive_player"]["weights"].as<std::vector<double>>();
+  pflags.penalty_loc =
+      optim_conf["defensive_player"]["penalty_loc"].as<std::vector<double>>();
+  pflags.mult_vel = optim_conf["defensive_player"]["mult_outgoing_ball_vel"]
+                        .as<std::vector<double>>();
+  pflags.VHPY = optim_conf["virtual_hitting_player"]["y_location"].as<double>();
+  YAML::Node network_conf = config["network"];
+  pflags.zmq_url = network_conf["url"].as<std::string>();
+  pflags.debug_vision = network_conf["vision"]["debug"].as<bool>();
+  pflags.listen_2d = network_conf["vision"]["listen_2d"].as<bool>();
+  pflags.triangulation = network_conf["vision"]["triangulation"].as<std::string>();
 
-  try {
-    // Declare a group of options that will be
-    // allowed in config file
-    po::options_description config("Configuration");
-    config.add_options()(
-        "outlier_detection",
-        po::value<bool>(&pflags.outlier_detection)->default_value(true),
-        "OUTLIER DETECTION FOR REAL ROBOT!")(
-        "rejection_multiplier",
-        po::value<double>(&pflags.out_reject_mult)->default_value(2.0),
-        "OUTLIER DETECTION MULTIPLIER FOR REAL ROBOT!")(
-        "check_bounce", po::value<bool>(&pflags.check_bounce),
-        "checking bounce before moving!")(
-        "weights",
-        po::value<std::vector<double>>(&pflags.weights)->multitoken(),
-        "hit,net,land weights for DP")(
-        "mult_vel",
-        po::value<std::vector<double>>(&pflags.mult_vel)->multitoken(),
-        "velocity mult. for DP")(
-        "penalty_loc",
-        po::value<std::vector<double>>(&pflags.penalty_loc)->multitoken(),
-        "punishment locations for DP")(
-        "rest_posture_optim",
-        po::value<bool>(&pflags.optim_rest_posture)->default_value(false),
-        "turn on resting state optimization")
-        //("lookup", po::value<bool>(&flags.lookup), "start moving with lookup")
-        ("algorithm", po::value<int>(&alg_num)->default_value(0),
-         "optimization method")(
-            "mpc", po::value<bool>(&pflags.mpc)->default_value(false),
-            "corrections (MPC)")(
-            "spin", po::value<bool>(&pflags.spin)->default_value(false),
-            "apply spin model")(
-            "verbose", po::value<int>(&pflags.verbosity)->default_value(1),
-            "verbosity level")(
-            "save_data", po::value<bool>(&pflags.save)->default_value(false),
-            "saving robot/ball data")(
-            "ball_land_des_x_offset",
-            po::value<double>(&pflags.ball_land_des_offset[0]),
-            "ball land x offset")(
-            "ball_land_des_y_offset",
-            po::value<double>(&pflags.ball_land_des_offset[1]),
-            "ball land y offset")("time_land_des",
-                                  po::value<double>(&pflags.time_land_des),
-                                  "time land des")(
-            "start_optim_offset", po::value<double>(&pflags.optim_offset),
-            "start optim offset")("time2return",
-                                  po::value<double>(&pflags.time2return),
-                                  "time to return to start posture")(
-            "freq_mpc", po::value<int>(&pflags.freq_mpc),
-            "frequency of updates")("min_obs", po::value<int>(&pflags.min_obs),
-                                    "minimum obs to start filter")(
-            "var_noise", po::value<double>(&pflags.var_noise),
-            "std of filter obs noise")("var_model",
-                                       po::value<double>(&pflags.var_model),
-                                       "std of filter process noise")(
-            "t_reset_threshold", po::value<double>(&pflags.t_reset_thresh),
-            "filter reset threshold time")(
-            "VHPY", po::value<double>(&pflags.VHPY),
-            "location of VHP")("url", po::value<std::string>(&pflags.zmq_url),
-                               "TCP URL for ZMQ connection")(
-            "debug_vision", po::value<bool>(&pflags.debug_vision),
-            "print ball in listener")("listen_2d",
-                                      po::value<bool>(&pflags.listen_2d),
-                                      "listen to 2d server if true");
-    po::variables_map vm;
-    ifstream ifs(config_file.c_str());
-    if (!ifs) {
-      cout << "can not open config file: " << config_file << "\n";
-    } else {
-      po::store(parse_config_file(ifs, config), vm);
-      notify(vm);
-    }
-  } catch (exception &e) {
-    cout << e.what() << "\n";
-  }
-  set_player_algorithm(alg_num);
   pflags.detach = true; // always detached in SL/REAL ROBOT!
+  pflags.reset = true;
   return reinterpret_cast<void *>(&pflags);
 }
 
@@ -170,7 +129,7 @@ void play(const SL_Jstate joint_state[NDOF + 1],
   if (pflags.reset) {
     delete listener;
     listener =
-        new Listener(pflags.zmq_url, pflags.listen_2d, pflags.debug_vision);
+        new Listener(pflags.zmq_url, pflags.listen_2d, pflags.debug_vision, pflags.triangulation);
     for (int i = 0; i < NDOF; i++) {
       qdes.q(i) = q0(i) = joint_state[i + 1].th;
       qdes.qd(i) = 0.0;
@@ -284,10 +243,11 @@ void save_ball_data(const char *url_string, const int listen_2d,
   static std::ofstream stream_balls;
   static std::string home = std::getenv("HOME");
   static std::string ball_file = home + "/projects/table-tennis/balls.txt";
+  static std::string triangulation_method = "DLT";
 
   if (reset) {
     delete listener;
-    listener = new Listener(url_string, listen_2d, (bool)debug_vision);
+    listener = new Listener(url_string, listen_2d, (bool)debug_vision, triangulation_method);
     stream_balls.close();
     stream_balls.open(ball_file, std::ofstream::out);
   } else {
@@ -306,69 +266,37 @@ void save_ball_data(const char *url_string, const int listen_2d,
 
 void *load_serve_options(double custom_pose[], serve_task_options *options) {
 
-  namespace po = boost::program_options;
-  using std::string;
-  const string home = std::getenv("HOME");
-  string config_file = home + "/projects/table-tennis/config/serve.cfg";
-  double perturb_init = 0.0;
+  const std::string home = std::getenv("HOME");
+  std::string config_file = home + "/projects/table-tennis/config/serve.yaml";
 
-  try {
-    // Declare a group of options that will be
-    // allowed in config file
-    po::options_description config("Configuration");
-    config.add_options()("alg", po::value<int>(&sflags.alg),
-                         "Algorithm to use for serving")(
-        "perturb_init", po::value<double>(&perturb_init),
-        "Standard deviation for perturbing init conditions")(
-        "speedup", po::value<double>(&sflags.speedup), "Speedup the movement")(
-        "json_file", po::value<string>(&sflags.json_file),
-        "JSON File to load movement from")(
-        "start_from_act_state",
-        po::value<bool>(&sflags.start_from_act_state)->default_value(false),
-        "Evolve from actual sensor state vs. desired state")(
-        "save_act_joint", po::value<bool>(&sflags.save_joint_act_data),
-        "Save act joint data during movement to txt file")(
-        "save_des_joint", po::value<bool>(&sflags.save_joint_des_data),
-        "Save des joint data during movement to txt file")(
-        "save_ball_data", po::value<bool>(&sflags.save_ball_data),
-        "Save ball data acquired via Listener to txt file")(
-        "use_inv_dyn_fb", po::value<bool>(&sflags.use_inv_dyn_fb),
-        "Use computed-torque control if false")(
-        "url", po::value<std::string>(&sflags.zmq_url),
-        "TCP URL for ZMQ connection")("debug_vision",
-                                      po::value<bool>(&sflags.debug_vision),
-                                      "print ball in listener")(
-        "listen_2d", po::value<bool>(&sflags.listen_2d),
-        "listen to 2d server if true")(
-        "detach", po::value<bool>(&sflags.detach)->default_value(true),
-        "detach optimization if true")(
-        "mpc", po::value<bool>(&sflags.mpc)->default_value(false),
-        "run optimization to correct for mispredictions etc.")(
-        "freq_mpc", po::value<int>(&sflags.freq_mpc)->default_value(1),
-        "frequency of running optimization for corrections")(
-        "verbose", po::value<bool>(&sflags.verbose)->default_value(false),
-        "verbosity level")("ball_land_des_x_offset",
-                           po::value<double>(&sflags.ball_land_des_x_offset),
-                           "ball land x offset")(
-        "ball_land_des_y_offset",
-        po::value<double>(&sflags.ball_land_des_y_offset),
-        "ball land y offset")("time_land_des",
-                              po::value<double>(&sflags.time_land_des),
-                              "time land des");
-    po::variables_map vm;
-    std::ifstream ifs(config_file.c_str());
-    if (!ifs) {
-      cout << "can not open config file: " << config_file << "\n";
-    } else {
-      po::store(parse_config_file(ifs, config), vm);
-      notify(vm);
-    }
-  } catch (std::exception &e) {
-    cout << e.what() << "\n";
-  }
-  options->use_inv_dyn_fb = sflags.use_inv_dyn_fb;
+  YAML::Node config = YAML::LoadFile(config_file);
+  double perturb_init = config["perturb_init"].as<double>();
+  options->use_inv_dyn_fb = config["use_inv_dyn_fb"].as<bool>();
 
-  string json_file = home + "/projects/table-tennis/json/" + sflags.json_file;
+  YAML::Node serve_conf = config["serve"];
+  sflags.alg = serve_conf["algorithm"].as<int>();
+  sflags.speedup = serve_conf["speed_up"].as<double>();
+  sflags.start_from_act_state = serve_conf["start_from_act_state"].as<bool>();
+  sflags.json_file = serve_conf["json_file"].as<std::string>();
+  // save settings
+  sflags.save_joint_act_data = serve_conf["save"]["act_joint"].as<bool>();
+  sflags.save_joint_des_data = serve_conf["save"]["des_joint"].as<bool>();
+  sflags.save_ball_data = serve_conf["save"]["ball_data"].as<bool>();
+
+  YAML::Node network_conf = config["network"];
+  sflags.zmq_url = network_conf["url"].as<std::string>();
+  sflags.debug_vision = network_conf["vision"]["debug"].as<bool>();
+  sflags.listen_2d = network_conf["vision"]["listen_2d"].as<bool>();
+  sflags.triangulation = network_conf["vision"]["triangulation"].as<std::string>();
+
+  YAML::Node optim_conf = config["optim"];
+  sflags.detach = config["optim"]["detach"].as<bool>();
+  sflags.mpc = config["mpc"]["enable"].as<bool>();
+  sflags.freq_mpc = config["mpc"]["frequency"].as<int>();
+  sflags.time_land_des = config["optim"]["time_land_des"].as<double>();
+  sflags.ball_land_des_offset = config["optim"]["ball_land_des_offset"].as<std::vector<double>>();
+
+  std::string json_file = home + "/projects/table-tennis/json/" + sflags.json_file;
   vec7 pose;
   if (sflags.alg == 1) {
     RBF rbfs = RBF(json_file);
@@ -403,7 +331,7 @@ void serve_ball(const SL_Jstate joint_state[], SL_DJstate joint_des_state[]) {
   if (sflags.reset) {
     delete listener;
     listener =
-        new Listener(sflags.zmq_url, sflags.listen_2d, sflags.debug_vision);
+        new Listener(sflags.zmq_url, sflags.listen_2d, sflags.debug_vision, sflags.triangulation);
     vec7 qinit;
     if (sflags.start_from_act_state) {
       for (int i = 0; i < NDOF; i++) {

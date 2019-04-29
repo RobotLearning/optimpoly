@@ -1,0 +1,44 @@
+---
+player:
+  algorithm: 0  # ALGORITHM OPTIONS: FOCUS = 0 (FP), DEFENSIVE = 1 (DP), VHP = 2
+  mpc:
+    enable: false 
+    frequency: 10 
+  verbose: 0 # player verbosity level
+  save_data: false # saving robot/ball data
+  check_bounce: true # turn off for real robot
+  optim_rest_posture: false # resting state optimization
+
+filter:
+  model:
+    spin_based_pred: false
+    var_obs_noise: 0.001 
+    var_process_noise: 0.03
+  reset:
+    min_obs: 12 # minimum number of observations to start filter 
+    time_to_reset: 0.3 # when no new ball obs arrive
+  outlier_detection:
+    enable: false # turn on for real robot!
+    multiplier: 2.0
+  verbose: false
+
+optim: 
+  start_optim_offset: 1.5 # dist_to_table = -1.15, table_length = -2.76
+  time_to_return: 1.0 # time to return to rest posture
+  ball_land_des_offset: [0.0, 0.0]
+  time_land_des: 0.4
+  defensive_player:
+    weights: [1000, 10, 10] # trajectory, net, landing punishments
+    penalty_loc: [0.0, 0.23, 0.0, -3.22] #x_des_net,z_des_net,x_des_land,y_des_land
+    mult_outgoing_ball_vel: [0.9, 0.8, 0.83] # after racket contact
+  virtual_hitting_player:
+    y_location: -0.3
+  verbose: false
+
+network: # zmq interface settings
+  url: tcp://localhost:7660 #replace localhost with name of computer
+  verbose: false
+  vision:
+    debug: false # print ball info received by listener
+    listen_2d: true #listen to 2d server else to 3d server
+    triangulation: 'invert' # as opposed to 'DLT'

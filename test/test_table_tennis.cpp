@@ -32,6 +32,7 @@ using namespace optim;
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
+  arma_rng::set_seed(1);
   return RUN_ALL_TESTS();
 }
 
