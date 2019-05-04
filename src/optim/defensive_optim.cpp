@@ -82,9 +82,16 @@ static void interp_ball(const optim_des *params, const double T_,
                         double *ballpos, double *ballvel);
 
 DefensiveOptim::DefensiveOptim(const vec7 &qrest, double lbIn[], double ubIn[],
-                               bool land_, bool lookup)
-    : FocusedOptim(), land_(land_) { // FocusedOptim(qrest, lb_, ub_) {
+                               bool land, bool lookup)
+    : Optim(), mult_vel_(3, 0.0), land_(land), x_last_{0.0}, t_land_(-1.0),
+      t_net_(-1.0), x_land_{0.0}, x_net_{0.0}, dist_b2r_norm_(1.0),
+      dist_b2r_proj_(1.0), penalty_loc_(4, 0.0) {
 
+  mult_vel_[0] = 0.9;
+  mult_vel_[1] = 0.8;
+  mult_vel_[2] = 0.83;
+  penalty_loc_[1] = 0.23;
+  penalty_loc_[3] = -3.22;
   lookup_ = lookup;
   player::load_lookup_table(lookup_table_);
   const_vec(NDOF, 1.0, w_.R_strike);
@@ -105,6 +112,27 @@ DefensiveOptim::DefensiveOptim(const vec7 &qrest, double lbIn[], double ubIn[],
   } else {
     set_hit_constr();
   }
+}
+
+void DefensiveOptim::init_last_soln(double x[]) const {
+
+  // initialize first dof entries to q0_
+  for (int i = 0; i < NDOF; i++) {
+    x[i] = qf_[i];
+    x[i + NDOF] = qfdot_[i];
+  }
+  x[2 * NDOF] = T_;
+  // cout << "Initialization from T_ = " << T_ << endl;
+}
+
+void DefensiveOptim::init_rest_soln(double x[]) const {
+
+  // initialize first dof entries to q0_
+  for (int i = 0; i < NDOF; i++) {
+    x[i] = qrest_[i];
+    x[i + NDOF] = 0.0;
+  }
+  x[2 * NDOF] = 0.5;
 }
 
 void DefensiveOptim::set_weights(const std::vector<double> &weights) {
@@ -254,7 +282,8 @@ void DefensiveOptim::calc_hit_distance(const double ball_pos[],
     e[i] = ball_pos[i] - racket_pos[i];
   }
   dist_b2r_norm_ = inner_prod(NCART, racket_normal, e);
-  dist_b2r_proj_ = sqrt(inner_prod(NCART, e, e) - dist_b2r_norm_ * dist_b2r_norm_);
+  dist_b2r_proj_ =
+      sqrt(inner_prod(NCART, e, e) - dist_b2r_norm_ * dist_b2r_norm_);
 }
 
 double DefensiveOptim::test_soln(const double x_[]) const {
@@ -332,8 +361,8 @@ static double costfunc(unsigned n, const double *x_, double *grad,
   Jland = opt_->calc_punishment();
 
   J1 = T_ * (3 * T_ * T_ * inner_w_prod(NDOF, w_.R_strike, a1, a1) +
-            3 * T_ * inner_w_prod(NDOF, w_.R_strike, a1, a2) +
-            inner_w_prod(NDOF, w_.R_strike, a2, a2));
+             3 * T_ * inner_w_prod(NDOF, w_.R_strike, a1, a2) +
+             inner_w_prod(NDOF, w_.R_strike, a2, a2));
 
   if (grad) {
     static double h = 1e-6;

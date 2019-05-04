@@ -26,7 +26,6 @@ namespace player {
 class KF {
 
 private:
-
   /**
    * @brief Checks if the model matrices have the right size
    * for initialization
@@ -219,10 +218,10 @@ using model = vec (*)(const vec &, const double, const void *p);
 class EKF : public KF {
 
 private:
-  void *fparams_ = nullptr; //!< parameters to function
-  double
-      outlier_reject_mult_; //!< standard deviation multiplier to reject outliers
-  model f_;                 //!< pointer to function for prediction
+  void *fparams_;    //!< parameters to function
+  double outlier_reject_mult_; //!< standard deviation multiplier to reject
+                               //!< outliers
+  model f_;                    //!< pointer to function for prediction
 
   /**
    * @brief Linearize the discrete function (that integrates a continuous

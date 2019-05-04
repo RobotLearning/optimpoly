@@ -47,7 +47,7 @@ static void racket_contact_model(const vec3 &racket_vel,
 namespace player {
 
 TableTennis::TableTennis(const vec6 &ball_state, bool spin_flag, bool verbosity)
-    : SPIN_MODE_(spin_flag), VERBOSE_(verbosity) {
+    : CHECK_CONTACTS_(true), SPIN_MODE_(spin_flag), VERBOSE_(verbosity) {
   ball_pos_ = ball_state(span(X, Z));
   ball_vel_ = ball_state(span(DX, DZ));
   ball_spin_ = zeros<vec>(3);
@@ -56,7 +56,7 @@ TableTennis::TableTennis(const vec6 &ball_state, bool spin_flag, bool verbosity)
 }
 
 TableTennis::TableTennis(bool spin_flag, bool verbosity, bool check_contacts)
-    : SPIN_MODE_(spin_flag), VERBOSE_(verbosity) {
+    : CHECK_CONTACTS_(true), SPIN_MODE_(spin_flag), VERBOSE_(verbosity) {
 
   ball_pos_ = zeros<vec>(3);
   ball_vel_ = zeros<vec>(3);
@@ -103,8 +103,10 @@ void TableTennis::reset_stats() {
 //     // Declare a group of options that will be
 //     // allowed in config file
 //     po::options_description config("Configuration");
-//     config.add_options()("ball_params.CFTX", po::value<double>(&params_.CFTX),
-//                          "coefficient of table contact model on X-direction")(
+//     config.add_options()("ball_params.CFTX",
+//     po::value<double>(&params_.CFTX),
+//                          "coefficient of table contact model on
+//                          X-direction")(
 //         "ball_params.CFTY", po::value<double>(&params_.CFTY),
 //         "coefficient of table contact model on Y-direction")(
 //         "ball_params.CRT", po::value<double>(&params_.CRT),
@@ -310,7 +312,8 @@ void TableTennis::symplectic_int_fourth(const double dt) {
     speed_ball = norm(ball_next_vel);
     ball_acc(X) = -ball_next_vel(X) * params_.Cdrag * speed_ball;
     ball_acc(Y) = -ball_next_vel(Y) * params_.Cdrag * speed_ball;
-    ball_acc(Z) = params_.gravity - ball_next_vel(Z) * params_.Cdrag * speed_ball;
+    ball_acc(Z) =
+        params_.gravity - ball_next_vel(Z) * params_.Cdrag * speed_ball;
     if (SPIN_MODE_) { // add Magnus force
       ball_acc += params_.Clift * cross(ball_spin_, ball_next_vel);
     }
@@ -604,6 +607,7 @@ static void racket_contact_model(const vec3 &racket_vel,
                                  const vec3 &racket_normal,
                                  const double &racket_param, vec3 &ball_vel_) {
 
-  double speed = (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel_);
+  double speed =
+      (1 + racket_param) * dot(racket_normal, racket_vel - ball_vel_);
   ball_vel_ += speed * racket_normal;
 }

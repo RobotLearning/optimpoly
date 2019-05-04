@@ -44,8 +44,8 @@ static void first_order_hold(const optim_des *racketdata, const double T_,
                              double racket_n[NCART]);
 
 FocusedOptim::FocusedOptim(const vec7 &qrest, double lbIn[2 * NDOF + 1],
-                           double ubIn[2 * NDOF + 1]) {
-
+                           double ubIn[2 * NDOF + 1])
+    : Optim() {
   double tol_eq[EQ_CONSTR_DIM];
   double tol_ineq[INEQ_CONSTR_DIM];
   const_vec(EQ_CONSTR_DIM, 1e-2, tol_eq);
@@ -59,8 +59,8 @@ FocusedOptim::FocusedOptim(const vec7 &qrest, double lbIn[2 * NDOF + 1],
   nlopt_set_min_objective(opt_, costfunc, this);
   nlopt_add_inequality_mconstraint(opt_, INEQ_CONSTR_DIM,
                                    joint_limits_ineq_constr, this, tol_ineq);
-  nlopt_add_equality_mconstraint(opt_, EQ_CONSTR_DIM, kinematics_eq_constr, this,
-                                 tol_eq);
+  nlopt_add_equality_mconstraint(opt_, EQ_CONSTR_DIM, kinematics_eq_constr,
+                                 this, tol_eq);
 
   for (int i = 0; i < NDOF; i++) {
     qrest_[i] = qrest(i);
@@ -175,7 +175,7 @@ static double costfunc(unsigned n, const double *x, double *grad,
   calc_strike_poly_coeff(q0_, q0dot_, x, a1, a2);
 
   return T_ * (3 * T_ * T_ * inner_prod(NDOF, a1, a1) +
-              3 * T_ * inner_prod(NDOF, a1, a2) + inner_prod(NDOF, a2, a2));
+               3 * T_ * inner_prod(NDOF, a1, a2) + inner_prod(NDOF, a2, a2));
 }
 
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
@@ -338,8 +338,8 @@ void calc_strike_poly_coeff(const double *q0_, const double *q0dot_,
   for (int i = 0; i < NDOF; i++) {
     a1[i] = (2 / pow(T_, 3)) * (q0_[i] - x[i]) +
             (1 / (T_ * T_)) * (q0dot_[i] + x[i + NDOF]);
-    a2[i] =
-        (3 / (T_ * T_)) * (x[i] - q0_[i]) - (1 / T_) * (x[i + NDOF] + 2 * q0dot_[i]);
+    a2[i] = (3 / (T_ * T_)) * (x[i] - q0_[i]) -
+            (1 / T_) * (x[i + NDOF] + 2 * q0dot_[i]);
   }
 
   return;
@@ -352,8 +352,8 @@ void calc_return_poly_coeff(const double *q0_, const double *q0dot_,
   for (int i = 0; i < NDOF; i++) {
     a1[i] = (2 / pow(T_, 3)) * (x[i] - q0_[i]) +
             (1 / (T_ * T_)) * (q0dot_[i] + x[i + NDOF]);
-    a2[i] =
-        (3 / (T_ * T_)) * (q0_[i] - x[i]) - (1 / T_) * (2 * x[i + NDOF] + q0dot_[i]);
+    a2[i] = (3 / (T_ * T_)) * (q0_[i] - x[i]) -
+            (1 / T_) * (2 * x[i + NDOF] + q0dot_[i]);
   }
 }
 
@@ -365,12 +365,12 @@ void calc_strike_extrema_cand(const double *a1, const double *a2,
   static double cand1, cand2;
 
   for (int i = 0; i < NDOF; i++) {
-    cand1 =
-        fmin(T_, fmax(0, (-a2[i] + sqrt(a2[i] * a2[i] - 3 * a1[i] * q0dot_[i])) /
-                            (3 * a1[i])));
-    cand2 =
-        fmin(T_, fmax(0, (-a2[i] - sqrt(a2[i] * a2[i] - 3 * a1[i] * q0dot_[i])) /
-                            (3 * a1[i])));
+    cand1 = fmin(
+        T_, fmax(0, (-a2[i] + sqrt(a2[i] * a2[i] - 3 * a1[i] * q0dot_[i])) /
+                        (3 * a1[i])));
+    cand2 = fmin(
+        T_, fmax(0, (-a2[i] - sqrt(a2[i] * a2[i] - 3 * a1[i] * q0dot_[i])) /
+                        (3 * a1[i])));
     cand1 = a1[i] * pow(cand1, 3) + a2[i] * pow(cand1, 2) + q0dot_[i] * cand1 +
             q0_[i];
     cand2 = a1[i] * pow(cand2, 3) + a2[i] * pow(cand2, 2) + q0dot_[i] * cand2 +
@@ -403,7 +403,8 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 }
 
 double calc_max_acc_violation(const double x[2 * NDOF + 1],
-                              const double q0_[NDOF], const double q0dot_[NDOF]) {
+                              const double q0_[NDOF],
+                              const double q0dot_[NDOF]) {
 
   double T_ = x[2 * NDOF];
   double a1[NDOF], a2[NDOF];

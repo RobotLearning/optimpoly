@@ -25,9 +25,7 @@ namespace player {
 
 KF::KF(mat &Cin, mat &Qin, mat &Rin)
     : A_(datum::inf * ones<mat>(Cin.n_cols, Cin.n_cols)),
-      B_(datum::inf * ones<mat>(Cin.n_cols, Cin.n_cols)),
-      C_(Cin),
-      Q_(Qin),
+      B_(datum::inf * ones<mat>(Cin.n_cols, Cin.n_cols)), C_(Cin), Q_(Qin),
       R_(Rin),                                             // init model
       x_(datum::inf * ones<vec>(Cin.n_cols)),              // init state
       P_(datum::inf * ones<mat>(Cin.n_cols, Cin.n_cols)) { // init covar
@@ -39,7 +37,7 @@ KF::KF(mat &Cin, mat &Qin, mat &Rin)
 }
 
 KF::KF(mat &Ain, mat &Bin, mat &Cin, mat &Qin, mat &Rin)
-    : A_(Ain), B_(Bin), C_(Cin), Q_(Qin), R_(Rin),             // init model
+    : A_(Ain), B_(Bin), C_(Cin), Q_(Qin), R_(Rin),         // init model
       x_(datum::inf * ones<vec>(Ain.n_rows)),              // init state
       P_(datum::inf * ones<mat>(Ain.n_rows, Ain.n_rows)) { // init covar
   check_models(Ain, Bin, Cin);
@@ -50,7 +48,7 @@ KF::KF(mat &Ain, mat &Bin, mat &Cin, mat &Qin, mat &Rin)
 
 KF::KF(vec &x0, mat &P0, mat &Ain, mat &Bin, mat &Cin, mat &Qin, mat &Rin)
     : A_(Ain), B_(Bin), C_(Cin), Q_(Qin), R_(Rin), // init model
-      x_(x0), P_(P0) {                          // init state
+      x_(x0), P_(P0) {                             // init state
 
   check_models(Ain, Bin, Cin);
   // checking for correct noise covariances

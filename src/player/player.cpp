@@ -31,30 +31,28 @@ using namespace optim;
 namespace player {
 
 Player::Player(const Player &player)
-    : filter_(player.filter_), pflags_(player.pflags_),
+    : pflags_(player.pflags_), filter_(player.filter_),
       ball_land_des_(player.ball_land_des_), q_rest_des_(player.q_rest_des_) {
   observations_ = zeros<mat>(3, pflags_.min_obs);
   times_ = zeros<vec>(pflags_.min_obs);
   set_optim();
 }
 
-Player::Player(const vec7 &q0, player_flags &flags) : pflags_(flags) {
-
+Player::Player(const vec7 &q0, player_flags &flags)
+    : pflags_(flags),
+      filter_(init_ball_filter(pflags_.var_model, pflags_.var_noise,
+                               pflags_.spin_based_pred)),
+      init_ball_state_(false), q_rest_des_(q0), t_obs_(0.0), t_poly_(0.0),
+      valid_obs_(true), num_obs_(0), game_state_(AWAITING),
+      observations_(zeros<mat>(3, pflags_.min_obs)),
+      times_(zeros<vec>(pflags_.min_obs)), lookup_table_(zeros<mat>(1, 21)) {
   ball_land_des_(X) += pflags_.ball_land_des_offset[X];
   ball_land_des_(Y) =
       dist_to_table - 3 * table_length / 4 + pflags_.ball_land_des_offset[Y];
-  q_rest_des_ = q0;
-  observations_ = zeros<mat>(3, pflags_.min_obs); // for initializing filter_
-  times_ = zeros<vec>(pflags_.min_obs);           // for initializing filter_
-  filter_ = init_ball_filter(0.3, 0.001, pflags_.spin_based_pred);
-  // load_lookup_table(lookup_table_);
   set_optim();
 }
 
-Player::~Player() { delete opt_; }
-
 void Player::set_optim() {
-
   double lb[2 * NDOF + 1];
   double ub[2 * NDOF + 1];
   double SLACK = 0.02;
@@ -63,17 +61,18 @@ void Player::set_optim() {
 
   switch (pflags_.alg) {
   case FOCUS: {
-    opt_ = new FocusedOptim(q_rest_des_, lb, ub);
+    opt_.reset(new FocusedOptim(q_rest_des_, lb, ub));
     pred_params_.Nmax = 1000;
     break;
   }
   case VHP: {
-    opt_ = new HittingPlane(q_rest_des_, lb, ub);
+    opt_.reset(new HittingPlane(q_rest_des_, lb, ub));
     break;
   }
   case DP: {
-    opt_ = new DefensiveOptim(q_rest_des_, lb, ub, true, true); // use lookup
-    DefensiveOptim *dp = static_cast<DefensiveOptim *>(opt_);
+    opt_.reset(
+        new DefensiveOptim(q_rest_des_, lb, ub, true, true)); // use lookup
+    DefensiveOptim *dp = static_cast<DefensiveOptim *>(opt_.get());
     dp->set_weights(pflags_.weights);
     dp->set_velocity_multipliers(pflags_.mult_vel);
     dp->set_penalty_loc(pflags_.penalty_loc);
@@ -89,7 +88,6 @@ void Player::set_optim() {
 }
 
 Player &Player::operator=(const Player &player) {
-
   if (this != &player) {
     filter_ = player.filter_;
     pflags_ = player.pflags_;
@@ -105,15 +103,15 @@ Player &Player::operator=(const Player &player) {
 bool Player::filter_is_initialized() const { return init_ball_state_; }
 
 void Player::estimate_ball_state(const ball_obs &obs, const double &dt) {
-
   using std::ref;
   using std::thread;
   int verb = pflags_.verbosity;
   valid_obs_ = false;
 
   if (check_reset_filter(obs.status, verb, pflags_.t_reset_thresh)) {
-    filter_ = init_ball_filter(pflags_.var_model, pflags_.var_noise, pflags_.spin_based_pred,
-                              pflags_.out_reject_mult);
+    filter_ =
+        init_ball_filter(pflags_.var_model, pflags_.var_noise,
+                         pflags_.spin_based_pred, pflags_.out_reject_mult);
     num_obs_ = 0;
     init_ball_state_ = false;
     game_state_ = AWAITING;
@@ -132,14 +130,13 @@ void Player::estimate_ball_state(const ball_obs &obs, const double &dt) {
                  ref(pflags_.verbosity), ref(init_ball_state_), ref(filter_));
       if (pflags_.detach) {
         t.detach();
-      }
-      else {
+      } else {
         t.join();
       }
     }
 
-  } else if (init_ball_state_) { // comes here if there are enough balls to start
-                                // filter_
+  } else if (init_ball_state_) { // comes here if there are enough balls to
+                                 // start filter_
     filter_.predict(dt, true);   // true);
     if (obs.status) {
       valid_obs_ = true;
@@ -154,7 +151,6 @@ void Player::estimate_ball_state(const ball_obs &obs, const double &dt) {
 }
 
 vec6 Player::filt_ball_state(const vec3 &obs) {
-
   ball_obs obs_str;
   obs_str.status = true;
   obs_str.pos = obs;
@@ -167,7 +163,6 @@ vec6 Player::filt_ball_state(const vec3 &obs) {
 }
 
 void Player::play(const ball_obs &obs, const joint &qact, joint &qdes) {
-
   estimate_ball_state(obs, const_tt::DT);
 
   switch (pflags_.alg) {
@@ -189,7 +184,6 @@ void Player::play(const ball_obs &obs, const joint &qact, joint &qdes) {
 }
 
 void Player::cheat(const joint &qact, const vec6 &ballstate, joint &qdes) {
-
   // resetting legal ball detecting to AWAITING state
   if (ballstate(Y) < (dist_to_table - table_length) && ballstate(DY) > 2.0)
     game_state_ = AWAITING;
@@ -214,7 +208,6 @@ void Player::cheat(const joint &qact, const vec6 &ballstate, joint &qdes) {
 }
 
 void Player::optim_vhp_param(const joint &qact) {
-
   vec6 ball_pred;
   double time_pred;
 
@@ -225,7 +218,7 @@ void Player::optim_vhp_param(const joint &qact) {
                               game_state_)) { // ball is legal and reaches VHP
       calc_racket_strategy(ball_pred, ball_land_des_, pflags_.time_land_des,
                            pred_params_);
-      HittingPlane *vhp = static_cast<HittingPlane *>(opt_);
+      HittingPlane *vhp = static_cast<HittingPlane *>(opt_.get());
       vhp->set_des_params(&pred_params_);
       vhp->fix_hitting_time(time_pred);
       vhp->update_init_state(qact);
@@ -235,18 +228,18 @@ void Player::optim_vhp_param(const joint &qact) {
 }
 
 void Player::optim_fp_param(const joint &qact) {
-
   mat balls_pred;
 
   // if ball is fast enough and robot is not moving consider optimization
   if (check_update(qact)) {
     predict_ball(2.0, balls_pred, filter_);
-    if (!pflags_.check_bounce || check_legal_ball(filter_.get_mean(), balls_pred,
-                                                 game_state_)) { // ball is legal
+    if (!pflags_.check_bounce ||
+        check_legal_ball(filter_.get_mean(), balls_pred,
+                         game_state_)) { // ball is legal
       // lookup_soln(filter_.get_mean(),1,qact);
       calc_racket_strategy(balls_pred, ball_land_des_, pflags_.time_land_des,
                            pred_params_);
-      FocusedOptim *fp = static_cast<FocusedOptim *>(opt_);
+      FocusedOptim *fp = static_cast<FocusedOptim *>(opt_.get());
       fp->set_des_params(&pred_params_);
       fp->update_init_state(qact);
       fp->run();
@@ -257,20 +250,20 @@ void Player::optim_fp_param(const joint &qact) {
 }
 
 void Player::optim_dp_param(const joint &qact) {
-
   mat balls_pred;
 
   // if ball is fast enough and robot is not moving consider optimization
   if (check_update(qact)) {
     predict_ball(2.0, balls_pred, filter_);
-    if (!pflags_.check_bounce || check_legal_ball(filter_.get_mean(), balls_pred,
-                                                 game_state_)) { // ball is legal
+    if (!pflags_.check_bounce ||
+        check_legal_ball(filter_.get_mean(), balls_pred,
+                         game_state_)) { // ball is legal
       // lookup_soln(filter_.get_mean(),1,qact);
       // calc_racket_strategy(balls_pred,ball_land_des_,time_land_des,pred_params_);
       pred_params_.ball_pos = balls_pred.rows(X, Z);
       pred_params_.ball_vel = balls_pred.rows(DX, DZ);
       pred_params_.Nmax = balls_pred.n_cols;
-      DefensiveOptim *dp = static_cast<DefensiveOptim *>(opt_);
+      DefensiveOptim *dp = static_cast<DefensiveOptim *>(opt_.get());
       dp->set_des_params(&pred_params_);
       dp->update_init_state(qact);
       dp->run();
@@ -279,7 +272,6 @@ void Player::optim_dp_param(const joint &qact) {
 }
 
 bool Player::check_update(const joint &qact) const {
-
   static wall_clock timer;
   vec6 state_est;
   bool update = false;
@@ -318,7 +310,6 @@ bool Player::check_update(const joint &qact) const {
 }
 
 void Player::calc_next_state(const joint &qact, joint &qdes) {
-
   using std::ref;
   using std::thread;
   // this should be only for MPC?
@@ -344,9 +335,8 @@ void Player::calc_next_state(const joint &qact, joint &qdes) {
 }
 
 void Player::reset_filter(double var_model, double var_noise) {
-
   filter_ = init_ball_filter(var_model, var_noise, pflags_.spin_based_pred,
-                            pflags_.out_reject_mult);
+                             pflags_.out_reject_mult);
   init_ball_state_ = false;
   num_obs_ = 0;
   game_state_ = AWAITING;
@@ -355,7 +345,6 @@ void Player::reset_filter(double var_model, double var_noise) {
 
 void Player::lookup_soln(const vec6 &ball_state, const int k,
                          const joint &qact) {
-
   double time2return = pflags_.time2return;
   if (t_poly_ == 0.0) {
     if (pflags_.verbosity) {
@@ -376,15 +365,16 @@ void Player::lookup_soln(const vec6 &ball_state, const int k,
     double T = robot_params(2 * NDOF);
     vec7 qnow = qact.q;
     vec7 qdnow = qact.qd;
-    poly_.a.col(0) = 2.0 * (qnow - qf) / pow(T, 3) + (qfdot + qdnow) / pow(T, 2);
+    poly_.a.col(0) =
+        2.0 * (qnow - qf) / pow(T, 3) + (qfdot + qdnow) / pow(T, 2);
     poly_.a.col(1) = 3.0 * (qf - qnow) / pow(T, 2) - (qfdot + 2.0 * qdnow) / T;
     poly_.a.col(2) = qdnow;
     poly_.a.col(3) = qnow;
     // cout << "A = \n" << p.a << endl;
     poly_.b.col(0) = 2.0 * (qf - q_rest_des_) / pow(time2return, 3) +
-                    (qfdot) / pow(time2return, 2);
+                     (qfdot) / pow(time2return, 2);
     poly_.b.col(1) = 3.0 * (q_rest_des_ - qf) / pow(time2return, 2) -
-                    (2.0 * qfdot) / time2return;
+                     (2.0 * qfdot) / time2return;
     poly_.b.col(2) = qfdot;
     poly_.b.col(3) = qf;
     poly_.time2hit = T;
@@ -395,7 +385,6 @@ void Player::lookup_soln(const vec6 &ball_state, const int k,
 bool predict_hitting_point(const double &vhpy, const bool &check_bounce,
                            vec6 &ball_pred, double &time_pred, EKF &filter_,
                            game &game_state_) {
-
   const double time_min = 0.05;
   mat balls_path;
   bool valid_hp = false;
@@ -418,8 +407,8 @@ bool predict_hitting_point(const double &vhpy, const bool &check_bounce,
   return valid_hp;
 }
 
-void predict_ball(const double &time_pred, mat &balls_pred, const EKF &filter_) {
-
+void predict_ball(const double &time_pred, mat &balls_pred,
+                  const EKF &filter_) {
   // static wall_clock timer;
   // timer.tic();
   int N = (int)(time_pred / const_tt::DT);
@@ -428,7 +417,6 @@ void predict_ball(const double &time_pred, mat &balls_pred, const EKF &filter_) 
 }
 
 void check_legal_bounce(const vec6 &ball_est, game &game_state_) {
-
   static double last_y_pos = 0.0;
   static double last_z_vel = 0.0;
   bool incoming = (ball_est(DY) > 0.0);
@@ -455,7 +443,6 @@ void check_legal_bounce(const vec6 &ball_est, game &game_state_) {
 
 bool check_legal_ball(const vec6 &ball_est, const mat &balls_predicted,
                       game &game_state_) {
-
   int num_bounces = 0;
   int N = balls_predicted.n_cols;
 
@@ -481,7 +468,6 @@ bool check_legal_ball(const vec6 &ball_est, const mat &balls_predicted,
 }
 
 void Player::get_strategy(vec2 &pos_land_des, double &time_land_des) {
-
   switch (pflags_.alg) {
   case FOCUS:
     pos_land_des = this->ball_land_des_;

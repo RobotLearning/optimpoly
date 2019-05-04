@@ -10,16 +10,17 @@
  *  Created on: Feb 2, 2017
  *      Author: okoc
  */
-#include <armadillo>
 #include "kalman.h"
 #include "tabletennis.h"
+#include <armadillo>
 
 using namespace arma;
 
 namespace player {
 
 EKF::EKF(model fp, mat &Cin, mat &Qin, mat &Rin, double rej_mult)
-    : KF(Cin, Qin, Rin), outlier_reject_mult_(rej_mult), f_(fp) {}
+    : KF(Cin, Qin, Rin), fparams_(nullptr), outlier_reject_mult_(rej_mult),
+      f_(fp) {}
 
 EKF::EKF(const EKF &ekf_)
     : KF(ekf_), fparams_(ekf_.fparams_),

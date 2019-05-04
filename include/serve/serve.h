@@ -35,19 +35,19 @@ struct serve_flags {
 template <typename T> class ServeBall {
 
 private:
-  bool ran_optim_ = false;
-  double t_clock_ = 0.0;
+  bool ran_optim_;
+  bool init_filter_;
+  int idx_balls_obs_filter_ = 0;
+  double Tmax_;
+  double t_clock_;
   serve_flags sflags_;
   arma::wall_clock timer_;
   optim::spline_params p_;
-  T mp_ = T(); //!< movement pattern
-  double Tmax_ = 1.0;
+  T mp_; //!< movement pattern
   vec7 q_rest_des_;
   vec7 q_hit_des_;
-  int idx_balls_obs_filter_ = 0;
-  bool init_filter_ = false;
-  optim::Optim *opt_ = nullptr; // optimizer
-  player::EKF filter_ = player::init_ball_filter(0.3, 0.001, false);
+  optim::Optim *opt_; // optimizer
+  player::EKF filter_;
 
   /*
    * \brief Correct movement by running an optimization.

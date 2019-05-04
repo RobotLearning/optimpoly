@@ -38,7 +38,7 @@ void Listener::listen3d() {
                            std::to_string(obs_3d[1]) + " " +
                            std::to_string(obs_3d[2]) + "]";
         stream_balls_ << "Received item " << ball << " at time: " << time
-                     << endl;
+                      << endl;
       }
       // keep size to a max
       if (obs3d_.size() > max_obs_saved_) {
@@ -90,7 +90,7 @@ void Listener::listen2d() {
           std::string ball = "[" + std::to_string(x.vals[0]) + " " +
                              std::to_string(x.vals[1]) + "]";
           stream_balls_ << "Num: " << num << ". Received pixels" << ball
-                       << " for cam: " << x.cam_id << endl;
+                        << " for cam: " << x.cam_id << endl;
         }
       }
       // keep size to a max
@@ -112,11 +112,12 @@ void Listener::convert_to_3d() {
 
   if (debug_) {
     stream_balls_ << "Starting triangulating from 2D pixels to 3D pos..."
-                 << endl;
+                  << endl;
   }
 
   while (active_) {
-    for (auto iter = obs2d_.cbegin(); iter != obs2d_.cend(); /* no increment */) {
+    for (auto iter = obs2d_.cbegin(); iter != obs2d_.cend();
+         /* no increment */) {
       if (iter->second.size() >= 2) {
         unsigned num = iter->first;
         if (debug_) {
@@ -125,7 +126,8 @@ void Listener::convert_to_3d() {
 
         // triangulate by solving svd
         ball_pos obs_3d;
-        bool success = triangulate(calib_mats_, iter->second, triangulation_, obs_3d);
+        bool success =
+            triangulate(calib_mats_, iter->second, triangulation_, obs_3d);
         if (success) {
           obs2d_.erase(iter++);
           obs3d_[num] = obs_3d;
@@ -136,7 +138,7 @@ void Listener::convert_to_3d() {
                              std::to_string(obs_3d[1]) + " " +
                              std::to_string(obs_3d[2]) + "]";
           stream_balls_ << "Received item " << ball << " at num: " << num
-                       << endl;
+                        << endl;
         }
         // keep size to a max
         if (obs3d_.size() > max_obs_saved_) {
@@ -149,9 +151,10 @@ void Listener::convert_to_3d() {
   }
 }
 
-Listener::Listener(const std::string &url, const bool run_2d,
-                   const bool debug, const std::string triangulation)
-    : url_(url), debug_(debug), triangulation_(triangulation) {
+Listener::Listener(const std::string &url, const bool run_2d, const bool debug,
+                   const std::string triangulation)
+    : url_(url), debug_(debug), triangulation_(triangulation),
+      max_obs_saved_(1000), active_(true), new_data_(false) {
   using std::thread;
   std::string home = std::getenv("HOME");
   std::string debug_file = home + "/projects/table-tennis/debug_listener.txt";
@@ -232,8 +235,7 @@ load_proj_mats(const std::string &json_file = "server_3d_conf_ping.json") {
  */
 bool triangulate(const std::map<unsigned, mat34> &calib_mats_,
                  const std::vector<pixels> &obs_2d,
-                 const std::string triangulation_method,
-                 ball_pos &pos3d) {
+                 const std::string triangulation_method, ball_pos &pos3d) {
 
   const int NUM_CAMS = 4; // calib_mats_.size();
   const int NUM_PAIRS = NUM_CAMS / 2;

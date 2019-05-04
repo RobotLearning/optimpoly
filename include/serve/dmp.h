@@ -39,14 +39,14 @@ struct Canonical {
 class DMP {
 
 private:
-  vec3 x0 = zeros<vec>(3); //!< initial state of the DMP
-  vec3 x = zeros<vec>(3);  //!< state of the DMP
-  vec w = zeros<vec>(10);  //!< weights of the DMP
-  vec h = zeros<vec>(10);  //!< heights of the basis functions
-  vec c = zeros<vec>(10);  //!< centers of the basis functions
-  double alpha = 25.0;     //!< time constant
-  double beta = 25 / 4.0;  //!< time constant
-  double g = 1.0;          //!< goal state
+  vec3 x0_; //!< initial state of the DMP
+  vec3 x_;  //!< state of the DMP
+  vec w_;  //!< weights of the DMP
+  vec h_;  //!< heights of the basis functions
+  vec c_;  //!< centers of the basis functions
+  double alpha_;     //!< time constant
+  double beta_;  //!< time constant
+  double goal_;
 
   /** \brief  Create a vector of basis functions evaluated at current phase x */
   vec basis(const double &x) const;
@@ -55,8 +55,7 @@ private:
   double forcing(const double &phase) const;
 
 public:
-  bool SAFE_ACC =
-      false; //!< Jens' modification for less severe initial accelerations
+  bool SAFE_ACC_; //!< Jens' modification for less severe initial accelerations
 
   /** \brief Initialize the DMP weights, goal, init. state etc. */
   DMP(std::vector<double> weights_, std::vector<double> centers_,
@@ -87,8 +86,8 @@ public:
 class Joint_DMPs {
 
 private:
-  Canonical can = Canonical(); //!< Canonical system with phase
-  std::vector<DMP> dmps;       //!< one discrete DMP for each joint
+  Canonical can_; //!< Canonical system with phase
+  std::vector<DMP> dmps_;       //!< one discrete DMP for each joint
 
   /** @brief Reset the dmps and the canonical system */
   void reset();

@@ -24,6 +24,13 @@ static bool check_optim_result(const int res);
 
 Optim::~Optim() { nlopt_destroy(opt_); }
 
+Optim::Optim()
+    : lookup_(false), verbose_(true), moving_(false), update_(false),
+      running_(false), detach_(false),
+      lookup_table_(zeros<mat>(1, OPTIM_DIM_ + 2 * NCART)), opt_(nullptr),
+      qf_{0.0}, qfdot_{0.0}, T_(1.0), param_des_(nullptr), lb_{0.0}, ub_{0.0},
+      qrest_{0.0}, q0_{0.0}, q0dot_{0.0}, time2return_(1.0) {}
+
 void Optim::update_init_state(const joint &qact) {
   for (int i = 0; i < NDOF; i++) {
     q0_[i] = qact.q(i);
@@ -122,9 +129,10 @@ void Optim::optim() {
   } else {
     if (lookup_) {
       if (verbose_) {
-        std::cout << "Looking up good initial parameters with k = 5\n"; // kNN
-                                                                        // parameter
-                                                                        // k = 5
+        std::cout
+            << "Looking up good initial parameters with k = 5\n"; // kNN
+                                                                  // parameter
+                                                                  // k = 5
       }
       init_lookup_soln(x);
     } else {

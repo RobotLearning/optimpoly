@@ -12,34 +12,25 @@
 #include "optim.h"
 #include <armadillo>
 
-using arma::mat;
-using arma::vec;
-using arma::zeros;
-
 namespace player {
 
-/**
- * @brief Optimizer for Player class.
- */
+/** @brief Optimizer for Player class. */
 enum algo {
   VHP,   //!< VHP
   FOCUS, //!< FOCUSED PLAYER
   DP,    //!< DEFENSIVE PLAYER
 };
 
-/**
- * Finite State machine for Table Tennis
- */
-enum game { // trial state
+/** Finite State machine for Table Tennis */
+enum game {
   AWAITING, //!< AWAITING
   ILLEGAL,  //!< ILLEGAL
   LEGAL,    //!< LEGAL
   HIT,      //!< HIT
 };
 
-/**
- * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
- */
+/** @brief Options passed to Player class (algorithm, saving, corrections,
+ * etc.).*/
 struct player_flags {
   bool detach = false;       //!< detach optimizations in another thread
   bool check_bounce = false; //!< check bounce to detect legal incoming ball
@@ -48,7 +39,8 @@ struct player_flags {
   bool mpc = false;               //!< turn on/off corrections
   bool reset = true;              //!< reinitializing player class
   bool save = false;              //!< saving ball/robot data
-  bool spin_based_pred = false; //!< turn on and off spin-based prediction models
+  bool spin_based_pred =
+      false; //!< turn on and off spin-based prediction models
   bool optim_rest_posture = false; //!< turn on rest posture optimization
   algo alg = FOCUS;                //!< algorithm for trajectory generation
   int verbosity = 0;               //!< OFF, LOW, HIGH, ALL
@@ -75,12 +67,11 @@ struct player_flags {
                                      -3.22}; //!< penalty locations for DP
   std::string zmq_url = "tcp://helbe:7650";  //!< URL for ZMQ connection
   bool debug_vision = false;                 //!< print received vision info
-  bool listen_2d = true; //!< listen to 2d server or 3d server
+  bool listen_2d = true;             //!< listen to 2d server or 3d server
   std::string triangulation = "DLT"; //!< triangulation method used for 2d
 };
 
 /**
- *
  * @brief Table Tennis Player class for playing Table Tennis.
  *
  * The methods play() or cheat() must be called every DT milliseconds.
@@ -88,24 +79,22 @@ struct player_flags {
 class Player {
 
 private:
-  // data fields
-  EKF filter_ =
-      init_ball_filter(0.3, 0.001, false); // filter for the ball estimation
   player_flags pflags_;
-  bool init_ball_state_ = false;
-  arma::vec2 ball_land_des_ = zeros<vec>(2); // desired landing position
-  arma::vec7 q_rest_des_ = zeros<vec>(NDOF); // desired resting joint state
-  double t_obs_ = 0.0;    // counting time stamps for resetting filter
-  double t_poly_ = 0.0;   // time passed on the hitting spline
-  bool valid_obs_ = true; // ball observed is valid (new ball and not an outlier)
-  int num_obs_ = 0;       // number of observations received
-  game game_state_ = AWAITING;
+  EKF filter_; // filter for the ball estimation
+  bool init_ball_state_;
+  arma::vec2 ball_land_des_; // desired landing position
+  arma::vec7 q_rest_des_;    // desired resting joint state
+  double t_obs_;             // counting time stamps for resetting filter
+  double t_poly_;            // time passed on the hitting spline
+  bool valid_obs_; // ball observed is valid (new ball, not an outlier)
+  int num_obs_;    // number of observations received
+  game game_state_;
   optim::optim_des pred_params_;
-  mat observations_ = zeros<mat>(3, 10); // for initializing filter
-  vec times_ = zeros<vec>(10);           // for initializing filter
+  mat observations_; // for initializing filter
+  vec times_;        // for initializing filter
   optim::spline_params poly_;
-  mat lookup_table_ = zeros<mat>(1, 21);
-  optim::Optim *opt_ = nullptr; // optimizer
+  mat lookup_table_;
+  std::unique_ptr<optim::Optim> opt_; // optimizer
 
   /** @brief Set optimizer opt based on (loaded) player flags */
   void set_optim();
@@ -214,9 +203,6 @@ public:
   /** @brief Assignment operator */
   Player &operator=(const Player &player);
 
-  /** @brief Deconstructor for Player. Frees pointer to Optimization classes. */
-  ~Player();
-
   /**
    * @brief Public interface for estimating ball state.
    *
@@ -290,9 +276,10 @@ public:
  * @param Qd Generated joint vel.
  * @param Qdd Generated joint acc.
  */
-void generate_strike(const vec7 &qf, const vec7 &qfdot, const double T,
-                     const optim::joint &qact, const vec7 &q_rest_des,
-                     const double time2return, mat &Q, mat &Qd, mat &Qdd);
+void generate_strike(const arma::vec7 &qf, const arma::vec7 &qfdot,
+                     const double T, const optim::joint &qact,
+                     const arma::vec7 &q_rest_des, const double time2return,
+                     arma::mat &Q, arma::mat &Qd, arma::mat &Qdd);
 
 /**
  * @brief Generate strike and return traj. incrementally

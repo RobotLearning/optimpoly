@@ -41,7 +41,9 @@ dmps init_dmps(std::string &file) {
 
 template <typename T>
 ServeBall<T>::ServeBall(const serve_flags &sflags, const vec7 &qinit)
-    : sflags_(sflags) {
+    : ran_optim_(false), init_filter_(false), idx_balls_obs_filter_(0),
+      Tmax_(1.0), t_clock_(0.0), sflags_(sflags), mp_(T()), opt_(nullptr),
+      filter_(player::init_ball_filter(0.3, 0.001, false)) {
 
   std::string home = std::getenv("HOME");
   std::string file = home + "/projects/table-tennis/json/" + sflags_.json_file;
