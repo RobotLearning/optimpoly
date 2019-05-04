@@ -1,7 +1,7 @@
 /**
  * @file vhp_optim.cpp
  *
- * @brief Fixing a virtual hitting plane to find qf, qfdot joint angles
+ * @brief Fixing a virtual hitting plane to find qf_, qfdot_ joint angles
  * and velocities.
  *
  *  Created on: Mar 5, 2017
@@ -43,40 +43,40 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
                                  const double *x, double *grad,
                                  void *my_function_data);
 
-HittingPlane::HittingPlane(const vec7 &qrest_, double lb_[], double ub_[]) {
+HittingPlane::HittingPlane(const vec7 &qrest, double lb[], double ub[]) {
 
   double tol_eq[EQ_CONSTR_DIM];
   const_vec(EQ_CONSTR_DIM, 1e-2, tol_eq);
   // set tolerances equal to second argument
 
   // LN = does not require gradients //
-  opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
-  nlopt_set_xtol_rel(opt, 1e-2);
-  nlopt_set_lower_bounds(opt, lb_);
-  nlopt_set_upper_bounds(opt, ub_);
-  nlopt_set_min_objective(opt, penalize_dist_to_limits, this);
-  nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this,
+  opt_ = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM_);
+  nlopt_set_xtol_rel(opt_, 1e-2);
+  nlopt_set_lower_bounds(opt_, lb);
+  nlopt_set_upper_bounds(opt_, ub);
+  nlopt_set_min_objective(opt_, penalize_dist_to_limits, this);
+  nlopt_add_equality_mconstraint(opt_, EQ_CONSTR_DIM, kinematics_eq_constr, this,
                                  tol_eq);
 
   for (int i = 0; i < NDOF; i++) {
-    qrest[i] = qrest_(i);
-    ub[i] = ub_[i];
-    lb[i] = lb_[i];
+    qrest_[i] = qrest(i);
+    ub_[i] = ub[i];
+    lb_[i] = lb[i];
     limit_avg[i] = (ub[i] + lb[i]) / 2.0;
   }
 }
 
 void HittingPlane::fix_hitting_time(double time_pred) {
   if (time_pred > 0.05)
-    T = time_pred;
+    T_ = time_pred;
 }
 
 void HittingPlane::init_last_soln(double x[2 * NDOF]) const {
 
   // initialize first dof entries to q0
   for (int i = 0; i < NDOF; i++) {
-    x[i] = qf[i];
-    x[i + NDOF] = qfdot[i];
+    x[i] = qf_[i];
+    x[i + NDOF] = qfdot_[i];
   }
 }
 
@@ -84,7 +84,7 @@ void HittingPlane::init_rest_soln(double x[2 * NDOF]) const {
 
   // initialize first dof entries to q0
   for (int i = 0; i < NDOF; i++) {
-    x[i] = qrest[i];
+    x[i] = qrest_[i];
     x[i + NDOF] = 0.0;
   }
 }
@@ -92,16 +92,16 @@ void HittingPlane::init_rest_soln(double x[2 * NDOF]) const {
 void HittingPlane::finalize_soln(const double x[2 * NDOF],
                                  double time_elapsed) {
 
-  if (T > 0.05) {
+  if (T_ > 0.05) {
     // initialize first dof entries to q0
     for (int i = 0; i < NDOF; i++) {
-      qf[i] = x[i];
-      qfdot[i] = x[i + NDOF];
+      qf_[i] = x[i];
+      qfdot_[i] = x[i + NDOF];
     }
-    if (detach) {
-      T -= (time_elapsed / 1e3);
+    if (detach_) {
+      T_ -= (time_elapsed / 1e3);
     }
-    update = true;
+    update_ = true;
   }
 }
 
@@ -110,7 +110,7 @@ double HittingPlane::test_soln(const double x[]) const {
   double x_[2 * NDOF + 1];
   for (int i = 0; i < 2 * NDOF; i++)
     x_[i] = x[i];
-  x_[2 * NDOF] = T;
+  x_[2 * NDOF] = T_;
 
   // give info on constraint violation
   double *grad = 0;
@@ -121,9 +121,9 @@ double HittingPlane::test_soln(const double x[]) const {
                        (void *)this);
   joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation, 2 * NDOF, x_, grad,
                            (void *)this);
-  // double cost = costfunc(OPTIM_DIM, x, grad, coparams);
+  // double cost = costfunc(OPTIM_DIM_, x, grad, coparams);
 
-  if (verbose) {
+  if (verbose_) {
     // give info on solution vector
     print_optim_vec(x_);
     // printf("f = %.2f\n",cost);
@@ -178,27 +178,27 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
                                  void *my_function_data) {
 
   static double pos[NCART];
-  static double qfdot[NDOF];
+  static double qfdot_[NDOF];
   static double vel[NCART];
   static double normal[NCART];
-  static double qf[NDOF];
+  static double qf_[NDOF];
 
   HittingPlane *vhp = (HittingPlane *)my_function_data;
 
   // extract state information from optimization variables
   for (int i = 0; i < NDOF; i++) {
-    qf[i] = x[i];
-    qfdot[i] = x[i + NDOF];
+    qf_[i] = x[i];
+    qfdot_[i] = x[i + NDOF];
   }
 
   // compute the actual racket pos,vel and normal
-  calc_racket_state(qf, qfdot, pos, vel, normal);
+  calc_racket_state(qf_, qfdot_, pos, vel, normal);
 
   // deviations from the desired racket frame
   for (int i = 0; i < NCART; i++) {
-    result[i] = pos[i] - vhp->param_des->racket_pos(i);
-    result[i + NCART] = vel[i] - vhp->param_des->racket_vel(i);
-    result[i + 2 * NCART] = normal[i] - vhp->param_des->racket_normal(i);
+    result[i] = pos[i] - vhp->param_des_->racket_pos(i);
+    result[i + NCART] = vel[i] - vhp->param_des_->racket_vel(i);
+    result[i + 2 * NCART] = normal[i] - vhp->param_des_->racket_normal(i);
   }
 
   if (grad) { // to turn off unused-param warning

@@ -587,15 +587,6 @@ Yasseen will work on this.
 Opencv calibrateCamera function requires a chessboard pattern 
 but should produce superior results. Specifically, it should help
 improve the generalization.
-** IN-PROGRESS Test with simulated ball on both robots
-*** DONE Run code in PING
-When I tested the code with simulated ball, the code was printing
-legal lands.
-*** TODO Run code in PONG
-*** TODO Check for tracking errors
-Saving some of the movements to a file will help.
-*** TODO Test with cheat function
-This way we can check for the effect ball estimation is having
 ** IN-PROGRESS Add unit tests for two robots playing
 *** TODO Add graphics
 **** TODO Copy graphics from SL
@@ -653,9 +644,18 @@ Replacement should not slow down the optimizations
 **** TODO Parameterize robot startup 
 Loading robot startup parameterization and table related constants
 from a file would simplify the unit test for two robots playing
-**** TODO Introduce boost log framework?
+**** TODO Introduce a logging library?
 *** TODO Add table constraint in the unit test
 The optimization should respect the table constraint always.
+** IN-PROGRESS Test with simulated ball on both robots
+*** DONE Run code in PING
+When I tested the code with simulated ball, the code was printing
+legal lands.
+*** TODO Run code in PONG
+*** TODO Check for tracking errors
+Saving some of the movements to a file will help.
+*** TODO Test with cheat function
+This way we can check for the effect ball estimation is having
 ** TODO Test with two robots playing against each other
 *** IN-PROGRESS Test real robot with real ball independently
 ***** DONE Test PING with vision
@@ -664,7 +664,6 @@ Using port 7660
 Using port 7661, the real robot for some reason was not working, even
 though simulation was working
 *** TODO Add table constraint in the optimization
-
 *** TODO Can we start gameplay with a serve?
 * Cautious Trajectory Generation 				      :@idea:
 ** WAITING Maximize probability of landing as a new cost function. 

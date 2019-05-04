@@ -48,7 +48,7 @@ static double cost_fnc(unsigned n, const double *x, double *grad, void *data);
 void Optim::run_qrest_optim(vec7 &q_rest_des) {
   std::thread t =
       std::thread(&Optim::optim_rest_posture, this, std::ref(q_rest_des));
-  if (detach) {
+  if (detach_) {
     t.detach();
   } else {
     t.join();
@@ -61,16 +61,16 @@ void Optim::optim_rest_posture(vec7 &q_rest_des) {
   double tol_eq[NCART];
   const_vec(NCART, 1e-2, tol_eq);
   rest_optim_data rest_data;
-  rest_data.ball_pred = param_des->ball_pos;
-  double lb_[NDOF + 1], ub_[NDOF + 1];
+  rest_data.ball_pred = param_des_->ball_pos;
+  double lb[NDOF + 1], ub[NDOF + 1];
   for (int i = 0; i < NDOF; i++) {
-    rest_data.q_hit(i) = qf[i];
-    lb_[i] = lb[i];
-    ub_[i] = ub[i];
-    x[i] = qf[i];
+    rest_data.q_hit(i) = qf_[i];
+    lb[i] = lb_[i];
+    ub[i] = ub_[i];
+    x[i] = qf_[i];
   }
-  lb_[NDOF] = lb[2 * NDOF];
-  ub_[NDOF] = ub[2 * NDOF];
+  lb[NDOF] = lb_[2 * NDOF];
+  ub[NDOF] = ub_[2 * NDOF];
   x[NDOF] = 1.0; // time estimate
 
   /*for (int i = 0; i < NDOF; i++) {
@@ -79,8 +79,8 @@ void Optim::optim_rest_posture(vec7 &q_rest_des) {
 
   nlopt_opt opt = nlopt_create(NLOPT_LN_COBYLA, NDOF + 1);
   nlopt_set_xtol_rel(opt, 1e-2);
-  nlopt_set_lower_bounds(opt, lb_);
-  nlopt_set_upper_bounds(opt, ub_);
+  nlopt_set_lower_bounds(opt, lb);
+  nlopt_set_upper_bounds(opt, ub);
   nlopt_set_min_objective(opt, cost_fnc, (void *)&rest_data);
   nlopt_add_inequality_mconstraint(opt, NCART, intersect_ball_path,
                                    (void *)&rest_data, tol_eq);
@@ -92,13 +92,13 @@ void Optim::optim_rest_posture(vec7 &q_rest_des) {
 
   if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
     past_time = (get_time() - init_time) / 1e3;
-    if (verbose) {
+    if (verbose_) {
       printf("NLOPT failed with exit code %d!\n", res);
       printf("NLOPT took %f ms\n", past_time);
     }
   } else {
     past_time = (get_time() - init_time) / 1e3;
-    if (verbose) {
+    if (verbose_) {
       printf("NLOPT success with exit code %d!\n", res);
       printf("NLOPT took %f ms\n", past_time);
       printf("Found minimum at f = %0.10g\n", minf);

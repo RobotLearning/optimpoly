@@ -100,27 +100,27 @@ struct weights {
 /**
  * @brief Base class for all optimizers.
  *
- * Containts base class methods, members and virtual methods
+ * Contains base class methods, members and virtual methods
  * to be implemented.
  */
 class Optim {
 
 protected:
-  static const int OPTIM_DIM = 2 * NDOF + 1; //!< dim. of optim problem
-  bool lookup = false; //!< use lookup table methods to init. optim params.
-  bool verbose = true; //!< verbose output printed
-  bool moving =
+  static const int OPTIM_DIM_ = 2 * NDOF + 1; //!< dim. of optim problem
+  bool lookup_ = false; //!< use lookup table methods to init. optim params.
+  bool verbose_ = true; //!< verbose output printed
+  bool moving_ =
       false; //!< robot is already moving so use last computed values to init.
-  bool update = false;  //!< optim finished and soln. seems valid
-  bool running = false; //!< optim still RUNNING
-  bool detach = false;  //!< detach optim in another thread
-  mat lookup_table = zeros<mat>(
-      1, OPTIM_DIM + 2 * NCART); //!< lookup table used to init. optim values
-  nlopt_opt opt = nullptr;       //!< optimizer from NLOPT library
+  bool update_ = false;  //!< optim finished and soln. seems valid
+  bool running_ = false; //!< optim still RUNNING
+  bool detach_ = false;  //!< detach optim in another thread
+  mat lookup_table_ = zeros<mat>(
+      1, OPTIM_DIM_ + 2 * NCART); //!< lookup table used to init. optim values
+  nlopt_opt opt_ = nullptr;       //!< optimizer from NLOPT library
 
-  double qf[NDOF] = {0.0};    //!< saved joint positions after optim
-  double qfdot[NDOF] = {0.0}; //!< saved joint velocities after optim
-  double T = 1.0;             //!< saved hitting time after optim terminates
+  double qf_[NDOF] = {0.0};    //!< saved joint positions after optim
+  double qfdot_[NDOF] = {0.0}; //!< saved joint velocities after optim
+  double T_ = 1.0;             //!< saved hitting time after optim terminates
 
   /** @brief Initialize optimization parameters using a lookup table.
    *
@@ -158,18 +158,18 @@ protected:
   void optim();
 
 public:
-  optim_des *param_des =
+  optim_des *param_des_ =
       nullptr;             //!< Desired racket and/or ball predicted vals.
-  double lb[2 * NDOF + 1]; //!< Joint lower limits, joint vel. lower limit and
+  double lb_[2 * NDOF + 1]; //!< Joint lower limits, joint vel. lower limit and
                            //!< min. hitting time
-  double ub[2 * NDOF + 1]; //!< Joint upper limits, joint vel. upper limit and
+  double ub_[2 * NDOF + 1]; //!< Joint upper limits, joint vel. upper limit and
                            //!< max. hitting time
-  double qrest[NDOF] = {
+  double qrest_[NDOF] = {
       0.0}; //!< FIXED Resting posture for optimizers to compute return traj.
-  double q0[NDOF] = {0.0}; //!< Initial joint state needed to compute traj. acc.
-  double q0dot[NDOF] = {
+  double q0_[NDOF] = {0.0}; //!< Initial joint state needed to compute traj. acc.
+  double q0dot_[NDOF] = {
       0.0}; //!< Initial joint velocities needed to compute traj. acc.
-  double time2return = 1.0; //!< FIXED Time to return
+  double time2return_ = 1.0; //!< FIXED Time to return
 
   /** @brief Destroy nlopt structure */
   virtual ~Optim();
@@ -268,7 +268,7 @@ public:
 class HittingPlane : public Optim {
 
 protected:
-  static const int OPTIM_DIM = 2 * NDOF;
+  static const int OPTIM_DIM_ = 2 * NDOF;
   // virtual bool predict(EKF & filter);
 
   /**
@@ -335,7 +335,7 @@ public:
 class FocusedOptim : public Optim {
 
 protected:
-  static const int OPTIM_DIM = 2 * NDOF + 1; //!< dim. of optim
+  static const int OPTIM_DIM_ = 2 * NDOF + 1; //!< dim. of optim
 
   /** @brief Initialize the optimization parameters the last optimized solution
    * values.*/
@@ -388,7 +388,9 @@ public:
 class DefensiveOptim : public FocusedOptim {
 
 private:
-  virtual double test_soln(const double x[]) const;
+    std::vector<double> mult_vel_ = {0.9, 0.8, 0.83};
+
+    virtual double test_soln(const double x[]) const;
 
   /**
    * @brief Setting LANDING constraints, i.e., not just hitting the ball.
@@ -414,20 +416,19 @@ private:
    * @param time_elapsed Time elapsed during optimization
    */
   virtual void finalize_soln(const double x[], const double time_elapsed);
-  std::vector<double> mult_vel = {0.9, 0.8, 0.83};
 
 public:
-  bool land; //!< compute strikes for landing if true or hitting only if false
-  weights w; //!< weights of optimization
-  double x_last[OPTIM_DIM] = {0.0}; //!< last iteration values
-  double t_land = -1.0;             //!< computed landing time
-  double t_net = -1.0;              //!< computed net passing time
-  double x_land[NCART] = {0.0};     //!< computed ball landing pos.
-  double x_net[NCART] = {0.0};      //!< computed ball net pass. pos.
-  double dist_b2r_norm = 1.0;       //!< normal dist. from ball to racket
-  double dist_b2r_proj =
+  bool land_; //!< compute strikes for landing if true or hitting only if false
+  weights w_; //!< weights of optimization
+  double x_last_[OPTIM_DIM_] = {0.0}; //!< last iteration values
+  double t_land_ = -1.0;             //!< computed landing time
+  double t_net_ = -1.0;              //!< computed net passing time
+  double x_land_[NCART] = {0.0};     //!< computed ball landing pos.
+  double x_net_[NCART] = {0.0};      //!< computed ball net pass. pos.
+  double dist_b2r_norm_ = 1.0;       //!< normal dist. from ball to racket
+  double dist_b2r_proj_ =
       1.0; //!< dist. from ball to racket proj. to racket plane
-  std::vector<double> penalty_loc = {
+  std::vector<double> penalty_loc_ = {
       0.0, 0.23, 0.0, -3.22}; //!< penalty locations for landing and net
 
   /**

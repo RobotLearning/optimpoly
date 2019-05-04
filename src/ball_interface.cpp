@@ -14,12 +14,13 @@ void Listener::listen3d() {
   zmqpp::socket_type type = zmqpp::socket_type::sub;
   zmqpp::socket socket(context, type);
   socket.set(zmqpp::socket_option::subscribe, "");
-  socket.connect(url);
+  socket.connect(url_);
 
-  if (debug)
-    stream_balls << "Starting listening to 3D ball pos..." << endl;
+  if (debug_) {
+    stream_balls_ << "Starting listening to 3D ball pos..." << endl;
+  }
 
-  while (active) {
+  while (active_) {
     zmqpp::message msg;
     socket.receive(msg);
     std::string body;
@@ -30,27 +31,28 @@ void Listener::listen3d() {
       double time = jobs.at("time");
       json obs_j = jobs.at("obs");
       ball_pos obs_3d = {obs_j[0], obs_j[1], obs_j[2]};
-      obs3d[num] = obs_3d;
-      new_data = true;
-      if (debug) {
+      obs3d_[num] = obs_3d;
+      new_data_ = true;
+      if (debug_) {
         std::string ball = "[" + std::to_string(obs_3d[0]) + " " +
                            std::to_string(obs_3d[1]) + " " +
                            std::to_string(obs_3d[2]) + "]";
-        stream_balls << "Received item " << ball << " at time: " << time
+        stream_balls_ << "Received item " << ball << " at time: " << time
                      << endl;
       }
       // keep size to a max
-      if (obs3d.size() > max_obs_saved) {
-        obs3d.erase(obs3d.begin());
+      if (obs3d_.size() > max_obs_saved_) {
+        obs3d_.erase(obs3d_.begin());
       }
     } catch (const std::exception &ex) {
-      if (debug) {
-        stream_balls << "No ball detected..." << ex.what() << endl;
+      if (debug_) {
+        stream_balls_ << "No ball detected..." << ex.what() << endl;
       }
     }
   }
-  if (debug)
-    stream_balls << "Finished listening..." << endl;
+  if (debug_) {
+    stream_balls_ << "Finished listening..." << endl;
+  }
 }
 
 void Listener::listen2d() {
@@ -60,12 +62,13 @@ void Listener::listen2d() {
   zmqpp::socket_type type = zmqpp::socket_type::sub;
   zmqpp::socket socket(context, type);
   socket.set(zmqpp::socket_option::subscribe, "");
-  socket.connect(url);
+  socket.connect(url_);
 
-  if (debug)
-    stream_balls << "Starting listening to 2D pixel data..." << endl;
+  if (debug_) {
+    stream_balls_ << "Starting listening to 2D pixel data..." << endl;
+  }
 
-  while (active) {
+  while (active_) {
     zmqpp::message msg;
     socket.receive(msg);
     std::string body;
@@ -82,59 +85,62 @@ void Listener::listen2d() {
         json jx = jobs.at("obs");
         x.vals[0] = jx[0];
         x.vals[1] = jx[1];
-        obs2d[num].push_back(x);
-        if (debug) {
+        obs2d_[num].push_back(x);
+        if (debug_) {
           std::string ball = "[" + std::to_string(x.vals[0]) + " " +
                              std::to_string(x.vals[1]) + "]";
-          stream_balls << "Num: " << num << ". Received pixels" << ball
+          stream_balls_ << "Num: " << num << ". Received pixels" << ball
                        << " for cam: " << x.cam_id << endl;
         }
       }
       // keep size to a max
-      if (obs2d.size() > max_obs_saved) {
-        obs2d.erase(obs2d.begin());
+      if (obs2d_.size() > max_obs_saved_) {
+        obs2d_.erase(obs2d_.begin());
       }
     } catch (const std::exception &ex) {
-      if (debug) {
-        stream_balls << "No pixels received..." << ex.what() << endl;
+      if (debug_) {
+        stream_balls_ << "No pixels received..." << ex.what() << endl;
       }
     }
   }
-  if (debug)
-    stream_balls << "Finished listening..." << endl;
+  if (debug_) {
+    stream_balls_ << "Finished listening..." << endl;
+  }
 }
 
 void Listener::convert_to_3d() {
 
-  if (debug)
-    stream_balls << "Starting triangulating from 2D pixels to 3D pos..."
+  if (debug_) {
+    stream_balls_ << "Starting triangulating from 2D pixels to 3D pos..."
                  << endl;
+  }
 
-  while (active) {
-    for (auto iter = obs2d.cbegin(); iter != obs2d.cend(); /* no increment */) {
+  while (active_) {
+    for (auto iter = obs2d_.cbegin(); iter != obs2d_.cend(); /* no increment */) {
       if (iter->second.size() >= 2) {
         unsigned num = iter->first;
-        if (debug)
-          stream_balls << "Triangulating num: " << num << endl;
+        if (debug_) {
+          stream_balls_ << "Triangulating num: " << num << endl;
+        }
 
         // triangulate by solving svd
         ball_pos obs_3d;
-        bool success = triangulate(calib_mats, iter->second, triangulation, obs_3d);
+        bool success = triangulate(calib_mats_, iter->second, triangulation_, obs_3d);
         if (success) {
-          obs2d.erase(iter++);
-          obs3d[num] = obs_3d;
-          new_data = true;
+          obs2d_.erase(iter++);
+          obs3d_[num] = obs_3d;
+          new_data_ = true;
         }
-        if (debug) {
+        if (debug_) {
           std::string ball = "[" + std::to_string(obs_3d[0]) + " " +
                              std::to_string(obs_3d[1]) + " " +
                              std::to_string(obs_3d[2]) + "]";
-          stream_balls << "Received item " << ball << " at num: " << num
+          stream_balls_ << "Received item " << ball << " at num: " << num
                        << endl;
         }
         // keep size to a max
-        if (obs3d.size() > max_obs_saved) {
-          obs3d.erase(obs3d.begin());
+        if (obs3d_.size() > max_obs_saved_) {
+          obs3d_.erase(obs3d_.begin());
         }
       } else {
         ++iter;
@@ -143,60 +149,60 @@ void Listener::convert_to_3d() {
   }
 }
 
-Listener::Listener(const std::string &url_, const bool run_2d,
-                   const bool debug_, const std::string triangulation_method)
-    : url(url_), debug(debug_), triangulation(triangulation_method) {
+Listener::Listener(const std::string &url, const bool run_2d,
+                   const bool debug, const std::string triangulation)
+    : url_(url), debug_(debug), triangulation_(triangulation) {
   using std::thread;
   std::string home = std::getenv("HOME");
   std::string debug_file = home + "/projects/table-tennis/debug_listener.txt";
-  stream_balls.open(debug_file, std::ofstream::out);
-  active = true;
+  stream_balls_.open(debug_file, std::ofstream::out);
+  active_ = true;
   if (run_2d) {
-    // stream_balls << "Launching 2D listener...\n";
-    calib_mats = load_proj_mats("server_3d_conf_ping_okan.json");
+    // stream_balls_ << "Launching 2D listener...\n";
+    calib_mats_ = load_proj_mats("server_3d_conf_ping_okan.json");
     thread t = thread(&Listener::listen2d, this);
     t.detach();
     thread t2 = thread(&Listener::convert_to_3d, this);
     t2.detach();
   } else {
-    // stream_balls << "Launching 3D listener...\n";
+    // stream_balls_ << "Launching 3D listener...\n";
     thread t = thread(&Listener::listen3d, this);
     t.detach();
   }
 }
 
-Listener::~Listener() { stream_balls.close(); }
+Listener::~Listener() { stream_balls_.close(); }
 
 void Listener::stop() {
-  active = false;
-  new_data = false;
-  stream_balls.close();
-  obs2d.clear();
-  obs3d.clear();
+  active_ = false;
+  new_data_ = false;
+  stream_balls_.close();
+  obs2d_.clear();
+  obs3d_.clear();
 }
 
 void Listener::fetch(ball_obs &blob) { // fetch the latest data
 
   blob.status = false;
   // if there is a latest new data that was unread
-  if (new_data) {
+  if (new_data_) {
     blob.status = true;
-    blob.pos = obs3d.rbegin()->second;
-    new_data = false;
+    blob.pos = obs3d_.rbegin()->second;
+    new_data_ = false;
   }
 }
 
 int Listener::give_info() {
 
-  if (debug) {
-    stream_balls << "Printing data...\n";
-    stream_balls << "==================================\n";
-    stream_balls << "Time \t obs[x] \t obs[y] \t obs[z]\n";
-    for (std::pair<const double, ball_pos> element : obs3d) {
-      stream_balls << element.first << " \t" << element.second.t();
+  if (debug_) {
+    stream_balls_ << "Printing data...\n";
+    stream_balls_ << "==================================\n";
+    stream_balls_ << "Time \t obs[x] \t obs[y] \t obs[z]\n";
+    for (std::pair<const double, ball_pos> element : obs3d_) {
+      stream_balls_ << element.first << " \t" << element.second.t();
     }
   }
-  return obs3d.size();
+  return obs3d_.size();
 }
 
 /**
@@ -206,7 +212,7 @@ std::map<unsigned, mat34>
 load_proj_mats(const std::string &json_file = "server_3d_conf_ping.json") {
 
   using namespace arma;
-  std::map<unsigned, mat34> calib_mats;
+  std::map<unsigned, mat34> calib_mats_;
   std::string home = std::getenv("HOME");
   std::string file_path = home + "/projects/table-tennis/json/" + json_file;
   std::ifstream stream(file_path);
@@ -216,20 +222,20 @@ load_proj_mats(const std::string &json_file = "server_3d_conf_ping.json") {
   for (auto elem : jcalib) {
     unsigned int id = elem.at("ID");
     mat34 val = json2mat(elem.at("val"));
-    calib_mats[id] = val;
+    calib_mats_[id] = val;
   }
-  return calib_mats;
+  return calib_mats_;
 }
 
 /**
  * Triangulate cameras 0 and 1, or cameras 2 and 3
  */
-bool triangulate(const std::map<unsigned, mat34> &calib_mats,
+bool triangulate(const std::map<unsigned, mat34> &calib_mats_,
                  const std::vector<pixels> &obs_2d,
                  const std::string triangulation_method,
                  ball_pos &pos3d) {
 
-  const int NUM_CAMS = 4; // calib_mats.size();
+  const int NUM_CAMS = 4; // calib_mats_.size();
   const int NUM_PAIRS = NUM_CAMS / 2;
   using namespace arma;
   double pixels[NUM_CAMS][2];
@@ -244,8 +250,8 @@ bool triangulate(const std::map<unsigned, mat34> &calib_mats,
 
   for (int i = 0; i < NUM_PAIRS; i++) {
     if (found[2 * i] && found[2 * i + 1]) {
-      mat P1 = calib_mats.at(2 * i);
-      mat P2 = calib_mats.at(2 * i + 1);
+      mat P1 = calib_mats_.at(2 * i);
+      mat P2 = calib_mats_.at(2 * i + 1);
 
       // make sure mats are normalized
       /*P1 /= P1(2,3);

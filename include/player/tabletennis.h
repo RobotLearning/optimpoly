@@ -84,14 +84,14 @@ struct ball_params {
 class TableTennis {
 
 private:
-  bool CHECK_CONTACTS = true; // turn off for simplified debugging
-  bool SPIN_MODE = false;     // turn on prediction with a spin model
-  bool VERBOSE = false;
-  status stats;
-  ball_params params; // ball prediction parameters
-  vec3 ball_pos = zeros<vec>(3);
-  vec3 ball_vel = zeros<vec>(3);
-  vec3 ball_spin =
+  bool CHECK_CONTACTS_ = true; // turn off for simplified debugging
+  bool SPIN_MODE_ = false;     // turn on prediction with a spin model
+  bool VERBOSE_ = false;
+  status stats_;
+  ball_params params_; // ball prediction parameters
+  vec3 ball_pos_ = zeros<vec>(3);
+  vec3 ball_vel_ = zeros<vec>(3);
+  vec3 ball_spin_ =
       zeros<vec>(3); // ball angular velocity = 0 if spin mode is turned OFF
 
   /** @brief Initialize constant angular velocity (a.k.a. spin) for the spinning

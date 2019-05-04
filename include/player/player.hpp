@@ -89,23 +89,23 @@ class Player {
 
 private:
   // data fields
-  EKF filter =
+  EKF filter_ =
       init_ball_filter(0.3, 0.001, false); // filter for the ball estimation
-  player_flags pflags;
-  bool init_ball_state = false;
-  arma::vec2 ball_land_des = zeros<vec>(2); // desired landing position
-  arma::vec7 q_rest_des = zeros<vec>(NDOF); // desired resting joint state
-  double t_obs = 0.0;    // counting time stamps for resetting filter
-  double t_poly = 0.0;   // time passed on the hitting spline
-  bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
-  int num_obs = 0;       // number of observations received
-  game game_state = AWAITING;
-  optim::optim_des pred_params;
-  mat observations = zeros<mat>(3, 10); // for initializing filter
-  vec times = zeros<vec>(10);           // for initializing filter
-  optim::spline_params poly;
-  mat lookup_table = zeros<mat>(1, 21);
-  optim::Optim *opt = nullptr; // optimizer
+  player_flags pflags_;
+  bool init_ball_state_ = false;
+  arma::vec2 ball_land_des_ = zeros<vec>(2); // desired landing position
+  arma::vec7 q_rest_des_ = zeros<vec>(NDOF); // desired resting joint state
+  double t_obs_ = 0.0;    // counting time stamps for resetting filter
+  double t_poly_ = 0.0;   // time passed on the hitting spline
+  bool valid_obs_ = true; // ball observed is valid (new ball and not an outlier)
+  int num_obs_ = 0;       // number of observations received
+  game game_state_ = AWAITING;
+  optim::optim_des pred_params_;
+  mat observations_ = zeros<mat>(3, 10); // for initializing filter
+  vec times_ = zeros<vec>(10);           // for initializing filter
+  optim::spline_params poly_;
+  mat lookup_table_ = zeros<mat>(1, 21);
+  optim::Optim *opt_ = nullptr; // optimizer
 
   /** @brief Set optimizer opt based on (loaded) player flags */
   void set_optim();

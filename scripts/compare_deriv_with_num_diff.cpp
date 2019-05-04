@@ -1,8 +1,8 @@
 static void print_mat(const double mat[NCART][NDOF]);
 static void cross_prods(const double mat[NCART][NDOF], const double v[NCART],
                         double out[NCART][NDOF]);
-static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
-                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM], int m1,
+static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM_],
+                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM_], int m1,
                             int m2, int n1, int n2);
 static void kinematics_eq_constr(double *result, const double *x,
                                  void *my_function_data);
@@ -11,8 +11,8 @@ void test_kin_deriv() {
 
   BOOST_TEST_MESSAGE(
       "\nComparing kinematics derivatives with numerical diff...");
-  static double lb[OPTIM_DIM];
-  static double ub[OPTIM_DIM];
+  static double lb[OPTIM_DIM_];
+  static double ub[OPTIM_DIM_];
   set_bounds(lb, ub, 0.0, 1.0);
   double q0[NDOF] = {1.0, -0.2, -0.1, 1.8, -1.57, 0.1, 0.3};
   HittingPlane opt = HittingPlane(q0, lb, ub);
@@ -26,10 +26,10 @@ void test_kin_deriv() {
   static double constr2[EQ_CONSTR_DIM];
   static double racket_pos[NCART];
   static double racket_normal[NCART];
-  static double x[OPTIM_DIM];
-  static double xdiff[OPTIM_DIM];
-  static double deriv[EQ_CONSTR_DIM][OPTIM_DIM];
-  static double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM];
+  static double x[OPTIM_DIM_];
+  static double xdiff[OPTIM_DIM_];
+  static double deriv[EQ_CONSTR_DIM][OPTIM_DIM_];
+  static double num_deriv[EQ_CONSTR_DIM][OPTIM_DIM_];
   static double jac[2 * NCART][NDOF];
   static double jac_w[NCART][NDOF];
   double h = 0.001;
@@ -69,7 +69,7 @@ void test_kin_deriv() {
   /*
    * Calculate numerical derivatives
    */
-  for (int i = 0; i < OPTIM_DIM; i++) {
+  for (int i = 0; i < OPTIM_DIM_; i++) {
     xdiff[i] = x[i] + h;
     kinematics_eq_constr(constr1, xdiff, (void *)&opt);
     xdiff[i] = x[i] - h;
@@ -143,8 +143,8 @@ kinematics_eq_constr(double *result, const double *x,
   }
 }
 
-static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM],
-                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM], int m1,
+static double calc_max_diff(const double mat1[EQ_CONSTR_DIM][OPTIM_DIM_],
+                            const double mat2[EQ_CONSTR_DIM][OPTIM_DIM_], int m1,
                             int m2, int n1, int n2) {
 
   double maxdiff = 0.0;

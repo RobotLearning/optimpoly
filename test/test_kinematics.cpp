@@ -18,7 +18,7 @@
 using namespace arma;
 using namespace optim;
 
-#define OPTIM_DIM 2 * NDOF + 1
+#define OPTIM_DIM_ 2 * NDOF + 1
 
 TEST(KinematicsTests, CompareRacketStateGivenQAndQdWithMatlab0) {
   // Comparing both C and C++ versions of calc_racket_state function

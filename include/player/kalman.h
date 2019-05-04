@@ -26,8 +26,6 @@ namespace player {
 class KF {
 
 private:
-  mat A; //!< matrices for the linear system (discrete)
-  mat B;
 
   /**
    * @brief Checks if the model matrices have the right size
@@ -36,11 +34,13 @@ private:
   void check_models(const mat &A, const mat &B, const mat &C) const;
 
 protected:
-  mat C; //!< observation matrix that EKF can also borrow
-  mat Q; //!< covariance of the process noise (discrete)
-  mat R; //!< covariance of the observation noise (discrete)
-  vec x; //!< state
-  mat P; //!< covariance of the state
+  mat A_; //!< matrix for the linear(ized) system (discrete)
+  mat B_;
+  mat C_; //!< observation matrix that EKF can also borrow
+  mat Q_; //!< covariance of the process noise (discrete)
+  mat R_; //!< covariance of the observation noise (discrete)
+  vec x_; //!< state
+  mat P_; //!< covariance of the state
 
   /**
    * @brief Check if the matrix is symmetric positive semidefinite
@@ -219,10 +219,10 @@ using model = vec (*)(const vec &, const double, const void *p);
 class EKF : public KF {
 
 private:
-  void *fparams = nullptr; //!< parameters to function
+  void *fparams_ = nullptr; //!< parameters to function
   double
-      outlier_reject_mult; //!< standard deviation multiplier to reject outliers
-  model f;                 //!< pointer to function for prediction
+      outlier_reject_mult_; //!< standard deviation multiplier to reject outliers
+  model f_;                 //!< pointer to function for prediction
 
   /**
    * @brief Linearize the discrete function (that integrates a continuous
@@ -260,7 +260,7 @@ public:
   EKF &operator=(const EKF &ekf); //!< assignment operator
 
   /** @brief Set function co-parameters for predicting */
-  void set_fun_params(void *params) { fparams = params; };
+  void set_fun_params(void *params) { fparams_ = params; };
 
   /**
    * @brief Predict dt seconds for mean x and (if flag is true) variance P.

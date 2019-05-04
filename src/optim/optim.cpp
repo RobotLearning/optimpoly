@@ -22,54 +22,54 @@ namespace optim {
  */
 static bool check_optim_result(const int res);
 
-Optim::~Optim() { nlopt_destroy(opt); }
+Optim::~Optim() { nlopt_destroy(opt_); }
 
 void Optim::update_init_state(const joint &qact) {
   for (int i = 0; i < NDOF; i++) {
-    q0[i] = qact.q(i);
-    q0dot[i] = qact.qd(i);
+    q0_[i] = qact.q(i);
+    q0dot_[i] = qact.qd(i);
   }
 }
 
-bool Optim::check_running() { return running; }
+bool Optim::check_running() { return running_; }
 
-bool Optim::check_update() { return update; }
+bool Optim::check_update() { return update_; }
 
-void Optim::set_moving(bool flag_move) { moving = flag_move; }
+void Optim::set_moving(bool flag_move) { moving_ = flag_move; }
 
-void Optim::set_detach(bool flag_detach) { detach = flag_detach; }
+void Optim::set_detach(bool flag_detach) { detach_ = flag_detach; }
 
-void Optim::set_return_time(const double &ret_time) { time2return = ret_time; }
+void Optim::set_return_time(const double &ret_time) { time2return_ = ret_time; }
 
-void Optim::set_verbose(bool flag_verbose) { verbose = flag_verbose; }
+void Optim::set_verbose(bool flag_verbose) { verbose_ = flag_verbose; }
 
 bool Optim::get_params(const joint &qact, spline_params &p) {
 
   bool flag = false;
-  if (update && !running) {
-    vec7 qf_, qfdot_, qrest_;
+  if (update_ && !running_) {
+    vec7 qf, qfdot, qrest;
     for (int i = 0; i < NDOF; i++) {
-      qf_(i) = qf[i];
-      qfdot_(i) = qfdot[i];
-      qrest_(i) = qrest[i];
+      qf(i) = qf_[i];
+      qfdot(i) = qfdot_[i];
+      qrest(i) = qrest_[i];
     }
     vec7 qnow = qact.q;
     vec7 qdnow = qact.qd;
-    p.a.col(0) = 2.0 * (qnow - qf_) / pow(T, 3) + (qfdot_ + qdnow) / pow(T, 2);
-    p.a.col(1) = 3.0 * (qf_ - qnow) / pow(T, 2) - (qfdot_ + 2.0 * qdnow) / T;
+    p.a.col(0) = 2.0 * (qnow - qf) / pow(T_, 3) + (qfdot + qdnow) / pow(T_, 2);
+    p.a.col(1) = 3.0 * (qf - qnow) / pow(T_, 2) - (qfdot + 2.0 * qdnow) / T_;
     p.a.col(2) = qdnow;
     p.a.col(3) = qnow;
     // cout << "A = \n" << p.a << endl;
-    p.b.col(0) = 2.0 * (qf_ - qrest_) / pow(time2return, 3) +
-                 (qfdot_) / pow(time2return, 2);
-    p.b.col(1) = 3.0 * (qrest_ - qf_) / pow(time2return, 2) -
-                 (2.0 * qfdot_) / time2return;
-    p.b.col(2) = qfdot_;
-    p.b.col(3) = qf_;
-    p.time2hit = T;
+    p.b.col(0) = 2.0 * (qf - qrest) / pow(time2return_, 3) +
+                 (qfdot) / pow(time2return_, 2);
+    p.b.col(1) = 3.0 * (qrest - qf) / pow(time2return_, 2) -
+                 (2.0 * qfdot) / time2return_;
+    p.b.col(2) = qfdot;
+    p.b.col(3) = qf;
+    p.time2hit = T_;
     // cout << "B = \n" << p.b << endl;
     flag = true;
-    update = false;
+    update_ = false;
   }
   return flag;
 }
@@ -77,25 +77,25 @@ bool Optim::get_params(const joint &qact, spline_params &p) {
 void Optim::update_rest_state(const vec7 &q_rest_new) {
 
   for (int i = 0; i < NDOF; i++)
-    qrest[i] = q_rest_new(i);
+    qrest_[i] = q_rest_new(i);
 }
 
-void Optim::set_des_params(optim_des *params_) { param_des = params_; }
+void Optim::set_des_params(optim_des *params_) { param_des_ = params_; }
 
 void Optim::init_lookup_soln(double *x) {
 
-  vec::fixed<OPTIM_DIM> robot_params;
+  vec::fixed<OPTIM_DIM_> robot_params;
   vec6 ball_params;
   for (int i = 0; i < NCART; i++) {
-    ball_params(i) = param_des->ball_pos(i, 0);
-    ball_params(i + NCART) = param_des->ball_vel(i, 0);
+    ball_params(i) = param_des_->ball_pos(i, 0);
+    ball_params(i + NCART) = param_des_->ball_vel(i, 0);
   }
   // cout << "Init ball est:" << ball_params << endl;
   player::predict_till_net(ball_params);
   // cout << "Net ball est:" << ball_params << endl;
   // k = 5 nearest neighbour regression
-  player::knn(lookup_table, ball_params, 5, robot_params);
-  for (int i = 0; i < OPTIM_DIM; i++) {
+  player::knn(lookup_table_, ball_params, 5, robot_params);
+  for (int i = 0; i < OPTIM_DIM_; i++) {
     x[i] = robot_params(i);
     //  printf("x[%d] = %f\n", i, x[i]);
   }
@@ -104,7 +104,7 @@ void Optim::init_lookup_soln(double *x) {
 void Optim::run() {
 
   std::thread t = std::thread(&Optim::optim, this);
-  if (detach) {
+  if (detach_) {
     t.detach();
   } else {
     t.join();
@@ -113,15 +113,15 @@ void Optim::run() {
 
 void Optim::optim() {
 
-  update = false;
-  running = true;
-  double x[OPTIM_DIM];
+  update_ = false;
+  running_ = true;
+  double x[OPTIM_DIM_];
 
-  if (moving) {
+  if (moving_) {
     init_last_soln(x);
   } else {
-    if (lookup) {
-      if (verbose) {
+    if (lookup_) {
+      if (verbose_) {
         std::cout << "Looking up good initial parameters with k = 5\n"; // kNN
                                                                         // parameter
                                                                         // k = 5
@@ -137,15 +137,15 @@ void Optim::optim() {
   double minf; // the minimum objective value, upon return //
   int res;     // error code
 
-  if ((res = nlopt_optimize(opt, x, &minf)) < 0) {
+  if ((res = nlopt_optimize(opt_, x, &minf)) < 0) {
     past_time = (get_time() - init_time) / 1e3;
-    if (verbose) {
+    if (verbose_) {
       printf("NLOPT failed with exit code %d!\n", res);
       printf("NLOPT took %f ms\n", past_time);
     }
   } else {
     past_time = (get_time() - init_time) / 1e3;
-    if (verbose) {
+    if (verbose_) {
       printf("NLOPT success with exit code %d!\n", res);
       printf("NLOPT took %f ms\n", past_time);
       printf("Found minimum at f = %0.10g\n", minf);
@@ -153,9 +153,9 @@ void Optim::optim() {
     if (test_soln(x) < 1e-2)
       finalize_soln(x, past_time);
   }
-  if (verbose)
+  if (verbose_)
     check_optim_result(res);
-  running = false;
+  running_ = false;
 }
 
 static bool check_optim_result(const int res) {
@@ -205,9 +205,9 @@ static bool check_optim_result(const int res) {
     break;
   case NLOPT_FORCED_STOP:
     printf("Halted because of a forced termination: "
-           "the user called nlopt_force_stop(opt)"
+           "the user called nlopt_force_stop(opt_)"
            "on the optimization’s nlopt_opt object "
-           "opt from the user’s objective function or constraints.\n");
+           "opt_ from the user’s objective function or constraints.\n");
     break;
   }
   return flag;

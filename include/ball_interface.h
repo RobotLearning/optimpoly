@@ -23,19 +23,20 @@ struct ball_obs {
 class Listener {
 
 private:
-  std::ofstream stream_balls; //!< stream for outputting debug info
-  std::string url;            //!< TCP connection to computer and port
+   //!< stream for outputting debug info
+  std::ofstream stream_balls_;
+  std::string url_;            //!< TCP connection to computer and port
   std::map<unsigned, mat34>
-      calib_mats; //!< Calibration matrices loaded from json file
+      calib_mats_; //!< Calibration matrices loaded from json file
   std::map<unsigned, std::vector<pixels>, std::greater<unsigned>>
-      obs2d;                          //!< map with frame as key and pixels as
-  std::map<unsigned, ball_pos> obs3d; //!< frame id as key and 3d vec as obs
+      obs2d_;                          //!< map with frame as key and pixels as
+  std::map<unsigned, ball_pos> obs3d_; //!< frame id as key and 3d vec as obs
 
-  unsigned int max_obs_saved = 1000; //!< limit of observation map
-  bool active = false;               //!< actively listening the port
-  bool debug = false;                //!< for printing ZMQ connection info
-  bool new_data = false; //!< new ball data has been saved but not fetched
-  std::string triangulation; //!< triangulation method, DLT or invert
+  unsigned const int max_obs_saved_ = 1000; //!< limit of observation map
+  bool active_ = false;               //!< actively listening the port
+  bool debug_ = false;                //!< for printing ZMQ connection info
+  bool new_data_ = false; //!< new ball data has been saved but not fetched
+  std::string triangulation_; //!< triangulation method, DLT or invert
   /** @brief Listen to TCP port broadcast via ZMQ based 3D ball server */
   void listen3d();
 
